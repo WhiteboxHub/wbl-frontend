@@ -105,6 +105,7 @@ export const validateResumeStructure = (data: any) => {
   }
 
   // ─── Skills ────────────────────────────────────────────────────────────────
+  // Accept: plain strings ["Python", ...] OR objects [{name: "Python"}, ...]
   const skillsData: any[] | null =
     (Array.isArray(data.skills) && data.skills.length > 0) ? data.skills : null;
 
@@ -112,11 +113,10 @@ export const validateResumeStructure = (data: any) => {
     warnings.push('skills (recommended to list your skills)');
   } else {
     skillsData.forEach((s: any, idx: number) => {
-      if (!s.name) errors.push(`skills[${idx}].name`);
-      // keywords are optional in the custom format (each entry is {name: "..."})
-      // Only warn if we're in standard format and keywords are missing
-      if (!isCustomFormat && (!Array.isArray(s.keywords) || s.keywords.length === 0)) {
-        warnings.push(`skills[${idx}].keywords`);
+      const isPlainString = typeof s === 'string' && s.trim() !== '';
+      const hasNameProp = s && typeof s === 'object' && typeof s.name === 'string' && s.name.trim() !== '';
+      if (!isPlainString && !hasNameProp) {
+        errors.push(`skills[${idx}] must be a non-empty string or object with a 'name' field`);
       }
     });
   }

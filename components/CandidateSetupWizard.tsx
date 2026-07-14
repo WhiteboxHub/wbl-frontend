@@ -86,7 +86,9 @@ export function CandidateSetupWizard({
   const [setupStatus, setSetupStatus] = useState<any>(null);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+  const isClient = typeof window !== "undefined";
+  const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const API_URL = isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
 
   const ingestSummary = (d: any, opts?: { skipStepReset?: boolean }) => {
     const hasKeys =

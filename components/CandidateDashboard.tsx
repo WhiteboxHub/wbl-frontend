@@ -351,6 +351,13 @@ export default function CandidateDashboard() {
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
+    const getAiPrepApiUrl = () => {
+        const isClient = typeof window !== "undefined";
+        const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+        return isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
+    };
+    const AIPREP_API = getAiPrepApiUrl();
+
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
     const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
         // 1. Save to local IndexedDB instantly (main thread)
@@ -382,7 +389,15 @@ export default function CandidateDashboard() {
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('jobs');
+    const getInitialTab = (): TabType => {
+        if (typeof window !== "undefined") {
+            const searchParams = new URLSearchParams(window.location.search);
+            const t = searchParams.get("tab");
+            if (t === "my_resume") return "my_resume";
+        }
+        return "jobs";
+    };
+    const [activeTab, setActiveTab] = useState<TabType>(getInitialTab());
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     const goToTab = (tab: TabType) => {
@@ -502,7 +517,6 @@ export default function CandidateDashboard() {
             });
 
             // Reload setup summary to fetch parsed JSON immediately
-            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
             try {
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
@@ -544,8 +558,6 @@ export default function CandidateDashboard() {
                 throw new Error("No active session found.");
             }
 
-            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
-            
             const formData = new FormData();
             const blob = new Blob([editJsonText], { type: "application/json" });
             formData.append("file", blob, "resume.json");
@@ -675,8 +687,6 @@ export default function CandidateDashboard() {
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
     useEffect(() => {
         if (!candidateId || prefetchDone) return;
-        const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
-
         const run = async () => {
             try {
                 const token = localStorage.getItem("access_token") || "";
@@ -1232,6 +1242,14 @@ export default function CandidateDashboard() {
 
     const getCandidateId = async (): Promise<number> => {
         try {
+            if (typeof window !== "undefined") {
+                const searchParams = new URLSearchParams(window.location.search);
+                const queryCid = searchParams.get("candidateId");
+                if (queryCid) {
+                    const num = Number(queryCid);
+                    if (!isNaN(num) && num > 0) return num;
+                }
+            }
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
 
@@ -1497,9 +1515,7 @@ export default function CandidateDashboard() {
             loadDashboard();
         }
         if (activeTab === 'my_resume' && candidateId) {
-            // Auto-reload the setup status & summary when opening the My Resume tab
             const run = async () => {
-                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
                 try {
                     const token = localStorage.getItem("access_token") || "";
                     const payload = JSON.parse(atob(token.split(".")[1]));
@@ -2728,7 +2744,7 @@ export default function CandidateDashboard() {
                                                     </div>
 
                                                     {/* Conditional display based on LLM setup status */}
-                                                    {!(setupStatus?.api_keys_configured || prefetchedSession?.summaryData?.has_api_key || (prefetchedSession?.summaryData?.llm_keys && prefetchedSession.summaryData.llm_keys.length > 0)) ? (
+                                                    {!(userRole === 'employee' || setupStatus?.api_keys_configured || prefetchedSession?.summaryData?.has_api_key || (prefetchedSession?.summaryData?.llm_keys && prefetchedSession.summaryData.llm_keys.length > 0)) ? (
                                                         <div className="flex flex-col items-center justify-center border border-dashed border-red-200 dark:border-red-900/50 rounded-2xl p-10 min-h-[300px] bg-red-50/5 dark:bg-red-950/5 text-center">
                                                             <div className="w-12 h-12 bg-red-100 dark:bg-red-950/40 text-red-500 rounded-full flex items-center justify-center mb-4">
                                                                 <KeyRound size={22} className="text-red-600 dark:text-red-400" />
@@ -2943,14 +2959,16 @@ export default function CandidateDashboard() {
                                                             </p>
                                                         </div>
                                                         {prefetchedSession?.summaryData?.resume_json && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleValidateJson}
-                                                                className="flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-white bg-gradient-to-br from-indigo-900 to-purple-400 hover:opacity-90 active:opacity-85 transition-all rounded-xl shadow-md cursor-pointer"
-                                                            >
-                                                                <ClipboardCheck size={14} />
-                                                                <span>Validate JSON</span>
-                                                            </button>
+                                                            <div className="flex items-center gap-3">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleValidateJson}
+                                                                    className="flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-white bg-gradient-to-br from-indigo-900 to-purple-400 hover:opacity-90 active:opacity-85 transition-all rounded-xl shadow-md cursor-pointer"
+                                                                >
+                                                                    <ClipboardCheck size={14} />
+                                                                    <span>Validate JSON</span>
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </div>
 
@@ -2992,18 +3010,6 @@ export default function CandidateDashboard() {
                                                         <div className="flex items-center gap-2.5">
                                                             {prefetchedSession?.summaryData?.resume_json && (
                                                                 <>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
-                                                                            setShowTemplates(false);
-                                                                        }}
-                                                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-755 dark:text-gray-305 hover:bg-gray-105 dark:hover:bg-gray-805 border border-gray-200 dark:border-gray-700 transition-colors rounded-xl shadow-sm cursor-pointer"
-                                                                    >
-                                                                        <RefreshCw size={14} className="text-gray-500" />
-                                                                        <span>Change PDF</span>
-                                                                    </button>
-
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => {

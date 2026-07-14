@@ -6,7 +6,6 @@ export function ClassicTemplate({ data }: TemplateProps) {
     <div className="bg-white text-gray-900 p-8 font-sans text-[11px] leading-relaxed min-h-[842px]">
       <header className="text-center border-b-2 border-[#1e3a5f] pb-4 mb-5">
         <h1 className="text-2xl font-bold text-[#1e3a5f] tracking-wide">{data.fullName || "Your Name"}</h1>
-        <p className="text-sm text-gray-600 mt-1">{data.title || "Professional Title"}</p>
         <p className="text-[10px] text-gray-500 mt-2">{contact.join("  •  ")}</p>
       </header>
       {data.summary && (

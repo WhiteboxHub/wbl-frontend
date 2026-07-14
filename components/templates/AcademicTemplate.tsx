@@ -6,7 +6,6 @@ export function AcademicTemplate({ data }: TemplateProps) {
     <div className="bg-white text-gray-900 p-8 min-h-[842px] font-sans text-[10px] leading-relaxed">
       <header className="mb-5">
         <h1 className="text-xl font-bold text-[#4338ca]">{data.fullName || "Your Name"}</h1>
-        <p className="text-gray-600 italic">{data.title || "Professional Title"}</p>
         <p className="text-[9px] text-gray-500 mt-1">{contact.join(" | ")}</p>
       </header>
       {data.summary && (

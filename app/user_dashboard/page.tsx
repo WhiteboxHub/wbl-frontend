@@ -75,6 +75,11 @@ export default function UserDashboardPage() {
 
   // Render Role-Based Dashboards
   if (userRole === "employee") {
+    const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const cid = searchParams?.get("candidateId");
+    if (cid) {
+      return <CandidateDashboardWithSetupCheck />;
+    }
     router.replace("/avatar/employee/employee-dashboard");
     return null;
   }
