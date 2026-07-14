@@ -1356,8 +1356,8 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
-            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
+                if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
+            if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Sample job data:", posData?.[0] || {}); }
 
             // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
@@ -1369,7 +1369,7 @@ export default function CandidateDashboard() {
                 return shouldInclude && hasLink;
             });
 
-            console.log("📊 Final filtered positions count:", filteredData.length);
+            if (process.env.NODE_ENV === 'development') { console.log("📊 Final filtered positions count:", filteredData.length); }
 
             // Debug: Show source distribution
             const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
@@ -1378,7 +1378,7 @@ export default function CandidateDashboard() {
                 return acc;
             }, {});
 
-            console.log("📈 Source distribution:", sourceCounts);
+            if (process.env.NODE_ENV === 'development') { console.log("📈 Source distribution:", sourceCounts); }
 
             setPositions(filteredData);
         } catch (err) {
@@ -1629,12 +1629,12 @@ export default function CandidateDashboard() {
     const firstName = data.basic_info.full_name.split(" ")[0];
 
     const tabs = [
-        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
+        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
         { id: 'my_resume' as TabType, name: 'My Resume', icon: FileText },
-        { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
+        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
         { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
@@ -1869,7 +1869,7 @@ export default function CandidateDashboard() {
                             <>
                                 {activeTab === 'ai_setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
-                                        <AiSetupTab candidateId={candidateId ?? undefined} />
+                                        <AiSetupTab candidateId={candidateId ?? undefined} onFinishSetup={() => goToTab('smartprep')} />
                                     </div>
                                 )}
                                 {activeTab === 'overview' && (
@@ -2505,79 +2505,6 @@ export default function CandidateDashboard() {
 
                                 {activeTab === 'smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-                                        {setupStatus && !setupWizardOpen && (
-                                            <div className="flex-shrink-0 animate-in fade-in slide-in-from-top-2">
-                                                <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
-                                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
-
-                                                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
-                                                        <div className="flex items-center gap-1.5 shrink-0">
-                                                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                                            <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
-                                                        </div>
-
-                                                        <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
-
-                                                        <div className="flex-1">
-                                                            <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
-                                                                <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                                    Your AI-powered interview practice
-                                                                </p>
-                                                            </div>
-                                                            {!setupStatus.setup_complete && (
-                                                                <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                                                                    Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
-                                                                    {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
-                                                                    {!setupStatus.api_keys_configured ? "API Keys" : ""}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="relative z-10 shrink-0">
-                                                        {setupStatus.setup_complete ? (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    const getAiPrepUrl = () => {
-                                                                        const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                        if (url) {
-                                                                            return url;
-                                                                        }
-                                                                        
-                                                                        return "https://ai-prep.whitebox-learning.com";
-                                                                    };
-                                                                    const baseUrl = getAiPrepUrl();
-                                                                    const token = localStorage.getItem("prep_token");
-
-                                                                    if (token) {
-                                                                        window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                                    } else {
-                                                                        window.open(baseUrl, '_blank');
-                                                                    }
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                            >
-                                                                <PlayCircle className="w-3.5 h-3.5" />
-                                                                Start Preparation
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setSetupWizardManageMode(false);
-                                                                    setSetupWizardOpen(true);
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                            >
-                                                                <Sparkles className="w-3.5 h-3.5" />
-                                                                Complete Setup
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
 
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -2649,6 +2576,51 @@ export default function CandidateDashboard() {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {/* Start Preparation / Complete Setup Button */}
+                                            {setupStatus && !setupWizardOpen && (
+                                                <div className="flex-1 flex items-center justify-center mt-8">
+                                                    {setupStatus.setup_complete ? (
+                                                        <button
+                                                            onClick={async () => {
+                                                                const getAiPrepUrl = () => {
+                                                                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
+
+                                                                    if (url) {
+                                                                        return url;
+                                                                    }
+                                                                    
+                                                                    return "https://ai-prep.whitebox-learning.com";
+                                                                };
+                                                                const baseUrl = getAiPrepUrl();
+                                                                const token = localStorage.getItem("prep_token");
+
+                                                                if (token) {
+                                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
+                                                                } else {
+                                                                    window.open(baseUrl, '_blank');
+                                                                }
+                                                            }}
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                        >
+                                                            <PlayCircle className="w-4 h-4" />
+                                                            Start Preparation
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSetupWizardManageMode(false);
+                                                                setSetupWizardOpen(true);
+                                                            }}
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                        >
+                                                            <Sparkles className="w-4 h-4" />
+                                                            Complete Setup
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                     </div>
