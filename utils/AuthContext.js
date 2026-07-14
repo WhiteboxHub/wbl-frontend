@@ -30,6 +30,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (token) {
+      const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
+      if (isProd && !_isSsoCookiePresent()) {
+        if (typeof logoutRef.current === "function") logoutRef.current();
+        return;
+      }
       _checkToken(token);
     } else {
       setIsAuthenticated(false);
