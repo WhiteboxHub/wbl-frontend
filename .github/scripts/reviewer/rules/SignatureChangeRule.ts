@@ -33,13 +33,31 @@ export class SignatureChangeRule implements Rule {
         const bodyStartLine = body ? body.getStartLineNumber() : startLine;
         const signatureChanged = changedLines.some(l => l >= startLine && l <= bodyStartLine);
         
-        if (signatureChanged) {
-           findings.push({
-             severity: 'HIGH',
-             confidence: 'MEDIUM',
-             type: 'Signature Change',
-             evidence: `Function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
-           });
+        if (signatureChanged && name !== 'anonymous') {
+           // Only report if it's exported
+           let isExported = false;
+           if (fn.hasExportKeyword && fn.hasExportKeyword()) {
+             isExported = true;
+           } else if (Node.isArrowFunction(fn)) {
+             const varDec = fn.getFirstAncestorByKind(SyntaxKind.VariableDeclaration);
+             const varStmt = varDec?.getFirstAncestorByKind(SyntaxKind.VariableStatement);
+             if (varStmt && varStmt.hasExportKeyword()) {
+               isExported = true;
+             }
+           } else if (Node.isMethodDeclaration(fn)) {
+             const classDecl = fn.getFirstAncestorByKind(SyntaxKind.ClassDeclaration);
+             if (classDecl && classDecl.hasExportKeyword()) {
+               isExported = true;
+             }
+           }
+           if (isExported) {
+             findings.push({
+               severity: 'HIGH',
+               confidence: 'MEDIUM',
+               type: 'Signature Change',
+               evidence: `Exported function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
+             });
+           }
         }
       }
     }
