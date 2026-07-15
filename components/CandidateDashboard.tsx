@@ -809,10 +809,49 @@ export default function CandidateDashboard() {
     }, []);
 
 
+    const loadSetupStatus = async () => {
+        let hasValidDefaultKey = false;
+        let hasAnyKeyInBackend = false;
+        try {
+            const keys: any = await apiFetch("coderpad/me/llm-keys");
+            hasAnyKeyInBackend = keys.length > 0;
+            const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
+            
+            if (defaultKey) {
+                // Check validation cache
+                try {
+                    const raw = localStorage.getItem("wbl_llm_key_validation_v1");
+                    if (raw) {
+                        const cache = JSON.parse(raw);
+                        if (cache[String(defaultKey.id)]?.status === "active") {
+                            hasValidDefaultKey = true;
+                        }
+                    }
+                } catch {
+                    // Ignore localStorage errors
+                }
+            }
+        } catch {
+            // fallback
+        }
+        
+        try {
+            const d: any = await setupApi.getStatus();
+            // Fallback: if cache miss but they have keys in both places, assume AI prep status
+            const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && (d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0)));
+            const resolvedStatus = {
+                ...d,
+                api_keys_configured: isConfigured,
+                setup_complete: d.resume_uploaded && isConfigured
+            };
+            return resolvedStatus;
+        } catch {
+            return null;
+        }
+    };
+
     useEffect(() => {
-        setupApi.getStatus()
-            .then((d: any) => setSetupStatus(d))
-            .catch(() => setSetupStatus(null));
+        loadSetupStatus().then(setSetupStatus);
     }, []);
 
     useEffect(() => {
@@ -847,16 +886,9 @@ export default function CandidateDashboard() {
                 setPrefetchedSession({ sessionId: sid, summaryData });
                 setPrefetchDone(true);
 
-                // Also update status badges
-                const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
-                const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
-                setSetupStatus({
-                    resume_uploaded: hasResume,
-                    api_keys_configured: hasKeys,
-                    setup_complete: hasResume && hasKeys,
-                    has_binary_resume: !!summaryData.has_binary_resume,
-                    binary_resume_filename: summaryData.binary_resume_filename || null,
-                });
+                // Re-fetch accurate status after AI prep session is initialized
+                const status = await loadSetupStatus();
+                if (status) setSetupStatus(status);
             } catch {
                 // Silently fail — wizard will fall back to its own fetch
             }
@@ -873,14 +905,9 @@ export default function CandidateDashboard() {
 
     const refreshSetupStatus = async () => {
         for (let attempt = 0; attempt < 5; attempt++) {
-            try {
-                const d: any = await setupApi.getStatus();
-                setSetupStatus(d);
-                if (d?.setup_complete) {
-                    return;
-                }
-            } catch {
-                setSetupStatus(null);
+            const status = await loadSetupStatus();
+            setSetupStatus(status);
+            if (status?.setup_complete) {
                 return;
             }
             await new Promise((r) => setTimeout(r, 150));
@@ -2005,7 +2032,13 @@ export default function CandidateDashboard() {
                             <>
                                 {activeTab === 'ai_setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
-                                        <AiSetupTab candidateId={candidateId ?? undefined} onFinishSetup={() => goToTab('smartprep')} />
+                                        <AiSetupTab 
+                                            candidateId={candidateId ?? undefined} 
+                                            onFinishSetup={async () => {
+                                                await refreshSetupStatus();
+                                                goToTab('smartprep');
+                                            }} 
+                                        />
                                     </div>
                                 )}
                                 {activeTab === 'overview' && (
@@ -2656,17 +2689,19 @@ export default function CandidateDashboard() {
                                                         <p className="text-[11px] text-gray-400 mt-0.5">Configure your resume and API keys for AI interviews</p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSetupWizardManageMode(Boolean(setupStatus?.setup_complete));
-                                                        setSetupWizardOpen(true);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
-                                                >
-                                                    {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
-                                                    <ChevronRight className="w-3.5 h-3.5" />
-                                                </button>
+                                                {setupStatus?.setup_complete && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSetupWizardManageMode(true);
+                                                            setSetupWizardOpen(true);
+                                                        }}
+                                                        className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
+                                                    >
+                                                        Manage
+                                                        <ChevronRight className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {/* Resume Status */}
