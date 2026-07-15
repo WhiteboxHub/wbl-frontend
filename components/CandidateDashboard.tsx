@@ -59,6 +59,7 @@ import {
     Loader2,
     Edit3,
     Download,
+    X,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -3317,8 +3318,12 @@ export default function CandidateDashboard() {
                     <DialogPrimitive.Portal>
                         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
                         <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
                             {/* ── Header ── */}
-                            <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
                                 <div className="space-y-0.5">
                                     <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                         <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -3362,7 +3367,7 @@ export default function CandidateDashboard() {
                                         <textarea
                                             value={resumeJsonText}
                                             onChange={(e) => setResumeJsonText(e.target.value)}
-                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto dropdown-scroller"
+                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto"
                                             spellCheck={false}
                                         />
                                     ) : (
