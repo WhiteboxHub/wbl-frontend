@@ -46,16 +46,21 @@ const Header = ({
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
   };
 
+  
   const handleAvatarClick = () => {
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        console.log('Avatar clicked, evaluating sync...');
-        navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+    if (
+      typeof navigator !== "undefined" &&
+      "serviceWorker" in navigator &&
+      navigator.serviceWorker.controller
+    ) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "FLUSH",
+      });
     }
   };
-
+  
   const display_user_dashboard = () => {
     if (userRole === "employee") {
       router.push("/avatar/employee/employee-dashboard");
@@ -304,10 +309,8 @@ const Header = ({
                 <ThemeToggler />
               </div>
             </div>
-            {/* Mobile Right Section - Clean and Non-Overlapping */}
             <div className="flex items-center justify-end gap-2 pr-4 lg:hidden">
               <ThemeToggler />
-              {/* Note: Hamburger toggler is positioned absolute right-4 at line 95 */}
               <div className="w-8"></div> {/* Spacer for the absolute hamburger toggler */}
             </div>
           </div>
