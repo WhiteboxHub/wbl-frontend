@@ -643,7 +643,8 @@ export default function CandidateDashboard() {
                 return {
                     ...base,
                     has_binary_resume: true,
-                    binary_resume_filename: fileToUpload.name
+                    binary_resume_filename: fileToUpload.name,
+                    resume_uploaded: true
                 };
             });
 
@@ -2717,7 +2718,7 @@ export default function CandidateDashboard() {
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
                                                         <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
+                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
                                                     {setupStatus?.resume_uploaded && (
@@ -2744,7 +2745,7 @@ export default function CandidateDashboard() {
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
                                                         <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
+                                                            {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -2783,8 +2784,11 @@ export default function CandidateDashboard() {
                                                         <button
                                                             type="button"
                                                             onClick={() => {
-                                                                setSetupWizardManageMode(false);
-                                                                setSetupWizardOpen(true);
+                                                                if (setupStatus?.api_keys_configured) {
+                                                                    goToTab('my_resume');
+                                                                } else {
+                                                                    goToTab('ai_setup');
+                                                                }
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                                         >
