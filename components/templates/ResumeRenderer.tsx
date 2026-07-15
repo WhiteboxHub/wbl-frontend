@@ -36,6 +36,7 @@ interface ResumeRendererProps {
 }
 
 export function ResumeRenderer({ templateId, data, className = "" }: ResumeRendererProps) {
+  if (!data) return null;
   const Template = templateMap[templateId] ?? ClassicTemplate;
   return (
     <div className={`resume-page shadow-lg relative bg-white ${className}`}>

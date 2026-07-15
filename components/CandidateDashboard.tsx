@@ -364,8 +364,7 @@ export default function CandidateDashboard() {
 
     const getAiPrepApiUrl = () => {
         const isClient = typeof window !== "undefined";
-        const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-        return isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
+        return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
     };
     const AIPREP_API = getAiPrepApiUrl();
 
@@ -573,7 +572,7 @@ export default function CandidateDashboard() {
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
-    
+
     // Inline Resume states & refs
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
@@ -618,7 +617,7 @@ export default function CandidateDashboard() {
         const uploadUrl = backendUrl.endsWith("/api")
             ? `${backendUrl}/candidates/${candidateId}/marketing/upload-resume`
             : `${backendUrl}/api/candidates/${candidateId}/marketing/upload-resume`;
-            
+
         const formData = new FormData();
         formData.append("file", fileToUpload);
 
@@ -653,16 +652,12 @@ export default function CandidateDashboard() {
             try {
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
-                const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                const dataSummary = await apiFetch("/setup/init-and-summary", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                    body: { candidate_id: candidateId, wbl_email: email, name: email },
                 });
-                if (resSummary.ok) {
-                    const dataSummary = await resSummary.json();
-                    if (dataSummary.summary) {
-                        setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
-                    }
+                if (dataSummary && dataSummary.summary) {
+                    setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
                 }
             } catch (reloadErr) {
                 console.error("Failed to reload summary after upload:", reloadErr);
@@ -696,9 +691,13 @@ export default function CandidateDashboard() {
             formData.append("file", blob, "resume.json");
             formData.append("session_id", prepToken);
 
+            const authToken = typeof window !== "undefined" ? localStorage.getItem("access_token") || localStorage.getItem("token") || "" : "";
             const res = await fetch(`${AIPREP_API}/setup/resume`, {
                 method: "POST",
                 body: formData,
+                headers: {
+                    "Authorization": `Bearer ${authToken}`
+                }
             });
 
             if (!res.ok) {
@@ -707,7 +706,7 @@ export default function CandidateDashboard() {
             }
 
             toast.success("Resume JSON updated successfully!");
-            
+
             if (prefetchedSession) {
                 setPrefetchedSession({
                     ...prefetchedSession,
@@ -773,15 +772,15 @@ export default function CandidateDashboard() {
         }
 
         const opt = {
-            margin:       0,
-            filename:     `${candidateName.replace(/\s+/g, "_")}_Resume.pdf`,
-            image:        { type: "jpeg", quality: 0.98 },
-            html2canvas:  { 
-                scale: 2, 
+            margin: 0,
+            filename: `${candidateName.replace(/\s+/g, "_")}_Resume.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: {
+                scale: 2,
                 useCORS: true,
                 letterRendering: true
             },
-            jsPDF:        { unit: "in", format: "letter", orientation: "portrait" }
+            jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
         };
 
         const runHtml2Pdf = () => {
@@ -1523,7 +1522,7 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-                if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
+            if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
             if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Sample job data:", posData?.[0] || {}); }
 
             // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
@@ -1701,7 +1700,7 @@ export default function CandidateDashboard() {
                         if (sid) {
                             localStorage.setItem("prep_token", sid);
                             setPrefetchedSession({ sessionId: sid, summaryData });
-                            
+
                             const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
                             const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
                             setSetupStatus({
@@ -2935,13 +2934,12 @@ export default function CandidateDashboard() {
                                                                     if (resumeUploadLoading || setupStatus?.has_binary_resume) return;
                                                                     inlineFileInputRef.current?.click();
                                                                 }}
-                                                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${
-                                                                    setupStatus?.has_binary_resume
+                                                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${setupStatus?.has_binary_resume
                                                                         ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
                                                                         : resumeDragOver
-                                                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
-                                                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
-                                                                }`}
+                                                                            ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
+                                                                            : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
+                                                                    }`}
                                                             >
                                                                 <input
                                                                     type="file"
@@ -2958,7 +2956,7 @@ export default function CandidateDashboard() {
                                                                             Uploading resume...
                                                                         </p>
                                                                         <p className="text-xs text-gray-400 mt-1">
-                                                                            Please wait while we store your resume.
+                                                                            Please Wait ...
                                                                         </p>
                                                                     </div>
                                                                 ) : setupStatus?.has_binary_resume ? (
@@ -3212,19 +3210,31 @@ export default function CandidateDashboard() {
                                                     ) : (
                                                         <div className="border border-gray-200 dark:border-gray-800/80 rounded-3xl overflow-hidden bg-white max-h-[80vh] overflow-y-auto p-4 md:p-6 shadow-inner">
                                                             <div ref={inlineResumeRef} className="origin-top transform scale-[0.95] w-full">
-                                                                <ResumeRenderer 
+                                                                <ResumeRenderer
                                                                     data={(() => {
                                                                         try {
                                                                             return normalizeResume(prefetchedSession.summaryData.resume_json);
                                                                         } catch (e) {
                                                                             return null;
                                                                         }
-                                                                    })()} 
-                                                                    templateId={selectedTemplate} 
+                                                                    })()}
+                                                                    templateId={selectedTemplate}
                                                                 />
                                                             </div>
                                                         </div>
                                                     )}
+
+                                                    {/* Bottom Navigation */}
+                                                    <div className="flex justify-start items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-6">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowTemplates(false)}
+                                                            className="flex items-center gap-1.5 px-6 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm shadow-sm transition-all"
+                                                        >
+                                                            <span>&lt;</span>
+                                                            <span>Back</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -3249,6 +3259,43 @@ export default function CandidateDashboard() {
                     }}
                 />
             )}
+
+            {uploadResumeOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="relative w-full max-w-md overflow-hidden bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
+                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Resume</h3>
+                            <button onClick={() => setUploadResumeOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+                        </div>
+                        <div className="w-full space-y-5">
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
+                                onDragLeave={() => setResumeDragOver(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setResumeDragOver(false);
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        const droppedFile = e.dataTransfer.files[0];
+                                        if (handleInlineFileValidate(droppedFile)) {
+                                            setResumeFile(droppedFile);
+                                        }
+                                    }
+                                }}
+                                onClick={() => inlineFileInputRef.current?.click()}
+                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all duration-200 group ${resumeDragOver
+                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
+                                        : resumeFile
+                                            ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-900/5"
+                                            : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                                    }`}
+                            >
+                                <input
+                                    type="file"
+                                    ref={inlineFileInputRef}
+                                    onChange={handleInlineFileChange}
+                                    accept=".pdf,.doc,.docx"
+                                    className="hidden"
+                                />
 
             {isResumeJsonModalOpen && (
                 <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>

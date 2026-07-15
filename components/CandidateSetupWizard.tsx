@@ -17,17 +17,17 @@ import { validateJson, validateResumeStructure } from "@/utils/resumeValidator";
 
 const MODELS_BY_PROVIDER: Record<string, string[]> = {
   OpenAI: [
-    "GPT-5.3", "GPT-5.2", "GPT-5.1", "GPT-4.1", "GPT-4.0", 
-    "GPT-4 Turbo", "GPT-3.5 Turbo", "o1", "o1-mini", "o3", "o3-mini", 
-    "GPT-5.3 multimodal", "GPT-4o", "GPT-4o-mini", "DALL·E 3", "DALL·E 4", 
+    "GPT-5.3", "GPT-5.2", "GPT-5.1", "GPT-4.1", "GPT-4.0",
+    "GPT-4 Turbo", "GPT-3.5 Turbo", "o1", "o1-mini", "o3", "o3-mini",
+    "GPT-5.3 multimodal", "GPT-4o", "GPT-4o-mini", "DALL·E 3", "DALL·E 4",
     "Whisper v3", "TTS-1", "TTS-1 HD", "text-embedding-3-large", "text-embedding-3-small"
   ],
   Claude: [
-    "Claude 3 Opus", "Claude 3 Sonnet", "Claude 3 Haiku", 
+    "Claude 3 Opus", "Claude 3 Sonnet", "Claude 3 Haiku",
     "Claude 3.5 Sonnet", "Claude 3.5 Haiku"
   ],
   Gemini: [
-    "Gemini 1.0 Pro", "Gemini 1.0 Ultra", "Gemini 1.5 Pro", 
+    "Gemini 1.0 Pro", "Gemini 1.0 Ultra", "Gemini 1.5 Pro",
     "Gemini 1.5 Flash", "Gemini 2.0 Pro", "Gemini 2.0 Flash"
   ],
 };
@@ -84,11 +84,10 @@ export function CandidateSetupWizard({
   const [apiError, setApiError] = useState<string>("");
   const [apiSuccess, setApiSuccess] = useState<string>("");
   const [setupStatus, setSetupStatus] = useState<any>(null);
-  
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isClient = typeof window !== "undefined";
-  const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const API_URL = isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
 
   const ingestSummary = (d: any, opts?: { skipStepReset?: boolean }) => {
     const hasKeys =
@@ -235,7 +234,7 @@ export function CandidateSetupWizard({
     }
     const data = JSON.parse(resumeJson);
     const { isValid, errors, warnings } = validateResumeStructure(data);
-    
+
     if (!isValid) {
       setResumeError(`Missing mandatory fields: ${errors.join(", ")}`);
       setIsValidated(false);
@@ -259,7 +258,7 @@ export function CandidateSetupWizard({
       setResumeError("Invalid JSON format or missing session.");
       return;
     }
-    
+
     const data = JSON.parse(resumeJson);
     const { isValid, errors } = validateResumeStructure(data);
     if (!isValid) {
@@ -313,26 +312,26 @@ export function CandidateSetupWizard({
 
   const handleAddApiKey = async () => {
     setApiError("");
-    if (!newKey.api_key || !sessionId) { 
-      setApiError("Please enter an API key."); 
-      toast.error("Please enter an API key."); 
-      return; 
+    if (!newKey.api_key || !sessionId) {
+      setApiError("Please enter an API key.");
+      toast.error("Please enter an API key.");
+      return;
     }
     setLoadingApiKey(true);
     try {
       setApiSuccess("");
       await axios.post(`${API_URL}/setup/validate`, {
-          api_provider: newKey.provider_name,
-          api_key: newKey.api_key,
-          session_id: sessionId,
-          model_name: newKey.model_name,
-          voice_enabled: newKey.voice_enabled,
+        api_provider: newKey.provider_name,
+        api_key: newKey.api_key,
+        session_id: sessionId,
+        model_name: newKey.model_name,
+        voice_enabled: newKey.voice_enabled,
       });
       setApiSuccess(`${newKey.provider_name} key validated and added successfully!`);
       toast.success(`${newKey.provider_name} key added!`);
       setNewKey({ ...newKey, api_key: "" });
       await reloadSummary(sessionId, true);
-      
+
       // Auto-scroll to the bottom (Finish Setup) after a small delay to allow UI to render
       setTimeout(() => {
         finishSetupRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -418,7 +417,7 @@ export function CandidateSetupWizard({
               : "flex flex-col md:flex-row bg-white dark:bg-dark shadow-2xl rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden min-h-[500px] h-[calc(100vh-200px)] max-h-[640px]"
           }
         >
-          
+
           {/* ----- LEFT SIDEBAR (STEPS) ----- */}
           <div className="w-full md:w-1/3 bg-gray-50/80 dark:bg-gray-900/50 border-r border-gray-100 dark:border-gray-800 p-6 md:p-8 flex flex-col shrink-0">
             <div className="mb-8">
@@ -444,12 +443,11 @@ export function CandidateSetupWizard({
                     {s.num !== steps.length && (
                       <div className={`absolute left-4 top-8 bottom-[-24px] w-0.5 ${isPast ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'}`} />
                     )}
-                    
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 z-10 bg-white dark:bg-gray-900 transition-all ${
-                      isActive ? "border-primary text-primary" : 
-                      isPast ? "border-primary bg-primary text-white dark:bg-primary" : 
-                      "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600"
-                    }`}>
+
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 z-10 bg-white dark:bg-gray-900 transition-all ${isActive ? "border-primary text-primary" :
+                        isPast ? "border-primary bg-primary text-white dark:bg-primary" :
+                          "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600"
+                      }`}>
                       {isPast ? <CheckCircle size={14} /> : <span className="text-[11px] font-extrabold">{s.num}</span>}
                     </div>
                     <div>
@@ -472,7 +470,7 @@ export function CandidateSetupWizard({
 
           {/* ----- RIGHT CONTENT (ACTIONS) ----- */}
           <div className="w-full md:w-2/3 p-6 md:p-8 overflow-y-auto flex flex-col relative">
-                  {/* ── STEP 1: UPLOAD ── */}
+            {/* ── STEP 1: UPLOAD ── */}
             {currentStep === 1 && (
               <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="mb-6">
@@ -637,7 +635,7 @@ export function CandidateSetupWizard({
                   >
                     Back
                   </button>
-                  
+
                   {!isValidated ? (
                     <button
                       onClick={handleValidateResume}
@@ -680,8 +678,8 @@ export function CandidateSetupWizard({
                           value={newKey.provider_name}
                           onChange={(e) => {
                             const provider = e.target.value;
-                            setNewKey({ 
-                              ...newKey, 
+                            setNewKey({
+                              ...newKey,
                               provider_name: provider,
                               model_name: MODELS_BY_PROVIDER[provider][0]
                             });
@@ -720,8 +718,8 @@ export function CandidateSetupWizard({
                           value={newKey.model_name}
                           onChange={(e) => {
                             const newModel = e.target.value;
-                            setNewKey({ 
-                              ...newKey, 
+                            setNewKey({
+                              ...newKey,
                               model_name: newModel
                             });
                           }}
@@ -734,7 +732,7 @@ export function CandidateSetupWizard({
 
                       <div className="flex items-center justify-between pt-2 pb-2">
                         <div className="flex items-center gap-2">
-                          <div 
+                          <div
                             onClick={() => setNewKey({ ...newKey, voice_enabled: !newKey.voice_enabled })}
                             className={`w-8 h-4 rounded-full relative cursor-pointer transition-colors duration-200 ${newKey.voice_enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}
                           >
@@ -758,19 +756,19 @@ export function CandidateSetupWizard({
                         ) : "Add Key"}
                       </button>
 
-                    {apiSuccess && (
-                      <div className="mt-4 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/50 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
-                        <CheckCircle size={14} className="text-green-500 mt-0.5 shrink-0" />
-                        <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">{apiSuccess}</span>
-                      </div>
-                    )}
+                      {apiSuccess && (
+                        <div className="mt-4 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/50 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                          <CheckCircle size={14} className="text-green-500 mt-0.5 shrink-0" />
+                          <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">{apiSuccess}</span>
+                        </div>
+                      )}
 
-                    {apiError && (
-                      <div className="mt-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
-                        <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                        <span className="text-[10px] text-red-600 dark:text-red-400 font-medium">{apiError}</span>
-                      </div>
-                    )}
+                      {apiError && (
+                        <div className="mt-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                          <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                          <span className="text-[10px] text-red-600 dark:text-red-400 font-medium">{apiError}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -814,7 +812,7 @@ export function CandidateSetupWizard({
                     )}
                   </div>
                 </div>
-                
+
                 <div ref={finishSetupRef} className="pt-4 mt-6 border-t border-gray-100 dark:border-gray-800 shrink-0 flex justify-between gap-3">
                   <button
                     onClick={() => setCurrentStep(2)}
