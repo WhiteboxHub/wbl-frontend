@@ -4,6 +4,7 @@ import { CheckCircle2, ArrowRight, Sparkles, PlayCircle } from "lucide-react";
 
 import { toast } from "sonner";
 import { CandidateLlmKeysPanel } from "../CandidateLlmKeysPanel";
+import { apiFetch } from "../../lib/api";
 
 type SetupStep = "llm-key" | "done";
 
@@ -11,11 +12,27 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
   const [currentStep, setCurrentStep] = useState<SetupStep>("llm-key");
   const [isValidLlm, setIsValidLlm] = useState(false);
 
+  const [finishing, setFinishing] = useState(false);
+
   const finishSetup = async () => {
-    if (onFinishSetup) {
-      onFinishSetup();
-    } else {
-      setCurrentStep("done");
+    setFinishing(true);
+    try {
+      const result: any = await apiFetch("coderpad/me/finish-setup", { method: "POST" });
+      if (result?.setup_complete) {
+        toast.success("Setup complete! Redirecting to WBL SmartPrep...");
+        if (onFinishSetup) {
+          onFinishSetup();
+        } else {
+          setCurrentStep("done");
+        }
+      } else {
+        toast.error(result?.error || "Default API key is not valid. Please validate it first.");
+      }
+    } catch (err: any) {
+      const msg = err?.body?.detail || "Failed to complete setup. Ensure your default key is active.";
+      toast.error(msg);
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -38,13 +55,14 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
                       toast.error("Please have at least one valid API key");
                       return;
                     }
-                    finishSetup();
+                    if (!finishing) finishSetup();
                   }}
+                  disabled={finishing}
                   className={`w-full md:w-auto px-8 py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-98 transition-all duration-200 ${
-                    isValidLlm ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 cursor-pointer" : "bg-gray-400 cursor-not-allowed opacity-70"
+                    isValidLlm && !finishing ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 cursor-pointer" : "bg-gray-400 cursor-not-allowed opacity-70"
                   }`}
                 >
-                  Finish Setup <ArrowRight className="w-5 h-5" />
+                  {finishing ? "Finishing..." : "Finish Setup"} <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
             </CandidateLlmKeysPanel>

@@ -368,7 +368,10 @@ export function CandidateLlmKeysPanel({
     }, [loadKeys]);
 
     useEffect(() => {
-        const hasActiveKey = rows.some((r) => r.validation_status === "active");
+        const defaultRow = rows.find((r) => r.is_default);
+        const hasActiveKey = defaultRow
+            ? defaultRow.validation_status === "active"
+            : (rows.length === 1 && rows[0].validation_status === "active");
         onValidationChange?.(hasActiveKey);
     }, [rows, onValidationChange]);
 
