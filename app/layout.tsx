@@ -35,16 +35,6 @@ export default function RootLayout({
   const isCoderpad = pathname.startsWith("/coderpad");
   const [isOpen, setIsOpen] = useState(false);
 
-  // useEffect(() => {
-  //   const link = document.createElement("link");
-  //   link.rel = "stylesheet";
-  //   link.href =
-  //     "https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap";
-  //   document.head.appendChild(link);
-  // }, []);
-
-
-
   return (
     <html suppressHydrationWarning lang="en">
       <head>
@@ -70,7 +60,6 @@ export default function RootLayout({
         />
       </head>
       <body className={`${poppins.className} dark:bg-black overflow-x-hidden`}>
-      {/* <body className="dark:bg-black overflow-x-hidden" suppressHydrationWarning> */}
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>

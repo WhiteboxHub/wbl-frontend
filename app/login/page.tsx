@@ -177,12 +177,7 @@ const SigninPage = () => {
       setMessage("An error occurred during login");
       setLoading(false);
     }
-    // } catch (error) {
-    //   setResponseStatus("error");
-    //   setMessage("An error occurred during login");
-    //   setLoading(false);
-    // }
-
+    
     setEmail("");
     setPassword("");
   };
@@ -217,20 +212,6 @@ const SigninPage = () => {
       }
     }
   }, [router]);
-
-  // if (loggedIn) {
-  //   // You might want to redirect instead of rendering a different component
-  //   const accessToken = localStorage.getItem("access_token");
-  //   const role = getUserTeamRole(accessToken || "");
-  //   if (role === "admin") {
-  //     router.push("/avatar");
-  //   } else if (role === "employee") {
-  //     router.push("/");
-  //   } else {
-  //     router.push("/user_dashboard");
-  //   }
-  //   return null;
-  // }
 
   return (
     <Suspense fallback={<div>LOADING...</div>}>

@@ -85,19 +85,6 @@ export default function CandidateSetupWizard() {
     initSessionAndData();
   }, [mounted, isAuthenticated, sessionId]);
 
-  // useEffect(() => {
-  //   if (mounted && isAuthenticated) {
-  //     initSessionAndData();
-  //   }
-  // }, [mounted, isAuthenticated]);
-
-  // useEffect(() => {
-  //   setMounted(true);
-  //   if (isAuthenticated) {
-  //     initSessionAndData();
-  //   }
-  // }, [isAuthenticated]);
-
   const initSessionAndData = async () => {
     try {
       const token = localStorage.getItem("access_token");
@@ -136,9 +123,7 @@ export default function CandidateSetupWizard() {
         console.error("Failed to init AI prep session", err);
       }
     }
-    // } catch (err) {
-    //   console.error("Failed to init AI prep session", err);
-    // }
+    
   };
 
   const handleValidateResume = () => {
@@ -285,20 +270,6 @@ export default function CandidateSetupWizard() {
       </div>
     );
   }
-  // if (!mounted || authLoading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
-  //       <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-  //     </div>
-  //   );
-  // }
-
-  // if (!isAuthenticated) return null;
-
-  // if (!mounted || authLoading) return null;
-
-  // if (!isAuthenticated) return null;
-
   return (
     <section className="relative z-10 flex min-h-[calc(100vh-120px)] items-center justify-center pt-24 pb-8 overflow-hidden">
       {/* Background decoration matching site style */}
