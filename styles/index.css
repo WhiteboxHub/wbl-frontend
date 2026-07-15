@@ -26,6 +26,11 @@
   animation: fadeInOut 3s ease-in-out infinite;
 }
 
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
 @layer components {
   input[type="checkbox"]:checked ~ label span svg {
     @apply inline-flex;
@@ -445,4 +450,40 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
 }
 .assignment-problem-quill {
   margin-bottom: 1.5rem;
+}
+
+/* Custom Dropdown Scroller */
+.dropdown-scroller {
+  max-height: 200px !important;
+  overflow-y: scroll !important;
+}
+
+.dropdown-scroller::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+}
+
+.dropdown-scroller::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+  border-radius: 4px !important;
+}
+
+.dropdown-scroller::-webkit-scrollbar-thumb {
+  background: #888 !important;
+  border-radius: 4px !important;
+  border: 1px solid #f1f1f1 !important;
+}
+
+.dropdown-scroller::-webkit-scrollbar-thumb:hover {
+  background: #555 !important;
+}
+
+/* Dark mode overrides */
+.dark .dropdown-scroller::-webkit-scrollbar-track {
+  background: #2d2d2d !important;
+}
+
+.dark .dropdown-scroller::-webkit-scrollbar-thumb {
+  background: #666 !important;
+  border: 1px solid #2d2d2d !important;
 }

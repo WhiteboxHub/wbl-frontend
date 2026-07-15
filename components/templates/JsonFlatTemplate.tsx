@@ -6,7 +6,6 @@ export function JsonFlatTemplate({ data }: TemplateProps) {
     <div className="bg-[#16a085] min-h-[842px] font-sans text-[11px]">
       <header className="px-10 py-8 text-white">
         <h1 className="text-4xl font-bold">{data.fullName || "Your Name"}</h1>
-        <p className="text-green-200 mt-1 text-sm">{data.title || "Professional Title"}</p>
         <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-[10px] text-green-100">
           {contact.map((c, i) => <span key={i}>{c}</span>)}
         </div>

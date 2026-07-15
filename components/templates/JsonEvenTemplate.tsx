@@ -7,7 +7,6 @@ export function JsonEvenTemplate({ data }: TemplateProps) {
       <header className="px-10 pt-8 pb-5 flex justify-between items-start border-b-2 border-gray-900">
         <div>
           <h1 className="text-4xl font-black text-gray-900 leading-none">{data.fullName || "Your Name"}</h1>
-          <p className="text-gray-500 mt-1">{data.title || "Professional Title"}</p>
         </div>
         <div className="text-right text-[10px] text-gray-500 space-y-0.5">
           {contact.map((c, i) => <div key={i}>{c}</div>)}

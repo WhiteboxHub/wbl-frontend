@@ -60,7 +60,11 @@ const Header = ({
     if (userRole === "employee") {
       router.push("/avatar/employee/employee-dashboard");
     } else {
-      router.push("/user_dashboard");
+      if (window.location.pathname === "/user_dashboard") {
+        window.dispatchEvent(new CustomEvent('nav-to-overview'));
+      } else {
+        router.push("/user_dashboard");
+      }
     }
   };
 
@@ -209,7 +213,7 @@ const Header = ({
                         }}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
                       >
-                        Dashboard
+                        {userRole === "employee" ? "Dashboard" : "MY APP"}
                       </button>
                     </li>
                   )}
@@ -270,7 +274,7 @@ const Header = ({
                       onClick={display_user_dashboard}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
-                      Dashboard
+                      {userRole === "employee" ? "Dashboard" : "MY APP"}
                     </button>
                   }
                   <button
