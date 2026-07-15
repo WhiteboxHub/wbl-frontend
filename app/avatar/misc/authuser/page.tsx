@@ -410,8 +410,7 @@ export default function AuthUsersPage() {
 
   // Handle add user
   const handleAddUser = () => {
-    // toast.info("Add user functionality to be implemented");
-    // toast.info("Click the + button in the table to add a new user");
+    
   };
 
   return (
@@ -423,10 +422,7 @@ export default function AuthUsersPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Auth Users</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage application authentication users</p>
         </div>
-        {/* <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white" onClick={handleAddUser}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add User
-        </Button> */}
+        
       </div>
       {/* Search Input */}
       <div className="max-w-md">
