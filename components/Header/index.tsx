@@ -46,16 +46,21 @@ const Header = ({
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
   };
 
+  
   const handleAvatarClick = () => {
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        console.log('Avatar clicked, evaluating sync...');
-        navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+    if (
+      typeof navigator !== "undefined" &&
+      "serviceWorker" in navigator &&
+      navigator.serviceWorker.controller
+    ) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "FLUSH",
+      });
     }
   };
-
+  
   const display_user_dashboard = () => {
     if (userRole === "employee") {
       router.push("/avatar/employee/employee-dashboard");
@@ -213,7 +218,7 @@ const Header = ({
                         }}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
                       >
-                        Dashboard
+                        {userRole === "candidate" ? "My App" : "Dashboard"}
                       </button>
                     </li>
                   )}
@@ -274,7 +279,7 @@ const Header = ({
                       onClick={display_user_dashboard}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
-                      Dashboard
+                      {userRole === "candidate" ? "My App" : "Dashboard"}
                     </button>
                   }
                   <button
@@ -304,10 +309,8 @@ const Header = ({
                 <ThemeToggler />
               </div>
             </div>
-            {/* Mobile Right Section - Clean and Non-Overlapping */}
             <div className="flex items-center justify-end gap-2 pr-4 lg:hidden">
               <ThemeToggler />
-              {/* Note: Hamburger toggler is positioned absolute right-4 at line 95 */}
               <div className="w-8"></div> {/* Spacer for the absolute hamburger toggler */}
             </div>
           </div>

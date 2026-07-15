@@ -1,7 +1,7 @@
 // frontend/utils/AuthContext.js
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -18,10 +18,23 @@ export const AuthProvider = ({ children }) => {
   const { data: session } = useSession();
   const router = useRouter();
 
-  // On mount try to restore token
+  // Ref to always hold the latest logout function — avoids stale closures
+  // in long-lived interval/event callbacks that capture the initial render.
+  const logoutRef = useRef(null);
+
+  // Helper: check if the SSO cookie still exists
+  const _isSsoCookiePresent = () => {
+    return document.cookie.split(";").some((c) => c.trim().startsWith("wbl_access_token="));
+  };
+
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (token) {
+      const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
+      if (isProd && !_isSsoCookiePresent()) {
+        if (typeof logoutRef.current === "function") logoutRef.current();
+        return;
+      }
       _checkToken(token);
     } else {
       setIsAuthenticated(false);
@@ -29,13 +42,45 @@ export const AuthProvider = ({ children }) => {
       setUserRole(null);
     }
 
-    // periodic check (optional)
+    // periodic check — also detects if SSO cookie was cleared by another service
     const interval = setInterval(() => {
       const t = localStorage.getItem("access_token");
-      if (t) _checkToken(t);
+      if (t) {
+        // If the shared SSO cookie was cleared (e.g. by AI Prep Tool sign-out),
+        // force a full logout so both services stay in sync.
+        const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
+        if (isProd && !_isSsoCookiePresent()) {
+          if (typeof logoutRef.current === "function") logoutRef.current();
+          return;
+        }
+        _checkToken(t);
+      }
     }, 60 * 1000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Instant SSO sync: when user switches back to this tab, check the cookie immediately
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      const t = localStorage.getItem("access_token");
+      if (!t) return; // already logged out
+      const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
+      if (isProd && !_isSsoCookiePresent()) {
+        if (typeof logoutRef.current === "function") logoutRef.current();
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibilityChange);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,7 +150,9 @@ export const AuthProvider = ({ children }) => {
     try {
       router.push("/login");
     } catch (e) {
-      console.warn("Router push failed:", e);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Router push failed:", e);
+      }
     }
   };
 
@@ -127,7 +174,7 @@ export const AuthProvider = ({ children }) => {
 
       // Store token and update auth state
       localStorage.setItem("access_token", token);
-      
+
       // Set domain-wide cookie for SSO with ai-prep
       const isProd = window.location.hostname.endsWith('whitebox-learning.com');
       const domain = isProd ? '.whitebox-learning.com' : '';
@@ -140,8 +187,14 @@ export const AuthProvider = ({ children }) => {
       setSidebarOpen(true);
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error);
-      return { success: false, message: "Login failed" };
+      if (process.env.NODE_ENV === "development") {
+        console.error("Login error:", error);
+      }
+
+      return {
+        success: false,
+        message: "Login failed",
+      };
     }
   };
 
@@ -149,7 +202,7 @@ export const AuthProvider = ({ children }) => {
     // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
     localStorage.removeItem("prep_token");
-    
+
     // Clear the domain-wide SSO cookie
     const isProd = window.location.hostname.endsWith('whitebox-learning.com');
     const domain = isProd ? '.whitebox-learning.com' : '';
@@ -181,6 +234,9 @@ export const AuthProvider = ({ children }) => {
       window.location.href = "/login";
     }
   };
+
+  // Keep the ref in sync with the latest logout function on every render
+  logoutRef.current = logout;
 
   function clearNextAuthCookies() {
     if (typeof window !== "undefined") {

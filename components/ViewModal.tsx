@@ -16,6 +16,7 @@ interface ViewModalProps {
   currentIndex?: number;
   onNavigate?: (index: number) => void;
   title: string;
+  onReupload?: () => void;
 }
 
 const excludedFields = [
@@ -229,6 +230,7 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   source_uid: "Professional Information",
+  validation_status: "Basic Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
   raw_company: "Basic Information",
@@ -267,16 +269,16 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   resume_json: "Resume Data",
   api_key: "Credentials",
-  provider_name: "Credentials",
-  model_name: "Credentials",
+  provider_name: "Professional Information",
 
   // Campaign Emails
   vendor_email: "Basic Information",
   retry_count: "Professional Information",
   last_attempt_at: "Other",
   run_log_id: "Professional Information",
-  credential_id: "Professional Information",
   message_id: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  last_attempted_at: "Contact Information",
 
   current_day_sent: "Professional Information",
   last_reset_date: "Other",
@@ -285,6 +287,7 @@ const fieldSections: Record<string, string> = {
   warmup_daily_limit: "Professional Information",
   last_used_at: "Other",
   is_healthy: "Basic Information",
+  failure_type: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -435,7 +438,6 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
   api_key: "API Key",
-  provider_name: "LLM Provider",
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
@@ -578,7 +580,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   );
 };
 
-export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
+export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title, onReupload }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLDivElement>(null);
@@ -1342,16 +1344,27 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                         </select>
                       </div>
 
-                      {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
-                        <button
-                          type="button"
-                          onClick={handleDownload}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
-                        >
-                          <Download size={14} />
-                          Download PDF
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {onReupload && (
+                          <button
+                            type="button"
+                            onClick={onReupload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 border border-blue-200 dark:border-blue-800 transition-colors rounded-lg"
+                          >
+                            Change Resume
+                          </button>
+                        )}
+                        {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
+                          <button
+                            type="button"
+                            onClick={handleDownload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
+                          >
+                            <Download size={14} />
+                            Download PDF
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {!rawResumeJson ? (

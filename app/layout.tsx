@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import { Providers } from "./providers";
 import { AuthProvider } from "@/utils/AuthContext";
 import { useState, useEffect } from "react";
+import { Poppins } from "next/font/google";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
@@ -17,23 +18,22 @@ import ReferralNotificationButton from "@/components/ReferralNotificationButton"
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import GlobalServiceWorker from "@/components/GlobalServiceWorker";
 
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap";
-    document.head.appendChild(link);
-  }, []);
 
   return (
     <html suppressHydrationWarning lang="en">
@@ -59,7 +59,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="dark:bg-black overflow-x-hidden" suppressHydrationWarning>
+      <body className={`${poppins.className} dark:bg-black overflow-x-hidden`}>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>

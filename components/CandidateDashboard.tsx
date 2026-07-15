@@ -7,9 +7,13 @@ import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
 import { ViewModal } from "./ViewModal";
+import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
+import { normalizeResume } from "@/utils/resumeNormalizer";
+import { validateResumeStructure } from "@/utils/resumeValidator";
 import AiSetupTab from "./setup/AiSetupTab";
 import {
     Mail,
+    Upload,
     Phone,
     Calendar,
     Award,
@@ -50,10 +54,27 @@ import {
     Send,
     Zap,
     ClipboardList,
+<<<<<<< HEAD
+=======
+    Copy,
+    FileJson,
+    Loader2,
+    Edit3,
+    Download,
+>>>>>>> origin/dev
     X,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogDescription,
+} from "@/components/admin_ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -157,7 +178,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup' | 'my_resume';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -344,6 +365,13 @@ export default function CandidateDashboard() {
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
+    const getAiPrepApiUrl = () => {
+        const isClient = typeof window !== "undefined";
+        const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+        return isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
+    };
+    const AIPREP_API = getAiPrepApiUrl();
+
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
     const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
         // 1. Save to local IndexedDB instantly (main thread)
@@ -415,36 +443,439 @@ export default function CandidateDashboard() {
         job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
-    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
+    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(null);
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
 
+    // Resume JSON Viewer/Editor States
+    const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
+    const [resumeJsonText, setResumeJsonText] = useState("");
+    const [resumeJsonError, setResumeJsonError] = useState<string | null>(null);
+    const [isSavingResumeJson, setIsSavingResumeJson] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const openResumeJsonModal = async () => {
+        setIsResumeJsonModalOpen(true);
+        setResumeJsonError(null);
+
+        let resumeObj = prefetchedSession?.summaryData?.resume_json;
+        let sid = prefetchedSession?.sessionId;
+
+        if (!resumeObj || !sid) {
+            try {
+                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+                const token = localStorage.getItem("access_token") || "";
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const email = payload.sub || payload.email || payload.uname || "candidate";
+
+                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    sid = data.session_id;
+                    resumeObj = data.summary?.resume_json;
+                    if (sid) {
+                        setPrefetchedSession({ sessionId: sid, summaryData: data.summary });
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading resume JSON", e);
+            }
+        }
+
+        if (resumeObj && typeof resumeObj === "object") {
+            setResumeJsonText(JSON.stringify(resumeObj, null, 2));
+        } else {
+            setResumeJsonText("");
+        }
+    };
+
+    const handleSaveResumeJson = async () => {
+        setResumeJsonError(null);
+        let parsed = null;
+        try {
+            parsed = JSON.parse(resumeJsonText);
+        } catch (err: any) {
+            setResumeJsonError("Invalid JSON format: " + err.message);
+            toast.error("Please provide a valid JSON object.");
+            return;
+        }
+
+        const sid = prefetchedSession?.sessionId;
+        if (!sid) {
+            toast.error("No active session found. Please try again.");
+            return;
+        }
+
+        setIsSavingResumeJson(true);
+        try {
+            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+            const formData = new FormData();
+            const blob = new Blob([resumeJsonText], { type: "application/json" });
+            formData.append("file", blob, "resume.json");
+            formData.append("session_id", sid);
+
+            const response = await fetch(`${AIPREP_API}/setup/resume`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData?.detail || "Resume upload failed");
+            }
+
+            toast.success("Resume JSON saved successfully!");
+
+            // Update local prefetch state
+            if (prefetchedSession) {
+                setPrefetchedSession({
+                    ...prefetchedSession,
+                    summaryData: {
+                        ...prefetchedSession.summaryData,
+                        resume_json: parsed,
+                        resume_text: "Exists"
+                    }
+                });
+            }
+
+            // Update status badge
+            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
+
+            setIsResumeJsonModalOpen(false);
+        } catch (err: any) {
+            const detail = err.message || "Failed to save resume";
+            setResumeJsonError(detail);
+            toast.error(detail);
+        } finally {
+            setIsSavingResumeJson(false);
+        }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            try {
+                // Validate if it is valid JSON
+                const parsed = JSON.parse(text);
+                setResumeJsonText(JSON.stringify(parsed, null, 2));
+                setResumeJsonError(null);
+                toast.success("JSON file loaded successfully!");
+            } catch (err: any) {
+                setResumeJsonError("Uploaded file is not a valid JSON: " + err.message);
+                toast.error("Invalid JSON file uploaded.");
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
+<<<<<<< HEAD
     const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
+=======
+    const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
+    
+    // Inline Resume states & refs
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
+    const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
+    const [resumeDragOver, setResumeDragOver] = useState(false);
+    const [selectedTemplate, setSelectedTemplate] = useState("elegant");
+    const [showTemplates, setShowTemplates] = useState(false);
+    const inlineFileInputRef = useRef<HTMLInputElement>(null);
+    const inlineResumeRef = useRef<HTMLDivElement>(null);
+>>>>>>> origin/dev
     const [mounted, setMounted] = useState(false);
+    const [isEditingJson, setIsEditingJson] = useState(false);
+    const [editJsonText, setEditJsonText] = useState("");
+    const [editJsonError, setEditJsonError] = useState<string | null>(null);
+    const [editJsonSaving, setEditJsonSaving] = useState(false);
     const [editData, setEditData] = useState<any>(null);
     const [editInterviewForm, setEditInterviewForm] = useState<any>({});
     const [editInterviewLoading, setEditInterviewLoading] = useState(false);
     const [viewData, setViewData] = useState<any>(null);
 
+    const handleInlineFileValidate = (file: File): boolean => {
+        const allowedExtensions = [".pdf", ".doc", ".docx"];
+        const ext = "." + file.name.split(".").pop()?.toLowerCase();
+        if (!allowedExtensions.includes(ext)) {
+            toast.error("Invalid file format. Please upload a PDF, DOC, or DOCX file.");
+            return false;
+        }
+        return true;
+    };
+
+    const handleInlineFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const selectedFile = e.target.files[0];
+            if (handleInlineFileValidate(selectedFile)) {
+                void handleInlineUpload(selectedFile);
+            }
+        }
+    };
+
+    const handleInlineUpload = async (fileToUpload: File) => {
+        setResumeUploadLoading(true);
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
+        const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const uploadUrl = backendUrl.endsWith("/api")
+            ? `${backendUrl}/candidates/${candidateId}/marketing/upload-resume`
+            : `${backendUrl}/api/candidates/${candidateId}/marketing/upload-resume`;
+            
+        const formData = new FormData();
+        formData.append("file", fileToUpload);
+
+        try {
+            const response = await fetch(uploadUrl, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || "Failed to upload resume");
+            }
+
+            toast.success("Resume uploaded successfully!");
+            setResumeFile(fileToUpload);
+            setShowTemplates(false);
+            setSetupStatus(prev => {
+                const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
+                return {
+                    ...base,
+                    has_binary_resume: true,
+                    binary_resume_filename: fileToUpload.name,
+                    resume_uploaded: true
+                };
+            });
+
+            // Reload setup summary to fetch parsed JSON immediately
+            try {
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const email = payload.sub || payload.email || payload.uname || "candidate";
+                const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                });
+                if (resSummary.ok) {
+                    const dataSummary = await resSummary.json();
+                    if (dataSummary.summary) {
+                        setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
+                    }
+                }
+            } catch (reloadErr) {
+                console.error("Failed to reload summary after upload:", reloadErr);
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Something went wrong during upload.");
+            setResumeFile(null);
+        } finally {
+            setResumeUploadLoading(false);
+        }
+    };
+
+    const handleSaveEditedJson = async () => {
+        try {
+            let parsed = null;
+            try {
+                parsed = JSON.parse(editJsonText);
+            } catch (err: any) {
+                setEditJsonError(`Syntax Error: ${err.message}`);
+                return;
+            }
+
+            setEditJsonSaving(true);
+            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
+            if (!prepToken) {
+                throw new Error("No active session found.");
+            }
+
+            const formData = new FormData();
+            const blob = new Blob([editJsonText], { type: "application/json" });
+            formData.append("file", blob, "resume.json");
+            formData.append("session_id", prepToken);
+
+            const res = await fetch(`${AIPREP_API}/setup/resume`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || "Failed to update resume JSON on server.");
+            }
+
+            toast.success("Resume JSON updated successfully!");
+            
+            if (prefetchedSession) {
+                setPrefetchedSession({
+                    ...prefetchedSession,
+                    summaryData: {
+                        ...prefetchedSession.summaryData,
+                        resume_json: parsed,
+                    }
+                });
+            }
+            setIsEditingJson(false);
+        } catch (err: any) {
+            setEditJsonError(err.message || "An unexpected error occurred while saving.");
+        } finally {
+            setEditJsonSaving(false);
+        }
+    };
+
+    const handleValidateJson = () => {
+        const resumeJson = prefetchedSession?.summaryData?.resume_json;
+        if (!resumeJson) {
+            toast.error("No resume JSON data found to validate.");
+            return;
+        }
+
+        const { isValid, errors, warnings } = validateResumeStructure(resumeJson);
+
+        if (!isValid) {
+            toast.error(`Validation Failed. Missing mandatory fields: ${errors.join(", ")}`);
+        } else if (warnings.length > 0) {
+            toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
+        } else {
+            toast.success("Validation Passed! JSON resume structure is perfectly valid.");
+        }
+    };
+
+    const handleDownloadJson = () => {
+        const jsonStr = JSON.stringify(prefetchedSession?.summaryData?.resume_json || {}, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = (prefetchedSession?.summaryData?.binary_resume_filename?.replace(/\.[^/.]+$/, "") || "resume") + ".json";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleInlineDownload = () => {
+        if (!inlineResumeRef.current) return;
+
+        let candidateName = "Candidate";
+        const rawResumeJson = prefetchedSession?.summaryData?.resume_json || null;
+        if (rawResumeJson) {
+            try {
+                const parsed = normalizeResume(rawResumeJson);
+                if (parsed?.fullName) {
+                    candidateName = parsed.fullName;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        const opt = {
+            margin:       0,
+            filename:     `${candidateName.replace(/\s+/g, "_")}_Resume.pdf`,
+            image:        { type: "jpeg", quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true,
+                letterRendering: true
+            },
+            jsPDF:        { unit: "in", format: "letter", orientation: "portrait" }
+        };
+
+        const runHtml2Pdf = () => {
+            const element = inlineResumeRef.current;
+            (window as any).html2pdf().set(opt).from(element).save();
+        };
+
+        if (!(window as any).html2pdf) {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+            script.onload = runHtml2Pdf;
+            document.head.appendChild(script);
+        } else {
+            runHtml2Pdf();
+        }
+    };
+
     useEffect(() => {
         setMounted(true);
-    }, [setMounted]);
+        const handleNavEvent = () => {
+            goToTab('overview');
+        };
+        window.addEventListener('nav-to-overview', handleNavEvent);
+        return () => {
+            window.removeEventListener('nav-to-overview', handleNavEvent);
+        };
+    }, []);
 
+
+    const loadSetupStatus = async () => {
+        let hasValidDefaultKey = false;
+        let hasAnyKeyInBackend = false;
+        try {
+            const keys: any = await apiFetch("coderpad/me/llm-keys");
+            hasAnyKeyInBackend = keys.length > 0;
+            const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
+            
+            if (defaultKey) {
+                // Check validation cache
+                try {
+                    const raw = localStorage.getItem("wbl_llm_key_validation_v1");
+                    if (raw) {
+                        const cache = JSON.parse(raw);
+                        if (cache[String(defaultKey.id)]?.status === "active") {
+                            hasValidDefaultKey = true;
+                        }
+                    }
+                } catch {
+                    // Ignore localStorage errors
+                }
+            }
+        } catch {
+            // fallback
+        }
+        
+        try {
+            const d: any = await setupApi.getStatus();
+            // Fallback: if cache miss but they have keys in both places, assume AI prep status
+            const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && (d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0)));
+            const resolvedStatus = {
+                ...d,
+                api_keys_configured: isConfigured,
+                setup_complete: d.resume_uploaded && isConfigured
+            };
+            return resolvedStatus;
+        } catch {
+            return null;
+        }
+    };
 
     useEffect(() => {
-        setupApi.getStatus()
-            .then((d: any) => setSetupStatus(d))
-            .catch(() => setSetupStatus(null));
+        loadSetupStatus().then(setSetupStatus);
     }, []);
+
+    useEffect(() => {
+        if (setupStatus?.has_binary_resume) {
+            setShowTemplates(true);
+        }
+    }, [setupStatus]);
 
     // Pre-fetch AI prep session as soon as candidateId is available so the
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
     useEffect(() => {
         if (!candidateId || prefetchDone) return;
-        const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
-
         const run = async () => {
             try {
                 const token = localStorage.getItem("access_token") || "";
@@ -467,10 +898,9 @@ export default function CandidateDashboard() {
                 setPrefetchedSession({ sessionId: sid, summaryData });
                 setPrefetchDone(true);
 
-                // Also update status badges
-                const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
-                const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
-                setSetupStatus({ resume_uploaded: hasResume, api_keys_configured: hasKeys, setup_complete: hasResume && hasKeys });
+                // Re-fetch accurate status after AI prep session is initialized
+                const status = await loadSetupStatus();
+                if (status) setSetupStatus(status);
             } catch {
                 // Silently fail — wizard will fall back to its own fetch
             }
@@ -487,14 +917,9 @@ export default function CandidateDashboard() {
 
     const refreshSetupStatus = async () => {
         for (let attempt = 0; attempt < 5; attempt++) {
-            try {
-                const d: any = await setupApi.getStatus();
-                setSetupStatus(d);
-                if (d?.setup_complete) {
-                    return;
-                }
-            } catch {
-                setSetupStatus(null);
+            const status = await loadSetupStatus();
+            setSetupStatus(status);
+            if (status?.setup_complete) {
                 return;
             }
             await new Promise((r) => setTimeout(r, 150));
@@ -994,6 +1419,14 @@ export default function CandidateDashboard() {
 
     const getCandidateId = async (): Promise<number> => {
         try {
+            if (typeof window !== "undefined") {
+                const searchParams = new URLSearchParams(window.location.search);
+                const queryCid = searchParams.get("candidateId");
+                if (queryCid) {
+                    const num = Number(queryCid);
+                    if (!isNaN(num) && num > 0) return num;
+                }
+            }
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
 
@@ -1100,8 +1533,8 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
-            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
+                if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
+            if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Sample job data:", posData?.[0] || {}); }
 
             // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
@@ -1113,7 +1546,7 @@ export default function CandidateDashboard() {
                 return shouldInclude && hasLink;
             });
 
-            console.log("📊 Final filtered positions count:", filteredData.length);
+            if (process.env.NODE_ENV === 'development') { console.log("📊 Final filtered positions count:", filteredData.length); }
 
             // Debug: Show source distribution
             const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
@@ -1122,7 +1555,7 @@ export default function CandidateDashboard() {
                 return acc;
             }, {});
 
-            console.log("📈 Source distribution:", sourceCounts);
+            if (process.env.NODE_ENV === 'development') { console.log("📈 Source distribution:", sourceCounts); }
 
             setPositions(filteredData);
         } catch (err) {
@@ -1160,8 +1593,8 @@ export default function CandidateDashboard() {
 
             const requiredFields = [
                 'full_name', 'email', 'phone', 'workstatus',
-                'dob', 'github_link', 'workexperience', 'address',
-                'linkedin_id'
+                'dob', 'github_link', 'address',
+                'linkedin_id', 'education', 'zip_code'
             ];
 
             const profileData = {
@@ -1171,9 +1604,10 @@ export default function CandidateDashboard() {
                 workstatus: fullProfile?.personal_info?.workstatus,
                 dob: fullProfile?.personal_info?.dob,
                 github_link: fullProfile?.personal_info?.github_link,
-                workexperience: fullProfile?.personal_info?.workexperience,
                 address: fullProfile?.personal_info?.address,
-                linkedin_id: fullProfile?.personal_info?.linkedin_id
+                linkedin_id: fullProfile?.personal_info?.linkedin_id,
+                education: fullProfile?.personal_info?.education,
+                zip_code: fullProfile?.personal_info?.zip_code
             };
 
             // Use login_count from profile (UserDashboard) or Candidate profile
@@ -1258,7 +1692,44 @@ export default function CandidateDashboard() {
             // so employee UI changes (feedback, notes) are visible immediately
             loadDashboard();
         }
-    }, [activeTab]);
+        if (activeTab === 'my_resume' && candidateId) {
+            const run = async () => {
+                try {
+                    const token = localStorage.getItem("access_token") || "";
+                    const payload = JSON.parse(atob(token.split(".")[1]));
+                    const email = payload.sub || payload.email || payload.uname || "candidate";
+
+                    const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                    });
+                    if (res.ok) {
+                        const dataSummary = await res.json();
+                        const sid = dataSummary.session_id;
+                        const summaryData = dataSummary.summary;
+                        if (sid) {
+                            localStorage.setItem("prep_token", sid);
+                            setPrefetchedSession({ sessionId: sid, summaryData });
+                            
+                            const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                            setSetupStatus({
+                                resume_uploaded: hasResume,
+                                api_keys_configured: hasKeys,
+                                setup_complete: hasResume && hasKeys,
+                                has_binary_resume: !!summaryData.has_binary_resume,
+                                binary_resume_filename: summaryData.binary_resume_filename || null,
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to refresh setup status on tab switch:", err);
+                }
+            };
+            void run();
+        }
+    }, [activeTab, candidateId]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1336,11 +1807,12 @@ export default function CandidateDashboard() {
     const firstName = data.basic_info.full_name.split(" ")[0];
 
     const tabs = [
-        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
+        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
-        { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'my_resume' as TabType, name: 'My Resume', icon: FileText },
+        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
+        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
         { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
@@ -1384,23 +1856,7 @@ export default function CandidateDashboard() {
                                             <span>{tab.name}</span>
                                             {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                                         </button>
-                                        {tab.id === 'ai_setup' && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (setupStatus?.resume_uploaded) {
-                                                        setViewResumeOpen(true);
-                                                    } else {
-                                                        setSetupWizardManageMode(false);
-                                                        setSetupWizardOpen(true);
-                                                    }
-                                                }}
-                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                            >
-                                                <FileText className="w-4 h-4 flex-shrink-0 text-violet-500" />
-                                                <span>My Resume</span>
-                                            </button>
-                                        )}
+
                                     </React.Fragment>
                                 );
                             })}
@@ -1447,46 +1903,60 @@ export default function CandidateDashboard() {
                         {/* Candidate Details Card - show only on Overview tab */}
                         {activeTab === 'overview' && !viewResumeOpen && !setupWizardOpen && !pathname?.includes('resume') && (
                             <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
-                            {/* Greeting + Name + Email */}
-                            <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
-                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
-                                    {data.basic_info.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-                                </div>
-                                <div className="min-w-0">
-                                    {activeTab === 'overview' ? (
-                                        <>
-                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
-                                            <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
-                                        </>
-                                    ) : (
-                                        <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">{data.basic_info.full_name}</h1>
-                                    )}
-                                    <p className="text-xs text-gray-400 mt-1 truncate">{data.basic_info.email}</p>
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            {[
-                                { icon: Award, label: "Batch", value: data.basic_info.batch_name || "N/A", color: "text-purple-500", widthClass: "w-40" },
-                                { icon: Calendar, label: "Enrolled", value: data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A", color: "text-green-500", widthClass: "w-36" },
-                                { icon: Briefcase, label: "Fee Paid", value: `$${data.basic_info.fee_paid || 0}`, color: "text-emerald-500", widthClass: "w-24" },
-                                { icon: Activity, label: "Logins", value: `${userProfile?.login_count || 0}`, color: "text-orange-500", widthClass: "w-24" },
-                            ].map(({ icon: Icon, label, value, color, widthClass }) => (
-                                <div key={label} className={`hidden lg:flex flex-col gap-1 ${widthClass || "min-w-0"}`}>
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-                                    <div className="flex items-center gap-2">
-                                        <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
-                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">{value}</span>
+                                {/* Greeting + Name + Email */}
+                                <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
+                                        {data.basic_info.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                                    </div>
+                                    <div className="min-w-0">
+                                        {activeTab === 'overview' ? (
+                                            <>
+                                                <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
+                                                <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
+                                            </>
+                                        ) : (
+                                            <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">{data.basic_info.full_name}</h1>
+                                        )}
+                                        <p className="text-xs text-gray-400 mt-1 truncate">{data.basic_info.email}</p>
                                     </div>
                                 </div>
-                            ))}
+
+                                {/* Stats */}
+                                {[
+                                    { icon: Award, label: "Batch", value: data.basic_info.batch_name || "N/A", color: "text-purple-500", widthClass: "w-40" },
+                                    { icon: Calendar, label: "Enrolled", value: data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A", color: "text-green-500", widthClass: "w-36" },
+                                    { icon: Briefcase, label: "Fee Paid", value: `$${data.basic_info.fee_paid || 0}`, color: "text-emerald-500", widthClass: "w-24" },
+                                    { icon: Activity, label: "Logins", value: `${userProfile?.login_count || 0}`, color: "text-orange-500", widthClass: "w-24" },
+                                ].map(({ icon: Icon, label, value, color, widthClass }) => (
+                                    <div key={label} className={`hidden lg:flex flex-col gap-1 ${widthClass || "min-w-0"}`}>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+                                        <div className="flex items-center gap-2">
+                                            <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
+                                            <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">{value}</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
                     </div>
 
                     {activeTab === 'jobs' && (
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 translate-y-[3px]">
+                            <button
+                                type="button"
+                                onClick={openResumeJsonModal}
+                                className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95 cursor-pointer border-0"
+                            >
+                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                    <Code2 className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                        Resume JSON
+                                    </span>
+                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                </div>
+                            </button>
+
                             <a
                                 href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
                                 target="_blank"
@@ -1523,23 +1993,7 @@ export default function CandidateDashboard() {
                                     <Icon className="w-3.5 h-3.5" />
                                     {tab.name}
                                 </button>
-                                {tab.id === 'ai_setup' && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (setupStatus?.resume_uploaded) {
-                                                setViewResumeOpen(true);
-                                            } else {
-                                                setSetupWizardManageMode(false);
-                                                setSetupWizardOpen(true);
-                                            }
-                                        }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                    >
-                                        <FileText className="w-3.5 h-3.5 text-violet-500" />
-                                        My Resume
-                                    </button>
-                                )}
+
                             </React.Fragment>
                         );
                     })}
@@ -1567,23 +2021,7 @@ export default function CandidateDashboard() {
                 {/* Scrollable Content */}
                 <main className="flex-1 overflow-hidden flex flex-col">
 
-                    {/* Alerts Banner */}
-                    {data.alerts && data.alerts.length > 0 && (
-                        <div className="flex flex-wrap gap-2 px-4 lg:px-6 pt-4">
-                            {data.alerts.map((alert, index) => (
-                                <div
-                                    key={index}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium flex-1 min-w-[200px] ${alert.type === "warning"
-                                        ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300"
-                                        : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300"
-                                        }`}
-                                >
-                                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                                    <span>{alert.message}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+
 
                     {/* ==================== TAB CONTENT ==================== */}
                     <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
@@ -1607,7 +2045,13 @@ export default function CandidateDashboard() {
                             <>
                                 {activeTab === 'ai_setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
-                                        <AiSetupTab candidateId={candidateId ?? undefined} />
+                                        <AiSetupTab 
+                                            candidateId={candidateId ?? undefined} 
+                                            onFinishSetup={async () => {
+                                                await refreshSetupStatus();
+                                                goToTab('smartprep');
+                                            }} 
+                                        />
                                     </div>
                                 )}
                                 {activeTab === 'overview' && (
@@ -2037,34 +2481,34 @@ export default function CandidateDashboard() {
                                                                     </div>
                                                                 </div>
 
-                                                                </div>
-                                                                {/* Job Description Field */}
-                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
-                                                                        Job Description
-                                                                    </label>
-                                                                    <textarea
-                                                                        value={addInterviewForm.job_description}
-                                                                        onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
-                                                                        placeholder="Enter Job Description..."
-                                                                        className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
-                                                                </div>
                                                             </div>
-
-                                                            {/* Footer Buttons */}
-                                                            <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
-                                                                <button onClick={() => setShowAddInterview(false)}
-                                                                    className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
-                                                                    Cancel
-                                                                </button>
-                                                                <button onClick={handleAddInterview} disabled={addInterviewLoading}
-                                                                    className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
-                                                                    {addInterviewLoading ? "Saving..." : "Schedule Interview"}
-                                                                </button>
+                                                            {/* Job Description Field */}
+                                                            <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
+                                                                    Job Description
+                                                                </label>
+                                                                <textarea
+                                                                    value={addInterviewForm.job_description}
+                                                                    onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
+                                                                    placeholder="Enter Job Description..."
+                                                                    className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                             </div>
                                                         </div>
+
+                                                        {/* Footer Buttons */}
+                                                        <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                            <button onClick={() => setShowAddInterview(false)}
+                                                                className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
+                                                                Cancel
+                                                            </button>
+                                                            <button onClick={handleAddInterview} disabled={addInterviewLoading}
+                                                                className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
+                                                                {addInterviewLoading ? "Saving..." : "Schedule Interview"}
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                )}
+                                                </div>
+                                            )}
 
                                             {/* View Interview Modal */}
                                             {mounted && viewData && createPortal(
@@ -2264,8 +2708,8 @@ export default function CandidateDashboard() {
                                                     Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
                                                 </h2>
                                             </div>
-                                            <div className="w-full sm:w-[400px]">
-                                                <div className="relative">
+                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                                                <div className="relative w-full sm:w-[320px]">
                                                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                                     <Input
                                                         id="job-search"
@@ -2279,11 +2723,13 @@ export default function CandidateDashboard() {
                                             </div>
 
                                         </div>
-                                        <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col">
+                                        <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800" style={{ height: '380px' }}>
                                             <CandidateGrid
                                                 rowData={filteredPositions}
                                                 columnDefs={jobColumnDefs}
                                                 loading={positionsLoading}
+                                                height="380px"
+                                                paginationPageSize={100}
                                             />
                                         </div>
                                     </div>
@@ -2291,79 +2737,6 @@ export default function CandidateDashboard() {
 
                                 {activeTab === 'smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-                                        {setupStatus && !setupWizardOpen && (
-                                            <div className="flex-shrink-0 animate-in fade-in slide-in-from-top-2">
-                                                <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
-                                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
-
-                                                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
-                                                        <div className="flex items-center gap-1.5 shrink-0">
-                                                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                                            <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
-                                                        </div>
-
-                                                        <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
-
-                                                        <div className="flex-1">
-                                                            <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
-                                                                <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                                    Your AI-powered interview practice
-                                                                </p>
-                                                            </div>
-                                                            {!setupStatus.setup_complete && (
-                                                                <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                                                                    Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
-                                                                    {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
-                                                                    {!setupStatus.api_keys_configured ? "API Keys" : ""}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="relative z-10 shrink-0">
-                                                        {setupStatus.setup_complete ? (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    const getAiPrepUrl = () => {
-                                                                        const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                        if (url) {
-                                                                            return url;
-                                                                        }
-                                                                        
-                                                                        return "https://ai-prep.whitebox-learning.com";
-                                                                    };
-                                                                    const baseUrl = getAiPrepUrl();
-                                                                    const token = localStorage.getItem("prep_token");
-
-                                                                    if (token) {
-                                                                        window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                                    } else {
-                                                                        window.open(baseUrl, '_blank');
-                                                                    }
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                            >
-                                                                <PlayCircle className="w-3.5 h-3.5" />
-                                                                Start Preparation
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setSetupWizardManageMode(false);
-                                                                    setSetupWizardOpen(true);
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                            >
-                                                                <Sparkles className="w-3.5 h-3.5" />
-                                                                Complete Setup
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
 
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -2377,17 +2750,19 @@ export default function CandidateDashboard() {
                                                         <p className="text-[11px] text-gray-400 mt-0.5">Configure your resume and API keys for AI interviews</p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSetupWizardManageMode(Boolean(setupStatus?.setup_complete));
-                                                        setSetupWizardOpen(true);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
-                                                >
-                                                    {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
-                                                    <ChevronRight className="w-3.5 h-3.5" />
-                                                </button>
+                                                {setupStatus?.setup_complete && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSetupWizardManageMode(true);
+                                                            setSetupWizardOpen(true);
+                                                        }}
+                                                        className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
+                                                    >
+                                                        Manage
+                                                        <ChevronRight className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {/* Resume Status */}
@@ -2403,7 +2778,7 @@ export default function CandidateDashboard() {
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
                                                         <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
+                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
                                                     {setupStatus?.resume_uploaded && (
@@ -2430,11 +2805,59 @@ export default function CandidateDashboard() {
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
                                                         <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
+                                                            {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {/* Start Preparation / Complete Setup Button */}
+                                            {setupStatus && !setupWizardOpen && (
+                                                <div className="flex-1 flex items-center justify-center mt-8">
+                                                    {setupStatus.setup_complete ? (
+                                                        <button
+                                                            onClick={async () => {
+                                                                const getAiPrepUrl = () => {
+                                                                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
+
+                                                                    if (url) {
+                                                                        return url;
+                                                                    }
+
+                                                                    return "https://ai-prep.whitebox-learning.com";
+                                                                };
+                                                                const baseUrl = getAiPrepUrl();
+                                                                const token = localStorage.getItem("prep_token");
+
+                                                                if (token) {
+                                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
+                                                                } else {
+                                                                    window.open(baseUrl, '_blank');
+                                                                }
+                                                            }}
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                        >
+                                                            <PlayCircle className="w-4 h-4" />
+                                                            Start Preparation
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (setupStatus?.api_keys_configured) {
+                                                                    goToTab('my_resume');
+                                                                } else {
+                                                                    goToTab('ai_setup');
+                                                                }
+                                                            }}
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                        >
+                                                            <Sparkles className="w-4 h-4" />
+                                                            Complete Setup
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                     </div>
@@ -2538,6 +2961,358 @@ export default function CandidateDashboard() {
                                         </div>
                                     </div>
                                 )}
+
+                                {activeTab === 'my_resume' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8 animate-in fade-in duration-200">
+                                            {!showTemplates ? (
+                                                <div className="space-y-6 animate-in fade-in duration-200">
+                                                    {/* Header */}
+                                                    <div className="mb-6">
+                                                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                            Upload Resume
+                                                        </h2>
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            Provide your resume in pdf, doc, docx format.
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Conditional display based on LLM setup status */}
+                                                    {!(userRole === 'employee' || setupStatus?.api_keys_configured || prefetchedSession?.summaryData?.has_api_key || (prefetchedSession?.summaryData?.llm_keys && prefetchedSession.summaryData.llm_keys.length > 0)) ? (
+                                                        <div className="flex flex-col items-center justify-center border border-dashed border-red-200 dark:border-red-900/50 rounded-2xl p-10 min-h-[300px] bg-red-50/5 dark:bg-red-950/5 text-center">
+                                                            <div className="w-12 h-12 bg-red-100 dark:bg-red-950/40 text-red-500 rounded-full flex items-center justify-center mb-4">
+                                                                <KeyRound size={22} className="text-red-600 dark:text-red-400" />
+                                                            </div>
+                                                            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">
+                                                                LLM API Key Required
+                                                            </h3>
+                                                            <p className="text-xs text-gray-400 dark:text-gray-400 max-w-md mb-6 leading-relaxed">
+                                                                To upload and parse your resume using AI, you must configure at least one active API key in the LLM setup tab first.
+                                                            </p>
+                                                            <button
+                                                                onClick={() => setActiveTab('ai_setup')}
+                                                                className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md cursor-pointer"
+                                                            >
+                                                                <Settings size={14} />
+                                                                <span>Configure LLM Key</span>
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        /* Full-width dashed uploader zone */
+                                                        <div className="w-full">
+                                                            <div
+                                                                onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
+                                                                onDragLeave={() => setResumeDragOver(false)}
+                                                                onDrop={(e) => {
+                                                                    e.preventDefault();
+                                                                    setResumeDragOver(false);
+                                                                    if (resumeUploadLoading || setupStatus?.has_binary_resume) return;
+                                                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                                        const droppedFile = e.dataTransfer.files[0];
+                                                                        if (handleInlineFileValidate(droppedFile)) {
+                                                                            void handleInlineUpload(droppedFile);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                onClick={() => {
+                                                                    if (resumeUploadLoading || setupStatus?.has_binary_resume) return;
+                                                                    inlineFileInputRef.current?.click();
+                                                                }}
+                                                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${
+                                                                    setupStatus?.has_binary_resume
+                                                                        ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
+                                                                        : resumeDragOver
+                                                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
+                                                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
+                                                                }`}
+                                                            >
+                                                                <input
+                                                                    type="file"
+                                                                    ref={inlineFileInputRef}
+                                                                    onChange={handleInlineFileChange}
+                                                                    accept=".pdf,.doc,.docx"
+                                                                    className="hidden"
+                                                                />
+
+                                                                {resumeUploadLoading ? (
+                                                                    <div className="flex flex-col items-center text-center animate-in fade-in duration-150">
+                                                                        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+                                                                        <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100">
+                                                                            Uploading resume...
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-400 mt-1">
+                                                                            Please wait while we store your resume.
+                                                                        </p>
+                                                                    </div>
+                                                                ) : setupStatus?.has_binary_resume ? (
+                                                                    <div className="flex flex-col items-center text-center animate-in fade-in duration-200">
+                                                                        <div className="relative mb-4">
+                                                                            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/30 text-blue-500 rounded-2xl flex items-center justify-center">
+                                                                                <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                                                                            </div>
+                                                                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+                                                                                ✓
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100 mb-3">
+                                                                            Selected file uploaded
+                                                                        </p>
+
+                                                                        <div className="inline-flex items-center bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-450 font-semibold px-4 py-1.5 rounded-full text-xs border border-blue-100 dark:border-blue-800/60 mb-6 max-w-xs truncate">
+                                                                            {setupStatus.binary_resume_filename || "Uploaded Resume"}
+                                                                        </div>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                                                                                setShowTemplates(false);
+                                                                                setResumeFile(null);
+                                                                                setTimeout(() => inlineFileInputRef.current?.click(), 50);
+                                                                            }}
+                                                                            className="flex items-center gap-1.5 px-6 py-2.5 border border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-500 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 hover:bg-gray-50/50 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shadow-sm cursor-pointer"
+                                                                        >
+                                                                            <Upload size={14} className="text-gray-405" />
+                                                                            Upload another file
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                                                                                setShowTemplates(false);
+                                                                                setResumeFile(null);
+                                                                            }}
+                                                                            className="text-xs font-semibold text-gray-400 hover:text-gray-500 dark:text-gray-500 hover:dark:text-gray-455 underline cursor-pointer mt-4"
+                                                                        >
+                                                                            Start over or upload a different file
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center text-center">
+                                                                        <div className="p-4 bg-blue-50/40 dark:bg-blue-950/20 text-blue-500 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+                                                                            <Upload className="w-8 h-8" />
+                                                                        </div>
+                                                                        <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100">
+                                                                            Upload pdf, doc, docx
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-400 mt-1">
+                                                                            Click to browse your computer
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Bottom Navigation Buttons */}
+                                                    <div className="flex justify-end items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-6">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowTemplates(true)}
+                                                            disabled={!setupStatus?.has_binary_resume || resumeUploadLoading}
+                                                            className="flex items-center gap-1.5 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all"
+                                                        >
+                                                            <span>Next</span>
+                                                            <span>&gt;</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : isEditingJson ? (
+                                                <div className="space-y-6 animate-in fade-in duration-200">
+                                                    {/* Editor Header */}
+                                                    <div className="flex items-center justify-between border-b border-gray-150 dark:border-gray-800 pb-4">
+                                                        <div>
+                                                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                                Edit Resume JSON
+                                                            </h2>
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                Edit your structured resume fields directly. Changes will update the template rendering in real-time.
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsEditingJson(false)}
+                                                                disabled={editJsonSaving}
+                                                                className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 disabled:opacity-50 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50/50 dark:hover:bg-gray-800 transition-all shadow-sm cursor-pointer"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleSaveEditedJson}
+                                                                disabled={editJsonSaving}
+                                                                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 transition-colors rounded-xl shadow-md cursor-pointer"
+                                                            >
+                                                                {editJsonSaving ? (
+                                                                    <>
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                        <span>Saving...</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span>Save Changes</span>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {editJsonError && (
+                                                        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-2xl text-xs font-bold text-red-650 dark:text-red-400 flex items-center gap-2">
+                                                            <span>⚠️</span>
+                                                            <span>{editJsonError}</span>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="border border-gray-200 dark:border-gray-800 rounded-3xl overflow-hidden shadow-inner">
+                                                        <textarea
+                                                            value={editJsonText}
+                                                            onChange={(e) => {
+                                                                setEditJsonText(e.target.value);
+                                                                setEditJsonError(null);
+                                                            }}
+                                                            disabled={editJsonSaving}
+                                                            className="w-full min-h-[500px] text-xs font-mono p-6 bg-white text-sky-600 dark:bg-white dark:text-sky-600 focus:outline-none resize-y leading-relaxed"
+                                                            placeholder="{}"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {/* Header */}
+                                                    <div className="mb-3 flex items-center justify-between">
+                                                        <div>
+                                                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                                My Resume
+                                                            </h2>
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                Choose your template and Download the resume
+                                                            </p>
+                                                        </div>
+                                                        {prefetchedSession?.summaryData?.resume_json && (
+                                                            <div className="flex items-center gap-3">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleValidateJson}
+                                                                    className="flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-white bg-gradient-to-br from-indigo-900 to-purple-400 hover:opacity-90 active:opacity-85 transition-all rounded-xl shadow-md cursor-pointer"
+                                                                >
+                                                                    <ClipboardCheck size={14} />
+                                                                    <span>Validate JSON</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Control bar */}
+                                                    <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                                Template Layout:
+                                                            </span>
+                                                            <select
+                                                                value={selectedTemplate}
+                                                                onChange={(e) => setSelectedTemplate(e.target.value)}
+                                                                className="text-sm font-semibold bg-white dark:bg-gray-900 text-gray-850 dark:text-gray-250 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+                                                            >
+                                                                {[
+                                                                    { id: "academic", name: "Academic" },
+                                                                    { id: "classy", name: "Classy" },
+                                                                    { id: "elegant", name: "Elegant" },
+                                                                    { id: "even", name: "Even" },
+                                                                    { id: "flat", name: "Flat" },
+                                                                    { id: "lowmess", name: "Lowmess" },
+                                                                    { id: "macchiato", name: "Macchiato" },
+                                                                    { id: "onepage-plus", name: "Onepage Plus" },
+                                                                    { id: "professional", name: "Professional" },
+                                                                    { id: "ats-friendly", name: "ATS Friendly" },
+                                                                    { id: "stackoverflow", name: "Stackoverflow" },
+                                                                    { id: "stackoverflowed", name: "Stackoverflowed" },
+                                                                    { id: "straightforward", name: "Straightforward" },
+                                                                    { id: "waterfall", name: "Waterfall" },
+                                                                    { id: "raw", name: "Raw JSON" }
+                                                                ].map((t) => (
+                                                                    <option key={t.id} value={t.id}>
+                                                                        {t.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2.5">
+                                                            {prefetchedSession?.summaryData?.resume_json && (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setEditJsonText(JSON.stringify(prefetchedSession?.summaryData?.resume_json || {}, null, 2));
+                                                                            setEditJsonError(null);
+                                                                            setIsEditingJson(true);
+                                                                        }}
+                                                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-755 dark:text-gray-305 hover:bg-gray-105 dark:hover:bg-gray-805 border border-gray-200 dark:border-gray-700 transition-colors rounded-xl shadow-sm"
+                                                                    >
+                                                                        <Edit3 size={15} className="text-blue-500" />
+                                                                        <span>Edit JSON</span>
+                                                                    </button>
+
+                                                                    {selectedTemplate === "raw" ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handleDownloadJson}
+                                                                            className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                                                                        >
+                                                                            <Download size={15} />
+                                                                            <span>Download JSON</span>
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handleInlineDownload}
+                                                                            className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                                                                        >
+                                                                            <Download size={15} />
+                                                                            <span>Download PDF</span>
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Main viewer block */}
+                                                    {!prefetchedSession?.summaryData?.resume_json ? (
+                                                        <div className="text-center py-16 bg-gray-50/50 dark:bg-gray-900/10 border border-dashed border-gray-200 dark:border-gray-800 rounded-3xl text-gray-400 dark:text-gray-500 text-sm">
+                                                            No structured resume data found.
+                                                        </div>
+                                                    ) : selectedTemplate === "raw" ? (
+                                                        <div className="space-y-4">
+                                                            <pre className="w-full text-xs font-mono bg-gray-50/80 dark:bg-darklight p-5 rounded-2xl border border-gray-100 dark:border-gray-850 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-250 whitespace-pre-wrap">
+                                                                {JSON.stringify(prefetchedSession.summaryData.resume_json, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="border border-gray-200 dark:border-gray-800/80 rounded-3xl overflow-hidden bg-white max-h-[80vh] overflow-y-auto p-4 md:p-6 shadow-inner">
+                                                            <div ref={inlineResumeRef} className="origin-top transform scale-[0.95] w-full">
+                                                                <ResumeRenderer 
+                                                                    data={(() => {
+                                                                        try {
+                                                                            return normalizeResume(prefetchedSession.summaryData.resume_json);
+                                                                        } catch (e) {
+                                                                            return null;
+                                                                        }
+                                                                    })()} 
+                                                                    templateId={selectedTemplate} 
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
@@ -2551,9 +3326,14 @@ export default function CandidateDashboard() {
                         resume_json: prefetchedSession?.summaryData?.resume_json || {}
                     }}
                     title="View Resume"
+                    onReupload={() => {
+                        setViewResumeOpen(false);
+                        setUploadResumeOpen(true);
+                    }}
                 />
             )}
 
+<<<<<<< HEAD
             {activeTab === 'overview' && easyApplyPopupOpen && data && (() => {
                 const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
                 const isEasyApplyLow = easyApplyCount < 30;
@@ -2611,6 +3391,116 @@ export default function CandidateDashboard() {
             })()}
 
 
+=======
+            {isResumeJsonModalOpen && (
+                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                                <div className="space-y-0.5">
+                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        Resume JSON
+                                    </div>
+                                    <div className="text-sm text-gray-400 dark:text-gray-500">
+                                        View, edit, and copy your resume JSON for use with the Autofill Extension.
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1.5 h-8 font-semibold text-xs rounded-lg"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        Upload JSON
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        accept=".json"
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ── Body — grows to fill remaining height ── */}
+                            <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
+                                {resumeJsonError && (
+                                    <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
+                                        {resumeJsonError}
+                                    </div>
+                                )}
+
+                                <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
+                                    {resumeJsonText ? (
+                                        <textarea
+                                            value={resumeJsonText}
+                                            onChange={(e) => setResumeJsonText(e.target.value)}
+                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto"
+                                            spellCheck={false}
+                                        />
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                                            <FileJson className="w-14 h-14 text-gray-300 dark:text-gray-600 mb-3" />
+                                            <p className="text-base font-semibold text-gray-500">Resume JSON is not available yet.</p>
+                                            <p className="text-sm text-gray-400 mt-1">Upload a JSON file or use the Setup Wizard to generate one.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── Footer ── */}
+                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                    onClick={() => setIsResumeJsonModalOpen(false)}
+                                >
+                                    Close
+                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    {resumeJsonText && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(resumeJsonText)
+                                                    .then(() => toast.success("Resume JSON copied successfully."))
+                                                    .catch(() => toast.error("Failed to copy JSON to clipboard."));
+                                            }}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy JSON
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
+                                        disabled={isSavingResumeJson}
+                                        onClick={handleSaveResumeJson}
+                                    >
+                                        {isSavingResumeJson ? "Saving..." : "Save Changes"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
+>>>>>>> origin/dev
         </div>
     );
 }
