@@ -2046,7 +2046,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         // Invalidate prefetch so next open re-fetches fresh data
                                         setPrefetchDone(false);
                                         setPrefetchedSession(null);
-                                        goToTab("smartprep");
+                                        goToTab("wbl-smartprep");
                                     }}
                                 />
                             </div>
