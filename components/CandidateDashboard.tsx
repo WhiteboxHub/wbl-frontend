@@ -143,6 +143,9 @@ interface DashboardData {
         job_listings_clicked: number;
         outreach_counter: number;
         easy_apply_counter: number;
+        classes_joined?: number;
+        sessions_joined?: number;
+        mocks_joined?: number;
     };
 }
 
@@ -163,6 +166,7 @@ interface Session {
     videoid?: string;
     type: string;
     subject: string;
+    joined_candidate_ids?: number[];
 }
 
 interface ApiError {
@@ -978,7 +982,7 @@ export default function CandidateDashboard() {
         },
         {
             field: "feedback",
-            headerName: "Feedback",
+            headerName: "Result",
             flex: 1,
             minWidth: 130,
             cellRenderer: (params: any) => {
@@ -1016,7 +1020,7 @@ export default function CandidateDashboard() {
         },
         {
             field: "feedback_text",
-            headerName: "Feedback Text",
+            headerName: "Detailed Feedback",
             flex: 2,
             minWidth: 250,
             editable: true,
@@ -1477,7 +1481,8 @@ export default function CandidateDashboard() {
 
     const loadSessions = async () => {
         const fullName = data?.basic_info?.full_name;
-        if (!fullName) return;
+        const candidateId = data?.basic_info?.id;
+        if (!fullName || !candidateId) return;
 
         const token = localStorage.getItem("access_token") || localStorage.getItem("token");
         const firstName = fullName.split(" ")[0];
@@ -1498,6 +1503,12 @@ export default function CandidateDashboard() {
                 ? sessionsList.filter((session: Session) => {
                     if (!session || !session.sessiondate || !session.title) return false;
 
+                    // 1. Check explicit association mapping
+                    if (session.joined_candidate_ids?.includes(candidateId)) {
+                        return true;
+                    }
+
+                    // 2. Fallback to name-matching logic
                     const titleLower = session.title.toLowerCase();
                     const firstNameLower = firstName.toLowerCase();
                     const fullNameLower = fullName.toLowerCase();
@@ -2245,6 +2256,59 @@ export default function CandidateDashboard() {
                                                 </div>
                                             </div>
 
+                                            {/* Attendance Cards Grid in Sessions Tab */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+                                                {/* Card 1: Classes Attended */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Video className="w-20 h-20 text-blue-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="w-9 h-9 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
+                                                            <Video className="w-4 h-4" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Classes</span>
+                                                    </div>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classes Attended</h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.classes_joined ?? 0}
+                                                    </p>
+                                                </div>
+
+                                                {/* Card 2: Sessions Attended */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-rose-50 to-orange-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-rose-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <PlayCircle className="w-20 h-20 text-rose-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="w-9 h-9 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg flex items-center justify-center">
+                                                            <PlayCircle className="w-4 h-4" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded-full">Sessions</span>
+                                                    </div>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Sessions Attended</h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.sessions_joined ?? 0}
+                                                    </p>
+                                                </div>
+
+                                                {/* Card 3: Individual Sessions */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-yellow-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-amber-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Award className="w-20 h-20 text-amber-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="w-9 h-9 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center">
+                                                            <Award className="w-4 h-4" />
+                                                        </div>
+                                                    </div>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Individual Sessions</h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                        {sessions.length}
+                                                    </p>
+                                                </div>
+                                            </div>
+
                                             {sessionsLoading ? (
                                                 <div className="text-center py-12">
                                                     <div className="inline-block w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -2330,7 +2394,7 @@ export default function CandidateDashboard() {
                                                         onClick={() => setShowAddInterview(true)}
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
                                                     >
-                                                        <Plus className="w-4 h-4" /> Schedule Interview
+                                                        <Plus className="w-4 h-4" /> Add Interview
                                                     </button>
                                                 </div>
                                             </div>
@@ -2445,7 +2509,7 @@ export default function CandidateDashboard() {
                                                             </button>
                                                             <button onClick={handleAddInterview} disabled={addInterviewLoading}
                                                                 className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
-                                                                {addInterviewLoading ? "Saving..." : "Schedule Interview"}
+                                                                {addInterviewLoading ? "Saving..." : "Add Interview"}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -2493,7 +2557,7 @@ export default function CandidateDashboard() {
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
                                                                             <input type="text" readOnly value={viewData.type_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Result</label>
                                                                             <input type="text" readOnly value={viewData.feedback ?? 'Pending'} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" />
                                                                         </div>
                                                                     </div>
@@ -2503,7 +2567,7 @@ export default function CandidateDashboard() {
                                                                     <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
                                                                     <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
@@ -2565,7 +2629,7 @@ export default function CandidateDashboard() {
                                                                                 <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                             </select></div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Result</label>
                                                                             <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option value="Pending">Pending</option>
                                                                                 <option value="Positive">Positive</option>
@@ -2579,7 +2643,7 @@ export default function CandidateDashboard() {
                                                                     <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
                                                                     <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
