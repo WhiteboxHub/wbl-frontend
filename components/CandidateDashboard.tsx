@@ -464,7 +464,7 @@ export default function CandidateDashboard() {
 
                 const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (res.ok) {
@@ -637,7 +637,7 @@ export default function CandidateDashboard() {
 
             toast.success("Resume uploaded successfully!");
             setResumeFile(fileToUpload);
-            setShowTemplates(false);
+            setShowTemplates(true);
             setSetupStatus(prev => {
                 const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
                 return {
@@ -681,29 +681,16 @@ export default function CandidateDashboard() {
             }
 
             setEditJsonSaving(true);
-            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
-            if (!prepToken) {
-                throw new Error("No active session found.");
+            const candidateId = await getCandidateId();
+            if (!candidateId) {
+                throw new Error("Candidate ID not found.");
             }
 
-            const formData = new FormData();
-            const blob = new Blob([editJsonText], { type: "application/json" });
-            formData.append("file", blob, "resume.json");
-            formData.append("session_id", prepToken);
-
-            const authToken = typeof window !== "undefined" ? localStorage.getItem("access_token") || localStorage.getItem("token") || "" : "";
-            const res = await fetch(`${AIPREP_API}/setup/resume`, {
-                method: "POST",
-                body: formData,
-                headers: {
-                    "Authorization": `Bearer ${authToken}`
-                }
+            await apiFetch(`candidates/${candidateId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: { candidate_json: parsed }
             });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || "Failed to update resume JSON on server.");
-            }
 
             toast.success("Resume JSON updated successfully!");
 
@@ -873,7 +860,7 @@ export default function CandidateDashboard() {
 
                 const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (!res.ok) return;
@@ -1522,8 +1509,8 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
-            if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Sample job data:", posData?.[0] || {}); }
+            if (process.env.NODE_ENV === 'development') { console.log(" API Response - Total jobs received:", posData?.length || 0); }
+            if (process.env.NODE_ENV === 'development') { console.log("API Response - Sample job data:", posData?.[0] || {}); }
 
             // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
@@ -1535,7 +1522,7 @@ export default function CandidateDashboard() {
                 return shouldInclude && hasLink;
             });
 
-            if (process.env.NODE_ENV === 'development') { console.log("📊 Final filtered positions count:", filteredData.length); }
+            if (process.env.NODE_ENV === 'development') { console.log("Final filtered positions count:", filteredData.length); }
 
             // Debug: Show source distribution
             const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
@@ -1544,11 +1531,11 @@ export default function CandidateDashboard() {
                 return acc;
             }, {});
 
-            if (process.env.NODE_ENV === 'development') { console.log("📈 Source distribution:", sourceCounts); }
+            if (process.env.NODE_ENV === 'development') { console.log("Source distribution:", sourceCounts); }
 
             setPositions(filteredData);
         } catch (err) {
-            console.error("❌ Error loading positions:", err);
+            console.error(" Error loading positions:", err);
         } finally {
             setPositionsLoading(false);
         }
@@ -1690,7 +1677,7 @@ export default function CandidateDashboard() {
 
                     const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                         body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                     });
                     if (res.ok) {
@@ -3392,7 +3379,12 @@ export default function CandidateDashboard() {
 =======
 >>>>>>> 8dcae45 (Restored missing closing tags in CandidateDashboard after merge)
                             </div>
-                            );
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
                             const PhaseCard = ({
                                 title, icon, color, completed, active, daysSince, durationDays, batchName, rating, company, date,

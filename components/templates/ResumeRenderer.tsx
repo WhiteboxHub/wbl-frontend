@@ -31,7 +31,7 @@ const templateMap: Record<string, ComponentType<{ data: ResumeData }>> = {
 
 interface ResumeRendererProps {
   templateId: string;
-  data: ResumeData;
+  data: ResumeData | null;
   className?: string;
 }
 
