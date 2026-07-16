@@ -817,7 +817,7 @@ export default function CandidateDashboard() {
             const keys: any = await apiFetch("coderpad/me/llm-keys");
             hasAnyKeyInBackend = keys.length > 0;
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
-            
+
             if (defaultKey) {
                 // Check validation cache
                 try {
@@ -835,7 +835,7 @@ export default function CandidateDashboard() {
         } catch {
             // fallback
         }
-        
+
         try {
             const d: any = await setupApi.getStatus();
             // Fallback: if cache miss but they have keys in both places, assume AI prep status
@@ -2034,12 +2034,12 @@ export default function CandidateDashboard() {
                             <>
                                 {activeTab === 'ai_setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
-                                        <AiSetupTab 
-                                            candidateId={candidateId ?? undefined} 
+                                        <AiSetupTab
+                                            candidateId={candidateId ?? undefined}
                                             onFinishSetup={async () => {
                                                 await refreshSetupStatus();
                                                 goToTab('smartprep');
-                                            }} 
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -2935,10 +2935,10 @@ export default function CandidateDashboard() {
                                                                     inlineFileInputRef.current?.click();
                                                                 }}
                                                                 className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${setupStatus?.has_binary_resume
-                                                                        ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
-                                                                        : resumeDragOver
-                                                                            ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
-                                                                            : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
+                                                                    ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
+                                                                    : resumeDragOver
+                                                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
+                                                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
                                                                     }`}
                                                             >
                                                                 <input
@@ -3283,10 +3283,10 @@ export default function CandidateDashboard() {
                                 }}
                                 onClick={() => inlineFileInputRef.current?.click()}
                                 className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all duration-200 group ${resumeDragOver
-                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
-                                        : resumeFile
-                                            ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-900/5"
-                                            : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                                    ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
+                                    : resumeFile
+                                        ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-900/5"
+                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
                                     }`}
                             >
                                 <input
@@ -3297,54 +3297,81 @@ export default function CandidateDashboard() {
                                     className="hidden"
                                 />
 
-            {isResumeJsonModalOpen && (
-                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
-                    <DialogPrimitive.Portal>
-                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
-                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
-                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
-                                <span className="sr-only">Close</span>
-                            </DialogPrimitive.Close>
-                            {/* ── Header ── */}
-                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
-                                <div className="space-y-0.5">
-                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                        <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                        Resume JSON
-                                    </div>
-                                    <div className="text-sm text-gray-400 dark:text-gray-500">
-                                        View, edit, and copy your resume JSON for use with the Autofill Extension.
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex items-center gap-1.5 h-8 font-semibold text-xs rounded-lg"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        <Upload className="w-3.5 h-3.5" />
-                                        Upload JSON
-                                    </Button>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleFileUpload}
-                                        accept=".json"
-                                        className="hidden"
-                                    />
-                                </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+                                                <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
+                                                    {resumeJsonError && (
+                                                        <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
+                                                            {resumeJsonError}
+                                                        </div>
+                                                    )}
 
-                            {/* ── Body — grows to fill remaining height ── */}
-                            <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
-                                {resumeJsonError && (
-                                    <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
-                                        {resumeJsonError}
-                                    </div>
+                                                    <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
+                                                        {resumeJsonText ? (
+                                                            <textarea
+                                                                value={resumeJsonText}
+                                                                onChange={(e) => setResumeJsonText(e.target.value)}
+                                                                className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto dropdown-scroller"
+                                                                spellCheck={false}
+                                                            />
+                                                        ) : (
+                                                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                                                                <FileJson className="w-14 h-14 text-gray-300 dark:text-gray-600 mb-3" />
+                                                                <p className="text-base font-semibold text-gray-500">Resume JSON is not available yet.</p>
+                                                                <p className="text-sm text-gray-400 mt-1">Upload a JSON file or use the Setup Wizard to generate one.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* ── Footer ── */}
+                                                <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                                        onClick={() => setIsResumeJsonModalOpen(false)}
+                                                    >
+                                                        Close
+                                                    </Button>
+
+                                                    <div className="flex items-center gap-2">
+                                                        {resumeJsonText && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(resumeJsonText)
+                                                                        .then(() => toast.success("Resume JSON copied successfully."))
+                                                                        .catch(() => toast.error("Failed to copy JSON to clipboard."));
+                                                                }}
+                                                            >
+                                                                <Copy className="w-4 h-4" />
+                                                                Copy JSON
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            type="button"
+                                                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
+                                                            disabled={isSavingResumeJson}
+                                                            onClick={handleSaveResumeJson}
+                                                        >
+                                                            {isSavingResumeJson ? "Saving..." : "Save Changes"}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </DialogPrimitive.Content>
+                                        </DialogPrimitive.Portal>
+                                    </Dialog>
                                 )}
+<<<<<<< HEAD
 
                                 <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
                                     {resumeJsonText ? (
@@ -3362,109 +3389,68 @@ export default function CandidateDashboard() {
                                         </div>
                                     )}
                                 </div>
+=======
+>>>>>>> 8dcae45 (Restored missing closing tags in CandidateDashboard after merge)
                             </div>
-
-                            {/* ── Footer ── */}
-                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-9 px-4 text-sm font-semibold rounded-lg"
-                                    onClick={() => setIsResumeJsonModalOpen(false)}
-                                >
-                                    Close
-                                </Button>
-
-                                <div className="flex items-center gap-2">
-                                    {resumeJsonText && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(resumeJsonText)
-                                                    .then(() => toast.success("Resume JSON copied successfully."))
-                                                    .catch(() => toast.error("Failed to copy JSON to clipboard."));
-                                            }}
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                            Copy JSON
-                                        </Button>
-                                    )}
-                                    <Button
-                                        type="button"
-                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
-                                        disabled={isSavingResumeJson}
-                                        onClick={handleSaveResumeJson}
-                                    >
-                                        {isSavingResumeJson ? "Saving..." : "Save Changes"}
-                                    </Button>
-                                </div>
-                            </div>
-                        </DialogPrimitive.Content>
-                    </DialogPrimitive.Portal>
-                </Dialog>
-            )}
-        </div>
-    );
+                            );
 }
-const PhaseCard = ({
-    title, icon, color, completed, active, daysSince, durationDays, batchName, rating, company, date,
+                            const PhaseCard = ({
+                                title, icon, color, completed, active, daysSince, durationDays, batchName, rating, company, date,
 }: {
-    title: string; icon: React.ReactNode; color: string; completed?: boolean; active?: boolean; daysSince?: number;
-    durationDays?: number; batchName?: string; rating?: string; company?: string; date?: string;
+                                title: string; icon: React.ReactNode; color: string; completed?: boolean; active?: boolean; daysSince?: number;
+                            durationDays?: number; batchName?: string; rating?: string; company?: string; date?: string;
 }) => {
     // Highly simplified color mapping - just for the icon/line color
     const accentColor = active ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-500";
-    const borderColor = active ? "border-blue-200 dark:border-blue-800" : "border-gray-100 dark:border-gray-800";
+                            const borderColor = active ? "border-blue-200 dark:border-blue-800" : "border-gray-100 dark:border-gray-800";
 
-    return (
-        <div className={`bg-white dark:bg-gray-800 border ${borderColor} rounded-xl p-3 shadow-sm transition-all duration-200`}>
-            <div className="flex items-center gap-2.5 mb-3">
-                <div className={`${accentColor}`}>{icon}</div>
-                <h3 className="text-xs font-extrabold text-gray-900 dark:text-gray-100 tracking-tight uppercase leading-tight">{title}</h3>
-            </div>
+                            return (
+                            <div className={`bg-white dark:bg-gray-800 border ${borderColor} rounded-xl p-3 shadow-sm transition-all duration-200`}>
+                                <div className="flex items-center gap-2.5 mb-3">
+                                    <div className={`${accentColor}`}>{icon}</div>
+                                    <h3 className="text-xs font-extrabold text-gray-900 dark:text-gray-100 tracking-tight uppercase leading-tight">{title}</h3>
+                                </div>
 
-            <div className="space-y-3">
-                <div className="flex items-center h-5">
-                    {active ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-blue-500 text-white shadow-sm shadow-blue-500/20 animate-pulse">
-                            Active Now
-                        </span>
-                    ) : completed ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                            Completed
-                        </span>
-                    ) : (
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-300 dark:text-gray-600">
-                            Upcoming Step
-                        </span>
-                    )}
-                </div>
+                                <div className="space-y-3">
+                                    <div className="flex items-center h-5">
+                                        {active ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-blue-500 text-white shadow-sm shadow-blue-500/20 animate-pulse">
+                                                Active Now
+                                            </span>
+                                        ) : completed ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                                Completed
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-300 dark:text-gray-600">
+                                                Upcoming Step
+                                            </span>
+                                        )}
+                                    </div>
 
-                <div className="pt-2 border-t border-gray-50 dark:border-gray-700 space-y-1.5">
-                    {daysSince !== undefined && daysSince !== null && (
-                        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{daysSince} days total</p>
-                    )}
-                    {durationDays !== undefined && durationDays !== null && (
-                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{durationDays} days duration</p>
-                    )}
-                    {date && (
-                        <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                            <Calendar className="w-3 h-3" />
-                            {date}
-                        </p>
-                    )}
-                    {batchName && <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
-                        <span className="text-blue-500"></span> {batchName}
-                    </p>}
-                    {company && (
-                        <p className="text-xs font-extrabold text-blue-700 dark:text-blue-300 mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl truncate flex items-center gap-1.5">
-                            <span></span> {company}
-                        </p>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
+                                    <div className="pt-2 border-t border-gray-50 dark:border-gray-700 space-y-1.5">
+                                        {daysSince !== undefined && daysSince !== null && (
+                                            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{daysSince} days total</p>
+                                        )}
+                                        {durationDays !== undefined && durationDays !== null && (
+                                            <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{durationDays} days duration</p>
+                                        )}
+                                        {date && (
+                                            <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                                                <Calendar className="w-3 h-3" />
+                                                {date}
+                                            </p>
+                                        )}
+                                        {batchName && <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
+                                            <span className="text-blue-500"></span> {batchName}
+                                        </p>}
+                                        {company && (
+                                            <p className="text-xs font-extrabold text-blue-700 dark:text-blue-300 mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl truncate flex items-center gap-1.5">
+                                                <span></span> {company}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            );
 };
