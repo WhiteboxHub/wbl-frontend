@@ -1809,7 +1809,15 @@ export function EditModal({
     }
     if (data.instructor !== undefined && data.instructor !== null) {
       flattened.instructor = String(data.instructor);
-
+    }
+    if (data.move_to_prep !== undefined && data.move_to_prep !== null) {
+      flattened.move_to_prep = String(data.move_to_prep);
+    }
+    if (data.move_to_mrkt !== undefined && data.move_to_mrkt !== null) {
+      flattened.move_to_mrkt = String(data.move_to_mrkt);
+    }
+    if (data.move_to_placement !== undefined && data.move_to_placement !== null) {
+      flattened.move_to_placement = String(data.move_to_placement);
     }
 
     // Handle raw_payload JSON field - convert to formatted string for display
@@ -2192,7 +2200,9 @@ export function EditModal({
           "run_email_extraction",
           "run_outreach_emails",
           "linkedin_post",
-          "move_to_placement"
+          "move_to_placement",
+          "move_to_prep",
+          "move_to_mrkt"
         ];
         const isBooleanField = keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower);
         
