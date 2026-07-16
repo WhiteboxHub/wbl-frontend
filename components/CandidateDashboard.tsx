@@ -2289,7 +2289,7 @@ export default function CandidateDashboard() {
                                                     </p>
                                                 </div>
 
-                                                {/* Card 3: Mocks Attended */}
+                                                {/* Card 3: Individual Sessions */}
                                                 <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-yellow-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-amber-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
                                                         <Award className="w-20 h-20 text-amber-500" />
@@ -2298,11 +2298,10 @@ export default function CandidateDashboard() {
                                                         <div className="w-9 h-9 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center">
                                                             <Award className="w-4 h-4" />
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full">Mocks</span>
                                                     </div>
-                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Mock Interviews</h3>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Individual Sessions</h3>
                                                     <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.mocks_joined ?? 0}
+                                                        {sessions.length}
                                                     </p>
                                                 </div>
                                             </div>
