@@ -375,36 +375,36 @@ function EmployeeDashboardContent() {
             )}
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="bg-gray-50 border-2 border-gray-100 dark:bg-darklight dark:border-darklight rounded-xl p-1 flex flex-wrap lg:flex-nowrap h-auto mb-2 shadow-sm gap-1 w-full justify-start overflow-x-auto">
-                    <TabsTrigger value="overview" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 dark:border-darklight dark:from-dark dark:via-darklight dark:to-dark p-2 shadow-sm mb-5">
+                    <TabsTrigger value="overview" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Overview
                     </TabsTrigger>
-                    <TabsTrigger value="candidates" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="candidates" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Candidates
                     </TabsTrigger>
-                    <TabsTrigger value="jobs" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="jobs" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Jobs
                     </TabsTrigger>
-                    <TabsTrigger value="tasks" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="tasks" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Tasks
                     </TabsTrigger>
-                    <TabsTrigger value="placements" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="placements" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Placements
                     </TabsTrigger>
-                    <TabsTrigger value="job-help" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="job-help" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Job Help
                     </TabsTrigger>
-                    <TabsTrigger value="classes" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="classes" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Sessions
                     </TabsTrigger>
-                    <TabsTrigger value="interviews" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black-500 bg-transparent">
+                    <TabsTrigger value="interviews" className="rounded-lg py-1 px-3 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all text-sm text-black bg-transparent">
                         Today's Interviews
                     </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab Content */}
                 <TabsContent value="overview" className="mt-0 space-y-4 outline-none animate-fadeIn">
-                    <div className="grid grid-cols-1.5 md:grid-cols-2.5 lg:grid-cols-4.5 xl:grid-cols-7 gap-2">
+                    <div className="grid grid-cols-1.5 md:grid-cols-2.5 lg:grid-cols-4.5 xl:grid-cols-7 gap-2 ">
                         <MetricCard title="Placements" value={candidate_metrics.placement_count} icon={<Award />} />
                         <MetricCard title="Preparation" value={candidate_metrics.prep_count} icon={<GraduationCap />} />
                         <MetricCard title="Marketing" value={candidate_metrics.marketing_count} icon={<TrendingUp />} />
@@ -413,14 +413,14 @@ function EmployeeDashboardContent() {
                         <MetricCard title="Total Jobs" value={jobs_count} icon={<Briefcase />} />
                     </div>
 
-                    <Card className="rounded-3xl border border-gray-100 shadow-xl bg-white dark:bg-dark dark:border-darklight overflow-hidden">
+                    <Card className="rounded-3xl border border-gray-100 shadow-xl bg-white dark:bg-dark dark:border-darklight overflow-hidden w-[75%]">
                         <CardHeader className="bg-white dark:bg-dark dark:border-darklight border-b border-gray-100 p-5">
                             <CardTitle className="text-xl font-black text-purple-700 flex items-center gap-1">
                                 <Users size={20} /> Detailed Profile
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-5">
-                            <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] lg:grid-cols-[200px_1fr_1fr] gap-y-6 gap-x-6">
+                            <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] lg:grid-cols-[200px_400px_200px] gap-y-6 gap-x-6">
                                 <div className="space-y-0.5">
                                     <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Employment Status</p>
                                     <p className="text-lg font-bold text-black dark:text-white uppercase">{employee_info.status === 1 ? 'Active' : 'Inactive'}</p>
@@ -518,10 +518,10 @@ function EmployeeDashboardContent() {
                                 <GraduationCap size={24} /> Candidates Distribution
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
-                            <div className="overflow-x-auto">
+                        <CardContent className="p-0">
+                            <div className="max-h-[400px]">
                                 <table className="w-full table-fixed">
-                                    <thead className="sticky top-0 bg-gray-50 border-b text-[11px] font-bold uppercase text-gray-500 dark:bg-darklight dark:text-gray-300 dark:border-dark tracking-wider">
+                                    <thead className="sticky top-0 bg-gray-50 border-b text-[11px] font-bold uppercase text-gray-500 dark:bg-darklight dark:text-gray-300 dark:border-dark tracking-wider ">
                                         <tr>
                                             <th className="text-left px-8 py-5">Candidate</th>
                                             <th className="text-left px-8 py-5">Batch</th>
