@@ -165,6 +165,7 @@ interface Session {
     videoid?: string;
     type: string;
     subject: string;
+    joined_candidate_ids?: number[];
 }
 
 interface ApiError {
