@@ -14,6 +14,7 @@ import api, { smartUpdate } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+import { signOut, useSession } from "next-auth/react";
 
 // Authentication helper (now redundant, but kept for reference)
 const getAuthToken = (): string | null => {
@@ -110,6 +111,7 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
 };
 
 export default function AuthUsersPage() {
+  const { data: session } = useSession();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [users, setUsers] = useState<any[]>([]);
@@ -167,13 +169,15 @@ export default function AuthUsersPage() {
 
   // Role Renderer
   const RoleRenderer = (params: any) => {
-    const role = params.value ?? "";
+    const role = (params.value ?? "").toLowerCase();
     const map: Record<string, string> = {
-      ADMIN: "bg-indigo-100 text-indigo-800",
-      USER: "bg-gray-100 text-gray-800",
-      MANAGER: "bg-emerald-100 text-emerald-800",
+      admin: "bg-indigo-100 text-indigo-800",
+      employee: "bg-emerald-100 text-emerald-800",
+      candidate: "bg-blue-100 text-blue-800",
+      user: "bg-gray-100 text-gray-800",
+      manager: "bg-emerald-100 text-emerald-800",
     };
-    return <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>;
+    return <Badge className={`${map[role] ?? "bg-gray-200 text-gray-700"} capitalize`}>{params.value || ""}</Badge>;
   };
 
   // Visa Status Renderer
@@ -310,7 +314,17 @@ export default function AuthUsersPage() {
       editable: true,
       cellEditor: 'agTextCellEditor',
     },
-    { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer, cellEditor: 'agTextCellEditor' },
+    {
+      field: "role",
+      headerName: "Role",
+      width: 150,
+      editable: true,
+      cellRenderer: RoleRenderer,
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: {
+        values: ["admin", "employee", "candidate"]
+      }
+    },
     {
       field: "notes",
       headerName: "Notes",
@@ -344,8 +358,57 @@ export default function AuthUsersPage() {
 
       const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
       await invalidateCache("/users");
+      await invalidateCache("/api/employees");
+      await invalidateCache("/api/candidates");
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
+
+      // Auto-logout if the user disabled their own account
+      let loggedInEmail = session?.user?.email;
+      if (!loggedInEmail) {
+        const token = localStorage.getItem("access_token");
+        if (token) {
+           try {
+             const decoded = JSON.parse(atob(token.split(".")[1]));
+             loggedInEmail = decoded?.sub;
+           } catch (e) {
+             console.error(e);
+           }
+        }
+      }
+
+      if (loggedInEmail === updatedRow.uname && dataToSend.status?.toLowerCase() === "inactive") {
+        toast.error("You deactivated your own account. Logging out...");
+        setTimeout(async () => {
+          localStorage.removeItem("access_token");
+          // If they used NextAuth, signOut will work. Otherwise just redirect.
+          if (session) {
+            await signOut({ callbackUrl: "/login" });
+          } else {
+            window.location.href = "/login";
+          }
+        }, 1500);
+      } else if (loggedInEmail === updatedRow.uname) {
+        try {
+          const token = localStorage.getItem("access_token");
+          if (token) {
+            const refreshRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/refresh_token`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (refreshRes.ok) {
+              const refreshData = await refreshRes.json();
+              if (refreshData.access_token) {
+                localStorage.setItem("access_token", refreshData.access_token);
+                toast.success("Role updated. Applying changes...", { duration: 1500 });
+                setTimeout(() => window.location.reload(), 1000);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Failed to refresh token", e);
+        }
+      }
     } catch (err) {
       console.error("Failed to update user:", err);
       toast.error(err.message || "Failed to update user");

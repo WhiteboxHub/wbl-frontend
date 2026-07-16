@@ -14,6 +14,12 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: any; label: string }[]> = {
+  role: [
+    { value: "", label: "Select Role" },
+    { value: "admin", label: "Admin" },
+    { value: "employee", label: "Employee" },
+    { value: "candidate", label: "Candidate" },
+  ],
   move_to_prep: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
@@ -2223,7 +2229,7 @@ export function EditModal({
           "move_to_placement"
         ];
         const isBooleanField = keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower);
-        
+
         if (isBooleanField) {
           reconstructedData[key] = val === "true";
         }
@@ -4624,9 +4630,8 @@ export function EditModal({
                                 })}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
                                 readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
-                                className={`${
-                                  isDurationField ? "w-28" : "w-full"
-                                } rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
+                                className={`${isDurationField ? "w-28" : "w-full"
+                                  } rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                               />
                             );
 

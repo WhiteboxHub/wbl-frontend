@@ -692,6 +692,8 @@ export default function EmployeesPage() {
         body: payload,
       });
       await invalidateCache("/api/employees");
+      await invalidateCache("/users");
+      await invalidateCache("/api/candidates");
 
       const updatedList = employees.map((emp) =>
         emp.id === updatedRow.id

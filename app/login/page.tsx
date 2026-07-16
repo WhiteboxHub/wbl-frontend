@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
-import { getUserTeamRole } from "@/utils/auth";
+import { getUserTeamRole, isAuthenticated } from "@/utils/auth";
 
 const SigninPage = () => {
 
@@ -41,7 +41,7 @@ const SigninPage = () => {
 
     const response: ExtendedSignInResponse | undefined = (await signIn("google", {
       redirect: false,
-    })) as ExtendedSignInResponse;
+    }, { prompt: "select_account" })) as ExtendedSignInResponse;
 
     if (!response) {
       setGoogleStatus("error");
@@ -71,7 +71,7 @@ const SigninPage = () => {
           if (role === "admin") {
             router.push("/avatar");
           } else if (role === "employee") {
-            router.push("/");
+            router.push("/avatar/employee/employee-dashboard");
           } else {
             // Redirect candidates to home dashboard
             router.push("/user_dashboard");
@@ -93,9 +93,11 @@ const SigninPage = () => {
     if (session?.user?.status === "inactive") {
       setGoogleMessage("Inactive account. Please contact admin.");
       setGoogleStatus("error");
+      signOut({ redirect: false });
     } else if (session?.user?.status === "registered") {
       setGoogleMessage("Registered successfully !!");
       setGoogleStatus("success");
+      signOut({ redirect: false });
     } else if (session?.user?.status === "active") {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
@@ -103,7 +105,7 @@ const SigninPage = () => {
       if (role === "admin") {
         router.push("/avatar");
       } else if (role === "employee") {
-        router.push("/");
+        router.push("/avatar/employee/employee-dashboard");
       } else {
         router.push("/user_dashboard");
       }
@@ -153,9 +155,9 @@ const SigninPage = () => {
             router.push("/avatar");
           }, 500);
         } else if (role === "employee") {
-          // Employees redirect to landing page
+          // Employees redirect to avatar dashboard
           setTimeout(() => {
-            router.push("/");
+            router.push("/avatar/employee/employee-dashboard");
           }, 500);
         } else {
           // Candidates redirect to home dashboard
@@ -165,16 +167,16 @@ const SigninPage = () => {
         }
       } else {
         setResponseStatus("error");
-        setMessage(data.detail || "Failed to login");
+        setMessage(data.detail || data.message || "Failed to login");
         setLoading(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       if (process.env.NODE_ENV === "development") {
         console.error(error);
       }
 
       setResponseStatus("error");
-      setMessage("An error occurred during login");
+      setMessage(error?.response?.data?.detail || error?.message || "An error occurred during login");
       setLoading(false);
     }
     
@@ -200,18 +202,31 @@ const SigninPage = () => {
 
   // Check if access token exists on load and redirect if present
   useEffect(() => {
-    const accessToken = localStorage.getItem("access_token");
-    if (accessToken) {
-      const role = getUserTeamRole(accessToken);
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
+    const checkTokenAndRedirect = async () => {
+      const accessToken = localStorage.getItem("access_token");
+      if (accessToken) {
+        // Validate the token to ensure the user is active
+        const auth = await isAuthenticated();
+        if (!auth.valid) {
+          // Token is invalid or user is inactive, clear the stuck session
+          localStorage.removeItem("access_token");
+          signOut({ redirect: false });
+          return;
+        }
+
+        const role = getUserTeamRole(accessToken);
+        if (role === "admin") {
+          router.push("/avatar");
+        } else if (role === "employee") {
+          router.push("/avatar/employee/employee-dashboard");
+        } else {
+          router.push("/user_dashboard");
+        }
       }
-    }
+    };
+    checkTokenAndRedirect();
   }, [router]);
+
 
   return (
     <Suspense fallback={<div>LOADING...</div>}>

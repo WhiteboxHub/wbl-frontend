@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/admin_ui/button";
 import {
   ShieldCheck,
@@ -28,6 +28,7 @@ interface AvatarLayoutProps {
 
 export function AvatarLayout({ children }: AvatarLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { userRole } = useAuth() as { userRole: string };
 
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -231,7 +232,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
     {
       title: "Misc",
-      href: "/avatar/misc/authuser",
+      href: "/avatar/misc/documents",
       icon: ShieldCheck,
       children: [
         { title: "Documents", href: "/avatar/misc/documents" },
@@ -241,7 +242,50 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     },
   ];
 
-  const sidebarItems = allSidebarItems;
+  const sidebarItems = allSidebarItems.map(item => {
+    // Hide 'Authuser' from the 'Misc' dropdown for employees
+    if (item.title === "Misc" && userRole === "employee") {
+      return {
+        ...item,
+        children: item.children?.filter(child => child.title !== "Authuser")
+      };
+    }
+    return item;
+  }).filter((item) => {
+    if (userRole === "admin") return true;
+    
+    if (userRole === "candidate") {
+      if (item.title === "Employees" || item.title === "Misc") {
+        return false;
+      }
+    }
+    
+    if (userRole === "employee") {
+      if (item.title === "Employees") {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // Client-side route guard
+  useEffect(() => {
+    if (userRole === "candidate") {
+      if (
+        pathname.startsWith("/avatar/misc") ||
+        (pathname.startsWith("/avatar/employee") && pathname !== "/avatar/employee/employee-dashboard")
+      ) {
+        router.push("/user_dashboard");
+      }
+    } else if (userRole === "employee") {
+      if (
+        pathname === "/avatar/misc/authuser" ||
+        (pathname.startsWith("/avatar/employee") && pathname !== "/avatar/employee/employee-dashboard")
+      ) {
+        router.push("/avatar/employee/employee-dashboard");
+      }
+    }
+  }, [pathname, userRole, router]);
 
   const handleItemClick = (href: string, hasChildren: boolean) => {
     if (hasChildren) {

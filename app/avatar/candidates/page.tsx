@@ -1345,6 +1345,8 @@ export default function CandidatesPage() {
         const { id, ...payload } = updatedData;
         await api.put(`${apiPath}/${updatedRow.id}`, payload);
         await invalidateCache(apiPath);
+        await invalidateCache("/users");
+        await invalidateCache("/api/employees");
         setCandidates((prevCandidates) =>
           prevCandidates.map((candidate) =>
             candidate.id === updatedRow.id ? updatedData : candidate
