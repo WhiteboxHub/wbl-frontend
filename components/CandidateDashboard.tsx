@@ -982,7 +982,7 @@ export default function CandidateDashboard() {
         },
         {
             field: "feedback",
-            headerName: "Feedback",
+            headerName: "Result",
             flex: 1,
             minWidth: 130,
             cellRenderer: (params: any) => {
@@ -1020,7 +1020,7 @@ export default function CandidateDashboard() {
         },
         {
             field: "feedback_text",
-            headerName: "Feedback Text",
+            headerName: "Detailed Feedback",
             flex: 2,
             minWidth: 250,
             editable: true,
@@ -2394,7 +2394,7 @@ export default function CandidateDashboard() {
                                                         onClick={() => setShowAddInterview(true)}
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
                                                     >
-                                                        <Plus className="w-4 h-4" /> Schedule Interview
+                                                        <Plus className="w-4 h-4" /> Add Interview
                                                     </button>
                                                 </div>
                                             </div>
@@ -2509,7 +2509,7 @@ export default function CandidateDashboard() {
                                                             </button>
                                                             <button onClick={handleAddInterview} disabled={addInterviewLoading}
                                                                 className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
-                                                                {addInterviewLoading ? "Saving..." : "Schedule Interview"}
+                                                                {addInterviewLoading ? "Saving..." : "Add Interview"}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -2557,7 +2557,7 @@ export default function CandidateDashboard() {
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
                                                                             <input type="text" readOnly value={viewData.type_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Result</label>
                                                                             <input type="text" readOnly value={viewData.feedback ?? 'Pending'} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" />
                                                                         </div>
                                                                     </div>
@@ -2567,7 +2567,7 @@ export default function CandidateDashboard() {
                                                                     <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
                                                                     <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
@@ -2629,7 +2629,7 @@ export default function CandidateDashboard() {
                                                                                 <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                             </select></div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Result</label>
                                                                             <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option value="Pending">Pending</option>
                                                                                 <option value="Positive">Positive</option>
@@ -2643,7 +2643,7 @@ export default function CandidateDashboard() {
                                                                     <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
                                                                     <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
