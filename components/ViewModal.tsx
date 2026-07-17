@@ -350,6 +350,8 @@ const labelOverrides: Record<string, string> = {
   fullname: "Full Name",
   lastmod_user_name: "Last Modified By",
   job_posting_url: "Job Posting URL",
+  feedback: "Result",
+  feedback_text: "Detailed Feedback",
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
