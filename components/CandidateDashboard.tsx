@@ -327,6 +327,114 @@ const FilterHeaderComponent = ({
                     </div>,
                     document.body
                 )}
+            {isResumeJsonModalOpen && (
+                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                                <div className="space-y-0.5">
+                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        Resume JSON
+                                    </div>
+                                    <div className="text-sm text-gray-400 dark:text-gray-500">
+                                        View, edit, and copy your resume JSON for use with the Autofill Extension.
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1.5 h-8 font-semibold text-xs rounded-lg"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        Upload JSON
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        accept=".json"
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ── Body — grows to fill remaining height ── */}
+                            <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
+                                {resumeJsonError && (
+                                    <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
+                                        {resumeJsonError}
+                                    </div>
+                                )}
+
+                                <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
+                                    {resumeJsonText ? (
+                                        <textarea
+                                            value={resumeJsonText}
+                                            onChange={(e) => setResumeJsonText(e.target.value)}
+                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto"
+                                            spellCheck={false}
+                                        />
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                                            <FileJson className="w-14 h-14 text-gray-300 dark:text-gray-600 mb-3" />
+                                            <p className="text-base font-semibold text-gray-500">Resume JSON is not available yet.</p>
+                                            <p className="text-sm text-gray-400 mt-1">Upload a JSON file or use the Setup Wizard to generate one.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── Footer ── */}
+                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                    onClick={() => setIsResumeJsonModalOpen(false)}
+                                >
+                                    Close
+                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    {resumeJsonText && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(resumeJsonText)
+                                                    .then(() => toast.success("Resume JSON copied successfully."))
+                                                    .catch(() => toast.error("Failed to copy JSON to clipboard."));
+                                            }}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy JSON
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
+                                        disabled={isSavingResumeJson}
+                                        onClick={handleSaveResumeJson}
+                                    >
+                                        {isSavingResumeJson ? "Saving..." : "Save Changes"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
         </div>
     );
 };
@@ -353,6 +461,114 @@ const StatusRenderer = ({ value }: { value?: string }) => {
             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border ${variantMap[status] || variantMap.default}`}>
                 {formatted || "N/A"}
             </span>
+            {isResumeJsonModalOpen && (
+                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                                <div className="space-y-0.5">
+                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        Resume JSON
+                                    </div>
+                                    <div className="text-sm text-gray-400 dark:text-gray-500">
+                                        View, edit, and copy your resume JSON for use with the Autofill Extension.
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1.5 h-8 font-semibold text-xs rounded-lg"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        Upload JSON
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        accept=".json"
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ── Body — grows to fill remaining height ── */}
+                            <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
+                                {resumeJsonError && (
+                                    <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
+                                        {resumeJsonError}
+                                    </div>
+                                )}
+
+                                <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
+                                    {resumeJsonText ? (
+                                        <textarea
+                                            value={resumeJsonText}
+                                            onChange={(e) => setResumeJsonText(e.target.value)}
+                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto"
+                                            spellCheck={false}
+                                        />
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                                            <FileJson className="w-14 h-14 text-gray-300 dark:text-gray-600 mb-3" />
+                                            <p className="text-base font-semibold text-gray-500">Resume JSON is not available yet.</p>
+                                            <p className="text-sm text-gray-400 mt-1">Upload a JSON file or use the Setup Wizard to generate one.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── Footer ── */}
+                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                    onClick={() => setIsResumeJsonModalOpen(false)}
+                                >
+                                    Close
+                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    {resumeJsonText && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(resumeJsonText)
+                                                    .then(() => toast.success("Resume JSON copied successfully."))
+                                                    .catch(() => toast.error("Failed to copy JSON to clipboard."));
+                                            }}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy JSON
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
+                                        disabled={isSavingResumeJson}
+                                        onClick={handleSaveResumeJson}
+                                    >
+                                        {isSavingResumeJson ? "Saving..." : "Save Changes"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
         </div>
     );
 };
@@ -3289,6 +3505,114 @@ export default function CandidateDashboard() {
                     </div>
                 </div>
             )}
+            {isResumeJsonModalOpen && (
+                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                                <div className="space-y-0.5">
+                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        Resume JSON
+                                    </div>
+                                    <div className="text-sm text-gray-400 dark:text-gray-500">
+                                        View, edit, and copy your resume JSON for use with the Autofill Extension.
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1.5 h-8 font-semibold text-xs rounded-lg"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        Upload JSON
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        accept=".json"
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ── Body — grows to fill remaining height ── */}
+                            <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
+                                {resumeJsonError && (
+                                    <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
+                                        {resumeJsonError}
+                                    </div>
+                                )}
+
+                                <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
+                                    {resumeJsonText ? (
+                                        <textarea
+                                            value={resumeJsonText}
+                                            onChange={(e) => setResumeJsonText(e.target.value)}
+                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto"
+                                            spellCheck={false}
+                                        />
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                                            <FileJson className="w-14 h-14 text-gray-300 dark:text-gray-600 mb-3" />
+                                            <p className="text-base font-semibold text-gray-500">Resume JSON is not available yet.</p>
+                                            <p className="text-sm text-gray-400 mt-1">Upload a JSON file or use the Setup Wizard to generate one.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── Footer ── */}
+                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                    onClick={() => setIsResumeJsonModalOpen(false)}
+                                >
+                                    Close
+                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    {resumeJsonText && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(resumeJsonText)
+                                                    .then(() => toast.success("Resume JSON copied successfully."))
+                                                    .catch(() => toast.error("Failed to copy JSON to clipboard."));
+                                            }}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy JSON
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
+                                        disabled={isSavingResumeJson}
+                                        onClick={handleSaveResumeJson}
+                                    >
+                                        {isSavingResumeJson ? "Saving..." : "Save Changes"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
         </div>
     );
 }
@@ -3382,6 +3706,114 @@ export default function CandidateDashboard() {
                         </div>
                     </div>
                 </div>
+            )}
+            {isResumeJsonModalOpen && (
+                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between shrink-0">
+                                <div className="space-y-0.5">
+                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <FileJson className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        Resume JSON
+                                    </div>
+                                    <div className="text-sm text-gray-400 dark:text-gray-500">
+                                        View, edit, and copy your resume JSON for use with the Autofill Extension.
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1.5 h-8 font-semibold text-xs rounded-lg"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <Upload className="w-3.5 h-3.5" />
+                                        Upload JSON
+                                    </Button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        accept=".json"
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* ── Body — grows to fill remaining height ── */}
+                            <div className="flex-1 overflow-hidden flex flex-col px-6 py-5 gap-3 min-h-0">
+                                {resumeJsonError && (
+                                    <div className="p-3 text-xs bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg shrink-0">
+                                        {resumeJsonError}
+                                    </div>
+                                )}
+
+                                <div className="flex-1 flex flex-col border border-blue-100 dark:border-blue-900 rounded-xl overflow-hidden bg-blue-50/20 dark:bg-gray-950/40 shadow-sm min-h-0">
+                                    {resumeJsonText ? (
+                                        <textarea
+                                            value={resumeJsonText}
+                                            onChange={(e) => setResumeJsonText(e.target.value)}
+                                            className="flex-1 w-full h-full bg-transparent border-0 outline-none focus:ring-0 p-4 font-mono text-xs leading-6 text-gray-700 dark:text-gray-200 resize-none overflow-y-auto"
+                                            spellCheck={false}
+                                        />
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-400">
+                                            <FileJson className="w-14 h-14 text-gray-300 dark:text-gray-600 mb-3" />
+                                            <p className="text-base font-semibold text-gray-500">Resume JSON is not available yet.</p>
+                                            <p className="text-sm text-gray-400 mt-1">Upload a JSON file or use the Setup Wizard to generate one.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* ── Footer ── */}
+                            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20 flex items-center justify-between gap-3 shrink-0">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                    onClick={() => setIsResumeJsonModalOpen(false)}
+                                >
+                                    Close
+                                </Button>
+
+                                <div className="flex items-center gap-2">
+                                    {resumeJsonText && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(resumeJsonText)
+                                                    .then(() => toast.success("Resume JSON copied successfully."))
+                                                    .catch(() => toast.error("Failed to copy JSON to clipboard."));
+                                            }}
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy JSON
+                                        </Button>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-5 text-sm rounded-lg"
+                                        disabled={isSavingResumeJson}
+                                        onClick={handleSaveResumeJson}
+                                    >
+                                        {isSavingResumeJson ? "Saving..." : "Save Changes"}
+                                    </Button>
+                                </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
             )}
         </div>
     );
