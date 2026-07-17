@@ -179,7 +179,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'ai-setup' | 'my-resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -1818,7 +1818,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'job-board' as TabType, name: 'Job Board', icon: Briefcase },
-        { id: 'ai-setup' as TabType, name: 'My LLM Setup', icon: Settings },
+        { id: 'my-llm-setup' as TabType, name: 'My LLM Setup', icon: Settings },
         { id: 'my-resume' as TabType, name: 'My Resume', icon: FileText },
         { id: 'my-sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
         { id: 'my-interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
@@ -2052,7 +2052,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             </div>
                         ) : (
                             <>
-                                {activeTab === 'ai-setup' && (
+                                {activeTab === 'my-llm-setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
                                         <AiSetupTab 
                                             candidateId={candidateId ?? undefined} 
@@ -2861,7 +2861,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 if (setupStatus?.api_keys_configured) {
                                                                     goToTab('my-resume');
                                                                 } else {
-                                                                    goToTab('ai-setup');
+                                                                    goToTab('my-llm-setup');
                                                                 }
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -2979,7 +2979,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 To upload and parse your resume using AI, you must configure at least one active API key in the LLM setup tab first.
                                                             </p>
                                                             <button
-                                                                onClick={() => goToTab('ai-setup')}
+                                                                onClick={() => goToTab('my-llm-setup')}
                                                                 className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md cursor-pointer"
                                                             >
                                                                 <Settings size={14} />
