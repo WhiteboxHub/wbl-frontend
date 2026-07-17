@@ -1919,8 +1919,7 @@ export default function CandidateDashboard() {
                                     { icon: Calendar, label: "Enrolled", value: data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A", color: "text-green-500" },
                                     { icon: Briefcase, label: "Fee Paid", value: `$${data.basic_info.fee_paid || 0}`, color: "text-emerald-500" },
                                     { icon: Activity, label: "Logins", value: `${userProfile?.login_count || 0}`, color: "text-orange-500" },
-                                ].map(({ icon: Icon, label, value, color, widthClass }) => (
-                                    // <div key={label} className={`hidden lg:flex flex-col gap-1 ${widthClass || "min-w-0"}`}>
+                                ].map(({ icon: Icon, label, value, color }) => (
                                     <div
                                         key={label}
                                         className={`hidden lg:flex flex-col items-center justify-center text-center flex-1 px-6 border-r border-gray-200 dark:border-gray-700 last:border-r-0`}
