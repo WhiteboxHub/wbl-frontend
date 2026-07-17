@@ -179,7 +179,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup' | 'my_resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -361,7 +361,11 @@ const StatusRenderer = ({ value }: { value?: string }) => {
     );
 };
 
-export default function CandidateDashboard() {
+interface CandidateDashboardProps {
+    defaultTab?: string;
+}
+
+export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
@@ -404,12 +408,16 @@ export default function CandidateDashboard() {
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+
+    useEffect(() => {
+        setActiveTab(defaultTab as TabType);
+    }, [defaultTab]);
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
-        setActiveTab(tab);
+        router.push(`/user_dashboard/${tab}`);
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -1685,15 +1693,15 @@ export default function CandidateDashboard() {
     }, [data]);
 
     useEffect(() => {
-        if (activeTab === 'jobs' && positions.length === 0) {
+        if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'interviews') {
+        if (activeTab === 'my-interviews') {
             // Auto-refresh interview data when switching to this tab
             // so employee UI changes (feedback, notes) are visible immediately
             loadDashboard();
         }
-        if (activeTab === 'my_resume' && candidateId) {
+        if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
                 try {
                     const token = localStorage.getItem("access_token") || "";
@@ -1809,12 +1817,12 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
-        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
-        { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
-        { id: 'my_resume' as TabType, name: 'My Resume', icon: FileText },
-        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
-        { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
+        { id: 'job-board' as TabType, name: 'Job Board', icon: Briefcase },
+        { id: 'my-llm-setup' as TabType, name: 'My LLM Setup', icon: Settings },
+        { id: 'my-resume' as TabType, name: 'My Resume', icon: FileText },
+        { id: 'my-sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
+        { id: 'my-interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
+        { id: 'my-applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
     return (
@@ -1871,15 +1879,15 @@ export default function CandidateDashboard() {
                                 <span>Coderpad</span>
                             </a>
                             <button
-                                onClick={() => goToTab('smartprep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'smartprep'
+                                onClick={() => goToTab('wbl-smartprep')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'wbl-smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>WBL SmartPrep</span>
-                                {activeTab === 'smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                                {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
                         </div>
                     </div>
@@ -1942,7 +1950,7 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    {activeTab === 'jobs' && (
+                    {activeTab === 'job-board' && (
                         <div className="flex items-center gap-3 translate-y-[3px]">
                             <button
                                 type="button"
@@ -2008,8 +2016,8 @@ export default function CandidateDashboard() {
                         CoderPad
                     </a>
                     <button
-                        onClick={() => goToTab('smartprep')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'smartprep'
+                        onClick={() => goToTab('wbl-smartprep')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'wbl-smartprep'
                             ? "bg-indigo-600 text-white shadow-sm"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                             }`}
@@ -2038,19 +2046,19 @@ export default function CandidateDashboard() {
                                         // Invalidate prefetch so next open re-fetches fresh data
                                         setPrefetchDone(false);
                                         setPrefetchedSession(null);
-                                        goToTab("smartprep");
+                                        goToTab("wbl-smartprep");
                                     }}
                                 />
                             </div>
                         ) : (
                             <>
-                                {activeTab === 'ai_setup' && (
+                                {activeTab === 'my-llm-setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
                                         <AiSetupTab 
                                             candidateId={candidateId ?? undefined} 
                                             onFinishSetup={async () => {
                                                 await refreshSetupStatus();
-                                                goToTab('smartprep');
+                                                goToTab('wbl-smartprep');
                                             }} 
                                         />
                                     </div>
@@ -2243,7 +2251,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'sessions' && (
+                                {activeTab === 'my-sessions' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
@@ -2370,7 +2378,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'interviews' && (
+                                {activeTab === 'my-interviews' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex items-center justify-between mb-6">
@@ -2703,7 +2711,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'jobs' && (
+                                {activeTab === 'job-board' && (
                                     <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
                                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
                                             <div className="flex items-center gap-3">
@@ -2741,7 +2749,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'smartprep' && (
+                                {activeTab === 'wbl-smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
 
                                         {/* AI Profile Setup Card */}
@@ -2851,9 +2859,9 @@ export default function CandidateDashboard() {
                                                             type="button"
                                                             onClick={() => {
                                                                 if (setupStatus?.api_keys_configured) {
-                                                                    goToTab('my_resume');
+                                                                    goToTab('my-resume');
                                                                 } else {
-                                                                    goToTab('ai_setup');
+                                                                    goToTab('my-llm-setup');
                                                                 }
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -2869,9 +2877,9 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
+                                {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
-                                {activeTab === 'my_applications' && (
+                                {activeTab === 'my-applications' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
                                             {/* Header */}
@@ -2943,7 +2951,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'my_resume' && (
+                                {activeTab === 'my-resume' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8 animate-in fade-in duration-200">
                                             {!showTemplates ? (
@@ -2971,7 +2979,7 @@ export default function CandidateDashboard() {
                                                                 To upload and parse your resume using AI, you must configure at least one active API key in the LLM setup tab first.
                                                             </p>
                                                             <button
-                                                                onClick={() => setActiveTab('ai_setup')}
+                                                                onClick={() => goToTab('my-llm-setup')}
                                                                 className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md cursor-pointer"
                                                             >
                                                                 <Settings size={14} />
