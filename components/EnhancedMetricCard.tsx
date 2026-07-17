@@ -108,15 +108,20 @@ export function EnhancedMetricCard({
   return (
     <Card className={cn(
       styles.bg,
+      "border",
       styles.border,
-      "transition-all duration-200 hover:shadow-md hover:scale-105",
+      "rounded-2xl",
+      "shadow-sm",
+      "hover:shadow-2xl",
+      "hover:-translate-y-1",
+      "transition-all duration-300 ease-in-out",
       className
     )}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
           <div className="flex-1">
-            <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">{title}</div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
+            <div className="text-xs uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mb-3">{title}</div>
+            <div className="text-3xl font-extrabold text-gray-900 dark:text-white leading-none">{value}</div>
             {trend && (
               <div className={cn(
                 "flex items-center text-xs mt-2 font-medium",
@@ -128,10 +133,10 @@ export function EnhancedMetricCard({
           </div>
           {icon && (
             <div className={cn(
-              "p-2 rounded-lg",
+              "flex h-12 w-12 items-center justify-center rounded-xl",
               styles.iconBg
             )}>
-              <div className={cn("h-5 w-5", styles.iconColor)}>
+              <div className={cn("h-6 w-6", styles.iconColor)}>
                 {icon}
               </div>
             </div>

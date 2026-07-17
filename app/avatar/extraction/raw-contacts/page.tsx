@@ -106,6 +106,7 @@ export default function AutomationContactExtractsPage() {
     const [loading, setLoading] = useState(false);
     const showLoader = useMinimumLoadingTime(loading);
     const [selectedRows, setSelectedRows] = useState<any[]>([]);
+    const fetchRequestId = useRef(0);
     const [confirmDialog, setConfirmDialog] = useState<{
         isOpen: boolean;
         title: string;
@@ -119,13 +120,46 @@ export default function AutomationContactExtractsPage() {
     });
 
     const fetchExtracts = useCallback(async () => {
+        const requestId = ++fetchRequestId.current;
         setLoading(true);
         try {
-            const res = await cachedApiFetch("/automation-extracts");
-            // cachedApiFetch returns { data: [...] }
-            const data = res?.data || [];
-            setExtracts(data);
+            const pageSize = 500;
+            // ---------------- First Page ----------------
+            const firstResponse = await cachedApiFetch(
+                `/automation-extracts/paginated?page=1&page_size=${pageSize}`
+            );
+            const firstPage = firstResponse?.data || {};
+            const firstData = Array.isArray(firstPage.data)
+                ? firstPage.data
+                : [];
+
+            if (requestId !== fetchRequestId.current) return;
+
+            setExtracts(firstData);
+            setLoading(false);
+
+            let allData = [...firstData];
+            let currentPage = 2;
+            let hasNext = firstPage.has_next;
+
+
+
+            while (hasNext && requestId === fetchRequestId.current) {
+                const response = await cachedApiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                // cachedApiFetch returns { data: [...] }
+                const page = response?.data || response || [];
+                const pageData = Array.isArray(page.data) ? page.data : [];
+                const has_next_page = page.has_next || false;
+                allData = [...allData, ...pageData];
+                hasNext = page.has_next;
+                currentPage++;
+                if (requestId === fetchRequestId.current) {
+                    setExtracts([...allData]);
+                }
+            }
+
         } catch (err: any) {
+            if (requestId !== fetchRequestId.current) return;
             console.error("[fetchExtracts] Error:", err);
             // Handle auth errors consistently
             if (err?.status === 401) {
@@ -134,12 +168,17 @@ export default function AutomationContactExtractsPage() {
                 toast.error(err?.message || "Failed to load extracts");
             }
         } finally {
-            setLoading(false);
+            if (requestId === fetchRequestId.current) {
+                setLoading(false);
+            }
         }
-    }, []);
+    }, [setLoading, setExtracts, cachedApiFetch]);
 
     useEffect(() => {
         fetchExtracts();
+        return () => {
+            fetchRequestId.current++;
+        };
     }, [fetchExtracts]);
 
     const filteredExtracts = useMemo(() => {
