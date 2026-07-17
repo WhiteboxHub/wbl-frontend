@@ -926,8 +926,8 @@ export default function CandidatesInterviews() {
     { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
     { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
     { field: "job_description", headerName: "Job Description", width: 200, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true},
-    { field: "feedback", headerName: "Feedback Status", cellRenderer: FeedbackRenderer, width: 120, editable: true },
-    { field: "feedback_text", headerName: "Feedback", width: 120, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
+    { field: "feedback", headerName: "Result", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+    { field: "feedback_text", headerName: "Detailed Feedback", width: 120, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
     { field: "email_text", headerName: "Email", width: 120, editable: true},
     {
       field: "linkedin_id",

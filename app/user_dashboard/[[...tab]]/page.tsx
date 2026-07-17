@@ -17,7 +17,7 @@ interface UserProfile {
 }
 
 // ── Candidate sub-component with setup-status banner ─────────────────────────
-function CandidateDashboardWithSetupCheck() {
+function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }) {
   const [setupStatus, setSetupStatus] = React.useState<any>(null);
 
   React.useEffect(() => {
@@ -30,17 +30,19 @@ function CandidateDashboardWithSetupCheck() {
   return (
     <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <Toaster richColors position="top-center" />
-      <CandidateDashboard />
+      <CandidateDashboard defaultTab={currentTab} />
     </div>
   );
 }
 
 // ── Main page component ───────────────────────────────────────────────────────
-export default function UserDashboardPage() {
+export default function UserDashboardPage({ params }: { params: { tab?: string[] } }) {
   const { userRole, isAuthenticated } = useAuth();
   const router = useRouter();
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
   const [loading, setLoading] = React.useState(false);
+
+  const currentTab = params.tab?.[0] || "overview";
 
   React.useEffect(() => {
     // If regular user (not candidate/employee), load profile
@@ -78,14 +80,14 @@ export default function UserDashboardPage() {
     const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const cid = searchParams?.get("candidateId");
     if (cid) {
-      return <CandidateDashboardWithSetupCheck />;
+      return <CandidateDashboardWithSetupCheck currentTab={currentTab} />;
     }
     router.replace("/avatar/employee/employee-dashboard");
     return null;
   }
 
   if (userRole === "candidate") {
-    return <CandidateDashboardWithSetupCheck />;
+    return <CandidateDashboardWithSetupCheck currentTab={currentTab} />;
   }
 
   // Fallback: Default User Dashboard (Profile View)
