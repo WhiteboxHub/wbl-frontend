@@ -143,6 +143,9 @@ interface DashboardData {
         job_listings_clicked: number;
         outreach_counter: number;
         easy_apply_counter: number;
+        classes_joined?: number;
+        sessions_joined?: number;
+        mocks_joined?: number;
     };
 }
 
@@ -163,6 +166,7 @@ interface Session {
     videoid?: string;
     type: string;
     subject: string;
+    joined_candidate_ids?: number[];
 }
 
 interface ApiError {
@@ -175,7 +179,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup' | 'my_resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -357,7 +361,11 @@ const StatusRenderer = ({ value }: { value?: string }) => {
     );
 };
 
-export default function CandidateDashboard() {
+interface CandidateDashboardProps {
+    defaultTab?: string;
+}
+
+export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
@@ -400,12 +408,20 @@ export default function CandidateDashboard() {
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+
+    useEffect(() => {
+        setActiveTab(defaultTab as TabType);
+    }, [defaultTab]);
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
         setActiveTab(tab);
+        if (tab === 'overview') {
+            setEasyApplyPopupOpen(true);
+        }
+        router.push(`/user_dashboard/${tab}`);
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -572,6 +588,7 @@ export default function CandidateDashboard() {
     };
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
+    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
 
     // Inline Resume states & refs
@@ -978,7 +995,7 @@ export default function CandidateDashboard() {
         },
         {
             field: "feedback",
-            headerName: "Feedback",
+            headerName: "Result",
             flex: 1,
             minWidth: 130,
             cellRenderer: (params: any) => {
@@ -1016,7 +1033,7 @@ export default function CandidateDashboard() {
         },
         {
             field: "feedback_text",
-            headerName: "Feedback Text",
+            headerName: "Detailed Feedback",
             flex: 2,
             minWidth: 250,
             editable: true,
@@ -1477,7 +1494,8 @@ export default function CandidateDashboard() {
 
     const loadSessions = async () => {
         const fullName = data?.basic_info?.full_name;
-        if (!fullName) return;
+        const candidateId = data?.basic_info?.id;
+        if (!fullName || !candidateId) return;
 
         const token = localStorage.getItem("access_token") || localStorage.getItem("token");
         const firstName = fullName.split(" ")[0];
@@ -1498,6 +1516,12 @@ export default function CandidateDashboard() {
                 ? sessionsList.filter((session: Session) => {
                     if (!session || !session.sessiondate || !session.title) return false;
 
+                    // 1. Check explicit association mapping
+                    if (session.joined_candidate_ids?.includes(candidateId)) {
+                        return true;
+                    }
+
+                    // 2. Fallback to name-matching logic
                     const titleLower = session.title.toLowerCase();
                     const firstNameLower = firstName.toLowerCase();
                     const fullNameLower = fullName.toLowerCase();
@@ -1674,15 +1698,15 @@ export default function CandidateDashboard() {
     }, [data]);
 
     useEffect(() => {
-        if (activeTab === 'jobs' && positions.length === 0) {
+        if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'interviews') {
+        if (activeTab === 'my-interviews') {
             // Auto-refresh interview data when switching to this tab
             // so employee UI changes (feedback, notes) are visible immediately
             loadDashboard();
         }
-        if (activeTab === 'my_resume' && candidateId) {
+        if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
                 try {
                     const token = localStorage.getItem("access_token") || "";
@@ -1798,12 +1822,12 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
-        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
-        { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
-        { id: 'my_resume' as TabType, name: 'My Resume', icon: FileText },
-        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
-        { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
+        { id: 'job-board' as TabType, name: 'Job Board', icon: Briefcase },
+        { id: 'my-llm-setup' as TabType, name: 'My LLM Setup', icon: Settings },
+        { id: 'my-resume' as TabType, name: 'My Resume', icon: FileText },
+        { id: 'my-sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
+        { id: 'my-interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
+        { id: 'my-applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
     return (
@@ -1860,15 +1884,15 @@ export default function CandidateDashboard() {
                                 <span>Coderpad</span>
                             </a>
                             <button
-                                onClick={() => goToTab('smartprep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'smartprep'
+                                onClick={() => goToTab('wbl-smartprep')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'wbl-smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>WBL SmartPrep</span>
-                                {activeTab === 'smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                                {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
                         </div>
                     </div>
@@ -1937,7 +1961,7 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    {activeTab === 'jobs' && (
+                    {activeTab === 'job-board' && (
                         <div className="flex items-center gap-3 translate-y-[3px]">
                             <button
                                 type="button"
@@ -2003,8 +2027,8 @@ export default function CandidateDashboard() {
                         CoderPad
                     </a>
                     <button
-                        onClick={() => goToTab('smartprep')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'smartprep'
+                        onClick={() => goToTab('wbl-smartprep')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'wbl-smartprep'
                             ? "bg-indigo-600 text-white shadow-sm"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                             }`}
@@ -2033,19 +2057,19 @@ export default function CandidateDashboard() {
                                         // Invalidate prefetch so next open re-fetches fresh data
                                         setPrefetchDone(false);
                                         setPrefetchedSession(null);
-                                        goToTab("smartprep");
+                                        goToTab("wbl-smartprep");
                                     }}
                                 />
                             </div>
                         ) : (
                             <>
-                                {activeTab === 'ai_setup' && (
+                                {activeTab === 'my-llm-setup' && (
                                     <div className="flex-1 overflow-y-auto h-full w-full">
                                         <AiSetupTab
                                             candidateId={candidateId ?? undefined}
                                             onFinishSetup={async () => {
                                                 await refreshSetupStatus();
-                                                goToTab('smartprep');
+                                                goToTab('wbl-smartprep');
                                             }}
                                         />
                                     </div>
@@ -2090,6 +2114,54 @@ export default function CandidateDashboard() {
                                             />
                                         </div>
 
+
+
+                                        {/* Easy Applies Card */}
+                                        {(() => {
+                                            const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                                            const isEasyApplyLow = easyApplyCount < 30;
+                                            return (
+                                                <div
+                                                    className={`relative overflow-hidden border rounded-2xl p-5 ${
+                                                        isEasyApplyLow
+                                                            ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                            : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                    }`}
+                                                >
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                                                        <Zap className={`w-20 h-20 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                                                isEasyApplyLow
+                                                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                                                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                                            }`}>
+                                                                <Zap className="w-4 h-4" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Easy Applies Today</p>
+                                                                <p className={`text-2xl font-extrabold leading-none mt-0.5 ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+                                                                    {easyApplyCount}
+                                                                    <span className="text-xs font-medium text-gray-400 ml-1">/ 30</span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${
+                                                                isEasyApplyLow ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"
+                                                            }`}>
+                                                                {isEasyApplyLow ? "Below Target" : "✓ Reached"}
+                                                            </span>
+                                                            <p className={`text-[10px] font-semibold mt-1.5 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
+                                                                {isEasyApplyLow ? `⚠ You need ${30 - easyApplyCount} applications to reach the daily objective` : "Daily objective met"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
 
                                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                                             {/* JOURNEY SECTION */}
@@ -2238,7 +2310,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'sessions' && (
+                                {activeTab === 'my-sessions' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
@@ -2248,6 +2320,59 @@ export default function CandidateDashboard() {
                                                         Sessions
                                                     </h2>
                                                     <p className="text-xs text-gray-400 mt-0.5">Your recorded and upcoming sessions.</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Attendance Cards Grid in Sessions Tab */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+                                                {/* Card 1: Classes Attended */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Video className="w-20 h-20 text-blue-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="w-9 h-9 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
+                                                            <Video className="w-4 h-4" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Classes</span>
+                                                    </div>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classes Attended</h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.classes_joined ?? 0}
+                                                    </p>
+                                                </div>
+
+                                                {/* Card 2: Sessions Attended */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-rose-50 to-orange-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-rose-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <PlayCircle className="w-20 h-20 text-rose-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="w-9 h-9 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg flex items-center justify-center">
+                                                            <PlayCircle className="w-4 h-4" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded-full">Sessions</span>
+                                                    </div>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Sessions Attended</h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.sessions_joined ?? 0}
+                                                    </p>
+                                                </div>
+
+                                                {/* Card 3: Individual Sessions */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-yellow-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-amber-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Award className="w-20 h-20 text-amber-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="w-9 h-9 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center">
+                                                            <Award className="w-4 h-4" />
+                                                        </div>
+                                                    </div>
+                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Individual Sessions</h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                        {sessions.length}
+                                                    </p>
                                                 </div>
                                             </div>
 
@@ -2312,7 +2437,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'interviews' && (
+                                {activeTab === 'my-interviews' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex items-center justify-between mb-6">
@@ -2336,7 +2461,7 @@ export default function CandidateDashboard() {
                                                         onClick={() => setShowAddInterview(true)}
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
                                                     >
-                                                        <Plus className="w-4 h-4" /> Schedule Interview
+                                                        <Plus className="w-4 h-4" /> Add Interview
                                                     </button>
                                                 </div>
                                             </div>
@@ -2451,7 +2576,7 @@ export default function CandidateDashboard() {
                                                             </button>
                                                             <button onClick={handleAddInterview} disabled={addInterviewLoading}
                                                                 className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
-                                                                {addInterviewLoading ? "Saving..." : "Schedule Interview"}
+                                                                {addInterviewLoading ? "Saving..." : "Add Interview"}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -2499,7 +2624,7 @@ export default function CandidateDashboard() {
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
                                                                             <input type="text" readOnly value={viewData.type_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Result</label>
                                                                             <input type="text" readOnly value={viewData.feedback ?? 'Pending'} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" />
                                                                         </div>
                                                                     </div>
@@ -2509,7 +2634,7 @@ export default function CandidateDashboard() {
                                                                     <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
                                                                     <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
@@ -2571,7 +2696,7 @@ export default function CandidateDashboard() {
                                                                                 <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                             </select></div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Result</label>
                                                                             <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option value="Pending">Pending</option>
                                                                                 <option value="Positive">Positive</option>
@@ -2585,7 +2710,7 @@ export default function CandidateDashboard() {
                                                                     <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
                                                                     <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
@@ -2645,7 +2770,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'jobs' && (
+                                {activeTab === 'job-board' && (
                                     <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
                                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
                                             <div className="flex items-center gap-3">
@@ -2683,7 +2808,7 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'smartprep' && (
+                                {activeTab === 'wbl-smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
 
                                         {/* AI Profile Setup Card */}
@@ -2793,9 +2918,9 @@ export default function CandidateDashboard() {
                                                             type="button"
                                                             onClick={() => {
                                                                 if (setupStatus?.api_keys_configured) {
-                                                                    goToTab('my_resume');
+                                                                    goToTab('my-resume');
                                                                 } else {
-                                                                    goToTab('ai_setup');
+                                                                    goToTab('my-llm-setup');
                                                                 }
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -2811,9 +2936,9 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
+                                {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
-                                {activeTab === 'my_applications' && (
+                                {activeTab === 'my-applications' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
                                             {/* Header */}
@@ -2864,28 +2989,53 @@ export default function CandidateDashboard() {
                                                 </div>
 
                                                 {/* Card 3: Easy Apply Counter */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-emerald-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
-                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
-                                                        <Zap className="w-24 h-24 text-emerald-500" />
-                                                    </div>
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="w-10 h-10 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
-                                                            <Zap className="w-5 h-5" />
+                                                {(() => {
+                                                    const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                                                    const isEasyApplyLow = easyApplyCount < 30;
+                                                    return (
+                                                        <div
+                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${
+                                                                isEasyApplyLow
+                                                                    ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                                    : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                            }`}
+                                                        >
+                                                            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                                <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
+                                                            </div>
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                                                    isEasyApplyLow
+                                                                        ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+                                                                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                                                }`}>
+                                                                    <Zap className="w-5 h-5" />
+                                                                </div>
+                                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                                                    isEasyApplyLow
+                                                                        ? "text-red-500 bg-red-500/10"
+                                                                        : "text-emerald-500 bg-emerald-500/10"
+                                                                }`}>
+                                                                    Easy Apply
+                                                                </span>
+                                                            </div>
+                                                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
+                                                            <p className={`text-3xl font-extrabold ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+                                                                {easyApplyCount}
+                                                            </p>
+                                                            <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                                                            <p className={`text-[10px] font-semibold mt-1 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
+                                                                {isEasyApplyLow ? `⚠ ${30 - easyApplyCount} more needed to reach target` : "✓ Target reached"}
+                                                            </p>
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">Easy Apply</span>
-                                                    </div>
-                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
-                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.easy_apply_counter ?? 0}
-                                                    </p>
-                                                    <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
-                                                </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {activeTab === 'my_resume' && (
+                                {activeTab === 'my-resume' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8 animate-in fade-in duration-200">
                                             {!showTemplates ? (
@@ -2913,7 +3063,7 @@ export default function CandidateDashboard() {
                                                                 To upload and parse your resume using AI, you must configure at least one active API key in the LLM setup tab first.
                                                             </p>
                                                             <button
-                                                                onClick={() => setActiveTab('ai_setup')}
+                                                                onClick={() => goToTab('my-llm-setup')}
                                                                 className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md cursor-pointer"
                                                             >
                                                                 <Settings size={14} />
@@ -3254,6 +3404,62 @@ export default function CandidateDashboard() {
                     }}
                 />
             )}
+
+            {activeTab === 'overview' && easyApplyPopupOpen && data && (() => {
+                const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                const isEasyApplyLow = easyApplyCount < 30;
+                return (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+                        onClick={() => setEasyApplyPopupOpen(false)}
+                    >
+                        <div
+                            className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${
+                                isEasyApplyLow
+                                    ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                    : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                            }`}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => setEasyApplyPopupOpen(false)}
+                                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors z-10"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
+                            <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                                <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
+                            </div>
+                            <div className="flex items-center justify-between mb-4 pr-8">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                    isEasyApplyLow
+                                        ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+                                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                }`}>
+                                    <Zap className="w-5 h-5" />
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                    isEasyApplyLow
+                                        ? "text-red-500 bg-red-500/10"
+                                        : "text-emerald-500 bg-emerald-500/10"
+                                }`}>
+                                    Easy Apply
+                                </span>
+                            </div>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
+                            <p className={`text-3xl font-extrabold ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+                                {easyApplyCount}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                            <p className={`text-[10px] font-semibold mt-1 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
+                                {isEasyApplyLow ? `⚠ You need ${30 - easyApplyCount} applications to reach the daily objective` : "✓ Target reached"}
+                            </p>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {isResumeJsonModalOpen && (
                 <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
