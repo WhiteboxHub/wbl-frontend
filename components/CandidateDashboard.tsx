@@ -3409,7 +3409,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         setShowTemplates(false);
                         setResumeFile(null);
                         setForceShowUploader(true);
-                        setActiveTab('my_resume');
+                        setActiveTab('my-resume');
                     }}
                 />
             )}
