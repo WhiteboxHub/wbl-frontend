@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }) => {
     const teamRole = getUserTeamRole(token);
     setAuthToken(token);
     setIsAuthenticated(true);
-    setUserRole(teamRole || role || "candidate");
+    setUserRole(role || teamRole || "candidate");
     // optionally open sidebar if logged in
     setSidebarOpen(true);
   };
@@ -183,7 +183,7 @@ export const AuthProvider = ({ children }) => {
 
       setAuthToken(token);
       setIsAuthenticated(true);
-      setUserRole(teamRole || role || "candidate");
+      setUserRole(role || teamRole || "candidate");
       setSidebarOpen(true);
       return { success: true };
     } catch (error) {
@@ -259,6 +259,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         userRole,
+        setUserRole,
         sidebarOpen,
         setSidebarOpen,
       }}

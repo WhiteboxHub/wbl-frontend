@@ -14,6 +14,9 @@ import api, { smartUpdate } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+import { useAuth } from "@/utils/AuthContext";
+import { parseJwt } from "@/utils/auth";
+import { useRouter } from "next/navigation";
 
 // Authentication helper (now redundant, but kept for reference)
 const getAuthToken = (): string | null => {
@@ -110,11 +113,21 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
 };
 
 export default function AuthUsersPage() {
+  const { logout, authToken, setUserRole, userRole } = useAuth();
+  const router = useRouter();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const showLoader = useMinimumLoadingTime(loading);
+
+  // Role protection: redirect non-admins instantly
+  useEffect(() => {
+    if (userRole && userRole !== "admin") {
+      router.replace("/avatar");
+    }
+  }, [userRole, router]);
 
   // Debounce search
   useEffect(() => {
@@ -167,13 +180,17 @@ export default function AuthUsersPage() {
 
   // Role Renderer
   const RoleRenderer = (params: any) => {
-    const role = params.value ?? "";
+    const rawRole = (params.value ?? "").toLowerCase();
+    let displayRole = "Candidate";
+    if (rawRole === "admin") displayRole = "Admin";
+    if (rawRole === "employee") displayRole = "Employee";
+    
     const map: Record<string, string> = {
-      ADMIN: "bg-indigo-100 text-indigo-800",
-      USER: "bg-gray-100 text-gray-800",
-      MANAGER: "bg-emerald-100 text-emerald-800",
+      admin: "bg-indigo-100 text-indigo-800",
+      employee: "bg-emerald-100 text-emerald-800",
+      candidate: "bg-gray-100 text-gray-800",
     };
-    return <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>;
+    return <Badge className={map[rawRole] ?? "bg-gray-200 text-gray-700"}>{rawRole ? displayRole : "Select Role"}</Badge>;
   };
 
   // Visa Status Renderer
@@ -310,7 +327,33 @@ export default function AuthUsersPage() {
       editable: true,
       cellEditor: 'agTextCellEditor',
     },
-    { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer, cellEditor: 'agTextCellEditor' },
+    { 
+      field: "role", 
+      headerName: "Role", 
+      width: 150, 
+      editable: true, 
+      cellRenderer: RoleRenderer, 
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: {
+        values: ['Select Role', 'Admin', 'Employee', 'Candidate']
+      },
+      valueGetter: (params) => {
+        if (!params.data || !params.data.role) return 'Select Role';
+        const r = params.data.role.toLowerCase();
+        if (r === 'admin') return 'Admin';
+        if (r === 'employee') return 'Employee';
+        if (r === 'candidate') return 'Candidate';
+        return params.data.role; // fallback
+      },
+      valueSetter: (params) => {
+        if (params.newValue === 'Select Role' || !params.newValue) {
+          params.data.role = '';
+        } else {
+          params.data.role = params.newValue.toLowerCase();
+        }
+        return true;
+      }
+    },
     {
       field: "notes",
       headerName: "Notes",
@@ -329,6 +372,24 @@ export default function AuthUsersPage() {
     try {
       const dataToSend = { ...updatedRow };
       const originalUser = users.find(u => u.id === updatedRow.id);
+
+      if (originalUser) {
+        const origRole = originalUser.role?.toLowerCase() || 'candidate';
+        const newRole = dataToSend.role?.toLowerCase() || 'candidate';
+
+        if (origRole === 'candidate' && (newRole === 'employee' || newRole === 'admin')) {
+          toast.error("A Candidate cannot be changed to an Employee or Admin.");
+          fetchUsers();
+          return;
+        }
+
+        if ((origRole === 'employee' || origRole === 'admin') && newRole === 'candidate') {
+          toast.error(`An ${origRole === 'admin' ? 'Admin' : 'Employee'} cannot be changed to a Candidate.`);
+          fetchUsers();
+          return;
+        }
+      }
+
       if (dataToSend.passwd && dataToSend.passwd !== "********" && dataToSend.passwd !== originalUser?.passwd) {
         const validation = validatePasswordStrength(dataToSend.passwd);
         if (!validation.isValid) {
@@ -346,6 +407,24 @@ export default function AuthUsersPage() {
       await invalidateCache("/users");
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
+
+      if (authToken) {
+        const decoded = parseJwt(authToken);
+        if (decoded && (decoded.sub === updatedUser.uname || decoded.email === updatedUser.uname)) {
+          if (updatedUser.status === 'inactive') {
+            toast.info("Your account status was set to inactive. Logging out...");
+            setTimeout(() => {
+              if (typeof logout === 'function') logout();
+            }, 1500);
+          } else if (updatedUser.role === 'employee') {
+            toast.info("Your role was changed to Employee. Updating session...");
+            if (typeof setUserRole === 'function') setUserRole('employee');
+            setTimeout(() => {
+              window.location.href = "/avatar";
+            }, 1000);
+          }
+        }
+      }
     } catch (err) {
       console.error("Failed to update user:", err);
       toast.error(err.message || "Failed to update user");
@@ -380,6 +459,11 @@ export default function AuthUsersPage() {
       // Ensure visa_status is null if empty (required for Enum validation)
       if (!dataToSend.visa_status || dataToSend.visa_status.trim() === "") {
         dataToSend.visa_status = null;
+      }
+
+      // Ensure role is lowercase before sending to backend
+      if (dataToSend.role) {
+        dataToSend.role = dataToSend.role.toLowerCase();
       }
 
       // Send POST request to create new user

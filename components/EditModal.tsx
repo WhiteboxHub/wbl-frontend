@@ -14,6 +14,12 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: any; label: string }[]> = {
+  role: [
+    { value: "", label: "Select Role" },
+    { value: "admin", label: "Admin" },
+    { value: "employee", label: "Employee" },
+    { value: "candidate", label: "Candidate" },
+  ],
   move_to_prep: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
