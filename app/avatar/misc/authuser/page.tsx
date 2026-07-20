@@ -8,7 +8,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
@@ -210,7 +210,7 @@ export default function AuthUsersPage() {
   }, [searchTerm]);
 
   // Fetch ALL users once (no pagination)
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const res = await cachedApiFetch("/users");
@@ -220,16 +220,16 @@ export default function AuthUsersPage() {
       else if (data?.users) usersArray = data.users;
       else if (data?.data) usersArray = data.data;
       setUsers(usersArray);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch users:", err);
       toast.error(err.message || "Failed to fetch users");
       setUsers([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   // Filtered users (searching locally)
   const filteredUsers = users.filter((u) => {
