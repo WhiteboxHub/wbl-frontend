@@ -346,6 +346,10 @@ export default function AuthUsersPage() {
         return params.data.role; // fallback
       },
       valueSetter: (params) => {
+        // Track the original role before mutating so validation isn't bypassed
+        if (params.data && params.data.oldRole === undefined) {
+          params.data.oldRole = params.data.role;
+        }
         if (params.newValue === 'Select Role' || !params.newValue) {
           params.data.role = '';
         } else {
@@ -374,20 +378,32 @@ export default function AuthUsersPage() {
       const originalUser = users.find(u => u.id === updatedRow.id);
 
       if (originalUser) {
-        const origRole = originalUser.role?.toLowerCase() || 'candidate';
+        // Use oldRole if it was set during edit, otherwise fallback to role
+        const origRole = originalUser.oldRole?.toLowerCase() ?? originalUser.role?.toLowerCase() ?? 'candidate';
         const newRole = dataToSend.role?.toLowerCase() || 'candidate';
 
         if (origRole === 'candidate' && (newRole === 'employee' || newRole === 'admin')) {
           toast.error("A Candidate cannot be changed to an Employee or Admin.");
-          fetchUsers();
+          if (originalUser.oldRole !== undefined) {
+            originalUser.role = originalUser.oldRole;
+            delete originalUser.oldRole;
+          }
+          setUsers([...users]); // Revert UI
           return;
         }
 
         if ((origRole === 'employee' || origRole === 'admin') && newRole === 'candidate') {
           toast.error(`An ${origRole === 'admin' ? 'Admin' : 'Employee'} cannot be changed to a Candidate.`);
-          fetchUsers();
+          if (originalUser.oldRole !== undefined) {
+            originalUser.role = originalUser.oldRole;
+            delete originalUser.oldRole;
+          }
+          setUsers([...users]); // Revert UI
           return;
         }
+        
+        delete originalUser.oldRole;
+        delete dataToSend.oldRole;
       }
 
       if (dataToSend.passwd && dataToSend.passwd !== "********" && dataToSend.passwd !== originalUser?.passwd) {
