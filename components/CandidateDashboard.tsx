@@ -474,23 +474,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         if (!resumeObj || !sid) {
             try {
-                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
                 const token = localStorage.getItem("access_token") || "";
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                const data = await apiFetch("/setup/init-and-summary", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                    body: { candidate_id: candidateId, wbl_email: email, name: email },
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    sid = data.session_id;
-                    resumeObj = data.summary?.resume_json;
-                    if (sid) {
-                        setPrefetchedSession({ sessionId: sid, summaryData: data.summary });
-                    }
+
+                sid = data.session_id;
+                resumeObj = data.summary?.resume_json;
+                if (sid) {
+                    setPrefetchedSession({ sessionId: sid, summaryData: data.summary });
                 }
             } catch (e) {
                 console.error("Error loading resume JSON", e);
@@ -882,13 +878,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                const data = await apiFetch("/setup/init-and-summary", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                    body: { candidate_id: candidateId, wbl_email: email, name: email },
                 });
-                if (!res.ok) return;
-                const data = await res.json();
+
                 const sid: string = data.session_id;
                 const summaryData = data.summary;
 
@@ -906,7 +900,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         };
         void run();
-    }, [candidateId, prefetchDone]);
+    }, [candidateId, prefetchDone, setPrefetchedSession, setPrefetchDone, loadSetupStatus, setSetupStatus]);
 
     useEffect(() => {
         if (!setupWizardOpen) {
@@ -1532,7 +1526,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     };
 
-    const loadPositions = async () => {
+    const loadPositions = useCallback(async () => {
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -1570,10 +1564,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setPositionsLoading(false);
         }
-    };
+    }, [setPositionsLoading, setPositions]);
 
-
-    const loadDashboard = async (retryCount = 0) => {
+    const loadDashboard = useCallback(async (retryCount = 0) => {
         try {
             setLoading(true);
             setError(null);
@@ -1678,7 +1671,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    };
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
     useEffect(() => {
         if (data) {
@@ -1706,29 +1699,26 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     const payload = JSON.parse(atob(token.split(".")[1]));
                     const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                    const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    const dataSummary = await apiFetch("/setup/init-and-summary", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                        body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                        body: { candidate_id: candidateId, wbl_email: email, name: email },
                     });
-                    if (res.ok) {
-                        const dataSummary = await res.json();
-                        const sid = dataSummary.session_id;
-                        const summaryData = dataSummary.summary;
-                        if (sid) {
-                            localStorage.setItem("prep_token", sid);
-                            setPrefetchedSession({ sessionId: sid, summaryData });
 
-                            const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
-                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
-                            setSetupStatus({
-                                resume_uploaded: hasResume,
-                                api_keys_configured: hasKeys,
-                                setup_complete: hasResume && hasKeys,
-                                has_binary_resume: !!summaryData.has_binary_resume,
-                                binary_resume_filename: summaryData.binary_resume_filename || null,
-                            });
-                        }
+                    const sid = dataSummary.session_id;
+                    const summaryData = dataSummary.summary;
+                    if (sid) {
+                        localStorage.setItem("prep_token", sid);
+                        setPrefetchedSession({ sessionId: sid, summaryData });
+
+                        const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                        const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                        setSetupStatus({
+                            resume_uploaded: hasResume,
+                            api_keys_configured: hasKeys,
+                            setup_complete: hasResume && hasKeys,
+                            has_binary_resume: !!summaryData.has_binary_resume,
+                            binary_resume_filename: summaryData.binary_resume_filename || null,
+                        });
                     }
                 } catch (err) {
                     console.error("Failed to refresh setup status on tab switch:", err);
@@ -1736,7 +1726,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId]);
+    }, [activeTab, candidateId, positions.length, loadPositions, loadDashboard, setPrefetchedSession, setSetupStatus]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -2115,22 +2105,20 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             const isEasyApplyLow = easyApplyCount < 30;
                                             return (
                                                 <div
-                                                    className={`relative overflow-hidden border rounded-2xl p-5 ${
-                                                        isEasyApplyLow
+                                                    className={`relative overflow-hidden border rounded-2xl p-5 ${isEasyApplyLow
                                                             ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
                                                             : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
                                                         <Zap className={`w-20 h-20 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                                                                isEasyApplyLow
+                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isEasyApplyLow
                                                                     ? "bg-red-500/10 text-red-600 dark:text-red-400"
                                                                     : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                                            }`}>
+                                                                }`}>
                                                                 <Zap className="w-4 h-4" />
                                                             </div>
                                                             <div>
@@ -2142,9 +2130,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${
-                                                                isEasyApplyLow ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"
-                                                            }`}>
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${isEasyApplyLow ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"
+                                                                }`}>
                                                                 {isEasyApplyLow ? "Below Target" : "✓ Reached"}
                                                             </span>
                                                             <p className={`text-[10px] font-semibold mt-1.5 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
@@ -2987,28 +2974,25 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     const isEasyApplyLow = easyApplyCount < 30;
                                                     return (
                                                         <div
-                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${
-                                                                isEasyApplyLow
+                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${isEasyApplyLow
                                                                     ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
                                                                     : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
-                                                            }`}
+                                                                }`}
                                                         >
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
                                                                 <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                                                             </div>
                                                             <div className="flex items-center justify-between mb-4">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                                                    isEasyApplyLow
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEasyApplyLow
                                                                         ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
                                                                         : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                                                }`}>
+                                                                    }`}>
                                                                     <Zap className="w-5 h-5" />
                                                                 </div>
-                                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                                                    isEasyApplyLow
+                                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isEasyApplyLow
                                                                         ? "text-red-500 bg-red-500/10"
                                                                         : "text-emerald-500 bg-emerald-500/10"
-                                                                }`}>
+                                                                    }`}>
                                                                     Easy Apply
                                                                 </span>
                                                             </div>
@@ -3466,11 +3450,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         onClick={() => setEasyApplyPopupOpen(false)}
                     >
                         <div
-                            className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${
-                                isEasyApplyLow
+                            className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${isEasyApplyLow
                                     ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
                                     : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
-                            }`}
+                                }`}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
@@ -3484,18 +3467,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                             </div>
                             <div className="flex items-center justify-between mb-4 pr-8">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                    isEasyApplyLow
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEasyApplyLow
                                         ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
                                         : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                }`}>
+                                    }`}>
                                     <Zap className="w-5 h-5" />
                                 </div>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                                    isEasyApplyLow
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isEasyApplyLow
                                         ? "text-red-500 bg-red-500/10"
                                         : "text-emerald-500 bg-emerald-500/10"
-                                }`}>
+                                    }`}>
                                     Easy Apply
                                 </span>
                             </div>
@@ -3623,63 +3604,63 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         </div>
     );
 }
-                            const PhaseCard = ({
-                                title, icon, color, completed, active, daysSince, durationDays, batchName, rating, company, date,
+const PhaseCard = ({
+    title, icon, color, completed, active, daysSince, durationDays, batchName, rating, company, date,
 }: {
-                                title: string; icon: React.ReactNode; color: string; completed?: boolean; active?: boolean; daysSince?: number;
-                            durationDays?: number; batchName?: string; rating?: string; company?: string; date?: string;
+    title: string; icon: React.ReactNode; color: string; completed?: boolean; active?: boolean; daysSince?: number;
+    durationDays?: number; batchName?: string; rating?: string; company?: string; date?: string;
 }) => {
     // Highly simplified color mapping - just for the icon/line color
     const accentColor = active ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-500";
-                            const borderColor = active ? "border-blue-200 dark:border-blue-800" : "border-gray-100 dark:border-gray-800";
+    const borderColor = active ? "border-blue-200 dark:border-blue-800" : "border-gray-100 dark:border-gray-800";
 
-                            return (
-                            <div className={`bg-white dark:bg-gray-800 border ${borderColor} rounded-xl p-3 shadow-sm transition-all duration-200`}>
-                                <div className="flex items-center gap-2.5 mb-3">
-                                    <div className={`${accentColor}`}>{icon}</div>
-                                    <h3 className="text-xs font-extrabold text-gray-900 dark:text-gray-100 tracking-tight uppercase leading-tight">{title}</h3>
-                                </div>
+    return (
+        <div className={`bg-white dark:bg-gray-800 border ${borderColor} rounded-xl p-3 shadow-sm transition-all duration-200`}>
+            <div className="flex items-center gap-2.5 mb-3">
+                <div className={`${accentColor}`}>{icon}</div>
+                <h3 className="text-xs font-extrabold text-gray-900 dark:text-gray-100 tracking-tight uppercase leading-tight">{title}</h3>
+            </div>
 
-                                <div className="space-y-3">
-                                    <div className="flex items-center h-5">
-                                        {active ? (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-blue-500 text-white shadow-sm shadow-blue-500/20 animate-pulse">
-                                                Active Now
-                                            </span>
-                                        ) : completed ? (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                                                Completed
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-300 dark:text-gray-600">
-                                                Upcoming Step
-                                            </span>
-                                        )}
-                                    </div>
+            <div className="space-y-3">
+                <div className="flex items-center h-5">
+                    {active ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-blue-500 text-white shadow-sm shadow-blue-500/20 animate-pulse">
+                            Active Now
+                        </span>
+                    ) : completed ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                            Completed
+                        </span>
+                    ) : (
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-300 dark:text-gray-600">
+                            Upcoming Step
+                        </span>
+                    )}
+                </div>
 
-                                    <div className="pt-2 border-t border-gray-50 dark:border-gray-700 space-y-1.5">
-                                        {daysSince !== undefined && daysSince !== null && (
-                                            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{daysSince} days total</p>
-                                        )}
-                                        {durationDays !== undefined && durationDays !== null && (
-                                            <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{durationDays} days duration</p>
-                                        )}
-                                        {date && (
-                                            <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                                                <Calendar className="w-3 h-3" />
-                                                {date}
-                                            </p>
-                                        )}
-                                        {batchName && <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
-                                            <span className="text-blue-500"></span> {batchName}
-                                        </p>}
-                                        {company && (
-                                            <p className="text-xs font-extrabold text-blue-700 dark:text-blue-300 mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl truncate flex items-center gap-1.5">
-                                                <span></span> {company}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            );
+                <div className="pt-2 border-t border-gray-50 dark:border-gray-700 space-y-1.5">
+                    {daysSince !== undefined && daysSince !== null && (
+                        <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">{daysSince} days total</p>
+                    )}
+                    {durationDays !== undefined && durationDays !== null && (
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{durationDays} days duration</p>
+                    )}
+                    {date && (
+                        <p className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3" />
+                            {date}
+                        </p>
+                    )}
+                    {batchName && <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
+                        <span className="text-blue-500"></span> {batchName}
+                    </p>}
+                    {company && (
+                        <p className="text-xs font-extrabold text-blue-700 dark:text-blue-300 mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl truncate flex items-center gap-1.5">
+                            <span></span> {company}
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 };
