@@ -66,16 +66,9 @@ const SigninPage = () => {
         const accessToken = localStorage.getItem("access_token");
         const role = getUserTeamRole(accessToken);
 
-        // Redirect based on role
+        // Redirect to home page where they can click Avatar or My App
         setTimeout(() => {
-          if (role === "admin") {
-            router.push("/avatar");
-          } else if (role === "employee") {
-            router.push("/");
-          } else {
-            // Redirect candidates to home dashboard
-            router.push("/user_dashboard");
-          }
+          router.push("/");
         }, 500);
       } else {
         setGoogleMessage("Unexpected status received: " + status);
@@ -100,13 +93,7 @@ const SigninPage = () => {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
       const role = getUserTeamRole(localStorage.getItem("access_token"));
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
-      }
+      router.push("/");
     }
   }, [session, router]);
 
@@ -146,23 +133,10 @@ const SigninPage = () => {
         setMessage(data.message || "Login successful!");
         setResponseStatus("success");
 
-        // Redirect based on role
-        if (role === "admin") {
-          // Admin redirects to avatar dashboard
-          setTimeout(() => {
-            router.push("/avatar");
-          }, 500);
-        } else if (role === "employee") {
-          // Employees redirect to landing page
-          setTimeout(() => {
-            router.push("/");
-          }, 500);
-        } else {
-          // Candidates redirect to home dashboard
-          setTimeout(() => {
-            router.push("/user_dashboard");
-          }, 500);
-        }
+        // Redirect to home page where they can click Avatar or My App
+        setTimeout(() => {
+          router.push("/");
+        }, 500);
       } else {
         setResponseStatus("error");
         setMessage(data.detail || "Failed to login");
@@ -203,13 +177,7 @@ const SigninPage = () => {
     const accessToken = localStorage.getItem("access_token");
     if (accessToken) {
       const role = getUserTeamRole(accessToken);
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
-      }
+      router.push("/");
     }
   }, [router]);
 
