@@ -616,7 +616,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       };
       fetchCandidates();
     }
-  }, [isOpen, isClassRecordingModal, isSessionModal]);
+  }, [isOpen, isClassRecordingModal, isSessionModal, setCandidatesList]);
 
   const handleCopy = (key: string, value: string) => {
     navigator.clipboard.writeText(value);
