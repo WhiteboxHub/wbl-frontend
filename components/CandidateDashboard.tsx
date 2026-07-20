@@ -1726,7 +1726,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, positions.length, loadPositions, loadDashboard]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
