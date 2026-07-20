@@ -7,7 +7,7 @@ import { Badge } from "@/components/admin_ui/badge";
 import { formatLinkedInUrl } from "@/lib/utils";
 import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
 import { normalizeResume } from "@/utils/resumeNormalizer";
-
+import {apiFetch} from "@/lib/api";
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -95,6 +95,7 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   google_voice_number: "Contact Information",
   dob: "Basic Information",
+  joined_candidate_ids: "Joined Candidates",
   contact: "Basic Information",
   password: "Professional Information",
   secondaryemail: "Contact Information",
@@ -594,6 +595,28 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   };
 
   const [copiedKeys, setCopiedKeys] = useState<Record<string, boolean>>({});
+  const [candidatesList, setCandidatesList] = useState<{ id: number; full_name: string }[]>([]);
+  const isClassRecordingModal = title.toLowerCase().includes("class recording") || title.toLowerCase().includes("recording");
+  const isSessionModal = title.toLowerCase().includes("session") || title.toLowerCase().includes("sessions");
+
+  useEffect(() => {
+    if (isOpen && (isClassRecordingModal || isSessionModal)) {
+      const fetchCandidates = async () => {
+        try {
+          const res = await apiFetch("/candidate/active-dropdown");
+          const arr = Array.isArray(res) ? res : res?.data ?? [];
+          const formatted = arr.map((c: any) => ({
+            id: c.id,
+            full_name: c.full_name,
+          }));
+          setCandidatesList(formatted);
+        } catch (err: any) {
+          console.error("Failed to fetch candidates in ViewModal:", err);
+        }
+      };
+      fetchCandidates();
+    }
+  }, [isOpen, isClassRecordingModal, isSessionModal]);
 
   const handleCopy = (key: string, value: string) => {
     navigator.clipboard.writeText(value);
@@ -735,6 +758,24 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const renderValue = (key: string, value: any) => {
     const lowerKey = key.toLowerCase();
     if (!value && value !== 0 && value !== false) return null;
+
+    if (key === "joined_candidate_ids") {
+      const ids: number[] = Array.isArray(value) ? value : [];
+      if (ids.length === 0) return <span className="text-gray-400">No candidates selected</span>;
+
+      return (
+        <div className="flex flex-wrap gap-1.5 py-0.5">
+          {ids.map(id => {
+            const cand = candidatesList.find(c => c.id === id);
+            return (
+              <Badge key={id} className="bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-none font-medium px-2 py-0.5 rounded-full text-[10px]">
+                {cand ? cand.full_name : `ID: ${id}`}
+              </Badge>
+            );
+          })}
+        </div>
+      );
+    }
 
     // Handle job activity log boolean fields
     if (lowerKey === 'json_downloaded' || lowerKey === 'sql_downloaded' || lowerKey === 'amount_collected') {
@@ -1120,6 +1161,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
+    "Joined Candidates": [],
     "Resume Data": [],
     "Credentials": [],
     "Other": [],
