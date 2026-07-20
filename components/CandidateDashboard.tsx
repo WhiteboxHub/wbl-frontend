@@ -1726,8 +1726,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, positions.length, loadPositions, loadDashboard]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
