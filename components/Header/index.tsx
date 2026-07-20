@@ -197,7 +197,7 @@ const Header = ({
                   {(isAuthenticated && (userRole === "admin" || userRole === "employee")) && (
                     <li className="lg:hidden">
                       <Link
-                        href="/avatar/employee/employee-dashboard"
+                        href={userRole === 'employee' ? '/avatar/employee/employee-dashboard' : '/avatar'}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
                         onClick={() => {
                           closeNavbar();
@@ -269,7 +269,7 @@ const Header = ({
                 <div className="flex items-center gap-4">
                   {(userRole === "admin" || userRole === "employee") && (
                     <Link
-                      href="/avatar/employee/employee-dashboard"
+                      href={userRole === 'employee' ? '/avatar/employee/employee-dashboard' : '/avatar'}
                       onClick={handleAvatarClick}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >

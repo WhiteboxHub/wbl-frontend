@@ -112,6 +112,80 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
   );
 };
 
+// Status Renderer
+const StatusRenderer = (params: any) => {
+  const v = params.value?.toLowerCase() ?? "";
+  const classes = v === "active" ? "bg-green-100 text-green-800" :
+    v === "inactive" ? "bg-red-100 text-red-800" :
+      "bg-gray-100 text-gray-800";
+  return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
+};
+
+// Role Renderer
+const RoleRenderer = (params: any) => {
+  const rawRole = (params.value ?? "").toLowerCase();
+  let displayRole = "Candidate";
+  if (rawRole === "admin") displayRole = "Admin";
+  if (rawRole === "employee") displayRole = "Employee";
+  
+  const map: Record<string, string> = {
+    admin: "bg-indigo-100 text-indigo-800",
+    employee: "bg-emerald-100 text-emerald-800",
+    candidate: "bg-gray-100 text-gray-800",
+  };
+  return <Badge className={map[rawRole] ?? "bg-gray-200 text-gray-700"}>{rawRole ? displayRole : "Select Role"}</Badge>;
+};
+
+// Visa Status Renderer
+const VisaStatusRenderer = (params: any) => {
+  const visa = params.value ?? "";
+  const map: Record<string, string> = {
+    US_CITIZEN: "bg-blue-100 text-blue-800",
+    GREEN_CARD: "bg-emerald-100 text-emerald-800",
+    GC_EAD: "bg-teal-100 text-teal-800",
+    I485_EAD: "bg-teal-100 text-teal-800",
+    I140_APPROVED: "bg-cyan-100 text-cyan-800",
+    F1: "bg-pink-100 text-pink-800",
+    F1_OPT: "bg-pink-100 text-pink-800",
+    F1_CPT: "bg-pink-100 text-pink-800",
+    J1: "bg-amber-100 text-amber-800",
+    J1_AT: "bg-amber-100 text-amber-800",
+    H1B: "bg-indigo-100 text-indigo-800",
+    H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
+    H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
+    H4: "bg-purple-100 text-purple-800",
+    H4_EAD: "bg-purple-100 text-purple-800",
+    L1A: "bg-violet-100 text-violet-800",
+    L1B: "bg-violet-100 text-violet-800",
+    L2: "bg-violet-100 text-violet-800",
+    L2_EAD: "bg-violet-100 text-violet-800",
+    O1: "bg-fuchsia-100 text-fuchsia-800",
+    TN: "bg-sky-100 text-sky-800",
+    E3: "bg-lime-100 text-lime-800",
+    E3_EAD: "bg-lime-100 text-lime-800",
+    E2: "bg-lime-100 text-lime-800",
+    E2_EAD: "bg-lime-100 text-lime-800",
+    TPS_EAD: "bg-yellow-100 text-yellow-800",
+    ASYLUM_EAD: "bg-orange-100 text-orange-800",
+    REFUGEE_EAD: "bg-orange-100 text-orange-800",
+    DACA_EAD: "bg-orange-100 text-orange-800",
+  };
+  return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
+};
+
+// Password Renderer
+const PasswordRenderer = (params: any) => {
+  const [showPassword, setShowPassword] = useState(false);
+  if (!params.value || params.value === "********") {
+    return <div className="flex items-center gap-2"><span>********</span></div>;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span>{showPassword ? params.value : "********"}</span>
+    </div>
+  );
+};
+
 export default function AuthUsersPage() {
   const { logout, authToken, setUserRole, userRole } = useAuth();
   const router = useRouter();
@@ -168,80 +242,6 @@ export default function AuthUsersPage() {
       String(u.id).includes(term)
     );
   });
-
-  // Status Renderer
-  const StatusRenderer = (params: any) => {
-    const v = params.value?.toLowerCase() ?? "";
-    const classes = v === "active" ? "bg-green-100 text-green-800" :
-      v === "inactive" ? "bg-red-100 text-red-800" :
-        "bg-gray-100 text-gray-800";
-    return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
-  };
-
-  // Role Renderer
-  const RoleRenderer = (params: any) => {
-    const rawRole = (params.value ?? "").toLowerCase();
-    let displayRole = "Candidate";
-    if (rawRole === "admin") displayRole = "Admin";
-    if (rawRole === "employee") displayRole = "Employee";
-    
-    const map: Record<string, string> = {
-      admin: "bg-indigo-100 text-indigo-800",
-      employee: "bg-emerald-100 text-emerald-800",
-      candidate: "bg-gray-100 text-gray-800",
-    };
-    return <Badge className={map[rawRole] ?? "bg-gray-200 text-gray-700"}>{rawRole ? displayRole : "Select Role"}</Badge>;
-  };
-
-  // Visa Status Renderer
-  const VisaStatusRenderer = (params: any) => {
-    const visa = params.value ?? "";
-    const map: Record<string, string> = {
-      US_CITIZEN: "bg-blue-100 text-blue-800",
-      GREEN_CARD: "bg-emerald-100 text-emerald-800",
-      GC_EAD: "bg-teal-100 text-teal-800",
-      I485_EAD: "bg-teal-100 text-teal-800",
-      I140_APPROVED: "bg-cyan-100 text-cyan-800",
-      F1: "bg-pink-100 text-pink-800",
-      F1_OPT: "bg-pink-100 text-pink-800",
-      F1_CPT: "bg-pink-100 text-pink-800",
-      J1: "bg-amber-100 text-amber-800",
-      J1_AT: "bg-amber-100 text-amber-800",
-      H1B: "bg-indigo-100 text-indigo-800",
-      H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
-      H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
-      H4: "bg-purple-100 text-purple-800",
-      H4_EAD: "bg-purple-100 text-purple-800",
-      L1A: "bg-violet-100 text-violet-800",
-      L1B: "bg-violet-100 text-violet-800",
-      L2: "bg-violet-100 text-violet-800",
-      L2_EAD: "bg-violet-100 text-violet-800",
-      O1: "bg-fuchsia-100 text-fuchsia-800",
-      TN: "bg-sky-100 text-sky-800",
-      E3: "bg-lime-100 text-lime-800",
-      E3_EAD: "bg-lime-100 text-lime-800",
-      E2: "bg-lime-100 text-lime-800",
-      E2_EAD: "bg-lime-100 text-lime-800",
-      TPS_EAD: "bg-yellow-100 text-yellow-800",
-      ASYLUM_EAD: "bg-orange-100 text-orange-800",
-      REFUGEE_EAD: "bg-orange-100 text-orange-800",
-      DACA_EAD: "bg-orange-100 text-orange-800",
-    };
-    return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
-  };
-
-  // Password Renderer
-  const PasswordRenderer = (params: any) => {
-    const [showPassword, setShowPassword] = useState(false);
-    if (!params.value || params.value === "********") {
-      return <div className="flex items-center gap-2"><span>********</span></div>;
-    }
-    return (
-      <div className="flex items-center gap-2">
-        <span>{showPassword ? params.value : "********"}</span>
-      </div>
-    );
-  };
 
   // Column Definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
