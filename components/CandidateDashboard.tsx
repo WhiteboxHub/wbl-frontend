@@ -371,8 +371,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const { userRole } = useAuth() as { userRole: string };
 
     const getAiPrepApiUrl = () => {
-        const isClient = typeof window !== "undefined";
-        return (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
+        return (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
     };
     const AIPREP_API = getAiPrepApiUrl();
 
@@ -519,7 +518,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         setIsSavingResumeJson(true);
         try {
-            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+            const AIPREP_API = process.env.NEXT_PUBLIC_API_URL || "";
             const formData = new FormData();
             const blob = new Blob([resumeJsonText], { type: "application/json" });
             formData.append("file", blob, "resume.json");

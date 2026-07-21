@@ -326,10 +326,10 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
   // Strip a trailing /api if present so we can append /api/analytics/ai-prep-report consistently.
   // Falls back to the same default production URL as other components in this project.
   const getApiUrl = () => {
-    if (process.env.NEXT_PUBLIC_AIPREP_API_URL) {
-      return process.env.NEXT_PUBLIC_AIPREP_API_URL;
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return process.env.NEXT_PUBLIC_API_URL;
     }
-    return "https://ai-backend-560359652969.us-central1.run.app/api";
+    return "";
   };
   const AI_PREP_API = getApiUrl().replace(/\/api\/?$/, "");
 
