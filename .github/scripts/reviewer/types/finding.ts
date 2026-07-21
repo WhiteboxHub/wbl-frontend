@@ -1,3 +1,4 @@
+export type Finding = Evidence;
 export type EvidenceType = 'api_signature' | 'security_sink' | 'architecture' | 'code_smell';
 export type EvidenceSource = 'ast' | 'semantic' | 'git' | 'security' | 'impact';
 

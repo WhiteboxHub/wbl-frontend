@@ -1,7 +1,7 @@
 import { Project, Node, FunctionDeclaration } from 'ts-morph';
 import path from 'path';
 import { execSync } from 'child_process';
-import { Evidence } from '../types/finding';
+import { Evidence, SecurityPrimitive } from '../types/finding';
 import { rules } from '../rules';
 
 function groupConsecutiveLines(lines: number[]): number[][] {
