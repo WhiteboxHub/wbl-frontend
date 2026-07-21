@@ -200,8 +200,7 @@ export default function CourseSubjectPage() {
           <div className="mb-4">
             <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
             <p>
-              Manage mappings between courses and subjects. Total mappings:{" "}
-              {courseSubjects.length}
+              Manage mappings between courses and subjects.
             </p>
           </div>
 

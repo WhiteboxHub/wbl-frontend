@@ -233,9 +233,13 @@ export default function EmployeeSearchPage() {
             .trim()
             .replace(/\b\w/g, (c) => c.toUpperCase());
           let displayValue: any = value;
-          if (key.toLowerCase().includes("date")) displayValue = DateFormatter(value);
-          else if (key === "status" && typeof value === "number")
+          if (key.toLowerCase().includes("date")) { displayValue = DateFormatter(value); }
+          else if (key === "status" && typeof value === "number") {
             displayValue = <StatusRenderer status={value} />;
+          }
+          else if (key === "instructor") {
+            displayValue = value === 1 ? "Yes" : "No";
+          }
           return (
             <div
               key={key}
