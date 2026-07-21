@@ -4,7 +4,7 @@ import { Node, SyntaxKind } from 'ts-morph';
 export class ReactHookBugRule implements Rule {
   name = "ReactHookBugRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
     const Evidences: Evidence[] = [];
     

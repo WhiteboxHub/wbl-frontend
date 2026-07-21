@@ -5,7 +5,7 @@ import crypto from 'crypto';
 export class DangerousApiRule implements Rule {
   name = "DangerousApiRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
     const Evidences: Evidence[] = [];
     

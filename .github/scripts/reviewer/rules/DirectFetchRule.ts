@@ -4,7 +4,7 @@ import { SyntaxKind } from 'ts-morph';
 export class DirectFetchRule implements Rule {
   name = "DirectFetchRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
     const Evidences: Evidence[] = [];
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');

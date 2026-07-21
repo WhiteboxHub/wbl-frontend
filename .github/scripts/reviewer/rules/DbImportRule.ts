@@ -3,7 +3,7 @@ import { Rule, Evidence } from '../types/finding';
 export class DbImportRule implements Rule {
   name = "DbImportRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
     const Evidences: Evidence[] = [];
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');
