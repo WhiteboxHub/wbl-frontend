@@ -1,4 +1,4 @@
-import { Rule, Evidence } from '../types/Evidence';
+import { Rule, Evidence } from '../types/finding';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class ReactHookBugRule implements Rule {
@@ -70,6 +70,6 @@ export class ReactHookBugRule implements Rule {
       }
     }
 
-    return { critical, Evidences };
+    return { critical, findings: Evidences };
   }
 }

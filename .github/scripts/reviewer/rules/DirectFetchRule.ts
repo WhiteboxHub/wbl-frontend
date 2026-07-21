@@ -1,4 +1,4 @@
-import { Rule, Evidence } from '../types/Evidence';
+import { Rule, Evidence } from '../types/finding';
 import { SyntaxKind } from 'ts-morph';
 
 export class DirectFetchRule implements Rule {
@@ -32,6 +32,6 @@ export class DirectFetchRule implements Rule {
       }
     }
 
-    return { critical, Evidences };
+    return { critical, findings: Evidences };
   }
 }

@@ -1,4 +1,4 @@
-import { Rule, Evidence } from '../types/Evidence';
+import { Rule, Evidence } from '../types/finding';
 
 export class DbImportRule implements Rule {
   name = "DbImportRule";
@@ -30,6 +30,6 @@ export class DbImportRule implements Rule {
       });
     }
 
-    return { critical, Evidences };
+    return { critical, findings: Evidences };
   }
 }

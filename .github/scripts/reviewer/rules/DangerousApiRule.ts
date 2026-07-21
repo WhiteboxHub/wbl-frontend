@@ -1,4 +1,4 @@
-import { Rule, Evidence, SecurityEvidence } from '../types/Evidence';
+import { Rule, Evidence, SecurityEvidence } from '../types/finding';
 import { SyntaxKind } from 'ts-morph';
 import crypto from 'crypto';
 
@@ -42,7 +42,7 @@ export class DangerousApiRule implements Rule {
       }
     }
 
-    return { critical, Evidences };
+    return { critical, findings: Evidences };
   }
 }
 

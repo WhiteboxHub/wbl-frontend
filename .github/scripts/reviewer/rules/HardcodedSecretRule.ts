@@ -1,4 +1,4 @@
-import { Rule, Evidence } from '../types/Evidence';
+import { Rule, Evidence } from '../types/finding';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class HardcodedSecretRule implements Rule {
@@ -40,6 +40,6 @@ export class HardcodedSecretRule implements Rule {
       }
     }
 
-    return { critical, Evidences };
+    return { critical, findings: Evidences };
   }
 }
