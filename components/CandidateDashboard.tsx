@@ -708,6 +708,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 body: { candidate_json: parsed }
             });
 
+            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
+            if (prepToken) {
+                await apiFetch("/api/setup/resume", {
+                    method: "PUT",
+                    body: { resume_json: parsed, session_id: prepToken }
+                });
+            }
+
             toast.success("Resume JSON updated successfully!");
 
             if (prefetchedSession) {
