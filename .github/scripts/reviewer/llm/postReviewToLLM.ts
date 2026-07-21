@@ -300,7 +300,7 @@ export async function postReviewToLLM(finalContext: string, allFindings: any[], 
         if (bug.bug_category.toLowerCase() === "security" && bug.confidence >= 0.95 && bug.owasp_category && bug.concrete_exploit_path && bug.ast_primitive_id) {
           const primitive = securityPrimitives.find(p => p.id === bug.ast_primitive_id);
           if (primitive) {
-            const isFileMatch = primitive.file ? bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.split('/').pop() || '') : false;
+            const isFileMatch = primitive.file ? bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.replace(/\\/g, '/').split('/').pop() || '') : false;
             const lineMatch = bug.changed_lines.includes(primitive.line.toString()) || Math.abs(parseInt(bug.changed_lines.split('-')[0]) - primitive.line) <= 10;
             
             if (isFileMatch && lineMatch) {
