@@ -202,9 +202,13 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     
     // Run all rules
     for (const rule of rules) {
-      const { critical, findings, securityPrimitives } = rule.run(sourceFile, lines, isNewFile, project);
+      const result = rule.run(sourceFile, lines, isNewFile, project);
+      const critical = result.critical || [];
+      const findings = result.findings || (result as any).Evidences || [];
+      const securityPrimitives = result.securityPrimitives || [];
+      
       if (critical.length > 0) {
-        allCritical.push(...critical.map(c => `[${file}] ${c}`));
+        allCritical.push(...critical.map((c: string) => `[${file}] ${c}`));
       }
       if (findings.length > 0) {
         allFindings.push(...findings);
