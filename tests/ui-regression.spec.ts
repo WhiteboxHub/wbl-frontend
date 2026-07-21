@@ -22,6 +22,16 @@ test.describe("Full UI Grid Regression", () => {
     // Disable the per-test timeout — grids can take time to load data
     test.setTimeout(0);
 
+    //  MOCK: Intercept flaky backend endpoints to prevent CORS/timeout errors during UI layout validation
+    await page.route('**/candidate/marketing*', async (route) => {
+      // Ensure we only mock GET requests to avoid breaking anything else
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], total: 0 }) });
+      } else {
+        await route.continue();
+      }
+    });
+
     const gridRoutes = getAllGridRoutes();
     console.log(`\n${"=".repeat(60)}`);
     console.log(
@@ -59,15 +69,6 @@ test.describe("Full UI Grid Regression", () => {
               // If Loading... never appears, that's OK - page might load directly or show error
               console.log(`[Regression] No Loading spinner found on ${routePath} - continuing...`);
             }
-            
-            //  MOCK: Intercept flaky backend endpoints to prevent CORS/timeout errors during UI layout validation
-            await page.route('**/metrics/all', async route => {
-              await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
-            });
-            await page.route('**/candidate/marketing*', async route => {
-              await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [], total: 0 }) });
-            });
-
 
             // ── 1. Base layout check ──────────────────────────────────────
             await validateUILayout(page);
