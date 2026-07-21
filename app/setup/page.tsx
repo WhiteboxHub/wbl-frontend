@@ -66,7 +66,7 @@ export default function CandidateSetupWizard() {
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isClient = typeof window !== "undefined";
-  const API_URL = (process.env.NEXT_PUBLIC_API_URL "").replace(/\/$/, "");
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
   useEffect(() => {
     if (mounted && !authLoading && !isAuthenticated) {
