@@ -1392,7 +1392,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setEditInterviewLoading(false);
         }
     };
-    const loadUserProfile = async () => {
+    const loadUserProfile = useCallback(async () => {
         try {
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
@@ -1407,11 +1407,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error("Error loading user profile:", err);
             return null;
         }
-    };
+    }, [setUserProfile]);
 
 
 
-    const getCandidateId = async (): Promise<number> => {
+    const getCandidateId = useCallback(async (): Promise<number> => {
         try {
             if (typeof window !== "undefined") {
                 const searchParams = new URLSearchParams(window.location.search);
@@ -1477,7 +1477,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error(" Error getting candidate ID:", err);
             throw new Error(extractErrorMessage(err, "Failed to get candidate ID. Please log in again."));
         }
-    };
+    }, []);
 
     const loadSessions = async () => {
         const fullName = data?.basic_info?.full_name;
@@ -1726,8 +1726,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus]);
+    }, [activeTab, candidateId, positions.length, setPrefetchedSession, setSetupStatus, loadDashboard, loadPositions]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
