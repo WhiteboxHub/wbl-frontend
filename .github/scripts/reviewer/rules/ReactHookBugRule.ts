@@ -57,7 +57,7 @@ export class ReactHookBugRule implements Rule {
                   const declStart = declarations[0].getStart();
                   if (declStart < bodyNode.getStart() || declStart > bodyNode.getEnd()) {
                      if (!arrayElements.includes(idName)) {
-                       findings.push({
+                       Evidences.push({
                          schemaVersion: 1,
                          id: `HOOK-MISS-DEP-${call.getStartLineNumber()}-${idName}`,
                          type: 'code_smell',
