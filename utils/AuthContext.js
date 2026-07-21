@@ -139,7 +139,7 @@ export const AuthProvider = ({ children }) => {
     const teamRole = getUserTeamRole(token);
     setAuthToken(token);
     setIsAuthenticated(true);
-    setUserRole(teamRole || role || "candidate");
+    setUserRole(role || teamRole || "candidate");
     // optionally open sidebar if logged in
     setSidebarOpen(true);
   };
@@ -150,7 +150,9 @@ export const AuthProvider = ({ children }) => {
     try {
       router.push("/login");
     } catch (e) {
-      console.warn("Router push failed:", e);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Router push failed:", e);
+      }
     }
   };
 
@@ -172,22 +174,27 @@ export const AuthProvider = ({ children }) => {
 
       // Store token and update auth state
       localStorage.setItem("access_token", token);
-      
+
       // Set domain-wide cookie for SSO with ai-prep
       const isProd = window.location.hostname.endsWith('whitebox-learning.com');
       const domain = isProd ? '.whitebox-learning.com' : '';
       const domainAttr = domain ? `; domain=${domain}` : '';
-      const secureAttr = window.location.protocol === 'https:' ? '; secure' : '';
-      document.cookie = `wbl_access_token=${token}${domainAttr}; path=/${secureAttr}; samesite=lax`;
+      document.cookie = `wbl_access_token=${token}${domainAttr}; path=/; secure; samesite=lax`;
 
       setAuthToken(token);
       setIsAuthenticated(true);
-      setUserRole(teamRole || role || "candidate");
+      setUserRole(role || teamRole || "candidate");
       setSidebarOpen(true);
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error);
-      return { success: false, message: "Login failed" };
+      if (process.env.NODE_ENV === "development") {
+        console.error("Login error:", error);
+      }
+
+      return {
+        success: false,
+        message: "Login failed",
+      };
     }
   };
 
@@ -195,13 +202,12 @@ export const AuthProvider = ({ children }) => {
     // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
     localStorage.removeItem("prep_token");
-    
+
     // Clear the domain-wide SSO cookie
     const isProd = window.location.hostname.endsWith('whitebox-learning.com');
     const domain = isProd ? '.whitebox-learning.com' : '';
     const domainAttr = domain ? `; domain=${domain}` : '';
-    const secureAttr = window.location.protocol === 'https:' ? '; secure' : '';
-    document.cookie = `wbl_access_token=; path=/${secureAttr}; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC${domainAttr};`;
+    document.cookie = `wbl_access_token=; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC${domainAttr};`;
 
     // write a `logout` key so other tabs receive the `storage` event
     try {
@@ -253,6 +259,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         userRole,
+        setUserRole,
         sidebarOpen,
         setSidebarOpen,
       }}

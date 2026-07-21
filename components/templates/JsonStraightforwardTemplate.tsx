@@ -6,7 +6,6 @@ export function JsonStraightforwardTemplate({ data }: TemplateProps) {
     <div className="bg-white text-gray-900 min-h-[842px] font-mono p-10 text-[10.5px]">
       <header className="mb-7">
         <h1 className="text-2xl font-bold text-gray-900">{data.fullName || "Your Name"}</h1>
-        <p className="text-gray-600 text-sm mt-0.5">{data.title || "Professional Title"}</p>
         <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-2 text-[10px] text-gray-500">
           {contact.map((c, i) => <span key={i}>{c}</span>)}
         </div>

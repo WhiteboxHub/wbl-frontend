@@ -6,7 +6,6 @@ export function JsonProfessionalTemplate({ data }: TemplateProps) {
     <div className="bg-white text-gray-900 min-h-[842px] font-sans text-[11px]">
       <header className="bg-gradient-to-r from-[#1a237e] to-[#283593] text-white px-10 py-8">
         <h1 className="text-4xl font-bold tracking-tight">{data.fullName || "Your Name"}</h1>
-        <p className="text-blue-200 text-sm mt-1 font-light">{data.title || "Professional Title"}</p>
         <div className="mt-4 h-px bg-blue-400 opacity-50" />
         <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-[10px] text-blue-100">
           {contact.map((c, i) => (

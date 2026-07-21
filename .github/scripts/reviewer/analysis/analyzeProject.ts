@@ -51,6 +51,7 @@ function calculateImpactScore(refs: Node[], changedFilePath: string): { score: n
 export function analyzeProject(project: Project, changes: Map<string, number[]>, addedFiles: Set<string>) {
   let allCritical: string[] = [];
   let allFindings: Evidence[] = [];
+  let allSecurityPrimitives: SecurityPrimitive[] = [];
   let impactAnalysis: string[] = [];
   let modifiedPublicApis: string[] = [];
   let contextParts: string[] = ["## Context Snippets\n"];
@@ -201,15 +202,18 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     
     // Run all rules
     for (const rule of rules) {
-      const { critical, findings } = rule.run(sourceFile, lines, isNewFile, project);
+      const { critical, findings, securityPrimitives } = rule.run(sourceFile, lines, isNewFile, project);
       if (critical.length > 0) {
         allCritical.push(...critical.map(c => `[${file}] ${c}`));
       }
       if (findings.length > 0) {
         allFindings.push(...findings);
       }
+      if (securityPrimitives && securityPrimitives.length > 0) {
+        allSecurityPrimitives.push(...securityPrimitives);
+      }
     }
   }
 
-  return { allCritical, allFindings, impactAnalysis, modifiedPublicApis, contextParts };
+  return { allCritical, allFindings, impactAnalysis, modifiedPublicApis, contextParts, allSecurityPrimitives };
 }

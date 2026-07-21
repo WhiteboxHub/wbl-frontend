@@ -34,25 +34,45 @@ export class SignatureChangeRule implements Rule {
         const bodyStartLine = body ? body.getStartLineNumber() : startLine;
         const signatureChanged = changedLines.some(l => l >= startLine && l <= bodyStartLine);
         
-        if (signatureChanged) {
-           const id = `API-SIG-${crypto.createHash('md5').update(`${name}-${startLine}`).digest('hex').substring(0, 8).toUpperCase()}`;
+        if (signatureChanged && name !== 'anonymous') {
+           // Only report if it's exported
+           let isExported = false;
+           if (fn.hasExportKeyword && fn.hasExportKeyword()) {
+             isExported = true;
+           } else if (Node.isArrowFunction(fn)) {
+             const varDec = fn.getFirstAncestorByKind(SyntaxKind.VariableDeclaration);
+             const varStmt = varDec?.getFirstAncestorByKind(SyntaxKind.VariableStatement);
+             if (varStmt && varStmt.hasExportKeyword()) {
+               isExported = true;
+             }
+           } else if (Node.isMethodDeclaration(fn)) {
+             const classDecl = fn.getFirstAncestorByKind(SyntaxKind.ClassDeclaration);
+             if (classDecl && classDecl.hasExportKeyword()) {
+               isExported = true;
+             }
+           }
            
-           const attributes: ApiSignatureEvidence = {
-             changeType: 'signature_modified',
-             reason: 'Signature line modified'
-           };
-           
-           Evidences.push({
-             schemaVersion: 1,
-             id: id,
-             type: 'api_signature',
-             source: 'ast',
-             severity: 'HIGH',
-             attributes: attributes,
-             evidence: `Function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
-           });
+           if (isExported) {
+             const id = `API-SIG-${crypto.createHash('md5').update(`${name}-${startLine}`).digest('hex').substring(0, 8).toUpperCase()}`;
+             
+             const attributes: ApiSignatureEvidence = {
+               changeType: 'signature_modified',
+               reason: 'Signature line modified'
+             };
+             
+             // NOTE: Make sure the array name here matches what you defined at the top of the file! 
+             // It's likely 'findings.push' or 'Evidences.push' depending on your variable name.
+             findings.push({
+               schemaVersion: 1,
+               id: id,
+               type: 'api_signature',
+               source: 'ast',
+               severity: 'HIGH',
+               attributes: attributes,
+               evidence: `Exported function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
+             });
+           }
         }
-      }
     }
 
     return { critical, Evidences };

@@ -8,12 +8,15 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon, Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+import { useAuth } from "@/utils/AuthContext";
+import { parseJwt } from "@/utils/auth";
+import { useRouter } from "next/navigation";
 
 // Authentication helper (now redundant, but kept for reference)
 const getAuthToken = (): string | null => {
@@ -109,12 +112,96 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
   );
 };
 
+// Status Renderer
+const StatusRenderer = (params: any) => {
+  const v = params.value?.toLowerCase() ?? "";
+  const classes = v === "active" ? "bg-green-100 text-green-800" :
+    v === "inactive" ? "bg-red-100 text-red-800" :
+      "bg-gray-100 text-gray-800";
+  return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
+};
+
+// Role Renderer
+const RoleRenderer = (params: any) => {
+  const rawRole = (params.value ?? "").toLowerCase();
+  let displayRole = "Candidate";
+  if (rawRole === "admin") displayRole = "Admin";
+  if (rawRole === "employee") displayRole = "Employee";
+  
+  const map: Record<string, string> = {
+    admin: "bg-indigo-100 text-indigo-800",
+    employee: "bg-emerald-100 text-emerald-800",
+    candidate: "bg-gray-100 text-gray-800",
+  };
+  return <Badge className={map[rawRole] ?? "bg-gray-200 text-gray-700"}>{rawRole ? displayRole : "Select Role"}</Badge>;
+};
+
+// Visa Status Renderer
+const VisaStatusRenderer = (params: any) => {
+  const visa = params.value ?? "";
+  const map: Record<string, string> = {
+    US_CITIZEN: "bg-blue-100 text-blue-800",
+    GREEN_CARD: "bg-emerald-100 text-emerald-800",
+    GC_EAD: "bg-teal-100 text-teal-800",
+    I485_EAD: "bg-teal-100 text-teal-800",
+    I140_APPROVED: "bg-cyan-100 text-cyan-800",
+    F1: "bg-pink-100 text-pink-800",
+    F1_OPT: "bg-pink-100 text-pink-800",
+    F1_CPT: "bg-pink-100 text-pink-800",
+    J1: "bg-amber-100 text-amber-800",
+    J1_AT: "bg-amber-100 text-amber-800",
+    H1B: "bg-indigo-100 text-indigo-800",
+    H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
+    H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
+    H4: "bg-purple-100 text-purple-800",
+    H4_EAD: "bg-purple-100 text-purple-800",
+    L1A: "bg-violet-100 text-violet-800",
+    L1B: "bg-violet-100 text-violet-800",
+    L2: "bg-violet-100 text-violet-800",
+    L2_EAD: "bg-violet-100 text-violet-800",
+    O1: "bg-fuchsia-100 text-fuchsia-800",
+    TN: "bg-sky-100 text-sky-800",
+    E3: "bg-lime-100 text-lime-800",
+    E3_EAD: "bg-lime-100 text-lime-800",
+    E2: "bg-lime-100 text-lime-800",
+    E2_EAD: "bg-lime-100 text-lime-800",
+    TPS_EAD: "bg-yellow-100 text-yellow-800",
+    ASYLUM_EAD: "bg-orange-100 text-orange-800",
+    REFUGEE_EAD: "bg-orange-100 text-orange-800",
+    DACA_EAD: "bg-orange-100 text-orange-800",
+  };
+  return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
+};
+
+// Password Renderer
+const PasswordRenderer = (params: any) => {
+  const [showPassword, setShowPassword] = useState(false);
+  if (!params.value || params.value === "********") {
+    return <div className="flex items-center gap-2"><span>********</span></div>;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span>{showPassword ? params.value : "********"}</span>
+    </div>
+  );
+};
+
 export default function AuthUsersPage() {
+  const { logout, authToken, setUserRole, userRole } = useAuth();
+  const router = useRouter();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const showLoader = useMinimumLoadingTime(loading);
+
+  // Role protection: redirect non-admins instantly
+  useEffect(() => {
+    if (userRole && userRole !== "admin") {
+      router.replace("/avatar");
+    }
+  }, [userRole, router]);
 
   // Debounce search
   useEffect(() => {
@@ -123,7 +210,7 @@ export default function AuthUsersPage() {
   }, [searchTerm]);
 
   // Fetch ALL users once (no pagination)
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const res = await cachedApiFetch("/users");
@@ -133,16 +220,16 @@ export default function AuthUsersPage() {
       else if (data?.users) usersArray = data.users;
       else if (data?.data) usersArray = data.data;
       setUsers(usersArray);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch users:", err);
       toast.error(err.message || "Failed to fetch users");
       setUsers([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   // Filtered users (searching locally)
   const filteredUsers = users.filter((u) => {
@@ -155,76 +242,6 @@ export default function AuthUsersPage() {
       String(u.id).includes(term)
     );
   });
-
-  // Status Renderer
-  const StatusRenderer = (params: any) => {
-    const v = params.value?.toLowerCase() ?? "";
-    const classes = v === "active" ? "bg-green-100 text-green-800" :
-      v === "inactive" ? "bg-red-100 text-red-800" :
-        "bg-gray-100 text-gray-800";
-    return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
-  };
-
-  // Role Renderer
-  const RoleRenderer = (params: any) => {
-    const role = params.value ?? "";
-    const map: Record<string, string> = {
-      ADMIN: "bg-indigo-100 text-indigo-800",
-      USER: "bg-gray-100 text-gray-800",
-      MANAGER: "bg-emerald-100 text-emerald-800",
-    };
-    return <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>;
-  };
-
-  // Visa Status Renderer
-  const VisaStatusRenderer = (params: any) => {
-    const visa = params.value ?? "";
-    const map: Record<string, string> = {
-      US_CITIZEN: "bg-blue-100 text-blue-800",
-      GREEN_CARD: "bg-emerald-100 text-emerald-800",
-      GC_EAD: "bg-teal-100 text-teal-800",
-      I485_EAD: "bg-teal-100 text-teal-800",
-      I140_APPROVED: "bg-cyan-100 text-cyan-800",
-      F1: "bg-pink-100 text-pink-800",
-      F1_OPT: "bg-pink-100 text-pink-800",
-      F1_CPT: "bg-pink-100 text-pink-800",
-      J1: "bg-amber-100 text-amber-800",
-      J1_AT: "bg-amber-100 text-amber-800",
-      H1B: "bg-indigo-100 text-indigo-800",
-      H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
-      H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
-      H4: "bg-purple-100 text-purple-800",
-      H4_EAD: "bg-purple-100 text-purple-800",
-      L1A: "bg-violet-100 text-violet-800",
-      L1B: "bg-violet-100 text-violet-800",
-      L2: "bg-violet-100 text-violet-800",
-      L2_EAD: "bg-violet-100 text-violet-800",
-      O1: "bg-fuchsia-100 text-fuchsia-800",
-      TN: "bg-sky-100 text-sky-800",
-      E3: "bg-lime-100 text-lime-800",
-      E3_EAD: "bg-lime-100 text-lime-800",
-      E2: "bg-lime-100 text-lime-800",
-      E2_EAD: "bg-lime-100 text-lime-800",
-      TPS_EAD: "bg-yellow-100 text-yellow-800",
-      ASYLUM_EAD: "bg-orange-100 text-orange-800",
-      REFUGEE_EAD: "bg-orange-100 text-orange-800",
-      DACA_EAD: "bg-orange-100 text-orange-800",
-    };
-    return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
-  };
-
-  // Password Renderer
-  const PasswordRenderer = (params: any) => {
-    const [showPassword, setShowPassword] = useState(false);
-    if (!params.value || params.value === "********") {
-      return <div className="flex items-center gap-2"><span>********</span></div>;
-    }
-    return (
-      <div className="flex items-center gap-2">
-        <span>{showPassword ? params.value : "********"}</span>
-      </div>
-    );
-  };
 
   // Column Definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
@@ -310,7 +327,37 @@ export default function AuthUsersPage() {
       editable: true,
       cellEditor: 'agTextCellEditor',
     },
-    { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer, cellEditor: 'agTextCellEditor' },
+    { 
+      field: "role", 
+      headerName: "Role", 
+      width: 150, 
+      editable: true, 
+      cellRenderer: RoleRenderer, 
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: {
+        values: ['Select Role', 'Admin', 'Employee', 'Candidate']
+      },
+      valueGetter: (params) => {
+        if (!params.data || !params.data.role) return 'Select Role';
+        const r = params.data.role.toLowerCase();
+        if (r === 'admin') return 'Admin';
+        if (r === 'employee') return 'Employee';
+        if (r === 'candidate') return 'Candidate';
+        return params.data.role; // fallback
+      },
+      valueSetter: (params) => {
+        // Track the original role before mutating so validation isn't bypassed
+        if (params.data && params.data.oldRole === undefined) {
+          params.data.oldRole = params.data.role;
+        }
+        if (params.newValue === 'Select Role' || !params.newValue) {
+          params.data.role = '';
+        } else {
+          params.data.role = params.newValue.toLowerCase();
+        }
+        return true;
+      }
+    },
     {
       field: "notes",
       headerName: "Notes",
@@ -329,6 +376,36 @@ export default function AuthUsersPage() {
     try {
       const dataToSend = { ...updatedRow };
       const originalUser = users.find(u => u.id === updatedRow.id);
+
+      if (originalUser) {
+        // Use oldRole if it was set during edit, otherwise fallback to role
+        const origRole = originalUser.oldRole?.toLowerCase() ?? originalUser.role?.toLowerCase() ?? 'candidate';
+        const newRole = dataToSend.role?.toLowerCase() || 'candidate';
+
+        if (origRole === 'candidate' && (newRole === 'employee' || newRole === 'admin')) {
+          toast.error("A Candidate cannot be changed to an Employee or Admin.");
+          if (originalUser.oldRole !== undefined) {
+            originalUser.role = originalUser.oldRole;
+            delete originalUser.oldRole;
+          }
+          setUsers([...users]); // Revert UI
+          return;
+        }
+
+        if ((origRole === 'employee' || origRole === 'admin') && newRole === 'candidate') {
+          toast.error(`An ${origRole === 'admin' ? 'Admin' : 'Employee'} cannot be changed to a Candidate.`);
+          if (originalUser.oldRole !== undefined) {
+            originalUser.role = originalUser.oldRole;
+            delete originalUser.oldRole;
+          }
+          setUsers([...users]); // Revert UI
+          return;
+        }
+        
+        delete originalUser.oldRole;
+        delete dataToSend.oldRole;
+      }
+
       if (dataToSend.passwd && dataToSend.passwd !== "********" && dataToSend.passwd !== originalUser?.passwd) {
         const validation = validatePasswordStrength(dataToSend.passwd);
         if (!validation.isValid) {
@@ -346,6 +423,24 @@ export default function AuthUsersPage() {
       await invalidateCache("/users");
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
+
+      if (authToken) {
+        const decoded = parseJwt(authToken);
+        if (decoded && (decoded.sub === updatedUser.uname || decoded.email === updatedUser.uname)) {
+          if (updatedUser.status === 'inactive') {
+            toast.info("Your account status was set to inactive. Logging out...");
+            setTimeout(() => {
+              if (typeof logout === 'function') logout();
+            }, 1500);
+          } else if (updatedUser.role === 'employee') {
+            toast.info("Your role was changed to Employee. Updating session...");
+            if (typeof setUserRole === 'function') setUserRole('employee');
+            setTimeout(() => {
+              window.location.href = "/avatar";
+            }, 1000);
+          }
+        }
+      }
     } catch (err) {
       console.error("Failed to update user:", err);
       toast.error(err.message || "Failed to update user");
@@ -382,6 +477,11 @@ export default function AuthUsersPage() {
         dataToSend.visa_status = null;
       }
 
+      // Ensure role is lowercase before sending to backend
+      if (dataToSend.role) {
+        dataToSend.role = dataToSend.role.toLowerCase();
+      }
+
       // Send POST request to create new user
       await api.post("/user", dataToSend);
       await invalidateCache("/users");
@@ -410,8 +510,7 @@ export default function AuthUsersPage() {
 
   // Handle add user
   const handleAddUser = () => {
-    // toast.info("Add user functionality to be implemented");
-    toast.info("Click the + button in the table to add a new user");
+    
   };
 
   return (
@@ -423,10 +522,7 @@ export default function AuthUsersPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Auth Users</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage application authentication users</p>
         </div>
-        <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white" onClick={handleAddUser}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+        
       </div>
       {/* Search Input */}
       <div className="max-w-md">

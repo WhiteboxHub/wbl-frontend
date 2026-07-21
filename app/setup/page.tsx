@@ -65,7 +65,9 @@ export default function CandidateSetupWizard() {
   const [setupStatus, setSetupStatus] = useState<any>(null);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || (process.env.NODE_ENV === "production" ? "https://ai-backend-560359652969.us-central1.run.app/api" : "http://localhost:8000/api");
+  const isClient = typeof window !== "undefined";
+  const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const API_URL = isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
 
   useEffect(() => {
     if (mounted && !authLoading && !isAuthenticated) {
@@ -75,10 +77,13 @@ export default function CandidateSetupWizard() {
 
   useEffect(() => {
     setMounted(true);
-    if (isAuthenticated) {
-      initSessionAndData();
-    }
-  }, [isAuthenticated]);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !isAuthenticated || sessionId) return;
+
+    initSessionAndData();
+  }, [mounted, isAuthenticated, sessionId]);
 
   const initSessionAndData = async () => {
     try {
@@ -114,8 +119,11 @@ export default function CandidateSetupWizard() {
         setApiKeys([{ id: 1, provider_name: "Configured API Key", model_name: "Active", voice_enabled: true }]);
       }
     } catch (err) {
-      console.error("Failed to init AI prep session", err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to init AI prep session", err);
+      }
     }
+    
   };
 
   const handleValidateResume = () => {
@@ -247,10 +255,21 @@ export default function CandidateSetupWizard() {
     { num: 4, label: "Done", desc: "Ready for AI prep" },
   ];
 
-  if (!mounted || authLoading) return null;
+  if (!mounted || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
-  if (!isAuthenticated) return null;
-
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
   return (
     <section className="relative z-10 flex min-h-[calc(100vh-120px)] items-center justify-center pt-24 pb-8 overflow-hidden">
       {/* Background decoration matching site style */}
@@ -300,8 +319,8 @@ export default function CandidateSetupWizard() {
                     )}
 
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 z-10 bg-white dark:bg-gray-900 transition-all ${isActive ? "border-primary text-primary" :
-                        isPast ? "border-primary bg-primary text-white dark:bg-primary" :
-                          "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600"
+                      isPast ? "border-primary bg-primary text-white dark:bg-primary" :
+                        "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600"
                       }`}>
                       {isPast ? <CheckCircle size={14} /> : <span className="text-[11px] font-extrabold">{s.num}</span>}
                     </div>
@@ -452,25 +471,27 @@ export default function CandidateSetupWizard() {
                 )}
 
                 <div className="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-4 bg-gray-50 dark:bg-dark min-h-[200px]">
-                  <Editor
-                    height="100%"
-                    defaultLanguage="json"
-                    theme={isDark ? "vs-dark" : "light"}
-                    value={resumeJson}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 12,
-                      lineNumbers: "on",
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      padding: { top: 12, bottom: 12 },
-                    }}
-                    onChange={(val) => {
-                      setResumeJson(val || "");
-                      setIsValidated(false);
-                      setResumeWarning("");
-                    }}
-                  />
+                  {/* <Editor */}
+                  {mounted && (
+                    <Editor
+                      height="100%"
+                      defaultLanguage="json"
+                      theme={isDark ? "vs-dark" : "light"}
+                      value={resumeJson}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 12,
+                        lineNumbers: "on",
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                        padding: { top: 12, bottom: 12 },
+                      }}
+                      onChange={(val) => {
+                        setResumeJson(val || "");
+                        setIsValidated(false);
+                        setResumeWarning("");
+                      }}
+                    />)}
                 </div>
 
                 <div className="pt-4 mt-auto border-t border-gray-100 dark:border-gray-800 flex justify-between gap-3 shrink-0">

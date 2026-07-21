@@ -34,7 +34,7 @@ export class LargeFunctionRule implements Rule {
              severity: 'MEDIUM',
              confidence: 'HIGH',
              type: 'Code Smell',
-             evidence: `Function '${name}' is ${length} lines long (exceeds 150 limit) at line ${fn.getStartLineNumber()}.`
+             evidence: `Function '${name}' is ${length} lines long (exceeds 300 limit) at line ${fn.getStartLineNumber()}.`
            });
         }
       }

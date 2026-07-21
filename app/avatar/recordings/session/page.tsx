@@ -159,6 +159,7 @@ export default function SessionsPage() {
         subject_id: updatedRow.subject_id,
         subject: updatedRow.subject,
         notes: updatedRow.notes,
+        joined_candidate_ids: updatedRow.joined_candidate_ids || [],
       };
       const updatedSession = await smartUpdate(
         "session",

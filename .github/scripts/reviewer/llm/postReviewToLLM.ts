@@ -46,14 +46,54 @@ function loadRegistry(): any {
   };
 }
 
+const hardcodedDefaults = {
+    MODEL_CAPABILITIES: {
+      "deepseek-reasoner": ["reasoning", "coding"],
+      "gemini-2.5-pro": ["reasoning", "coding", "large_context"],
+      "gpt-4o": ["reasoning", "coding", "large_context"],
+      "deepseek-chat": ["balanced", "coding"],
+      "gemini-3.5-flash": ["fast", "large_context"],
+      "gpt-4o-mini": ["fast", "balanced"],
+      "gemini-3.1-flash-lite": ["fast", "cost_efficient"]
+    },
+    MODEL_SCORES: {
+      "deepseek-reasoner": 10,
+      "gemini-2.5-pro": 9,
+      "gpt-4o": 8,
+      "deepseek-chat": 8,
+      "gemini-3.5-flash": 7,
+      "gpt-4o-mini": 6,
+      "gemini-3.1-flash-lite": 5
+    },
+    TAG_WEIGHTS: {"reasoning": 5, "coding": 3, "large_context": 2, "balanced": 1, "fast": 1, "cost_efficient": 0}
+};
+
 const REGISTRY = loadRegistry();
 
-const MODEL_CAPABILITIES: Record<string, Set<string>> = {};
-for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES || {})) {
-  MODEL_CAPABILITIES[k] = new Set(v as string[]);
+let MODEL_CAPABILITIES: Record<string, Set<string>> = {};
+if (REGISTRY.models) {
+  for (const [k, v] of Object.entries(REGISTRY.models)) {
+    const model = v as any;
+    if (model.verified) {
+      MODEL_CAPABILITIES[k] = new Set(model.caps || []);
+    }
+  }
+} else if (REGISTRY.MODEL_CAPABILITIES) {
+  for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES)) {
+    MODEL_CAPABILITIES[k] = new Set(v as string[]);
+  }
 }
-const MODEL_SCORES: Record<string, number> = REGISTRY.MODEL_SCORES || {};
-const TAG_WEIGHTS: Record<string, number> = REGISTRY.TAG_WEIGHTS || {};
+
+// If the registry provided zero verified models (or the JSON was empty/invalid), fallback to hardcoded defaults
+if (Object.keys(MODEL_CAPABILITIES).length === 0) {
+  console.warn("[Warning] Registry provided zero verified models. Falling back to internal hardcoded models.");
+  for (const [k, v] of Object.entries(hardcodedDefaults.MODEL_CAPABILITIES)) {
+    MODEL_CAPABILITIES[k] = new Set(v as string[]);
+  }
+}
+
+const MODEL_SCORES: Record<string, number> = REGISTRY.MODEL_SCORES || hardcodedDefaults.MODEL_SCORES;
+const TAG_WEIGHTS: Record<string, number> = REGISTRY.TAG_WEIGHTS || hardcodedDefaults.TAG_WEIGHTS;
 
 function determineModelsToTry(metadata: any): string[] {
   const requiredTags = new Set<string>();
@@ -108,8 +148,17 @@ function getProviderConfig(model: string): { baseURL: string | undefined, keys: 
   return { baseURL: undefined, keys: [] };
 }
 
-export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any) {
+export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any, securityPrimitives: any[] = []) {
   if (!metadata) metadata = { impact_score: "LOW", signature_changes: 0, architecture_violations: 0, lines_changed: 0 };
+
+  if (securityPrimitives.length > 0) {
+    finalContext += "\n# 6. AST Security Primitives\n";
+    finalContext += "These are deterministic sinks found by the AST. Treat them as factual.\n```json\n";
+    const minifiedPrimitives = securityPrimitives.map(p => ({
+      id: p.id, kind: p.kind, owasp: p.owasp, line: p.line, evidence: p.evidence
+    }));
+    finalContext += JSON.stringify(minifiedPrimitives, null, 2) + "\n```\n\n";
+  }
 
   const prompt = buildPrompt(finalContext);
 
@@ -126,7 +175,11 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
             bug_category: { type: "string" },
             summary: { type: "string" },
             comment: { type: "string" },
-            diff_fix_suggestion: { type: "string" }
+            diff_fix_suggestion: { type: "string" },
+            confidence: { type: "number" },
+            owasp_category: { type: "string" },
+            concrete_exploit_path: { type: "string" },
+            ast_primitive_id: { type: "string" }
           },
           required: ["changed_file", "changed_lines", "bug_category", "summary", "comment", "diff_fix_suggestion"],
           additionalProperties: false
@@ -240,6 +293,35 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
   try {
     const data = JSON.parse(content);
     if (data.bugs && data.bugs.length > 0) {
+      let hasCriticalSecurity = false;
+      let blockingBug: any = null;
+
+      for (const bug of data.bugs) {
+        if (bug.bug_category.toLowerCase() === "security" && bug.confidence >= 0.95 && bug.owasp_category && bug.concrete_exploit_path && bug.ast_primitive_id) {
+          const primitive = securityPrimitives.find(p => p.id === bug.ast_primitive_id);
+          if (primitive) {
+            const isFileMatch = bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.split('/').pop());
+            const lineMatch = bug.changed_lines.includes(primitive.line.toString()) || Math.abs(parseInt(bug.changed_lines.split('-')[0]) - primitive.line) <= 10;
+            
+            if (isFileMatch && lineMatch) {
+              hasCriticalSecurity = true;
+              blockingBug = bug;
+              break;
+            }
+          }
+        }
+      }
+
+      if (hasCriticalSecurity && blockingBug) {
+        console.error(`\n[!] FATAL: Blocking merge.`);
+        console.error(`SEC ID: ${blockingBug.ast_primitive_id}`);
+        console.error(`File: ${blockingBug.changed_file}:${blockingBug.changed_lines}`);
+        console.error(`OWASP: ${blockingBug.owasp_category}`);
+        console.error(`Confidence: ${blockingBug.confidence}`);
+        console.error(`\nAI Reviewer detected a high-confidence OWASP violation that perfectly matches a deterministic AST sink. Exploit Path:\n${blockingBug.concrete_exploit_path}`);
+        process.exit(1);
+      }
+
       let markdown = `##  AI Code Review Findings (Model: \`${usedModel}\`)\n\n`;
       for (const bug of data.bugs) {
         const cat = bug.bug_category.toUpperCase();

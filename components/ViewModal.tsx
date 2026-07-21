@@ -7,7 +7,7 @@ import { Badge } from "@/components/admin_ui/badge";
 import { formatLinkedInUrl } from "@/lib/utils";
 import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
 import { normalizeResume } from "@/utils/resumeNormalizer";
-
+import {apiFetch} from "@/lib/api";
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface ViewModalProps {
   currentIndex?: number;
   onNavigate?: (index: number) => void;
   title: string;
+  onReupload?: () => void;
 }
 
 const excludedFields = [
@@ -94,6 +95,7 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   google_voice_number: "Contact Information",
   dob: "Basic Information",
+  joined_candidate_ids: "Joined Candidates",
   contact: "Basic Information",
   password: "Professional Information",
   secondaryemail: "Contact Information",
@@ -229,6 +231,7 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   source_uid: "Professional Information",
+  validation_status: "Basic Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
   raw_company: "Basic Information",
@@ -267,16 +270,16 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   resume_json: "Resume Data",
   api_key: "Credentials",
-  provider_name: "Credentials",
-  model_name: "Credentials",
+  provider_name: "Professional Information",
 
   // Campaign Emails
   vendor_email: "Basic Information",
   retry_count: "Professional Information",
   last_attempt_at: "Other",
   run_log_id: "Professional Information",
-  credential_id: "Professional Information",
   message_id: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  last_attempted_at: "Contact Information",
 
   current_day_sent: "Professional Information",
   last_reset_date: "Other",
@@ -285,6 +288,7 @@ const fieldSections: Record<string, string> = {
   warmup_daily_limit: "Professional Information",
   last_used_at: "Other",
   is_healthy: "Basic Information",
+  failure_type: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -347,6 +351,8 @@ const labelOverrides: Record<string, string> = {
   fullname: "Full Name",
   lastmod_user_name: "Last Modified By",
   job_posting_url: "Job Posting URL",
+  feedback: "Result",
+  feedback_text: "Detailed Feedback",
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
@@ -435,7 +441,6 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
   api_key: "API Key",
-  provider_name: "LLM Provider",
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
@@ -578,7 +583,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   );
 };
 
-export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
+export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title, onReupload }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLDivElement>(null);
@@ -590,6 +595,28 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   };
 
   const [copiedKeys, setCopiedKeys] = useState<Record<string, boolean>>({});
+  const [candidatesList, setCandidatesList] = useState<{ id: number; full_name: string }[]>([]);
+  const isClassRecordingModal = title.toLowerCase().includes("class recording") || title.toLowerCase().includes("recording");
+  const isSessionModal = title.toLowerCase().includes("session") || title.toLowerCase().includes("sessions");
+
+  useEffect(() => {
+    if (isOpen && (isClassRecordingModal || isSessionModal)) {
+      const fetchCandidates = async () => {
+        try {
+          const res = await apiFetch("/candidate/active-dropdown");
+          const arr = Array.isArray(res) ? res : res?.data ?? [];
+          const formatted = arr.map((c: any) => ({
+            id: c.id,
+            full_name: c.full_name,
+          }));
+          setCandidatesList(formatted);
+        } catch (err: any) {
+          console.error("Failed to fetch candidates in ViewModal:", err);
+        }
+      };
+      fetchCandidates();
+    }
+  }, [isOpen, isClassRecordingModal, isSessionModal, setCandidatesList]);
 
   const handleCopy = (key: string, value: string) => {
     navigator.clipboard.writeText(value);
@@ -731,6 +758,24 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const renderValue = (key: string, value: any) => {
     const lowerKey = key.toLowerCase();
     if (!value && value !== 0 && value !== false) return null;
+
+    if (key === "joined_candidate_ids") {
+      const ids: number[] = Array.isArray(value) ? value : [];
+      if (ids.length === 0) return <span className="text-gray-400">No candidates selected</span>;
+
+      return (
+        <div className="flex flex-wrap gap-1.5 py-0.5">
+          {ids.map(id => {
+            const cand = candidatesList.find(c => c.id === id);
+            return (
+              <Badge key={id} className="bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-none font-medium px-2 py-0.5 rounded-full text-[10px]">
+                {cand ? cand.full_name : `ID: ${id}`}
+              </Badge>
+            );
+          })}
+        </div>
+      );
+    }
 
     // Handle job activity log boolean fields
     if (lowerKey === 'json_downloaded' || lowerKey === 'sql_downloaded' || lowerKey === 'amount_collected') {
@@ -1116,6 +1161,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
+    "Joined Candidates": [],
     "Resume Data": [],
     "Credentials": [],
     "Other": [],
@@ -1342,16 +1388,27 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                         </select>
                       </div>
 
-                      {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
-                        <button
-                          type="button"
-                          onClick={handleDownload}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
-                        >
-                          <Download size={14} />
-                          Download PDF
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {onReupload && (
+                          <button
+                            type="button"
+                            onClick={onReupload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 border border-blue-200 dark:border-blue-800 transition-colors rounded-lg"
+                          >
+                            Change Resume
+                          </button>
+                        )}
+                        {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
+                          <button
+                            type="button"
+                            onClick={handleDownload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
+                          >
+                            <Download size={14} />
+                            Download PDF
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {!rawResumeJson ? (

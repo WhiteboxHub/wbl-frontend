@@ -14,6 +14,12 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: any; label: string }[]> = {
+  role: [
+    { value: "", label: "Select Role" },
+    { value: "admin", label: "Admin" },
+    { value: "employee", label: "Employee" },
+    { value: "candidate", label: "Candidate" },
+  ],
   move_to_prep: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
@@ -767,7 +773,12 @@ const fieldSections: Record<string, string> = {
   recipient_list_sql: "Other",
   parameters_config: "Other",
   version: "Basic Information",
-
+  validation_status: "Basic Information",
+  failure_type: "Professional Information",
+  suppression_source: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  last_attempted_at: "Contact Information",
+  unsubscribed_at: "Contact Information",
   // Workflow Schedule
   automation_workflow_id: "Basic Information",
   timezone: "Basic Information",
@@ -909,6 +920,7 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   google_voice_number: "Contact Information",
   linkedin_premium_end_date: "Professional Information",
+  joined_candidate_ids: "Joined Candidates",
   dob: "Basic Information",
   contact: "Basic Information",
   app_password: "Professional Information",
@@ -1113,6 +1125,7 @@ const labelOverrides: Record<string, string> = {
   candidate_json: "Candidate JSON",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
+  joined_candidate_ids: "Joined Candidates",
 
   // Workflows
   workflow_key: "Workflow Key",
@@ -1204,7 +1217,8 @@ const labelOverrides: Record<string, string> = {
   move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
   job_posting_url: "Job Posting URL",
-  feedback: "Feedback",
+  feedback: "Result",
+  feedback_text: "Detailed Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
   closed: "Closed",
@@ -1408,6 +1422,9 @@ export function EditModal({
   const [isSearchingPositions, setIsSearchingPositions] = useState(false);
   const [positionSearchTerm, setPositionSearchTerm] = useState("");
   const positionDropdownRef = useRef<HTMLDivElement>(null);
+  const [candidateSearchTerm, setCandidateSearchTerm] = useState("");
+  const [candidateDropdownOpen, setCandidateDropdownOpen] = useState(false);
+  const candidateDropdownRef = useRef<HTMLDivElement>(null);
 
 
   // Detect the modal context
@@ -1424,6 +1441,9 @@ export function EditModal({
   const isBatchesModal =
     title.toLowerCase().includes("batch") &&
     !title.toLowerCase().includes("course");
+  const isClassRecordingModal = title.toLowerCase().includes("class recording") ||
+    title.toLowerCase().includes("recording");
+  const isSessionModal = title.toLowerCase().includes("session");
 
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
@@ -1475,7 +1495,7 @@ export function EditModal({
 
   // Consolidate marketing candidate fetch logic
   useEffect(() => {
-    if (isOpen && (isInterviewModal || isJobActivityLogModal)) {
+    if (isOpen && (isInterviewModal || isJobActivityLogModal || isClassRecordingModal || isSessionModal)) {
       const fetchMarketingCandidatesList = async () => {
         try {
           const res = await apiFetch("/candidate/active-dropdown");
@@ -1495,7 +1515,18 @@ export function EditModal({
 
       fetchMarketingCandidatesList();
     }
-  }, [isOpen, isInterviewModal, isJobActivityLogModal]);
+  }, [isOpen, isInterviewModal, isJobActivityLogModal, isClassRecordingModal, isSessionModal]);
+
+  // Click outside handler for candidate multi-select dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (candidateDropdownRef.current && !candidateDropdownRef.current.contains(event.target as Node)) {
+        setCandidateDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Fetch ML batches
   useEffect(() => {
@@ -1968,6 +1999,11 @@ export function EditModal({
       if (isAddMode && title?.toLowerCase().includes("workflow")) {
         if (!flattenedData.status) flattenedData.status = "draft";
       }
+      if (isClassRecordingModal || isSessionModal) {
+        if (!flattenedData.joined_candidate_ids) {
+          flattenedData.joined_candidate_ids = data.joined_candidate_ids || [];
+        }
+      }
       setFormData(flattenedData);
       // Use setTimeout to defer reset to next tick, preventing blocking
       setTimeout(() => {
@@ -1980,7 +2016,7 @@ export function EditModal({
         }
       }, 0);
     }
-  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal, isEmployeeTaskModal, isPositionsModal]);
+  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal, isEmployeeTaskModal, isPositionsModal, isClassRecordingModal, isSessionModal]);
 
   // Special effect to resync job owners when employees list changes (async fetch)
   useEffect(() => {
@@ -2445,6 +2481,7 @@ export function EditModal({
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
+    "Joined Candidates": [],
     Other: [],
     Notes: [],
   };
@@ -3254,6 +3291,100 @@ export function EditModal({
                               );
                             }
 
+                            if (key === "joined_candidate_ids") {
+                              const selectedIds: number[] = watch("joined_candidate_ids") || formData.joined_candidate_ids || [];
+
+                              const filtered = marketingCandidates.filter((m) =>
+                                m.candidate.full_name.toLowerCase().includes(candidateSearchTerm.toLowerCase())
+                              );
+
+                              const toggleCandidate = (id: number) => {
+                                const newIds = selectedIds.includes(id)
+                                  ? selectedIds.filter((item) => item !== id)
+                                  : [...selectedIds, id];
+                                setValue("joined_candidate_ids", newIds, { shouldDirty: true });
+                                setFormData((prev) => ({ ...prev, joined_candidate_ids: newIds }));
+                              };
+
+                              return (
+                                <div key={key} className="space-y-1.5 col-span-full" ref={candidateDropdownRef}>
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+
+                                  <div className="relative">
+                                    <div
+                                      onClick={() => setCandidateDropdownOpen(!candidateDropdownOpen)}
+                                      className="min-h-[38px] w-full cursor-pointer rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-3 py-1.5 text-xs shadow-sm flex flex-wrap gap-1.5 items-center hover:border-blue-300 transition"
+                                    >
+                                      {selectedIds.length === 0 ? (
+                                        <span className="text-gray-400">Click to select candidates who joined...</span>
+                                      ) : (
+                                        selectedIds.map((id) => {
+                                          const cand = marketingCandidates.find((c) => c.candidate.id === id);
+                                          if (!cand) return null;
+                                          return (
+                                            <span
+                                              key={id}
+                                              className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium px-2 py-0.5 rounded-full text-[10px]"
+                                            >
+                                              {cand.candidate.full_name}
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  toggleCandidate(id);
+                                                }}
+                                                className="text-blue-500 hover:text-blue-700 font-bold ml-0.5"
+                                              >
+                                                &times;
+                                              </button>
+                                            </span>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+
+                                    {candidateDropdownOpen && (
+                                      <div className="absolute left-0 mt-1 w-full max-h-60 overflow-y-auto z-50 rounded-lg border border-blue-200 bg-white dark:bg-dark shadow-xl p-2 space-y-2">
+                                        <input
+                                          type="text"
+                                          value={candidateSearchTerm}
+                                          onChange={(e) => setCandidateSearchTerm(e.target.value)}
+                                          placeholder="Type name to filter..."
+                                          className="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-darklight px-2.5 py-1.5 text-xs focus:outline-none"
+                                        />
+                                        <div className="space-y-1">
+                                          {filtered.length === 0 ? (
+                                            <p className="text-gray-400 text-center py-2 text-[11px]">No candidates found.</p>
+                                          ) : (
+                                            filtered.map((m) => {
+                                              const isChecked = selectedIds.includes(m.candidate.id);
+                                              return (
+                                                <label
+                                                  key={m.candidate.id}
+                                                  className="flex items-center gap-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 px-2.5 py-1.5 rounded cursor-pointer text-xs select-none"
+                                                >
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={isChecked}
+                                                    onChange={() => toggleCandidate(m.candidate.id)}
+                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                                                  />
+                                                  <span className="text-gray-700 dark:text-gray-300 font-medium">
+                                                    {m.candidate.full_name}
+                                                  </span>
+                                                </label>
+                                              );
+                                            })
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
 
                             if (key.toLowerCase() === "interview_time") {
                               return (

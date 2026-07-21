@@ -6,7 +6,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, CalendarIcon, Linkedin, FileText } from "lucide-react";
+import { SearchIcon, CalendarIcon, Linkedin, FileText, Upload, Eye } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -138,7 +138,7 @@ const FilterHeaderComponent = ({
     // Close dropdown after selection
     setFilterVisible(false);
   };
-
+  const headerRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -146,11 +146,12 @@ const FilterHeaderComponent = ({
 
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
+    const targetRef = filterButtonRef.current || headerRef.current;
+    if (targetRef) {
+      const rect = targetRef.getBoundingClientRect();
       setDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: Math.max(0, rect.left + window.scrollX - 100),
+        top: rect.bottom + 8,
+        left: Math.max(0, rect.left - 100),
       });
     }
     setFilterVisible((v) => !v);
@@ -516,65 +517,45 @@ export default function CandidatesMarketingPage() {
     setFilteredCandidates(filtered);
   }, [allCandidates, searchTerm, selectedStatuses, selectedWorkStatuses]);
 
-  const ResumeRenderer = (params: any) => (
-    <div className="flex items-center space-x-2">
-      {params.value ? (
+  const ResumeUrlRenderer = (params: any) => {
+    return (
+      <div className="flex items-center space-x-2">
+        {params.value ? (
+          <a
+            href={params.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="View Resume Link"
+          >
+            <FileText className="h-4 w-4 text-blue-600" />
+          </a>
+        ) : (
+          <span className="text-gray-400 opacity-60">N/A</span>
+        )}
+      </div>
+    );
+  };
+
+  const MyResumeRenderer = (params: any) => {
+    const hasBinary = params.data?.has_uploaded_resume;
+    if (!hasBinary) {
+      return <span className="text-gray-400 opacity-60">N/A</span>;
+    }
+    return (
+      <div className="flex items-center space-x-2">
         <a
-          href={params.value}
+          href={`/user_dashboard?candidateId=${params.data?.candidate_id}&tab=my_resume`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title="View Resume"
+          title="View Resume Templates"
         >
-          <FileText className="h-4 w-4 text-blue-600" />
+          <FileText className="h-4 w-4 text-green-600 font-bold" />
         </a>
-      ) : (
-        <span className="text-gray-400 opacity-60">N/A</span>
-      )}
-      <input
-        type="file"
-        id={`fileInput-${params.data.candidate_id}`}
-        className="hidden"
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          const formData = new FormData();
-          formData.append("resume", file);
-          try {
-            const res = await axios.post(
-              `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${params.data.candidate_id}/resume`,
-              formData,
-              {
-                headers: {
-                  "Content-Type": "multipart/form-data",
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-              }
-            );
-            const updatedResume = res.data.candidate_resume;
-            setFilteredCandidates((prev) =>
-              prev.map((row) =>
-                row.candidate_id === params.data.candidate_id
-                  ? { ...row, candidate_resume: updatedResume }
-                  : row
-              )
-            );
-            setAllCandidates((prev) =>
-              prev.map((row) =>
-                row.candidate_id === params.data.candidate_id
-                  ? { ...row, candidate_resume: updatedResume }
-                  : row
-              )
-            );
-            toast.success("Resume uploaded successfully!");
-          } catch (err) {
-            console.error("Resume upload failed", err);
-            toast.error("Failed to upload resume.");
-          }
-        }}
-      />
-    </div>
-  );
+      </div>
+    );
+  };
 
   const CandidateNameRenderer = (params: any) => {
     const candidateId = params.data?.candidate_id;
@@ -674,8 +655,9 @@ export default function CandidatesMarketingPage() {
       {
         field: "resume_url",
         headerName: "Resume",
-        width: 200,
-        cellRenderer: ResumeRenderer,
+        width: 150,
+        cellRenderer: ResumeUrlRenderer,
+        editable: true,
       },
       {
         field: "linkedin_id",
@@ -683,6 +665,12 @@ export default function CandidatesMarketingPage() {
         minWidth: 150,
         valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
         cellRenderer: LinkCellRenderer,
+      },
+      {
+        field: "my_resume_filename",
+        headerName: "My Resume",
+        width: 150,
+        cellRenderer: MyResumeRenderer,
       },
       {
         field: "priority",

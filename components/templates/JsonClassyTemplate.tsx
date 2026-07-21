@@ -6,11 +6,6 @@ export function JsonClassyTemplate({ data }: TemplateProps) {
     <div className="bg-white text-gray-900 min-h-[842px] p-10 text-[11px]" style={{ fontFamily: "'Georgia', serif" }}>
       <header className="text-center mb-8">
         <h1 className="text-4xl font-normal text-gray-900 tracking-wider uppercase">{data.fullName || "Your Name"}</h1>
-        <div className="flex items-center justify-center gap-3 mt-2">
-          <div className="h-px w-16 bg-gray-400" />
-          <p className="text-sm text-gray-500 italic">{data.title || "Professional Title"}</p>
-          <div className="h-px w-16 bg-gray-400" />
-        </div>
         <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 mt-3 text-[10px] text-gray-500">
           {contact.map((c, i) => (
             <span key={i} className="flex items-center gap-2">

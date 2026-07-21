@@ -6,7 +6,6 @@ export function JsonStackOverflowTemplate({ data }: TemplateProps) {
     <div className="bg-[#f8f9f9] text-gray-800 min-h-[842px] font-sans text-[11px]">
       <header className="bg-[#f48024] px-10 py-6">
         <h1 className="text-3xl font-bold text-white">{data.fullName || "Your Name"}</h1>
-        <p className="text-orange-100 mt-0.5">{data.title || "Professional Title"}</p>
         <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-[10px] text-orange-100">
           {contact.map((c, i) => <span key={i}>{c}</span>)}
         </div>

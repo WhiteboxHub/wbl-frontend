@@ -13,7 +13,6 @@ export function JsonWaterfallTemplate({ data }: TemplateProps) {
       <div className="px-10 -mt-20 relative z-10">
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h1 className="text-3xl font-bold text-[#1a1a2e]">{data.fullName || "Your Name"}</h1>
-          <p className="text-[#0f3460] mt-1 text-sm font-medium">{data.title || "Professional Title"}</p>
           <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-[10px] text-gray-500">
             {contact.map((c, i) => <span key={i}>{c}</span>)}
           </div>

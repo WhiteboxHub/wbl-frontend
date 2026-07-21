@@ -19,7 +19,7 @@ const SigninPage = () => {
   const [loading, setLoading] = useState(false);
   const [gloading, setGLoading] = useState(false);
   const [responseStatus, setResponseStatus] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
+  // const [loggedIn, setLoggedIn] = useState(false);
   const { data: session } = useSession();
   const [googleMessage, setGoogleMessage] = useState("");
   const [googleStatus, setGoogleStatus] = useState("");
@@ -28,7 +28,7 @@ const SigninPage = () => {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("redirect") || "/";
+  // const callbackUrl = searchParams.get("redirect") || "/";
 
   interface ExtendedSignInResponse extends SignInResponse {
     message?: string;
@@ -66,16 +66,9 @@ const SigninPage = () => {
         const accessToken = localStorage.getItem("access_token");
         const role = getUserTeamRole(accessToken);
 
-        // Redirect based on role
+        // Redirect to home page where they can click Avatar or My App
         setTimeout(() => {
-          if (role === "admin") {
-            router.push("/avatar");
-          } else if (role === "employee") {
-            router.push("/");
-          } else {
-            // Redirect candidates to home dashboard
-            router.push("/user_dashboard");
-          }
+          router.push("/");
         }, 500);
       } else {
         setGoogleMessage("Unexpected status received: " + status);
@@ -100,13 +93,7 @@ const SigninPage = () => {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
       const role = getUserTeamRole(localStorage.getItem("access_token"));
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
-      }
+      router.push("/");
     }
   }, [session, router]);
 
@@ -138,7 +125,7 @@ const SigninPage = () => {
       if (response.ok) {
         // Store token in localStorage first
         localStorage.setItem("access_token", data.access_token);
-        login(data.access_token);
+        await login(data.access_token);
 
         // Get role from token
         const role = getUserTeamRole(data.access_token);
@@ -146,34 +133,25 @@ const SigninPage = () => {
         setMessage(data.message || "Login successful!");
         setResponseStatus("success");
 
-        // Redirect based on role
-        if (role === "admin") {
-          // Admin redirects to avatar dashboard
-          setTimeout(() => {
-            router.push("/avatar");
-          }, 500);
-        } else if (role === "employee") {
-          // Employees redirect to landing page
-          setTimeout(() => {
-            router.push("/");
-          }, 500);
-        } else {
-          // Candidates redirect to home dashboard
-          setTimeout(() => {
-            router.push("/user_dashboard");
-          }, 500);
-        }
+        // Redirect to home page where they can click Avatar or My App
+        setTimeout(() => {
+          router.push("/");
+        }, 500);
       } else {
         setResponseStatus("error");
         setMessage(data.detail || "Failed to login");
         setLoading(false);
       }
     } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+
       setResponseStatus("error");
       setMessage("An error occurred during login");
       setLoading(false);
     }
-
+    
     setEmail("");
     setPassword("");
   };
@@ -199,29 +177,9 @@ const SigninPage = () => {
     const accessToken = localStorage.getItem("access_token");
     if (accessToken) {
       const role = getUserTeamRole(accessToken);
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
-      }
+      router.push("/");
     }
   }, [router]);
-
-  if (loggedIn) {
-    // You might want to redirect instead of rendering a different component
-    const accessToken = localStorage.getItem("access_token");
-    const role = getUserTeamRole(accessToken || "");
-    if (role === "admin") {
-      router.push("/avatar");
-    } else if (role === "employee") {
-      router.push("/");
-    } else {
-      router.push("/user_dashboard");
-    }
-    return null;
-  }
 
   return (
     <Suspense fallback={<div>LOADING...</div>}>
