@@ -242,7 +242,8 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
     if (data.bugs && data.bugs.length > 0) {
       let markdown = `##  AI Code Review Findings (Model: \`${usedModel}\`)\n\n`;
       for (const bug of data.bugs) {
-        markdown += `###    [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
+        const cat = bug.bug_category.toUpperCase();
+        markdown += `###    [${cat}] ${bug.summary}\n`;
         markdown += `**File:** \`${bug.changed_file}\` (Lines: ${bug.changed_lines})\n\n`;
         markdown += `${bug.comment}\n\n`;
         if (bug.diff_fix_suggestion) {

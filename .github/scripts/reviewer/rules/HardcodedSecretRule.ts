@@ -1,12 +1,12 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/Evidence';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class HardcodedSecretRule implements Rule {
   name = "HardcodedSecretRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -40,6 +40,6 @@ export class HardcodedSecretRule implements Rule {
       }
     }
 
-    return { critical, findings };
+    return { critical, Evidences };
   }
 }

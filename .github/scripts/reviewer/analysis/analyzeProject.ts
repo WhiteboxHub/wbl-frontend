@@ -1,7 +1,7 @@
 import { Project, Node, FunctionDeclaration } from 'ts-morph';
 import path from 'path';
 import { execSync } from 'child_process';
-import { Finding } from '../types/finding';
+import { Evidence } from '../types/finding';
 import { rules } from '../rules';
 
 function groupConsecutiveLines(lines: number[]): number[][] {
@@ -50,7 +50,7 @@ function calculateImpactScore(refs: Node[], changedFilePath: string): { score: n
 
 export function analyzeProject(project: Project, changes: Map<string, number[]>, addedFiles: Set<string>) {
   let allCritical: string[] = [];
-  let allFindings: Finding[] = [];
+  let allFindings: Evidence[] = [];
   let impactAnalysis: string[] = [];
   let modifiedPublicApis: string[] = [];
   let contextParts: string[] = ["## Context Snippets\n"];

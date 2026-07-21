@@ -1,12 +1,12 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/Evidence';
 import { SyntaxKind } from 'ts-morph';
 
 export class DirectFetchRule implements Rule {
   name = "DirectFetchRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');
     
     const isChanged = (node: any) => {
@@ -21,7 +21,7 @@ export class DirectFetchRule implements Rule {
         if (isChanged(call)) {
           const name = call.getExpression().getText();
           if (name === 'fetch' || name === 'axios' || name === 'axios.get' || name === 'axios.post') {
-            findings.push({
+            Evidences.push({
               severity: 'HIGH',
               confidence: 'HIGH',
               type: 'Architectural Violation',
@@ -32,6 +32,6 @@ export class DirectFetchRule implements Rule {
       }
     }
 
-    return { critical, findings };
+    return { critical, Evidences };
   }
 }

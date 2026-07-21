@@ -1,12 +1,12 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/Evidence';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class LargeFunctionRule implements Rule {
   name = "LargeFunctionRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -30,7 +30,7 @@ export class LargeFunctionRule implements Rule {
         }
 
         if (length > 150) {
-           findings.push({
+           Evidences.push({
              severity: 'MEDIUM',
              confidence: 'HIGH',
              type: 'Code Smell',
@@ -40,6 +40,6 @@ export class LargeFunctionRule implements Rule {
       }
     }
 
-    return { critical, findings };
+    return { critical, Evidences };
   }
 }

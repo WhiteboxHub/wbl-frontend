@@ -1,11 +1,11 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/Evidence';
 
 export class DbImportRule implements Rule {
   name = "DbImportRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');
     
     const isChanged = (node: any) => {
@@ -19,7 +19,7 @@ export class DbImportRule implements Rule {
         if (isChanged(imp)) {
           const moduleSpecifier = imp.getModuleSpecifierValue();
           if (moduleSpecifier.match(/db|database|prisma|typeorm|sql/i)) {
-            findings.push({
+            Evidences.push({
                severity: 'HIGH',
                confidence: 'HIGH',
                type: 'Architectural Violation',
@@ -30,6 +30,6 @@ export class DbImportRule implements Rule {
       });
     }
 
-    return { critical, findings };
+    return { critical, Evidences };
   }
 }

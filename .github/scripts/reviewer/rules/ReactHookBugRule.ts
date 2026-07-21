@@ -1,12 +1,12 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/Evidence';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class ReactHookBugRule implements Rule {
   name = "ReactHookBugRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -23,7 +23,7 @@ export class ReactHookBugRule implements Rule {
         if (['useEffect', 'useCallback', 'useMemo'].includes(name)) {
           const args = call.getArguments();
           if (args.length < 2) {
-            findings.push({
+            Evidences.push({
               severity: 'HIGH',
               confidence: 'HIGH',
               type: 'React Hook Bug',
@@ -54,7 +54,7 @@ export class ReactHookBugRule implements Rule {
                   const declStart = declarations[0].getStart();
                   if (declStart < bodyNode.getStart() || declStart > bodyNode.getEnd()) {
                      if (!arrayElements.includes(idName)) {
-                       findings.push({
+                       Evidences.push({
                          severity: 'HIGH',
                          confidence: 'MEDIUM',
                          type: 'React Hook Bug',
@@ -70,6 +70,6 @@ export class ReactHookBugRule implements Rule {
       }
     }
 
-    return { critical, findings };
+    return { critical, Evidences };
   }
 }
