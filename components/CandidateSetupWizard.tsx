@@ -87,7 +87,7 @@ export function CandidateSetupWizard({
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isClient = typeof window !== "undefined";
-  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
   const ingestSummary = (d: any, opts?: { skipStepReset?: boolean }) => {
     const hasKeys =
