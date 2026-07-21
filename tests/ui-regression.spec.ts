@@ -21,7 +21,7 @@ test.describe("Full UI Grid Regression", () => {
   test("Validate every grid on every route", async ({ page }) => {
     // Disable the per-test timeout — grids can take time to load data
     test.setTimeout(0);
-
+    
     const gridRoutes = getAllGridRoutes();
     console.log(`\n${"=".repeat(60)}`);
     console.log(
