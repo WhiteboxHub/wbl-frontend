@@ -28,7 +28,7 @@ interface AvatarLayoutProps {
 
 export function AvatarLayout({ children }: AvatarLayoutProps) {
   const pathname = usePathname();
-  const { userRole, logout } = useAuth() as { userRole: string; logout: () => void };
+  const { userRole } = useAuth() as { userRole: string };
 
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -348,14 +348,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
               </h1>
             </Link>
             <ThemeToggler />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-            >
-              Logout
-            </Button>
           </div>
         </div>
       </header>
