@@ -1,7 +1,7 @@
 import { Project, Node, FunctionDeclaration } from 'ts-morph';
 import path from 'path';
 import { execSync } from 'child_process';
-import { Finding } from '../types/finding';
+import { Evidence, SecurityPrimitive } from '../types/finding';
 import { rules } from '../rules';
 
 function groupConsecutiveLines(lines: number[]): number[][] {
@@ -50,8 +50,8 @@ function calculateImpactScore(refs: Node[], changedFilePath: string): { score: n
 
 export function analyzeProject(project: Project, changes: Map<string, number[]>, addedFiles: Set<string>) {
   let allCritical: string[] = [];
-  let allFindings: Finding[] = [];
-  let allSecurityPrimitives: any[] = [];
+  let allFindings: Evidence[] = [];
+  let allSecurityPrimitives: SecurityPrimitive[] = [];
   let impactAnalysis: string[] = [];
   let modifiedPublicApis: string[] = [];
   let contextParts: string[] = ["## Context Snippets\n"];
@@ -202,9 +202,13 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     
     // Run all rules
     for (const rule of rules) {
-      const { critical, findings, securityPrimitives } = rule.run(sourceFile, lines, isNewFile, project);
+      const result = rule.run(sourceFile, lines, isNewFile, project);
+      const critical = result.critical || [];
+      const findings = result.findings || (result as any).Evidences || [];
+      const securityPrimitives = result.securityPrimitives || [];
+      
       if (critical.length > 0) {
-        allCritical.push(...critical.map(c => `[${file}] ${c}`));
+        allCritical.push(...critical.map((c: string) => `[${file}] ${c}`));
       }
       if (findings.length > 0) {
         allFindings.push(...findings);
