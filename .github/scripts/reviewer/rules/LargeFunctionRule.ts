@@ -37,7 +37,7 @@ export class LargeFunctionRule implements Rule {
              source: 'ast',
              severity: 'MEDIUM',
              attributes: { functionName: name, lineCount: length },
-             evidence: `Function '${name}' is ${length} lines long (exceeds 300 limit) at line ${fn.getStartLineNumber()}.`
+             evidence: `Function '${name}' is ${length} lines long (exceeds 150 limit) at line ${fn.getStartLineNumber()}.`
            });
         }
       }
