@@ -478,7 +478,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                const data = await apiFetch("/setup/init-and-summary", {
+                const data = await apiFetch("/api/setup/init-and-summary", {
                     method: "POST",
                     body: { candidate_id: candidateId, wbl_email: email, name: email },
                 });
@@ -668,7 +668,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             try {
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
-                const dataSummary = await apiFetch("/setup/init-and-summary", {
+                const dataSummary = await apiFetch("/api/setup/init-and-summary", {
                     method: "POST",
                     body: { candidate_id: candidateId, wbl_email: email, name: email },
                 });
@@ -702,7 +702,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 throw new Error("Candidate ID not found.");
             }
 
-            await apiFetch(`candidates/${candidateId}`, {
+            await apiFetch(`/api/candidates/${candidateId}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: { candidate_json: parsed }
@@ -821,7 +821,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         let hasValidDefaultKey = false;
         let hasAnyKeyInBackend = false;
         try {
-            const keys: any = await apiFetch("coderpad/me/llm-keys");
+            const keys: any = await apiFetch("/api/coderpad/me/llm-keys");
             hasAnyKeyInBackend = keys.length > 0;
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
 
@@ -878,7 +878,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                const data = await apiFetch("/setup/init-and-summary", {
+                const data = await apiFetch("/api/setup/init-and-summary", {
                     method: "POST",
                     body: { candidate_id: candidateId, wbl_email: email, name: email },
                 });
@@ -1699,7 +1699,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     const payload = JSON.parse(atob(token.split(".")[1]));
                     const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                    const dataSummary = await apiFetch("/setup/init-and-summary", {
+                    const dataSummary = await apiFetch("/api/setup/init-and-summary", {
                         method: "POST",
                         body: { candidate_id: candidateId, wbl_email: email, name: email },
                     });
@@ -1726,7 +1726,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId, positions.length, setPrefetchedSession, setSetupStatus, loadDashboard, loadPositions]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadDashboard, loadPositions]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
