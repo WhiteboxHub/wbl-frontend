@@ -83,8 +83,8 @@ const ScoreBadge = ({ value }: { value: number | null }) => {
     value >= 80
       ? "bg-green-100 text-green-700"
       : value >= 60
-        ? "bg-amber-100 text-amber-700"
-        : "bg-red-100 text-red-700";
+      ? "bg-amber-100 text-amber-700"
+      : "bg-red-100 text-red-700";
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}>
       {value}
@@ -326,10 +326,10 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
   // Strip a trailing /api if present so we can append /api/analytics/ai-prep-report consistently.
   // Falls back to the same default production URL as other components in this project.
   const getApiUrl = () => {
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL;
+    if (process.env.NEXT_PUBLIC_AIPREP_API_URL) {
+      return process.env.NEXT_PUBLIC_AIPREP_API_URL;
     }
-    return "";
+    return "https://ai-backend-560359652969.us-central1.run.app/api";
   };
   const AI_PREP_API = getApiUrl().replace(/\/api\/?$/, "");
 
