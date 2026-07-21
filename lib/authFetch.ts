@@ -30,7 +30,8 @@ export async function authFetch(
   opts: { allowAnonymous?: boolean; redirectOnAuthFail?: boolean } = {}
 ): Promise<Response> {
   const { allowAnonymous = false, redirectOnAuthFail = true } = opts;
-  const url = typeof input === "string" && input.startsWith("http") ? input : `${API_BASE}${input.startsWith("/") ? "" : "/"}${input}`;
+  const inputUrl = typeof input === "string" ? input : input.url;
+  const url = inputUrl.startsWith("http") ? inputUrl : `${API_BASE}${inputUrl.startsWith("/") ? "" : "/"}${inputUrl}`;
   const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("access_token") || localStorage.getItem("auth_token") || localStorage.getItem("bearer_token")) : null;
 
   const originalHeaders: HeadersInit = init.headers || {};
