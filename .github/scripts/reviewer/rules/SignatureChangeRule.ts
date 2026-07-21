@@ -1,14 +1,14 @@
-import { Rule, Evidence, ApiSignatureEvidence } from '../types/Evidence';
+import { Rule, Evidence, ApiSignatureEvidence } from '../types/finding';
 import { Node, SyntaxKind } from 'ts-morph';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 export class SignatureChangeRule implements Rule {
   name = "SignatureChangeRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], Evidences: Evidence[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
-    const Evidences: Evidence[] = [];
-    if (isNewFile) return { critical, Evidences };
+    const findings: Evidence[] = [];
+    if (isNewFile) return { critical, findings };
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -60,8 +60,6 @@ export class SignatureChangeRule implements Rule {
                reason: 'Signature line modified'
              };
              
-             // NOTE: Make sure the array name here matches what you defined at the top of the file! 
-             // It's likely 'findings.push' or 'Evidences.push' depending on your variable name.
              findings.push({
                schemaVersion: 1,
                id: id,
@@ -73,9 +71,10 @@ export class SignatureChangeRule implements Rule {
              });
            }
         }
+      }
     }
 
-    return { critical, Evidences };
+    return { critical, findings };
   }
 }
 
