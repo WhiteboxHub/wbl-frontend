@@ -2,7 +2,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function tryRefreshToken(): Promise<string | null> {
   try {
-    const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refreshToken") : null;
+    const refreshToken = typeof window !== "undefined" ? (localStorage.getItem("refreshToken") || localStorage.getItem("refresh_token")) : null;
     if (!refreshToken) return null;
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
@@ -30,8 +30,8 @@ export async function authFetch(
   opts: { allowAnonymous?: boolean; redirectOnAuthFail?: boolean } = {}
 ): Promise<Response> {
   const { allowAnonymous = false, redirectOnAuthFail = true } = opts;
-  const url = typeof input === "string" && input.startsWith("http") ? input : `${API_BASE}${input}`;
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const url = typeof input === "string" && input.startsWith("http") ? input : `${API_BASE}${input.startsWith("/") ? "" : "/"}${input}`;
+  const token = typeof window !== "undefined" ? (localStorage.getItem("token") || localStorage.getItem("access_token") || localStorage.getItem("auth_token") || localStorage.getItem("bearer_token")) : null;
 
   const originalHeaders: HeadersInit = init.headers || {};
   const mergedHeaders: HeadersInit = {
@@ -73,6 +73,7 @@ export async function authFetch(
     
       if (redirectOnAuthFail && typeof window !== "undefined") {
         localStorage.removeItem("token");
+        localStorage.removeItem("access_token");
         localStorage.removeItem("refreshToken");
         window.location.href = "/login";
         return new Response(null, { status: 401, statusText: "Refresh failed" });

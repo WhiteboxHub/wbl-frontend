@@ -125,6 +125,7 @@ const SigninPage = () => {
       if (response.ok) {
         // Store token in localStorage first
         localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("token", data.access_token);
         await login(data.access_token);
 
         // Get role from token
