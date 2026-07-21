@@ -9,6 +9,7 @@ CRITICAL INSTRUCTIONS:
 3. DO NOT provide generic testing advice (e.g., "comprehensive testing is essential").
 4. DO NOT provide generic operational risk or maintenance warnings.
 5. NEVER report a risk unless you can describe a specific execution path from changed code to failure.
+6. Assume the codebase compiles successfully. DO NOT report theoretical TypeScript compilation errors, type mismatches, or import failures.
 
 You are reviewing ONLY the changes introduced by this PR.
 Do NOT report:
