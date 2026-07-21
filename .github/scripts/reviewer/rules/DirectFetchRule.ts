@@ -22,9 +22,12 @@ export class DirectFetchRule implements Rule {
           const name = call.getExpression().getText();
           if (name === 'fetch' || name === 'axios' || name === 'axios.get' || name === 'axios.post') {
             Evidences.push({
+              schemaVersion: 1,
+              id: `ARCH-FETCH-${call.getStartLineNumber()}`,
+              type: 'architecture',
+              source: 'ast',
               severity: 'HIGH',
-              confidence: 'HIGH',
-              type: 'Architectural Violation',
+              attributes: { name },
               evidence: `Data fetching ('${name}') detected directly in UI component at line ${call.getStartLineNumber()}.`
             });
           }

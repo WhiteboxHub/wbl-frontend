@@ -24,9 +24,12 @@ export class ReactHookBugRule implements Rule {
           const args = call.getArguments();
           if (args.length < 2) {
             Evidences.push({
+              schemaVersion: 1,
+              id: `HOOK-MISS-DEP-${call.getStartLineNumber()}`,
+              type: 'code_smell',
+              source: 'ast',
               severity: 'HIGH',
-              confidence: 'HIGH',
-              type: 'React Hook Bug',
+              attributes: { hook: name },
               evidence: `Missing dependency array in '${name}' at line ${call.getStartLineNumber()}.`
             });
           } else if (args.length === 2 && Node.isArrayLiteralExpression(args[1])) {

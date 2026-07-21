@@ -31,9 +31,12 @@ export class LargeFunctionRule implements Rule {
 
         if (length > 150) {
            Evidences.push({
+             schemaVersion: 1,
+             id: `SMELL-LARGE-${fn.getStartLineNumber()}`,
+             type: 'code_smell',
+             source: 'ast',
              severity: 'MEDIUM',
-             confidence: 'HIGH',
-             type: 'Code Smell',
+             attributes: { functionName: name, lineCount: length },
              evidence: `Function '${name}' is ${length} lines long (exceeds 300 limit) at line ${fn.getStartLineNumber()}.`
            });
         }

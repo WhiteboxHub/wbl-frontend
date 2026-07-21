@@ -20,9 +20,12 @@ export class DbImportRule implements Rule {
           const moduleSpecifier = imp.getModuleSpecifierValue();
           if (moduleSpecifier.match(/db|database|prisma|typeorm|sql/i)) {
             Evidences.push({
+               schemaVersion: 1,
+               id: `ARCH-DB-${imp.getStartLineNumber()}`,
+               type: 'architecture',
+               source: 'ast',
                severity: 'HIGH',
-               confidence: 'HIGH',
-               type: 'Architectural Violation',
+               attributes: { moduleSpecifier },
                evidence: `Forbidden Import: '${moduleSpecifier}' detected in page/routing layer at line ${imp.getStartLineNumber()}.`
             });
           }
