@@ -324,9 +324,7 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
 
   // AI-Prep backend base URL — configured per environment via NEXT_PUBLIC_AIPREP_API_URL.
   // Strip a trailing /api if present so we can append /api/analytics/ai-prep-report consistently.
-  // Falls back to the same default production URL as other components in this project.
-  const AI_PREP_API =
-  (process.env.NEXT_PUBLIC_AIPREP_API_URL as string).replace(/\/api\/?$/, "");
+  const AI_PREP_API = (process.env.NEXT_PUBLIC_AIPREP_API_URL as string).replace(/\/api\/?$/, "");
 
   // ── Fetch data from AI-Prep backend ────────────────────────────────────────
   const loadData = useCallback(async () => {
