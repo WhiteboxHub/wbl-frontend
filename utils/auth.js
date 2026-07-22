@@ -76,6 +76,13 @@ export const getUserTeamRole = (token = null) => {
   const decoded = parseJwt(accessToken);
   if (!decoded) return null;
 
+  if (decoded.role) {
+    const roleLower = decoded.role.toLowerCase();
+    if (["admin", "employee", "candidate"].includes(roleLower)) {
+      return roleLower;
+    }
+  }
+
   const uname = (decoded.sub || "").toString();
   if (uname.toLowerCase() === "admin") return "admin";
 

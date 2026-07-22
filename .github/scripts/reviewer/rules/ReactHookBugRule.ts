@@ -1,12 +1,12 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/finding';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class ReactHookBugRule implements Rule {
   name = "ReactHookBugRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -23,10 +23,13 @@ export class ReactHookBugRule implements Rule {
         if (['useEffect', 'useCallback', 'useMemo'].includes(name)) {
           const args = call.getArguments();
           if (args.length < 2) {
-            findings.push({
+            Evidences.push({
+              schemaVersion: 1,
+              id: `HOOK-MISS-DEP-${call.getStartLineNumber()}`,
+              type: 'code_smell',
+              source: 'ast',
               severity: 'HIGH',
-              confidence: 'HIGH',
-              type: 'React Hook Bug',
+              attributes: { hook: name },
               evidence: `Missing dependency array in '${name}' at line ${call.getStartLineNumber()}.`
             });
           } else if (args.length === 2 && Node.isArrayLiteralExpression(args[1])) {
@@ -54,10 +57,13 @@ export class ReactHookBugRule implements Rule {
                   const declStart = declarations[0].getStart();
                   if (declStart < bodyNode.getStart() || declStart > bodyNode.getEnd()) {
                      if (!arrayElements.includes(idName)) {
-                       findings.push({
+                       Evidences.push({
+                         schemaVersion: 1,
+                         id: `HOOK-MISS-DEP-${call.getStartLineNumber()}-${idName}`,
+                         type: 'code_smell',
+                         source: 'ast',
                          severity: 'HIGH',
-                         confidence: 'MEDIUM',
-                         type: 'React Hook Bug',
+                         attributes: { hook: name, missingDependency: idName },
                          evidence: `React Hook '${name}' at line ${call.getStartLineNumber()} has a missing external dependency: '${idName}'.`
                        });
                      }
@@ -70,6 +76,6 @@ export class ReactHookBugRule implements Rule {
       }
     }
 
-    return { critical, findings };
+    return { critical, findings: Evidences };
   }
 }

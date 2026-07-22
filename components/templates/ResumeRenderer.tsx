@@ -31,11 +31,12 @@ const templateMap: Record<string, ComponentType<{ data: ResumeData }>> = {
 
 interface ResumeRendererProps {
   templateId: string;
-  data: ResumeData;
+  data: ResumeData | null;
   className?: string;
 }
 
 export function ResumeRenderer({ templateId, data, className = "" }: ResumeRendererProps) {
+  if (!data) return null;
   const Template = templateMap[templateId] ?? ClassicTemplate;
   return (
     <div className={`resume-page shadow-lg relative bg-white ${className}`}>

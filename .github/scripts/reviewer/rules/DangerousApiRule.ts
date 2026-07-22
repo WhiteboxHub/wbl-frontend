@@ -1,12 +1,13 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence, SecurityEvidence } from '../types/finding';
 import { SyntaxKind } from 'ts-morph';
+import crypto from 'crypto';
 
 export class DangerousApiRule implements Rule {
   name = "DangerousApiRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -19,11 +20,29 @@ export class DangerousApiRule implements Rule {
       if (isChanged(call)) {
         const name = call.getExpression().getText();
         if (name === 'eval') {
-          critical.push(`Usage of dangerous 'eval()' API detected at line ${call.getStartLineNumber()}.`);
+          const startLine = call.getStartLineNumber();
+          const id = `SEC-SINK-${crypto.createHash('md5').update(`eval-${startLine}`).digest('hex').substring(0, 8).toUpperCase()}`;
+          
+          const attributes: SecurityEvidence = {
+            sink: 'eval',
+            sanitizerDetected: false,
+            reason: 'Dangerous dynamic code execution sink'
+          };
+          
+          Evidences.push({
+             schemaVersion: 1,
+             id: id,
+             type: 'security_sink',
+             source: 'ast',
+             severity: 'CRITICAL',
+             attributes: attributes,
+             evidence: `Usage of dangerous 'eval()' API detected at line ${startLine}.`
+          });
         }
       }
     }
 
-    return { critical, findings };
+    return { critical, findings: Evidences };
   }
 }
+

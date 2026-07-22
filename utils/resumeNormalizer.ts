@@ -25,8 +25,12 @@ function flattenSkills(raw: unknown): string[] {
       if (Array.isArray(s)) return s as string[];
       if (s && typeof s === "object") {
         const obj = s as Record<string, unknown>;
-        const name = str(obj.name || obj.category || obj.title);
-        const keywords = arr(obj.keywords || obj.values || obj.skills).map(str).filter(Boolean);
+        const name = str(obj.name || obj.category || obj.title || obj.label);
+        let keywords = arr(obj.keywords || obj.values || obj.skills).map(str).filter(Boolean);
+        if (!keywords.length && obj.details) {
+          const det = str(obj.details);
+          keywords = det.split(",").map((x) => x.trim()).filter(Boolean);
+        }
         if (name && keywords.length) {
           return [`${name}: ${keywords.join(", ")}`];
         }
@@ -73,7 +77,22 @@ export function normalizeResume(raw: unknown): ResumeData {
     throw new Error("JSON must be an object at the root level.");
   }
 
-  const r = raw as Record<string, unknown>;
+  let r = raw as Record<string, unknown>;
+
+  // Unwrap "cv" or "resume" if they exist at the root
+  if (r.cv && typeof r.cv === "object" && !Array.isArray(r.cv)) {
+    r = r.cv as Record<string, unknown>;
+  } else if (r.resume && typeof r.resume === "object" && !Array.isArray(r.resume)) {
+    r = r.resume as Record<string, unknown>;
+  }
+
+  // Merge "sections" or "section" if they exist
+  if (r.sections && typeof r.sections === "object" && !Array.isArray(r.sections)) {
+    r = { ...r.sections as Record<string, unknown>, ...r };
+  } else if (r.section && typeof r.section === "object" && !Array.isArray(r.section)) {
+    r = { ...r.section as Record<string, unknown>, ...r };
+  }
+
   const basics = (r.basics ?? {}) as Record<string, unknown>;
 
   const personal = (r.personal ?? r.basics ?? {}) as Record<string, unknown>;

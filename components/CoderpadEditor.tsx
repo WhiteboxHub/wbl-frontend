@@ -31,7 +31,7 @@ const ReactQuill = dynamic(
 
 import "react-quill/dist/quill.snow.css";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 /**
  * Only treat the window as split-screen / too small when it is clearly below this
