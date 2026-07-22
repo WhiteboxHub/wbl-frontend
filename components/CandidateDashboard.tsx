@@ -377,21 +377,45 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
     const AIPREP_API = getAiPrepApiUrl();
 
-    // --- CLICK TRACKING LOGIC (SW EDITION) ---
+    // --- CLICK TRACKING LOGIC ---
     const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
-        // 1. Save to local IndexedDB instantly (main thread)
-        const { trackLocalClick } = await import('@/utils/clickTracker');
-        await trackLocalClick(jobListingId);
+        // 1. Optimistically update the local counter immediately
+        setJobBoardClickCount(prev => prev + 1);
 
-        // 2. Notify Service Worker (runs in background)
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({
-                type: 'TRACK_CLICK',
-                id: jobListingId
-            });
+        // 2. Try Service Worker path first (background batch flush)
+        let swHandled = false;
+        try {
+            const { trackLocalClick } = await import('@/utils/clickTracker');
+            await trackLocalClick(jobListingId);
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'TRACK_CLICK',
+                    id: jobListingId
+                });
+                swHandled = true;
+            }
+        } catch {
+            // SW not available — fall through to direct API call
         }
 
-        // 3. Open link
+        // 3. Direct API call fallback (also runs if SW not active)
+        if (!swHandled) {
+            try {
+                const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/candidates/track-clicks-batch`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ clicks: [{ job_listing_id: jobListingId, count: 1 }] }),
+                });
+            } catch (e) {
+                console.warn("Job click tracking failed:", e);
+            }
+        }
+
+        // 4. Open the job link in a new tab
         window.open(url, '_blank');
     }, []);
 
@@ -410,6 +434,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+    // Local click count — optimistically updated on every job board click
+    const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
+    const [isJobClicksModalOpen, setIsJobClicksModalOpen] = useState(false);
+    const [jobClickDetails, setJobClickDetails] = useState<Array<{
+        id: number;
+        job_title: string;
+        company_name: string;
+        click_count: number;
+        last_clicked_at: string;
+    }>>([]);
+    const [loadingJobClickDetails, setLoadingJobClickDetails] = useState(false);
+    const [jobClickDetailsError, setJobClickDetailsError] = useState<string | null>(null);
 
     useEffect(() => {
         setActiveTab(defaultTab as TabType);
@@ -501,6 +537,21 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setResumeJsonText(JSON.stringify(resumeObj, null, 2));
         } else {
             setResumeJsonText("");
+        }
+    };
+
+    const openJobClicksModal = async () => {
+        setIsJobClicksModalOpen(true);
+        setJobClickDetailsError(null);
+        setLoadingJobClickDetails(true);
+        try {
+            const rows = await apiFetch("/api/candidates/click-analytics/me");
+            setJobClickDetails(Array.isArray(rows) ? rows : []);
+        } catch (err: any) {
+            console.error("Error loading job click details", err);
+            setJobClickDetailsError("Failed to load job click details.");
+        } finally {
+            setLoadingJobClickDetails(false);
         }
     };
 
@@ -1696,6 +1747,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             return () => clearTimeout(timeoutId);
         }
     }, [data]);
+
+    // Sync jobBoardClickCount from server data (on load/refresh)
+    useEffect(() => {
+        if (data?.candidate_stats?.job_listings_clicked !== undefined) {
+            setJobBoardClickCount(data.candidate_stats.job_listings_clicked);
+        }
+    }, [data?.candidate_stats?.job_listings_clicked]);
 
     useEffect(() => {
         if (activeTab === 'job-board' && positions.length === 0) {
@@ -2953,7 +3011,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             {/* Cards Grid */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                 {/* Card 1: Job Listing Clicked */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={openJobClicksModal}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter" || e.key === " ") {
+                                                            e.preventDefault();
+                                                            openJobClicksModal();
+                                                        }
+                                                    }}
+                                                    className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group cursor-pointer"
+                                                >
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
                                                         <MousePointerClick className="w-24 h-24 text-blue-500" />
                                                     </div>
@@ -2965,7 +3034,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Job Board Clicks</h3>
                                                     <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.job_listings_clicked ?? 0}
+                                                        {jobBoardClickCount}
                                                     </p>
                                                     <p className="text-[10px] text-gray-400 mt-2">Total clicks on job listings from the Job Board</p>
                                                 </div>
@@ -3564,6 +3633,77 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         {isSavingResumeJson ? "Saving..." : "Save Changes"}
                                     </Button>
                                 </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
+
+            {isJobClicksModalOpen && (
+                <Dialog open={isJobClicksModalOpen} onOpenChange={setIsJobClicksModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(48rem,95vw)] w-full max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                                <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <MousePointerClick className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    Job Listings Tracking
+                                </div>
+                                <div className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                    Jobs you&apos;ve clicked on from the Job Board.
+                                </div>
+                            </div>
+
+                            {/* ── Body ── */}
+                            <div className="flex-1 overflow-y-auto min-h-0">
+                                {loadingJobClickDetails ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                                        <span className="text-sm">Loading...</span>
+                                    </div>
+                                ) : jobClickDetailsError ? (
+                                    <div className="p-6 text-sm text-red-500 text-center">{jobClickDetailsError}</div>
+                                ) : jobClickDetails.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <MousePointerClick className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" />
+                                        <p className="text-sm font-medium text-gray-500">No job clicks tracked yet.</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-950/60 border-b border-gray-100 dark:border-gray-800">
+                                            <tr>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Job Title</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Company Name</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Activity</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Last Clicked At</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {jobClickDetails.map((row) => (
+                                                <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">{row.job_title || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{row.company_name || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">{row.click_count} click{row.click_count === 1 ? "" : "s"}</td>
+                                                    <td className="px-6 py-3 text-gray-500 dark:text-gray-400">
+                                                        {row.last_clicked_at ? new Date(row.last_clicked_at.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(row.last_clicked_at) ? row.last_clicked_at : row.last_clicked_at.replace(" ", "T") + "Z").toLocaleString("en-US", {
+                                                            month: "short",
+                                                            day: "numeric",
+                                                            year: "numeric",
+                                                            hour: "2-digit",
+                                                            minute: "2-digit",
+                                                            hour12: true,
+                                                        }) : "—"}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
                             </div>
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
