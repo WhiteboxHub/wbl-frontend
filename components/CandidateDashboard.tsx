@@ -370,7 +370,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
-    const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+    const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL as string;
 
     // --- CLICK TRACKING LOGIC ---
     const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
@@ -505,7 +505,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         if (!resumeObj || !sid) {
             try {
-                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL as string;
                 const token = localStorage.getItem("access_token") || "";
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
@@ -569,7 +569,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         setIsSavingResumeJson(true);
         try {
-            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL as string;
             const formData = new FormData();
             const blob = new Blob([resumeJsonText], { type: "application/json" });
             formData.append("file", blob, "resume.json");
