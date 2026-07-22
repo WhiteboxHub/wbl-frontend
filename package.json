@@ -130,7 +130,6 @@
     "@types/react": "^18.0.34",
     "@types/react-dom": "^18.2.7",
     "autoprefixer": "^10.4.13",
-    "baseline-browser-mapping": "^2.10.43",
     "handlebars-loader": "^1.7.3",
     "openai": "^6.46.0",
     "postcss": "^8.4.21",

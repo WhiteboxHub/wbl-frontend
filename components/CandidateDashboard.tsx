@@ -371,25 +371,51 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const { userRole } = useAuth() as { userRole: string };
 
     const getAiPrepApiUrl = () => {
-        return (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const isClient = typeof window !== "undefined";
+        const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+        return isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
     };
     const AIPREP_API = getAiPrepApiUrl();
 
-    // --- CLICK TRACKING LOGIC (SW EDITION) ---
+    // --- CLICK TRACKING LOGIC ---
     const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
-        // 1. Save to local IndexedDB instantly (main thread)
-        const { trackLocalClick } = await import('@/utils/clickTracker');
-        await trackLocalClick(jobListingId);
+        // 1. Optimistically update the local counter immediately
+        setJobBoardClickCount(prev => prev + 1);
 
-        // 2. Notify Service Worker (runs in background)
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({
-                type: 'TRACK_CLICK',
-                id: jobListingId
-            });
+        // 2. Try Service Worker path first (background batch flush)
+        let swHandled = false;
+        try {
+            const { trackLocalClick } = await import('@/utils/clickTracker');
+            await trackLocalClick(jobListingId);
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'TRACK_CLICK',
+                    id: jobListingId
+                });
+                swHandled = true;
+            }
+        } catch {
+            // SW not available — fall through to direct API call
         }
 
-        // 3. Open link
+        // 3. Direct API call fallback (also runs if SW not active)
+        if (!swHandled) {
+            try {
+                const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/candidates/track-clicks-batch`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ clicks: [{ job_listing_id: jobListingId, count: 1 }] }),
+                });
+            } catch (e) {
+                console.warn("Job click tracking failed:", e);
+            }
+        }
+
+        // 4. Open the job link in a new tab
         window.open(url, '_blank');
     }, []);
 
@@ -408,6 +434,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+    // Local click count — optimistically updated on every job board click
+    const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
+    const [isJobClicksModalOpen, setIsJobClicksModalOpen] = useState(false);
+    const [jobClickDetails, setJobClickDetails] = useState<Array<{
+        id: number;
+        job_title: string;
+        company_name: string;
+        click_count: number;
+        last_clicked_at: string;
+    }>>([]);
+    const [loadingJobClickDetails, setLoadingJobClickDetails] = useState(false);
+    const [jobClickDetailsError, setJobClickDetailsError] = useState<string | null>(null);
 
     useEffect(() => {
         setActiveTab(defaultTab as TabType);
@@ -415,7 +453,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
-        setForceShowUploader(false);
         setActiveTab(tab);
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
@@ -473,19 +510,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         if (!resumeObj || !sid) {
             try {
+                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
                 const token = localStorage.getItem("access_token") || "";
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                const data = await apiFetch("/api/setup/init-and-summary", {
+                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    body: { candidate_id: candidateId, wbl_email: email, name: email },
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
-
-                sid = data.session_id;
-                resumeObj = data.summary?.resume_json;
-                if (sid) {
-                    setPrefetchedSession({ sessionId: sid, summaryData: data.summary });
+                if (res.ok) {
+                    const data = await res.json();
+                    sid = data.session_id;
+                    resumeObj = data.summary?.resume_json;
+                    if (sid) {
+                        setPrefetchedSession({ sessionId: sid, summaryData: data.summary });
+                    }
                 }
             } catch (e) {
                 console.error("Error loading resume JSON", e);
@@ -496,6 +537,21 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setResumeJsonText(JSON.stringify(resumeObj, null, 2));
         } else {
             setResumeJsonText("");
+        }
+    };
+
+    const openJobClicksModal = async () => {
+        setIsJobClicksModalOpen(true);
+        setJobClickDetailsError(null);
+        setLoadingJobClickDetails(true);
+        try {
+            const rows = await apiFetch("/api/candidates/click-analytics/me");
+            setJobClickDetails(Array.isArray(rows) ? rows : []);
+        } catch (err: any) {
+            console.error("Error loading job click details", err);
+            setJobClickDetailsError("Failed to load job click details.");
+        } finally {
+            setLoadingJobClickDetails(false);
         }
     };
 
@@ -518,7 +574,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         setIsSavingResumeJson(true);
         try {
-            const AIPREP_API = process.env.NEXT_PUBLIC_API_URL || "";
+            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
             const formData = new FormData();
             const blob = new Blob([resumeJsonText], { type: "application/json" });
             formData.append("file", blob, "resume.json");
@@ -592,7 +648,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [resumeDragOver, setResumeDragOver] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState("elegant");
     const [showTemplates, setShowTemplates] = useState(false);
-    const [forceShowUploader, setForceShowUploader] = useState(false);
     const inlineFileInputRef = useRef<HTMLInputElement>(null);
     const inlineResumeRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
@@ -651,8 +706,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             toast.success("Resume uploaded successfully!");
             setResumeFile(fileToUpload);
-            setShowTemplates(true);
-            setForceShowUploader(false);
+            setShowTemplates(false);
             setSetupStatus(prev => {
                 const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
                 return {
@@ -667,12 +721,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             try {
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
-                const dataSummary = await apiFetch("/api/setup/init-and-summary", {
+                const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    body: { candidate_id: candidateId, wbl_email: email, name: email },
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
-                if (dataSummary && dataSummary.summary) {
-                    setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
+                if (resSummary.ok) {
+                    const dataSummary = await resSummary.json();
+                    if (dataSummary.summary) {
+                        setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
+                    }
                 }
             } catch (reloadErr) {
                 console.error("Failed to reload summary after upload:", reloadErr);
@@ -696,23 +754,24 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
 
             setEditJsonSaving(true);
-            const candidateId = await getCandidateId();
-            if (!candidateId) {
-                throw new Error("Candidate ID not found.");
+            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
+            if (!prepToken) {
+                throw new Error("No active session found.");
             }
 
-            await apiFetch(`/api/candidates/${candidateId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: { candidate_json: parsed }
+            const formData = new FormData();
+            const blob = new Blob([editJsonText], { type: "application/json" });
+            formData.append("file", blob, "resume.json");
+            formData.append("session_id", prepToken);
+
+            const res = await fetch(`${AIPREP_API}/setup/resume`, {
+                method: "POST",
+                body: formData,
             });
 
-            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
-            if (prepToken) {
-                await apiFetch("/api/setup/resume", {
-                    method: "PUT",
-                    body: { resume_json: parsed, session_id: prepToken }
-                });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || "Failed to update resume JSON on server.");
             }
 
             toast.success("Resume JSON updated successfully!");
@@ -726,7 +785,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     }
                 });
             }
-            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
             setIsEditingJson(false);
         } catch (err: any) {
             setEditJsonError(err.message || "An unexpected error occurred while saving.");
@@ -746,13 +804,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         if (!isValid) {
             toast.error(`Validation Failed. Missing mandatory fields: ${errors.join(", ")}`);
+        } else if (warnings.length > 0) {
+            toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
         } else {
-            if (warnings.length > 0) {
-                toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
-            } else {
-                toast.success("Validation Passed! JSON resume structure is perfectly valid.");
-            }
-            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
+            toast.success("Validation Passed! JSON resume structure is perfectly valid.");
         }
     };
 
@@ -828,7 +883,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         let hasValidDefaultKey = false;
         let hasAnyKeyInBackend = false;
         try {
-            const keys: any = await apiFetch("/api/coderpad/me/llm-keys");
+            const keys: any = await apiFetch("coderpad/me/llm-keys");
             hasAnyKeyInBackend = keys.length > 0;
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
 
@@ -870,10 +925,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, []);
 
     useEffect(() => {
-        if (setupStatus?.has_binary_resume && !forceShowUploader) {
+        if (setupStatus?.has_binary_resume) {
             setShowTemplates(true);
         }
-    }, [setupStatus, forceShowUploader]);
+    }, [setupStatus]);
 
     // Pre-fetch AI prep session as soon as candidateId is available so the
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
@@ -885,11 +940,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                const data = await apiFetch("/api/setup/init-and-summary", {
+                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    body: { candidate_id: candidateId, wbl_email: email, name: email },
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
-
+                if (!res.ok) return;
+                const data = await res.json();
                 const sid: string = data.session_id;
                 const summaryData = data.summary;
 
@@ -907,7 +964,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         };
         void run();
-    }, [candidateId, prefetchDone, setPrefetchedSession, setPrefetchDone, loadSetupStatus, setSetupStatus]);
+    }, [candidateId, prefetchDone]);
 
     useEffect(() => {
         if (!setupWizardOpen) {
@@ -1399,7 +1456,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setEditInterviewLoading(false);
         }
     };
-    const loadUserProfile = useCallback(async () => {
+    const loadUserProfile = async () => {
         try {
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
@@ -1414,11 +1471,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error("Error loading user profile:", err);
             return null;
         }
-    }, [setUserProfile]);
+    };
 
 
 
-    const getCandidateId = useCallback(async (): Promise<number> => {
+    const getCandidateId = async (): Promise<number> => {
         try {
             if (typeof window !== "undefined") {
                 const searchParams = new URLSearchParams(window.location.search);
@@ -1484,7 +1541,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error(" Error getting candidate ID:", err);
             throw new Error(extractErrorMessage(err, "Failed to get candidate ID. Please log in again."));
         }
-    }, []);
+    };
 
     const loadSessions = async () => {
         const fullName = data?.basic_info?.full_name;
@@ -1533,7 +1590,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     };
 
-    const loadPositions = useCallback(async () => {
+    const loadPositions = async () => {
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -1554,7 +1611,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 return shouldInclude && hasLink;
             });
 
-            if (process.env.NODE_ENV === 'development') { console.log("Final filtered positions count:", filteredData.length); }
+            if (process.env.NODE_ENV === 'development') { console.log("📊 Final filtered positions count:", filteredData.length); }
 
             // Debug: Show source distribution
             const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
@@ -1563,17 +1620,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 return acc;
             }, {});
 
-            if (process.env.NODE_ENV === 'development') { console.log("Source distribution:", sourceCounts); }
+            if (process.env.NODE_ENV === 'development') { console.log("📈 Source distribution:", sourceCounts); }
 
             setPositions(filteredData);
         } catch (err) {
-            console.error(" Error loading positions:", err);
+            console.error("❌ Error loading positions:", err);
         } finally {
             setPositionsLoading(false);
         }
-    }, [setPositionsLoading, setPositions]);
+    };
 
-    const loadDashboard = useCallback(async (retryCount = 0) => {
+
+    const loadDashboard = async (retryCount = 0) => {
         try {
             setLoading(true);
             setError(null);
@@ -1678,7 +1736,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
+    };
 
     useEffect(() => {
         if (data) {
@@ -1689,6 +1747,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             return () => clearTimeout(timeoutId);
         }
     }, [data]);
+
+    // Sync jobBoardClickCount from server data (on load/refresh)
+    useEffect(() => {
+        if (data?.candidate_stats?.job_listings_clicked !== undefined) {
+            setJobBoardClickCount(data.candidate_stats.job_listings_clicked);
+        }
+    }, [data?.candidate_stats?.job_listings_clicked]);
 
     useEffect(() => {
         if (activeTab === 'job-board' && positions.length === 0) {
@@ -1706,26 +1771,29 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     const payload = JSON.parse(atob(token.split(".")[1]));
                     const email = payload.sub || payload.email || payload.uname || "candidate";
 
-                    const dataSummary = await apiFetch("/api/setup/init-and-summary", {
+                    const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                         method: "POST",
-                        body: { candidate_id: candidateId, wbl_email: email, name: email },
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                     });
+                    if (res.ok) {
+                        const dataSummary = await res.json();
+                        const sid = dataSummary.session_id;
+                        const summaryData = dataSummary.summary;
+                        if (sid) {
+                            localStorage.setItem("prep_token", sid);
+                            setPrefetchedSession({ sessionId: sid, summaryData });
 
-                    const sid = dataSummary.session_id;
-                    const summaryData = dataSummary.summary;
-                    if (sid) {
-                        localStorage.setItem("prep_token", sid);
-                        setPrefetchedSession({ sessionId: sid, summaryData });
-
-                        const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
-                        const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
-                        setSetupStatus({
-                            resume_uploaded: hasResume,
-                            api_keys_configured: hasKeys,
-                            setup_complete: hasResume && hasKeys,
-                            has_binary_resume: !!summaryData.has_binary_resume,
-                            binary_resume_filename: summaryData.binary_resume_filename || null,
-                        });
+                            const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                            setSetupStatus({
+                                resume_uploaded: hasResume,
+                                api_keys_configured: hasKeys,
+                                setup_complete: hasResume && hasKeys,
+                                has_binary_resume: !!summaryData.has_binary_resume,
+                                binary_resume_filename: summaryData.binary_resume_filename || null,
+                            });
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to refresh setup status on tab switch:", err);
@@ -1733,7 +1801,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadDashboard, loadPositions]);
+    }, [activeTab, candidateId]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1809,9 +1877,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }
 
     const firstName = data.basic_info.full_name.split(" ")[0];
-
-    const hasResume = setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json;
-    const isLoading = setupStatus === null && !prefetchedSession?.summaryData?.resume_json;
 
     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
@@ -2115,20 +2180,22 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             const isEasyApplyLow = easyApplyCount < 30;
                                             return (
                                                 <div
-                                                    className={`relative overflow-hidden border rounded-2xl p-5 ${isEasyApplyLow
+                                                    className={`relative overflow-hidden border rounded-2xl p-5 ${
+                                                        isEasyApplyLow
                                                             ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
                                                             : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
-                                                        }`}
+                                                    }`}
                                                 >
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
                                                         <Zap className={`w-20 h-20 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isEasyApplyLow
+                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                                                isEasyApplyLow
                                                                     ? "bg-red-500/10 text-red-600 dark:text-red-400"
                                                                     : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                                                }`}>
+                                                            }`}>
                                                                 <Zap className="w-4 h-4" />
                                                             </div>
                                                             <div>
@@ -2140,8 +2207,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${isEasyApplyLow ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"
-                                                                }`}>
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${
+                                                                isEasyApplyLow ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"
+                                                            }`}>
                                                                 {isEasyApplyLow ? "Below Target" : "✓ Reached"}
                                                             </span>
                                                             <p className={`text-[10px] font-semibold mt-1.5 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
@@ -2829,22 +2897,22 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {/* Resume Status */}
-                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${isLoading
+                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
                                                     ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                                    : hasResume
+                                                    : setupStatus.resume_uploaded
                                                         ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
                                                         : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                                     }`}>
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isLoading ? "bg-gray-100 dark:bg-gray-700" : hasResume ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
-                                                        {isLoading ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : hasResume ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.resume_uploaded ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
+                                                        {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.resume_uploaded ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
-                                                        <p className={`text-xs font-bold mt-0.5 ${isLoading ? "text-gray-400" : hasResume ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {isLoading ? "Loading..." : hasResume ? "Added" : "Not added"}
+                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
-                                                    {hasResume && (
+                                                    {setupStatus?.resume_uploaded && (
                                                         <button
                                                             type="button"
                                                             onClick={() => setViewResumeOpen(true)}
@@ -2943,7 +3011,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             {/* Cards Grid */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                 {/* Card 1: Job Listing Clicked */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={openJobClicksModal}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter" || e.key === " ") {
+                                                            e.preventDefault();
+                                                            openJobClicksModal();
+                                                        }
+                                                    }}
+                                                    className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group cursor-pointer"
+                                                >
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
                                                         <MousePointerClick className="w-24 h-24 text-blue-500" />
                                                     </div>
@@ -2955,7 +3034,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Job Board Clicks</h3>
                                                     <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.job_listings_clicked ?? 0}
+                                                        {jobBoardClickCount}
                                                     </p>
                                                     <p className="text-[10px] text-gray-400 mt-2">Total clicks on job listings from the Job Board</p>
                                                 </div>
@@ -2984,25 +3063,28 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     const isEasyApplyLow = easyApplyCount < 30;
                                                     return (
                                                         <div
-                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${isEasyApplyLow
+                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${
+                                                                isEasyApplyLow
                                                                     ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
                                                                     : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
-                                                                }`}
+                                                            }`}
                                                         >
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
                                                                 <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                                                             </div>
                                                             <div className="flex items-center justify-between mb-4">
-                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEasyApplyLow
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                                                    isEasyApplyLow
                                                                         ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
                                                                         : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                                                    }`}>
+                                                                }`}>
                                                                     <Zap className="w-5 h-5" />
                                                                 </div>
-                                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isEasyApplyLow
+                                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                                                    isEasyApplyLow
                                                                         ? "text-red-500 bg-red-500/10"
                                                                         : "text-emerald-500 bg-emerald-500/10"
-                                                                    }`}>
+                                                                }`}>
                                                                     Easy Apply
                                                                 </span>
                                                             </div>
@@ -3075,14 +3157,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                     }
                                                                 }}
                                                                 onClick={() => {
-                                                                    if (resumeUploadLoading || (setupStatus?.has_binary_resume && !forceShowUploader)) return;
+                                                                    if (resumeUploadLoading || setupStatus?.has_binary_resume) return;
                                                                     inlineFileInputRef.current?.click();
                                                                 }}
-                                                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${(setupStatus?.has_binary_resume && !forceShowUploader)
-                                                                    ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
-                                                                    : resumeDragOver
-                                                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
-                                                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
+                                                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${setupStatus?.has_binary_resume
+                                                                        ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
+                                                                        : resumeDragOver
+                                                                            ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
+                                                                            : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
                                                                     }`}
                                                             >
                                                                 <input
@@ -3100,10 +3182,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                             Uploading resume...
                                                                         </p>
                                                                         <p className="text-xs text-gray-400 mt-1">
-                                                                            Please Wait ...
+                                                                            Please wait while we store your resume.
                                                                         </p>
                                                                     </div>
-                                                                ) : (setupStatus?.has_binary_resume && !forceShowUploader) ? (
+                                                                ) : setupStatus?.has_binary_resume ? (
                                                                     <div className="flex flex-col items-center text-center animate-in fade-in duration-200">
                                                                         <div className="relative mb-4">
                                                                             <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/30 text-blue-500 rounded-2xl flex items-center justify-center">
@@ -3367,18 +3449,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             </div>
                                                         </div>
                                                     )}
-
-                                                    {/* Bottom Navigation */}
-                                                    <div className="flex justify-start items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-6">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setShowTemplates(false)}
-                                                            className="flex items-center gap-1.5 px-6 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm shadow-sm transition-all"
-                                                        >
-                                                            <span>&lt;</span>
-                                                            <span>Back</span>
-                                                        </button>
-                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -3399,57 +3469,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     title="View Resume"
                     onReupload={() => {
                         setViewResumeOpen(false);
-                        setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
-                        setShowTemplates(false);
-                        setResumeFile(null);
-                        setForceShowUploader(true);
-                        setActiveTab('my-resume');
+                        setUploadResumeOpen(true);
                     }}
                 />
             )}
 
-            {uploadResumeOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="relative w-full max-w-md overflow-hidden bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
-                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-4">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Resume</h3>
-                            <button onClick={() => setUploadResumeOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
-                        </div>
-                        <div className="w-full space-y-5">
-                            <div
-                                onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
-                                onDragLeave={() => setResumeDragOver(false)}
-                                onDrop={(e) => {
-                                    e.preventDefault();
-                                    setResumeDragOver(false);
-                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                        const droppedFile = e.dataTransfer.files[0];
-                                        if (handleInlineFileValidate(droppedFile)) {
-                                            setResumeFile(droppedFile);
-                                        }
-                                    }
-                                }}
-                                onClick={() => inlineFileInputRef.current?.click()}
-                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all duration-200 group ${resumeDragOver
-                                    ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
-                                    : resumeFile
-                                        ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-900/5"
-                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
-                                    }`}
-                            >
-                                <input
-                                    type="file"
-                                    ref={inlineFileInputRef}
-                                    onChange={handleInlineFileChange}
-                                    accept=".pdf,.doc,.docx"
-                                    className="hidden"
-                                />
-
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
             {activeTab === 'overview' && easyApplyPopupOpen && data && (() => {
                 const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
                 const isEasyApplyLow = easyApplyCount < 30;
@@ -3460,10 +3484,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         onClick={() => setEasyApplyPopupOpen(false)}
                     >
                         <div
-                            className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${isEasyApplyLow
+                            className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${
+                                isEasyApplyLow
                                     ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
                                     : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
-                                }`}
+                            }`}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
@@ -3477,16 +3502,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                             </div>
                             <div className="flex items-center justify-between mb-4 pr-8">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEasyApplyLow
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                    isEasyApplyLow
                                         ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
                                         : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                    }`}>
+                                }`}>
                                     <Zap className="w-5 h-5" />
                                 </div>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isEasyApplyLow
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                    isEasyApplyLow
                                         ? "text-red-500 bg-red-500/10"
                                         : "text-emerald-500 bg-emerald-500/10"
-                                    }`}>
+                                }`}>
                                     Easy Apply
                                 </span>
                             </div>
@@ -3606,6 +3633,77 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         {isSavingResumeJson ? "Saving..." : "Save Changes"}
                                     </Button>
                                 </div>
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
+
+            {isJobClicksModalOpen && (
+                <Dialog open={isJobClicksModalOpen} onOpenChange={setIsJobClicksModalOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(48rem,95vw)] w-full max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                                <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <MousePointerClick className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    Job Listings Tracking
+                                </div>
+                                <div className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                    Jobs you&apos;ve clicked on from the Job Board.
+                                </div>
+                            </div>
+
+                            {/* ── Body ── */}
+                            <div className="flex-1 overflow-y-auto min-h-0">
+                                {loadingJobClickDetails ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                                        <span className="text-sm">Loading...</span>
+                                    </div>
+                                ) : jobClickDetailsError ? (
+                                    <div className="p-6 text-sm text-red-500 text-center">{jobClickDetailsError}</div>
+                                ) : jobClickDetails.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <MousePointerClick className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" />
+                                        <p className="text-sm font-medium text-gray-500">No job clicks tracked yet.</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-950/60 border-b border-gray-100 dark:border-gray-800">
+                                            <tr>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Job Title</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Company Name</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Activity</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Last Clicked At</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {jobClickDetails.map((row) => (
+                                                <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">{row.job_title || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{row.company_name || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">{row.click_count} click{row.click_count === 1 ? "" : "s"}</td>
+                                                    <td className="px-6 py-3 text-gray-500 dark:text-gray-400">
+                                                        {row.last_clicked_at ? new Date(row.last_clicked_at.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(row.last_clicked_at) ? row.last_clicked_at : row.last_clicked_at.replace(" ", "T") + "Z").toLocaleString("en-US", {
+                                                            month: "short",
+                                                            day: "numeric",
+                                                            year: "numeric",
+                                                            hour: "2-digit",
+                                                            minute: "2-digit",
+                                                            hour12: true,
+                                                        }) : "—"}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
                             </div>
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
