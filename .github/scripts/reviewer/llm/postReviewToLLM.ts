@@ -148,7 +148,7 @@ function getProviderConfig(model: string): { baseURL: string | undefined, keys: 
   return { baseURL: undefined, keys: [] };
 }
 
-export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any, securityPrimitives: any[] = []) {
+export async function postReviewToLLM(finalContext: string, allFindings: any[], impactAnalysis: string[], metadata?: any, securityPrimitives: any[] = []) {
   if (!metadata) metadata = { impact_score: "LOW", signature_changes: 0, architecture_violations: 0, lines_changed: 0 };
 
   if (securityPrimitives.length > 0) {
@@ -300,7 +300,7 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
         if (bug.bug_category.toLowerCase() === "security" && bug.confidence >= 0.95 && bug.owasp_category && bug.concrete_exploit_path && bug.ast_primitive_id) {
           const primitive = securityPrimitives.find(p => p.id === bug.ast_primitive_id);
           if (primitive) {
-            const isFileMatch = bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.split('/').pop());
+            const isFileMatch = primitive.file ? bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.replace(/\\/g, '/').split('/').pop() || '') : false;
             const lineMatch = bug.changed_lines.includes(primitive.line.toString()) || Math.abs(parseInt(bug.changed_lines.split('-')[0]) - primitive.line) <= 10;
             
             if (isFileMatch && lineMatch) {
@@ -324,7 +324,8 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
 
       let markdown = `##  AI Code Review Findings (Model: \`${usedModel}\`)\n\n`;
       for (const bug of data.bugs) {
-        markdown += `###    [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
+        const cat = bug.bug_category.toUpperCase();
+        markdown += `###    [${cat}] ${bug.summary}\n`;
         markdown += `**File:** \`${bug.changed_file}\` (Lines: ${bug.changed_lines})\n\n`;
         markdown += `${bug.comment}\n\n`;
         if (bug.diff_fix_suggestion) {

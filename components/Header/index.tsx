@@ -197,7 +197,7 @@ const Header = ({
                   {(isAuthenticated && (userRole === "admin" || userRole === "employee")) && (
                     <li className="lg:hidden">
                       <Link
-                        href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
+                        href={userRole === 'employee' ? '/avatar/employee/employee-dashboard' : '/avatar'}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
                         onClick={() => {
                           closeNavbar();
@@ -262,11 +262,14 @@ const Header = ({
             </div>
             {/* Desktop section */}
             <div className="hidden items-center justify-end pr-16 lg:flex lg:pr-0">
+              <div className="items-center justify-end pr-4 lg:flex">
+                <ThemeToggler />
+              </div>
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
                   {(userRole === "admin" || userRole === "employee") && (
                     <Link
-                      href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
+                      href={userRole === 'employee' ? '/avatar/employee/employee-dashboard' : '/avatar'}
                       onClick={handleAvatarClick}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
@@ -305,9 +308,6 @@ const Header = ({
                   </Link>
                 </>
               )}
-              <div className="items-center justify-end pr-12 lg:flex lg:pr-0">
-                <ThemeToggler />
-              </div>
             </div>
             <div className="flex items-center justify-end gap-2 pr-4 lg:hidden">
               <ThemeToggler />

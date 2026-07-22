@@ -241,7 +241,21 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     },
   ];
 
-  const sidebarItems = allSidebarItems;
+  const sidebarItems = allSidebarItems.map((item) => {
+    if (item.title === "Employees" && userRole === "employee") {
+      return {
+        ...item,
+        children: item.children?.filter((child) => child.title !== "List"),
+      };
+    }
+    if (item.title === "Misc" && userRole === "employee") {
+      return {
+        ...item,
+        children: item.children?.filter((child) => child.title !== "Authuser"),
+      };
+    }
+    return item;
+  });
 
   const handleItemClick = (href: string, hasChildren: boolean) => {
     if (hasChildren) {

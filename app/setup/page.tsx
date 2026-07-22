@@ -66,8 +66,7 @@ export default function CandidateSetupWizard() {
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isClient = typeof window !== "undefined";
-  const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const API_URL = isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
   useEffect(() => {
     if (mounted && !authLoading && !isAuthenticated) {
@@ -123,7 +122,7 @@ export default function CandidateSetupWizard() {
         console.error("Failed to init AI prep session", err);
       }
     }
-    
+
   };
 
   const handleValidateResume = () => {

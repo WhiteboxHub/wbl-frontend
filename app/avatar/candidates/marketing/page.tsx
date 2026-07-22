@@ -138,7 +138,7 @@ const FilterHeaderComponent = ({
     // Close dropdown after selection
     setFilterVisible(false);
   };
-
+  const headerRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -146,11 +146,12 @@ const FilterHeaderComponent = ({
 
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
+    const targetRef = filterButtonRef.current || headerRef.current;
+    if (targetRef) {
+      const rect = targetRef.getBoundingClientRect();
       setDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: Math.max(0, rect.left + window.scrollX - 100),
+        top: rect.bottom + 8,
+        left: Math.max(0, rect.left - 100),
       });
     }
     setFilterVisible((v) => !v);
@@ -536,25 +537,6 @@ export default function CandidatesMarketingPage() {
     );
   };
 
-  const MyResumeRenderer = (params: any) => {
-    const hasBinary = params.data?.has_uploaded_resume;
-    if (!hasBinary) {
-      return <span className="text-gray-400 opacity-60">N/A</span>;
-    }
-    return (
-      <div className="flex items-center space-x-2">
-        <a
-          href={`/user_dashboard?candidateId=${params.data?.candidate_id}&tab=my_resume`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title="View Resume Templates"
-        >
-          <FileText className="h-4 w-4 text-green-600 font-bold" />
-        </a>
-      </div>
-    );
-  };
 
   const CandidateNameRenderer = (params: any) => {
     const candidateId = params.data?.candidate_id;
@@ -664,12 +646,6 @@ export default function CandidatesMarketingPage() {
         minWidth: 150,
         valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
         cellRenderer: LinkCellRenderer,
-      },
-      {
-        field: "my_resume_filename",
-        headerName: "My Resume",
-        width: 150,
-        cellRenderer: MyResumeRenderer,
       },
       {
         field: "priority",
