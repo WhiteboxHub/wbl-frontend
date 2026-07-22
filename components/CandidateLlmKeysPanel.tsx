@@ -1207,7 +1207,7 @@ export function CandidateLlmKeysPanel({
                                                 <td className="px-4 py-3 text-center">
                                                     <Button
                                                         type="button"
-                                                        size="xs"
+                                                        size="sm"
                                                         variant="outline"
                                                         disabled={validatingId !== null}
                                                         onClick={() => void validateRow(row)}
