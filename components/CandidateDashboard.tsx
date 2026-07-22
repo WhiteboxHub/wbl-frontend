@@ -2878,7 +2878,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     {setupStatus?.api_keys_configured === false && (
                                                         <button
                                                             type="button"
-                                                            onClick={() => goToTab('ai_setup')}
+                                                            onClick={() => goToTab('my-llm-setup')}
                                                             className="ml-auto flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"
                                                         >
                                                             <Plus className="w-3.5 h-3.5" />
