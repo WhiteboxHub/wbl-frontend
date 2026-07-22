@@ -21,7 +21,7 @@ test.describe("Full UI Grid Regression", () => {
   test("Validate every grid on every route", async ({ page }) => {
     // Disable the per-test timeout — grids can take time to load data
     test.setTimeout(0);
-
+    
     const gridRoutes = getAllGridRoutes();
     console.log(`\n${"=".repeat(60)}`);
     console.log(
@@ -47,6 +47,66 @@ test.describe("Full UI Grid Regression", () => {
               `[Regression] → ${role} | ${routePath} | expectGrid=${hasGrid}`,
             );
             console.log(`${"─".repeat(60)}`);
+
+            if (routePath === "/avatar/candidates/marketing") {
+              await page.route("**/candidate/marketing**", async (route) => {
+                const method = route.request().method();
+                const headers = {
+                  "Last-Modified": new Date(0).toUTCString(),
+                };
+
+                if (method === "HEAD") {
+                  await route.fulfill({ status: 200, headers });
+                  return;
+                }
+
+                await route.fulfill({
+                  status: 200,
+                  contentType: "application/json",
+                  headers,
+                  body: JSON.stringify({
+                    data: [
+                      {
+                        id: 1,
+                        candidate_id: 1,
+                        candidate_name: "Regression Candidate",
+                        status: "active",
+                        workstatus: "US_CITIZEN",
+                        start_date: "2026-01-01",
+                        instructor1_name: "Instructor One",
+                        instructor2_name: "Instructor Two",
+                        instructor3_name: "Instructor Three",
+                        resume_url: "",
+                        has_uploaded_resume: false,
+                        priority: 1,
+                        marketing_manager_obj: { name: "Manager One" },
+                        email: "regression@example.com",
+                        password: "",
+                        imap_password: "",
+                        linkedin_username: "",
+                        linkedin_passwd: "",
+                        google_voice_number: "",
+                        move_to_placement: false,
+                        candidate_intro: "",
+                        run_daily_workflow: false,
+                        run_weekly_workflow: false,
+                        run_raw_positions_workflow: false,
+                        run_email_extraction: false,
+                        run_outreach_emails: false,
+                        linkedin_post: false,
+                        candidate_json: null,
+                        notes: "",
+                        candidate: {
+                          full_name: "Regression Candidate",
+                          linkedin_id: "",
+                          batch: { batchname: "Regression Batch" },
+                        },
+                      },
+                    ],
+                  }),
+                });
+              });
+            }
 
             await page.goto(routePath);
             

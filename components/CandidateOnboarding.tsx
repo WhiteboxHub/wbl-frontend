@@ -161,6 +161,15 @@ export default function CandidateOnboarding({
         if (profile.github_link && !isValidURL(profile.github_link)) {
             return "Please provide a valid GitHub profile URL.";
         }
+        if (profile.phone && !isValidPhone(profile.phone)) {
+            return "Please provide a valid phone number (e.g. +1 555-123-4567).";
+        }
+        if (profile.secondaryphone && !isValidPhone(profile.secondaryphone)) {
+            return "Please provide a valid secondary phone number (e.g. +1 555-123-4567).";
+        }
+        if (profile.emergcontactphone && !isValidPhone(profile.emergcontactphone)) {
+            return "Please provide a valid emergency contact phone number (e.g. +1 555-123-4567).";
+        }
         return '';
     };
 
@@ -169,9 +178,9 @@ export default function CandidateOnboarding({
         const baseRequired = ['full_name', 'email', 'phone', 'workstatus', 'dob', 'github_link', 'education', 'address', 'linkedin_id', 'zip_code'];
         const emergencyRequired = isAddMode ? ['emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'] : [];
         const requiredFields = [...baseRequired, ...emergencyRequired];
-        
+
         const missingFields = requiredFields.filter(field => !profile[field]);
-        
+
         if (missingFields.length > 0) {
             toast.error("Please fill all required details to continue.");
             return;
@@ -271,13 +280,26 @@ export default function CandidateOnboarding({
         }
     };
 
+    const isValidPhone = (phone: string) => {
+        const trimmed = phone.trim();
+        if (!trimmed) return false;
+        const phoneRegex = /^(\+?1[-.\s]?)?(\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}$/;
+        if (!phoneRegex.test(trimmed)) return false;
+        const digitsOnly = trimmed.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+        const areaCode = digitsOnly.slice(0, 3);
+        const exchangeCode = digitsOnly.slice(3, 6);
+        if (/^[01]/.test(areaCode) || /^[01]/.test(exchangeCode)) return false;
+        return true;
+
+    };
+
     const handleFinishOnboarding = async () => {
         if (!agreed || !signature.trim()) {
             toast.error("Please agree to the terms and provide your signature");
             return;
         }
         // Basic profile validation before submission
-        const { email, linkedin_id, github_link } = getFilteredProfile();
+        const { email, linkedin_id, github_link, phone, secondaryphone, emergcontactphone } = getFilteredProfile();
         if (!isValidEmail(email)) {
             toast.error("Please enter a valid email address.");
             return;
@@ -290,6 +312,20 @@ export default function CandidateOnboarding({
             toast.error("Please provide a valid GitHub profile URL.");
             return;
         }
+        if (!isValidPhone(phone)) {
+            toast.error("Please enter a valid phone number (e.g. +1 555-123-4567).");
+            return;
+        }
+        if (secondaryphone && !isValidPhone(secondaryphone)) {
+            toast.error("Please provide a valid secondary phone number (e.g. +1 555-123-4567).");
+            return;
+        }
+        if (emergcontactphone && !isValidPhone(emergcontactphone)) {
+            toast.error("Please provide a valid emergency contact phone number (e.g. +1 555-123-4567).");
+            return;
+        }
+
+
         setLoading(true);
         try {
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -395,6 +431,10 @@ export default function CandidateOnboarding({
                         if (profile.emergcontactemail && !isValidEmail(profile.emergcontactemail)) invalidFields.push('Emergency Contact Email');
                         if (profile.linkedin_id && !isValidURL(profile.linkedin_id)) invalidFields.push('LinkedIn ID');
                         if (profile.github_link && !isValidURL(profile.github_link)) invalidFields.push('Github Link');
+                        if (profile.phone && !isValidPhone(profile.phone)) invalidFields.push('Phone');
+                        if (profile.secondaryphone && !isValidPhone(profile.secondaryphone)) invalidFields.push('Secondary Phone');
+                        if (profile.emergcontactphone && !isValidPhone(profile.emergcontactphone)) invalidFields.push('Emergency Contact Phone');
+
 
                         const hasErrors = missing.length > 0 || invalidFields.length > 0;
 
@@ -457,7 +497,7 @@ export default function CandidateOnboarding({
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Phone <span className="text-red-700">*</span></Label>
-                                                        <Input name="phone" value={profile.phone} onChange={handleProfileChange} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                        <Input name="phone" value={profile.phone} onChange={handleProfileChange} onBlur={() => { const err = isValidPhone(profile.phone) ? null : "Please provide a valid phone number (e.g. +1 555-123-4567)."; if (err) toast.error(err); }} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Date of Birth <span className="text-red-700">*</span></Label>
@@ -498,16 +538,16 @@ export default function CandidateOnboarding({
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">LinkedIn Profile URL <span className="text-red-700">*</span></Label>
                                                         <Input name="linkedin_id" value={profile.linkedin_id} onChange={handleProfileChange} onBlur={() => {
-                                                              const err = isValidURL(profile.linkedin_id) ? null : "Please provide a valid LinkedIn profile URL.";
-                                                              if (err) toast.error(err);
-                                                            }} placeholder="https://linkedin.com/in/username" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                            const err = isValidURL(profile.linkedin_id) ? null : "Please provide a valid LinkedIn profile URL.";
+                                                            if (err) toast.error(err);
+                                                        }} placeholder="https://linkedin.com/in/username" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">GitHub Profile URL <span className="text-red-700">*</span></Label>
                                                         <Input name="github_link" value={profile.github_link} onChange={handleProfileChange} onBlur={() => {
-                                                              const err = isValidURL(profile.github_link) ? null : "Please provide a valid GitHub profile URL.";
-                                                              if (err) toast.error(err);
-                                                            }} placeholder="https://github.com/username" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                            const err = isValidURL(profile.github_link) ? null : "Please provide a valid GitHub profile URL.";
+                                                            if (err) toast.error(err);
+                                                        }} placeholder="https://github.com/username" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Education <span className="text-red-700">*</span></Label>
@@ -557,7 +597,9 @@ export default function CandidateOnboarding({
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Phone</Label>
-                                                        <Input name="secondaryphone" value={profile.secondaryphone} onChange={handleProfileChange} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                        <Input name="secondaryphone" value={profile.secondaryphone} onChange={handleProfileChange} onBlur={() => { const err = !profile.secondaryphone || isValidPhone(profile.secondaryphone) ? null : "Please provide a valid secondary US phone number (e.g. +1 555-123-4567)."; if (err) toast.error(err); }} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+
+
                                                     </div>
                                                 </div>
                                             </div>
@@ -578,7 +620,7 @@ export default function CandidateOnboarding({
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Contact Phone <span className="text-red-700">*</span></Label>
-                                                        <Input name="emergcontactphone" value={profile.emergcontactphone} onChange={handleProfileChange} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                        <Input name="emergcontactphone" value={profile.emergcontactphone} onChange={handleProfileChange} onBlur={() => { const err = isValidPhone(profile.emergcontactphone) ? null : "Please provide a valid emergency contact US phone number (e.g. +1 555-123-4567)."; if (err) toast.error(err); }} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Contact Address <span className="text-red-700">*</span></Label>
