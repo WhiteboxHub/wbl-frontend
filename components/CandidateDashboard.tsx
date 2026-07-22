@@ -370,12 +370,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
-    const getAiPrepApiUrl = () => {
-        const isClient = typeof window !== "undefined";
-        const isLocalhost = isClient && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-        return isLocalhost ? "http://localhost:8001/api" : (process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api");
-    };
-    const AIPREP_API = getAiPrepApiUrl();
+    const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
 
     // --- CLICK TRACKING LOGIC ---
     const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
