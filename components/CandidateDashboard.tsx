@@ -380,9 +380,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         // 2. Try Service Worker path first (background batch flush)
         let swHandled = false;
         try {
-            const { trackLocalClick } = await import('@/utils/clickTracker');
-            await trackLocalClick(jobListingId);
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                const { trackLocalClick } = await import('@/utils/clickTracker');
+                await trackLocalClick(jobListingId);
                 navigator.serviceWorker.controller.postMessage({
                     type: 'TRACK_CLICK',
                     id: jobListingId
