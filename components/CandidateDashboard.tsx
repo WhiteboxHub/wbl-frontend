@@ -2943,16 +2943,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     {setupStatus.setup_complete ? (
                                                         <button
                                                             onClick={async () => {
-                                                                const getAiPrepUrl = () => {
-                                                                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                    if (url) {
-                                                                        return url;
-                                                                    }
-
-                                                                    return "https://ai-prep.whitebox-learning.com";
-                                                                };
-                                                                const baseUrl = getAiPrepUrl();
+                                                                const baseUrl = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL as string;
                                                                 const token = localStorage.getItem("prep_token");
 
                                                                 if (token) {
