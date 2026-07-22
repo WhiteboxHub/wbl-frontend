@@ -2826,22 +2826,22 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {/* Resume Status */}
-                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null && !prefetchedSession?.summaryData?.resume_json
                                                     ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                                    : setupStatus.resume_uploaded
+                                                    : (setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json)
                                                         ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
                                                         : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                                     }`}>
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.resume_uploaded ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
-                                                        {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.resume_uploaded ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null && !prefetchedSession?.summaryData?.resume_json ? "bg-gray-100 dark:bg-gray-700" : (setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json) ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
+                                                        {setupStatus === null && !prefetchedSession?.summaryData?.resume_json ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : (setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json) ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
-                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Added" : "Not added"}
+                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null && !prefetchedSession?.summaryData?.resume_json ? "text-gray-400" : (setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json) ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                                            {setupStatus === null && !prefetchedSession?.summaryData?.resume_json ? "Loading..." : (setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json) ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
-                                                    {setupStatus?.resume_uploaded && (
+                                                    {(setupStatus?.resume_uploaded || !!prefetchedSession?.summaryData?.resume_json) && (
                                                         <button
                                                             type="button"
                                                             onClick={() => setViewResumeOpen(true)}
