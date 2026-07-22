@@ -12,6 +12,8 @@ import {
     Pencil,
     Plus,
     Trash2,
+    Copy,
+    Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/admin_ui/button";
@@ -34,7 +36,7 @@ import {
 } from "@/components/admin_ui/select";
 import { apiFetch } from "@/lib/api";
 
-type ValidationStatus = "active" | "inactive" | "invalid" | "checking";
+type ValidationStatus = "active" | "inactive" | "invalid" | "checking" | "credits_exhausted";
 
 type ProviderId = "OpenAI" | "Claude" | "Gemini" | "Mistral" | "Llama" | "Grok" | "DeepSeek" | "Cohere" | "Together" | "Perplexity" | "Groq" | "AzureOpenAI" | "AWSBedrock" | "VertexAI" | "OpenRouter" | "HuggingFace" | "NvidiaNIM" | "Fireworks" | "Cerebras" | "AI21" | "SambaNova" | "IBMWatsonx" | "Qwen" | "Moonshot" | "ZeroOneAI" | "Ollama" | "LMStudio" | "vLLM";
 
@@ -163,69 +165,52 @@ function formatEntryDate(value: string | null | undefined): string {
     });
 }
 
-const VALIDATION_CACHE_KEY = "wbl_llm_key_validation_v1";
-
-type StoredValidationStatus = "active" | "inactive" | "invalid";
-
-type CachedValidation = {
-    status: StoredValidationStatus;
-    message: string | null;
-};
-
-function readValidationCache(): Record<string, CachedValidation> {
-    if (typeof window === "undefined") return {};
-    try {
-        const raw = localStorage.getItem(VALIDATION_CACHE_KEY);
-        if (!raw) return {};
-        const parsed = JSON.parse(raw) as Record<string, CachedValidation>;
-        return parsed && typeof parsed === "object" ? parsed : {};
-    } catch {
-        return {};
+function getFriendlyValidationMessage(provider: string, rawMessage: string | null | undefined): string {
+    if (!rawMessage) {
+        return `${provider} Validation Failed: The key could not be verified.`;
     }
-}
 
-function writeValidationCache(cache: Record<string, CachedValidation>) {
-    if (typeof window === "undefined") return;
-    try {
-        localStorage.setItem(VALIDATION_CACHE_KEY, JSON.stringify(cache));
-    } catch {
-        /* quota / private mode */
+    const lowerMsg = rawMessage.toLowerCase();
+
+    // 1. Incorrect key or auth failure
+    if (
+        lowerMsg.includes("incorrect api key") ||
+        lowerMsg.includes("invalid api key") ||
+        lowerMsg.includes("authentication failed") ||
+        lowerMsg.includes("invalid_api_key")
+    ) {
+        return `${provider} Validation Failed: The API key provided is incorrect. Please verify and try again.`;
     }
-}
 
-function applyValidationCache(rows: LlmKeyRow[]): LlmKeyRow[] {
-    const cache = readValidationCache();
-    return rows.map((row) => {
-        const hit = cache[String(row.id)];
-        if (!hit) return row;
-        return {
-            ...row,
-            validation_status: hit.status,
-            validation_message: hit.message,
-        };
-    });
-}
-
-function persistRowsToValidationCache(rows: LlmKeyRow[]) {
-    const cache = readValidationCache();
-    for (const row of rows) {
-        if (row.validation_status === "checking") continue;
-        cache[String(row.id)] = {
-            status: row.validation_status as StoredValidationStatus,
-            message: row.validation_message,
-        };
+    // 2. Billing / quota limit issues
+    if (
+        lowerMsg.includes("quota") ||
+        lowerMsg.includes("limit") ||
+        lowerMsg.includes("billing") ||
+        lowerMsg.includes("credit") ||
+        lowerMsg.includes("insufficient")
+    ) {
+        return `${provider} Validation Failed: Insufficient credits or quota limit reached on this API key.`;
     }
-    writeValidationCache(cache);
-}
 
-function removeKeyFromValidationCache(keyId: number) {
-    const cache = readValidationCache();
-    delete cache[String(keyId)];
-    writeValidationCache(cache);
+    // 3. Strip any secret keys/stars out of the message
+    let cleanMsg = rawMessage;
+    if (cleanMsg.includes("sk-")) {
+        cleanMsg = cleanMsg.replace(/sk-[a-zA-Z0-9*-]+/g, "[API Key]");
+    }
+    cleanMsg = cleanMsg.replace(/\*+/g, "***");
+
+    // 4. If the message is still very long, summarize it
+    if (cleanMsg.length > 120 || lowerMsg.includes("url") || lowerMsg.includes("http")) {
+        return `${provider} Validation Failed: Invalid API key. Please check your key configuration.`;
+    }
+
+    return cleanMsg;
 }
 
 /** Keys from ``candidate_llm_api_keys`` for the logged-in candidate (via ``candidate.id``). */
 export function CandidateLlmKeysPanel({ 
+
     onValidationChange,
     children 
 }: { 
@@ -247,6 +232,62 @@ export function CandidateLlmKeysPanel({
     const [formVoice, setFormVoice] = useState<"yes" | "no">("no");
     const [formSaving, setFormSaving] = useState(false);
 
+    const [copyingId, setCopyingId] = useState<number | null>(null);
+    const [copiedId, setCopiedId] = useState<number | null>(null);
+    const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+    const [detecting, setDetecting] = useState(false);
+
+
+
+    const [isValidated, setIsValidated] = useState(false);
+    const [isValidating, setIsValidating] = useState(false);
+    const [validationMessage, setValidationMessage] = useState<string | null>(null);
+    const [validationStatus, setValidationStatus] = useState<'success' | 'error' | null>(null);
+    const [modalKeyStatus, setModalKeyStatus] = useState<string>("inactive");
+
+    const copyKeyToClipboard = async (row: LlmKeyRow) => {
+        setCopyingId(row.id);
+        try {
+            const rev = await apiFetch(`coderpad/me/llm-keys/${row.id}/reveal`);
+            const key = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
+            if (!key) throw new Error("empty");
+            await navigator.clipboard.writeText(key);
+            setCopiedId(row.id);
+            toast.success("API key copied to clipboard");
+            setTimeout(() => {
+                setCopiedId(null);
+            }, 2000);
+        } catch {
+            toast.error("Could not copy API key.");
+        } finally {
+            setCopyingId(null);
+        }
+    };
+
+
+
+    const fetchModelsForProvider = async (provider: ProviderId, currentKey?: string, keyId?: number) => {
+        try {
+            const res = await apiFetch("coderpad/me/llm-keys/discover-models", {
+                method: "POST",
+                body: {
+                    provider_name: provider,
+                    api_key: currentKey || undefined,
+                    key_id: keyId || undefined,
+                },
+            });
+            if (res?.models && Array.isArray(res.models) && res.models.length > 0) {
+                setDiscoveredModels(res.models);
+                return res.models;
+            }
+        } catch (err) {
+            console.error("Model discovery failed:", err);
+        }
+        const fallback = MODELS_BY_PROVIDER[provider] || [];
+        setDiscoveredModels(fallback);
+        return fallback;
+    };
+
     const applyValidationResults = useCallback(
         (results: Array<{ id: number; status: string; message?: string | null }>) => {
             const byId = new Map(results.map((r) => [r.id, r]));
@@ -266,7 +307,6 @@ export function CandidateLlmKeysPanel({
                         validation_message: hit.message ?? null,
                     };
                 });
-                persistRowsToValidationCache(next);
                 return next;
             });
         },
@@ -331,6 +371,8 @@ export function CandidateLlmKeysPanel({
                     entry_date?: string | null;
                     voice_enabled?: boolean;
                     is_default?: boolean;
+                    status?: string;
+                    validation_message?: string | null;
                 }) => ({
                     id: k.id,
                     provider_name: k.provider_name,
@@ -339,15 +381,16 @@ export function CandidateLlmKeysPanel({
                     entry_date: k.entry_date ?? null,
                     voice_enabled: parseBoolFlag(k.voice_enabled),
                     is_default: parseBoolFlag(k.is_default),
-                    validation_status: "inactive" as const,
-                    validation_message: null,
+                    validation_status: ((k as any).validation_status || k.status || "inactive") as ValidationStatus,
+                    validation_message: k.validation_message ?? null,
                 })
             );
-            const loadedList = applyValidationCache(list);
-            setRows(loadedList);
-            if (loadedList.length > 0) {
-                void validateAllKeys(loadedList);
+            setRows(list);
+            const unvalidated = list.filter((k) => k.validation_status === "inactive" || (k.validation_status as string) === "unvalidated");
+            if (unvalidated.length > 0) {
+                void validateAllKeys(unvalidated);
             }
+            return list;
         } catch (err: unknown) {
             const e = err as { body?: { detail?: string }; status?: number };
             const detail =
@@ -358,6 +401,7 @@ export function CandidateLlmKeysPanel({
                 toast.error(detail ?? "Could not load your LLM keys.");
             }
             setRows([]);
+            return [];
         } finally {
             setLoading(false);
         }
@@ -375,39 +419,60 @@ export function CandidateLlmKeysPanel({
         onValidationChange?.(hasActiveKey);
     }, [rows, onValidationChange]);
 
+    useEffect(() => {
+        setIsValidated(false);
+        setValidationMessage(null);
+        setValidationStatus(null);
+        setModalKeyStatus("inactive");
+    }, [formKey]);
+
+    const resetValidationState = () => {
+        setIsValidated(false);
+        setIsValidating(false);
+        setValidationMessage(null);
+        setValidationStatus(null);
+        setModalKeyStatus("inactive");
+    };
+
     const closeModal = () => {
         setModalOpen(false);
         setEditRow(null);
         setFormKey("");
+        resetValidationState();
     };
 
     const openAddModal = () => {
         setEditRow(null);
         setFormProvider("OpenAI");
+        setDiscoveredModels(MODELS_BY_PROVIDER.OpenAI);
         setFormModel(MODELS_BY_PROVIDER.OpenAI[0]);
         setFormKey("");
         setFormVoice("no");
+        resetValidationState();
         setModalOpen(true);
     };
 
-    const openEditModal = (row: LlmKeyRow) => {
+    const openEditModal = async (row: LlmKeyRow) => {
         const provider = normalizeProvider(row.provider_name);
         setEditRow(row);
         setFormProvider(provider);
+        const models = await fetchModelsForProvider(provider, undefined, row.id);
         setFormModel(
-            row.model_name && MODELS_BY_PROVIDER[provider].includes(row.model_name)
+            row.model_name && models.includes(row.model_name)
                 ? row.model_name
-                : MODELS_BY_PROVIDER[provider][0]
+                : models[0] || ""
         );
         setFormKey("");
         setFormVoice(row.voice_enabled ? "yes" : "no");
+        resetValidationState();
         setModalOpen(true);
     };
 
-    const onProviderChange = (provider: ProviderId) => {
+    const onProviderChange = async (provider: ProviderId) => {
         setFormProvider(provider);
-        const models = MODELS_BY_PROVIDER[provider];
-        if (!models.includes(formModel)) {
+        resetValidationState();
+        const models = await fetchModelsForProvider(provider, formKey, editRow?.id);
+        if (models.length > 0) {
             setFormModel(models[0]);
         }
     };
@@ -464,9 +529,9 @@ export function CandidateLlmKeysPanel({
             if (hit.status === "active") {
                 toast.success(`${row.provider_name} key is active.`);
             } else if (hit.status === "invalid") {
-                toast.error(hit.message || "Invalid API key");
+                toast.error(getFriendlyValidationMessage(row.provider_name, hit.message));
             } else {
-                toast.error(hit.message || "Key inactive");
+                toast.error(getFriendlyValidationMessage(row.provider_name, hit.message));
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Validation failed";
@@ -541,7 +606,6 @@ export function CandidateLlmKeysPanel({
         if (!confirm(`Delete ${row.provider_name} key?`)) return;
         try {
             await apiFetch(`coderpad/me/llm-keys/${row.id}`, { method: "DELETE" });
-            removeKeyFromValidationCache(row.id);
             toast.success("Key deleted.");
             await loadKeys();
         } catch (err: unknown) {
@@ -565,8 +629,31 @@ export function CandidateLlmKeysPanel({
             return;
         }
 
+        // Prevent double submit on save
+        if (formSaving) return;
+
         setFormSaving(true);
         try {
+            let currentStatus = modalKeyStatus;
+            
+            // Auto validate right before saving if they haven't validated manually
+            if (k && currentStatus === "inactive") {
+                try {
+                    const res = await apiFetch("coderpad/me/llm-keys/validate", {
+                        method: "POST",
+                        body: { provider_name: formProvider, api_key: k },
+                    });
+                    if (res?.valid) {
+                        currentStatus = "active";
+                    } else {
+                        const isExhausted = res?.status === "CREDITS_EXHAUSTED";
+                        currentStatus = isExhausted ? "credits_exhausted" : "invalid";
+                    }
+                } catch (err: unknown) {
+                    currentStatus = "inactive";
+                }
+            }
+
             let savedId = editRow?.id;
             if (editRow) {
                 const body: {
@@ -574,12 +661,16 @@ export function CandidateLlmKeysPanel({
                     model_name: string;
                     voice_enabled: boolean;
                     api_key?: string;
+                    status?: string;
                 } = {
                     provider_name: formProvider,
                     model_name: formModel,
                     voice_enabled: voiceEnabled,
                 };
-                if (k) body.api_key = k;
+                if (k) {
+                    body.api_key = k;
+                    body.status = currentStatus;
+                }
                 await apiFetch(`coderpad/me/llm-keys/${editRow.id}`, {
                     method: "PUT",
                     body,
@@ -593,9 +684,10 @@ export function CandidateLlmKeysPanel({
                         api_key: k,
                         model_name: formModel,
                         voice_enabled: voiceEnabled,
+                        status: currentStatus,
                     },
                 });
-                savedId = res.id;
+                savedId = res?.id || 0;
                 toast.success("LLM key saved.");
                 setEditRow({
                     id: savedId,
@@ -605,13 +697,10 @@ export function CandidateLlmKeysPanel({
                     entry_date: new Date().toISOString(),
                     voice_enabled: voiceEnabled,
                     is_default: false,
-                    validation_status: "checking",
+                    validation_status: currentStatus as any,
                     validation_message: null
                 });
                 setFormKey("");
-            }
-            if (editRow && k) {
-                removeKeyFromValidationCache(editRow.id);
             }
             if (shouldClose) {
                 closeModal();
@@ -639,31 +728,53 @@ export function CandidateLlmKeysPanel({
             return;
         }
 
-        const savedId = await saveKey(false);
-        if (!savedId) return;
+        if (isValidating) return;
 
-        toast.loading("Validating...", { id: "validate-toast" });
+        setIsValidating(true);
+        setValidationMessage(null);
+        setValidationStatus(null);
+        setIsValidated(false);
+
+        const toastId = toast.loading("Validating API key...");
         try {
-            const batch = await apiFetch("coderpad/me/llm-keys/validate-batch", {
+            const res = await apiFetch("coderpad/me/llm-keys/validate", {
                 method: "POST",
                 body: {
-                    keys: [{ id: savedId, provider_name: formProvider, source: "wbl" }],
+                    provider_name: formProvider,
+                    api_key: k,
                 },
             });
-            const hit = batch?.results?.[0];
-            if (!hit) throw new Error("No validation result");
-            
-            applyValidationResults([hit]);
-            
-            if (hit.status === "active") {
-                toast.success(`${formProvider} key is active.`, { id: "validate-toast" });
-            } else if (hit.status === "invalid") {
-                toast.error(hit.message || "Invalid API key", { id: "validate-toast" });
+
+            if (res?.valid) {
+                setIsValidated(true);
+                setValidationStatus("success");
+                setModalKeyStatus("active");
+                setValidationMessage("✓ API key validated successfully.");
+                toast.success("API key validated successfully.", { id: toastId });
             } else {
-                toast.error(hit.message || "Key inactive", { id: "validate-toast" });
+                setIsValidated(false);
+                setValidationStatus("error");
+                const isExhausted = res?.status === "CREDITS_EXHAUSTED";
+                setModalKeyStatus(isExhausted ? "credits_exhausted" : "invalid");
+                const friendly = getFriendlyValidationMessage(formProvider, res?.message);
+                setValidationMessage(`❌ ${friendly}`);
+                toast.dismiss(toastId);
             }
-        } catch (err) {
-            toast.error("Validation failed.", { id: "validate-toast" });
+        } catch (err: unknown) {
+            let errorMsg = "Unable to validate the API key right now. Please try again.";
+            try {
+                const e = err as { body?: { detail?: string } };
+                if (typeof e?.body?.detail === "string") errorMsg = e.body.detail;
+            } catch {
+                /* default */
+            }
+            const friendly = getFriendlyValidationMessage(formProvider, errorMsg);
+            setIsValidated(false);
+            setValidationStatus("error");
+            setValidationMessage(`❌ ${friendly}`);
+            toast.error(friendly, { id: toastId });
+        } finally {
+            setIsValidating(false);
         }
     };
 
@@ -688,6 +799,17 @@ export function CandidateLlmKeysPanel({
                 </span>
             );
         }
+        if (status === "credits_exhausted") {
+            return (
+                <span
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+                    title={row.validation_message || "Credits Exhausted"}
+                >
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    Credits Exhausted
+                </span>
+            );
+        }
         if (status === "invalid") {
             return (
                 <span
@@ -701,11 +823,11 @@ export function CandidateLlmKeysPanel({
         }
         return (
             <span
-                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
-                title={row.validation_message || "Not verified or unreachable"}
+                className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 dark:bg-gray-850 dark:text-gray-300"
+                title={row.validation_message || "Not validated yet"}
             >
                 <AlertCircle className="h-3.5 w-3.5" />
-                Inactive
+                Not Validated
             </span>
         );
     };
@@ -791,7 +913,7 @@ export function CandidateLlmKeysPanel({
                                             <SelectValue placeholder="Select model" />
                                         </SelectTrigger>
                                         <SelectContent nativeScroll>
-                                            {MODELS_BY_PROVIDER[formProvider].map((m) => (
+                                            {(discoveredModels.length > 0 ? discoveredModels : MODELS_BY_PROVIDER[formProvider]).map((m) => (
                                                 <SelectItem key={m} value={m}>
                                                     {m}
                                                 </SelectItem>
@@ -827,8 +949,9 @@ export function CandidateLlmKeysPanel({
                             </div>
 
                             <div className="min-w-0">
-                                <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                                    {editRow ? "API key (optional)" : "API key"}
+                                <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                                    API key
+                                    {detecting && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
                                 </Label>
                                 <Input
                                     type="password"
@@ -837,7 +960,6 @@ export function CandidateLlmKeysPanel({
                                         const val = e.target.value;
                                         setFormKey(val);
                                         
-                                        // Auto-detect provider based on API key prefix
                                         const trimmed = val.trim();
                                         let detectedProvider = null;
                                         if (trimmed.startsWith("sk-ant-")) detectedProvider = "Claude";
@@ -850,7 +972,34 @@ export function CandidateLlmKeysPanel({
 
                                         if (detectedProvider && detectedProvider !== formProvider) {
                                             setFormProvider(detectedProvider as any);
-                                            setFormModel(MODELS_BY_PROVIDER[detectedProvider as any][0]);
+                                            const fallback = MODELS_BY_PROVIDER[detectedProvider as any] || [];
+                                            setDiscoveredModels(fallback);
+                                            setFormModel(fallback[0] || "");
+                                        }
+
+                                        if (trimmed.length > 15) {
+                                            setDetecting(true);
+                                            apiFetch("coderpad/me/llm-keys/detect-provider", {
+                                                method: "POST",
+                                                body: { api_key: trimmed },
+                                            }).then((res) => {
+                                                if (res?.provider_name) {
+                                                    const normalized = normalizeProvider(res.provider_name);
+                                                    setFormProvider(normalized);
+                                                    if (res.models && Array.isArray(res.models) && res.models.length > 0) {
+                                                        setDiscoveredModels(res.models);
+                                                        setFormModel(res.models[0]);
+                                                    } else {
+                                                        const fallback = MODELS_BY_PROVIDER[normalized] || [];
+                                                        setDiscoveredModels(fallback);
+                                                        setFormModel(fallback[0] || "");
+                                                    }
+                                                }
+                                            }).catch((err) => {
+                                                console.error("Provider detection failed:", err);
+                                            }).finally(() => {
+                                                setDetecting(false);
+                                            });
                                         }
                                     }}
                                     placeholder={
@@ -863,6 +1012,15 @@ export function CandidateLlmKeysPanel({
                                     className="mt-1 h-9 font-mono text-sm"
                                     autoComplete="new-password"
                                 />
+                                {validationMessage && (
+                                    <p className={`text-xs font-semibold mt-1.5 ${
+                                        validationStatus === "success" 
+                                            ? "text-emerald-600 dark:text-emerald-400" 
+                                            : "text-red-600 dark:text-red-400"
+                                    }`}>
+                                        {validationMessage}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -872,7 +1030,7 @@ export function CandidateLlmKeysPanel({
                                 variant="outline"
                                 size="sm"
                                 onClick={closeModal}
-                                disabled={formSaving}
+                                disabled={formSaving || isValidating}
                             >
                                 Cancel
                             </Button>
@@ -881,15 +1039,28 @@ export function CandidateLlmKeysPanel({
                                 variant="outline"
                                 size="sm"
                                 className="min-w-[7rem]"
-                                disabled={formSaving || (!editRow && !formKey.trim())}
+                                disabled={formSaving || isValidating || !formKey.trim()}
                                 onClick={() => void validateFormKey()}
                             >
-                                Validate
+                                {isValidating ? (
+                                    <>
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1.5 inline" />
+                                        Validating...
+                                    </>
+                                ) : isValidated ? (
+                                    "Validated ✓"
+                                ) : (
+                                    "Validate"
+                                )}
                             </Button>
                             <Button
                                 type="button"
                                 size="sm"
-                                disabled={formSaving || (!editRow && !formKey.trim())}
+                                disabled={
+                                    formSaving ||
+                                    isValidating ||
+                                    (!editRow && !formKey.trim())
+                                }
                                 onClick={() => void saveKey()}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold min-w-[7rem]"
                             >
@@ -913,20 +1084,21 @@ export function CandidateLlmKeysPanel({
                                     <th className="px-4 py-3">Entry Date</th>
                                     <th className="px-4 py-3">Speech Enabled</th>
                                     <th className="px-4 py-3">Default</th>
+                                    <th className="px-4 py-3 text-center">Validate</th>
                                     <th className="px-4 py-3 w-20" />
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                             Loading…
                                         </td>
                                     </tr>
                                 ) : rows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                                             No LLM keys yet. Click Add key to save your first API key.
                                         </td>
                                     </tr>
@@ -944,34 +1116,30 @@ export function CandidateLlmKeysPanel({
                                                     {row.provider_name}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-2 w-full max-w-[280px]">
+                                                    <div className="flex items-center gap-2 w-full max-w-[320px]">
                                                         <div
-                                                            onClick={() => openEditModal(row)}
-                                                            className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 scroll-smooth overscroll-x-contain cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-track]:bg-transparent"
-                                                            title="Click to edit key"
+                                                            className="flex-1 min-w-0 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-2 whitespace-normal break-all text-xs font-mono text-gray-700 dark:text-gray-300"
                                                         >
-                                                            {showPlain ? (
-                                                                <span
-                                                                    className="inline-block min-w-max px-2 py-1.5 text-xs font-mono whitespace-nowrap text-gray-700 dark:text-gray-300 select-all"
-                                                                    aria-label={`${row.provider_name} API key`}
-                                                                >
-                                                                    {displayKey}
-                                                                </span>
-                                                            ) : (
-                                                                <input
-                                                                    type="password"
-                                                                    readOnly
-                                                                    value={displayKey}
-                                                                    className="block min-w-max w-full border-0 bg-transparent px-2 py-1.5 text-xs font-mono text-gray-700 dark:text-gray-300 outline-none focus:ring-0 whitespace-nowrap"
-                                                                    autoComplete="off"
-                                                                    spellCheck={false}
-                                                                    aria-label={`${row.provider_name} API key`}
-                                                                />
-                                                            )}
+                                                            {displayKey}
                                                         </div>
                                                         <button
                                                             type="button"
-                                                            className="shrink-0 p-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                            className="shrink-0 p-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                            title="Copy API key"
+                                                            disabled={copyingId === row.id}
+                                                            onClick={() => void copyKeyToClipboard(row)}
+                                                        >
+                                                            {copyingId === row.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : copiedId === row.id ? (
+                                                                <Check className="h-4 w-4 text-emerald-500" />
+                                                            ) : (
+                                                                <Copy className="h-4 w-4" />
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="shrink-0 p-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                                                             title={showPlain ? "Hide key" : "Show key"}
                                                             disabled={revealingId === row.id}
                                                             onClick={() => void toggleReveal(row)}
@@ -1026,30 +1194,36 @@ export function CandidateLlmKeysPanel({
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <select
-                                                            className={`rounded-md border px-2 py-1 text-xs font-semibold min-w-[4.5rem] disabled:opacity-60 ${
-                                                                row.is_default
-                                                                    ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                                                    : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                                                            }`}
-                                                            value={row.is_default ? "yes" : "no"}
-                                                            disabled={defaultUpdatingId === row.id}
-                                                            onChange={(e) =>
-                                                                void updateIsDefault(
-                                                                    row,
-                                                                    e.target.value === "yes"
-                                                                )
-                                                            }
-                                                            aria-label={`Default key for ${row.provider_name}`}
-                                                        >
-                                                            <option value="no">No</option>
-                                                            <option value="yes">Yes</option>
-                                                        </select>
-                                                        {defaultUpdatingId === row.id && (
-                                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                                                    {row.is_default ? (
+                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                                            YES
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-650 dark:bg-gray-800 dark:text-gray-400">
+                                                            NO
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <Button
+                                                        type="button"
+                                                        size="xs"
+                                                        variant="outline"
+                                                        disabled={validatingId !== null}
+                                                        onClick={() => void validateRow(row)}
+                                                        className="font-semibold text-xs min-w-[5.5rem]"
+                                                    >
+                                                        {validatingId === row.id ? (
+                                                            <>
+                                                                <Loader2 className="mr-1 h-3 w-3 animate-spin inline" />
+                                                                Validating…
+                                                            </>
+                                                        ) : row.validation_status === "active" ? (
+                                                            "Validate"
+                                                        ) : (
+                                                            "Revalidate"
                                                         )}
-                                                    </div>
+                                                    </Button>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-end gap-1">

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
@@ -400,7 +400,15 @@ export default function CandidateDashboard() {
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+    useEffect(() => {
+        const tab = searchParams.get("tab") as TabType | null;
+        if (tab && ['overview', 'sessions', 'interviews', 'jobs', 'smartprep', 'my_llm_key', 'my_applications', 'ai_setup', 'my_resume'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     const goToTab = (tab: TabType) => {
@@ -820,17 +828,8 @@ export default function CandidateDashboard() {
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
             
             if (defaultKey) {
-                // Check validation cache
-                try {
-                    const raw = localStorage.getItem("wbl_llm_key_validation_v1");
-                    if (raw) {
-                        const cache = JSON.parse(raw);
-                        if (cache[String(defaultKey.id)]?.status === "active") {
-                            hasValidDefaultKey = true;
-                        }
-                    }
-                } catch {
-                    // Ignore localStorage errors
+                if (defaultKey.status === "active") {
+                    hasValidDefaultKey = true;
                 }
             }
         } catch {
@@ -2039,7 +2038,6 @@ export default function CandidateDashboard() {
                                             candidateId={candidateId ?? undefined} 
                                             onFinishSetup={async () => {
                                                 await refreshSetupStatus();
-                                                goToTab('smartprep');
                                             }} 
                                         />
                                     </div>
@@ -2723,7 +2721,7 @@ export default function CandidateDashboard() {
                                                             {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
-                                                    {setupStatus?.resume_uploaded && (
+                                                    {setupStatus?.resume_uploaded ? (
                                                         <button
                                                             type="button"
                                                             onClick={() => setViewResumeOpen(true)}
@@ -2732,7 +2730,16 @@ export default function CandidateDashboard() {
                                                             <Eye className="w-3.5 h-3.5" />
                                                             View Resume
                                                         </button>
-                                                    )}
+                                                    ) : setupStatus?.resume_uploaded === false ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => goToTab('my_resume')}
+                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                            Add Resume
+                                                        </button>
+                                                    ) : null}
                                                 </div>
                                                 {/* API Keys Status */}
                                                 <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
@@ -2750,6 +2757,16 @@ export default function CandidateDashboard() {
                                                             {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
+                                                    {setupStatus?.api_keys_configured === false && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => goToTab('ai_setup')}
+                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                            Add Key
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
