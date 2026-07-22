@@ -1,12 +1,12 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/finding';
 import { Node, SyntaxKind } from 'ts-morph';
 
 export class LargeFunctionRule implements Rule {
   name = "LargeFunctionRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     
     const isChanged = (node: any) => {
       const start = node.getStartLineNumber();
@@ -29,17 +29,20 @@ export class LargeFunctionRule implements Rule {
             if (Node.isVariableDeclaration(parent)) name = parent.getName();
         }
 
-        if (length > 300) {
-           findings.push({
+        if (length > 150) {
+           Evidences.push({
+             schemaVersion: 1,
+             id: `SMELL-LARGE-${fn.getStartLineNumber()}`,
+             type: 'code_smell',
+             source: 'ast',
              severity: 'MEDIUM',
-             confidence: 'HIGH',
-             type: 'Code Smell',
-             evidence: `Function '${name}' is ${length} lines long (exceeds 300 limit) at line ${fn.getStartLineNumber()}.`
+             attributes: { functionName: name, lineCount: length },
+             evidence: `Function '${name}' is ${length} lines long (exceeds 150 limit) at line ${fn.getStartLineNumber()}.`
            });
         }
       }
     }
 
-    return { critical, findings };
+    return { critical, findings: Evidences };
   }
 }

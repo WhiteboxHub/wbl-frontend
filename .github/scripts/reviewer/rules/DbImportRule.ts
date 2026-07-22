@@ -1,11 +1,11 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence } from '../types/finding';
 
 export class DbImportRule implements Rule {
   name = "DbImportRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const Evidences: Evidence[] = [];
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');
     
     const isChanged = (node: any) => {
@@ -19,10 +19,13 @@ export class DbImportRule implements Rule {
         if (isChanged(imp)) {
           const moduleSpecifier = imp.getModuleSpecifierValue();
           if (moduleSpecifier.match(/db|database|prisma|typeorm|sql/i)) {
-            findings.push({
+            Evidences.push({
+               schemaVersion: 1,
+               id: `ARCH-DB-${imp.getStartLineNumber()}`,
+               type: 'architecture',
+               source: 'ast',
                severity: 'HIGH',
-               confidence: 'HIGH',
-               type: 'Architectural Violation',
+               attributes: { moduleSpecifier },
                evidence: `Forbidden Import: '${moduleSpecifier}' detected in page/routing layer at line ${imp.getStartLineNumber()}.`
             });
           }
@@ -30,6 +33,6 @@ export class DbImportRule implements Rule {
       });
     }
 
-    return { critical, findings };
+    return { critical, findings: Evidences };
   }
 }

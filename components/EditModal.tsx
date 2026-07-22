@@ -702,6 +702,8 @@ const excludedFields = [
   "workflow",
   "schedule",
   "apply_log_history",
+  "my_resume",
+  "my_resume_filename",
 ];
 
 // Fields that should be read-only (visible but not editable)

@@ -1,12 +1,13 @@
-import { Rule, Finding } from '../types/finding';
+import { Rule, Evidence, ApiSignatureEvidence } from '../types/finding';
 import { Node, SyntaxKind } from 'ts-morph';
+import * as crypto from 'crypto';
 
 export class SignatureChangeRule implements Rule {
   name = "SignatureChangeRule";
 
-  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Finding[] } {
+  run(sourceFile: any, changedLines: number[], isNewFile: boolean): { critical: string[], findings: Evidence[] } {
     const critical: string[] = [];
-    const findings: Finding[] = [];
+    const findings: Evidence[] = [];
     if (isNewFile) return { critical, findings };
     
     const isChanged = (node: any) => {
@@ -50,11 +51,22 @@ export class SignatureChangeRule implements Rule {
                isExported = true;
              }
            }
+           
            if (isExported) {
+             const id = `API-SIG-${crypto.createHash('md5').update(`${name}-${startLine}`).digest('hex').substring(0, 8).toUpperCase()}`;
+             
+             const attributes: ApiSignatureEvidence = {
+               changeType: 'signature_modified',
+               reason: 'Signature line modified'
+             };
+             
              findings.push({
+               schemaVersion: 1,
+               id: id,
+               type: 'api_signature',
+               source: 'ast',
                severity: 'HIGH',
-               confidence: 'MEDIUM',
-               type: 'Signature Change',
+               attributes: attributes,
                evidence: `Exported function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
              });
            }
@@ -65,3 +77,4 @@ export class SignatureChangeRule implements Rule {
     return { critical, findings };
   }
 }
+
