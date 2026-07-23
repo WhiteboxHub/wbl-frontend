@@ -548,7 +548,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         setJobClickDetailsError(null);
         setLoadingJobClickDetails(true);
         try {
-            const rows = await apiFetch("/api/candidates/click-analytics/me");
+            const rows = await apiFetch("candidates/click-analytics/me");
             setJobClickDetails(Array.isArray(rows) ? rows : []);
         } catch (err: any) {
             console.error("Error loading job click details", err);
