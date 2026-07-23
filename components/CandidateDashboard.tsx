@@ -1584,7 +1584,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     };
 
-    const loadPositions = async () => {
+    const loadPositions = useCallback(async () => {
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -1622,7 +1622,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setPositionsLoading(false);
         }
-    };
+    }, []);
 
 
     const loadDashboard = async (retryCount = 0) => {
