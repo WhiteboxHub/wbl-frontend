@@ -757,24 +757,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
 
             setEditJsonSaving(true);
-            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
-            if (!prepToken) {
-                throw new Error("No active session found.");
+            const candidateId = await getCandidateId();
+            if (!candidateId) {
+                throw new Error("Candidate ID not found.");
             }
 
-            const formData = new FormData();
-            const blob = new Blob([editJsonText], { type: "application/json" });
-            formData.append("file", blob, "resume.json");
-            formData.append("session_id", prepToken);
-
-            const res = await fetch(`${AIPREP_API}/setup/resume`, {
-                method: "POST",
-                body: formData,
+            await apiFetch(`/api/candidates/${candidateId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: { candidate_json: parsed }
             });
 
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || "Failed to update resume JSON on server.");
+            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
+            if (prepToken) {
+                await apiFetch("/api/setup/resume", {
+                    method: "PUT",
+                    body: { resume_json: parsed, session_id: prepToken }
+                });
             }
 
             toast.success("Resume JSON updated successfully!");
@@ -788,6 +787,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     }
                 });
             }
+            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
             setIsEditingJson(false);
         } catch (err: any) {
             setEditJsonError(err.message || "An unexpected error occurred while saving.");
