@@ -16,17 +16,6 @@ import {
   KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/admin_ui/dialog";
-import { Button } from "@/components/admin_ui/button";
-import { AlertCircle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { CandidateCoderpadBrand } from "@/components/CandidateCoderpadBrand";
 
@@ -810,9 +799,6 @@ function useTypingAnalyzer(
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export const CoderpadEditor: React.FC = () => {
-  const router = useRouter();
-  const [showAllKeysUnavailableModal, setShowAllKeysUnavailableModal] = useState(false);
-
   const [loggedInUsername, setLoggedInUsername] = useState(() =>
     typeof window !== "undefined" ? getLoggedInUsername() : "User"
   );
@@ -1382,10 +1368,6 @@ export const CoderpadEditor: React.FC = () => {
       setShowLlmResultModal(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "LLM validation failed";
-      if (message.includes("ALL_LLM_KEYS_UNAVAILABLE")) {
-        setShowAllKeysUnavailableModal(true);
-        return;
-      }
       setLlmResult({
         passed: null,
         summary: "",
@@ -1451,10 +1433,6 @@ export const CoderpadEditor: React.FC = () => {
       toast.success("AI Generation Complete! Review and click Save Assignment.");
     } catch (err: any) {
       const msg = String(err?.message || "");
-      if (msg.includes("ALL_LLM_KEYS_UNAVAILABLE")) {
-        setShowAllKeysUnavailableModal(true);
-        return;
-      }
       const looksLikeApiKeyIssue =
         /openai api key|api key|no api key found|invalid api key|incorrect api key|authentication/i.test(msg);
       toast.error(
@@ -3256,40 +3234,6 @@ export const CoderpadEditor: React.FC = () => {
           </PanelGroup>
         </div>
       </div>
-
-      {showAllKeysUnavailableModal && (
-        <Dialog open={showAllKeysUnavailableModal} onOpenChange={setShowAllKeysUnavailableModal}>
-          <DialogContent className="sm:max-w-[420px] bg-slate-900 border-slate-800 text-slate-100">
-            <DialogHeader className="flex flex-col items-center text-center space-y-3">
-              <div className="p-3 bg-red-950/40 rounded-full border border-red-500/20 text-red-500">
-                <AlertCircle className="h-6 w-6 animate-pulse" />
-              </div>
-              <DialogTitle className="text-lg font-bold">All LLM Keys Unavailable</DialogTitle>
-              <DialogDescription className="text-slate-400 text-sm leading-relaxed">
-                All your configured LLM API keys have exhausted their available credits or are currently unavailable. Please add credits to an existing key or add a new valid LLM API key to continue.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="mt-4 flex flex-col sm:flex-row justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowAllKeysUnavailableModal(false)}
-                className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
-              >
-                Close
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowAllKeysUnavailableModal(false);
-                  router.push("/user_dashboard?tab=my_llm_key");
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-              >
-                Go to LLM Setup
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* ── STYLES ──────────────────────────────────────────────────── */}
       <style>{`

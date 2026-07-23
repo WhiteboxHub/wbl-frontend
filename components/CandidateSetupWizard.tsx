@@ -821,11 +821,11 @@ export function CandidateSetupWizard({
                     Back
                   </button>
                   <button
-                    onClick={() => apiKeys.some(k => k.validation_status === 'active') && setCurrentStep(4)}
-                    disabled={!apiKeys.some(k => k.validation_status === 'active')}
+                    onClick={() => apiKeys.length > 0 && setCurrentStep(4)}
+                    disabled={apiKeys.length === 0}
                     className="w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-6 rounded-xl bg-gradient-to-br from-indigo-900 to-purple-400 text-sm font-bold text-white transition duration-500 hover:bg-gradient-to-tl disabled:opacity-40 shadow-sm"
                   >
-                    Complete Setup <ChevronRight size={16} />
+                    Finish Setup <ChevronRight size={16} />
                   </button>
                 </div>
               </div>
