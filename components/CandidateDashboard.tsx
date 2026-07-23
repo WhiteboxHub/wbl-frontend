@@ -3477,6 +3477,49 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 />
             )}
 
+            {uploadResumeOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="relative w-full max-w-md overflow-hidden bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
+                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Resume</h3>
+                            <button onClick={() => setUploadResumeOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+                        </div>
+                        <div className="w-full space-y-5">
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
+                                onDragLeave={() => setResumeDragOver(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setResumeDragOver(false);
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        const droppedFile = e.dataTransfer.files[0];
+                                        if (handleInlineFileValidate(droppedFile)) {
+                                            setResumeFile(droppedFile);
+                                        }
+                                    }
+                                }}
+                                onClick={() => inlineFileInputRef.current?.click()}
+                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all duration-200 group ${resumeDragOver
+                                    ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
+                                    : resumeFile
+                                        ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-900/5"
+                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                                    }`}
+                            >
+                                <input
+                                    type="file"
+                                    ref={inlineFileInputRef}
+                                    onChange={handleInlineFileChange}
+                                    accept=".pdf,.doc,.docx"
+                                    className="hidden"
+                                />
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'overview' && easyApplyPopupOpen && data && (() => {
                 const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
                 const isEasyApplyLow = easyApplyCount < 30;
