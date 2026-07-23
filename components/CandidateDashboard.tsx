@@ -373,45 +373,49 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL as string;
 
     // --- CLICK TRACKING LOGIC ---
-    const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
-        // 1. Optimistically update the local counter immediately
+    const handleJobClick = useCallback((jobListingId: number, url: string) => {
+        // 1. Open the job link synchronously first, before any awaits, so
+        // browsers don't treat it as a blocked popup.
+        window.open(url, '_blank');
+
+        // 2. Optimistically update the local counter immediately
         setJobBoardClickCount(prev => prev + 1);
 
-        // 2. Try Service Worker path first (background batch flush)
-        let swHandled = false;
-        try {
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                const { trackLocalClick } = await import('@/utils/clickTracker');
-                await trackLocalClick(jobListingId);
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'TRACK_CLICK',
-                    id: jobListingId
-                });
-                swHandled = true;
-            }
-        } catch {
-            // SW not available — fall through to direct API call
-        }
-
-        // 3. Direct API call fallback (also runs if SW not active)
-        if (!swHandled) {
+        // 3. Track the click asynchronously (fire-and-forget)
+        (async () => {
+            // Try Service Worker path first (background batch flush)
+            let swHandled = false;
             try {
-                const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/candidates/track-clicks-batch`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ clicks: [{ job_listing_id: jobListingId, count: 1 }] }),
-                });
-            } catch (e) {
-                console.warn("Job click tracking failed:", e);
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    const { trackLocalClick } = await import('@/utils/clickTracker');
+                    await trackLocalClick(jobListingId);
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'TRACK_CLICK',
+                        id: jobListingId
+                    });
+                    swHandled = true;
+                }
+            } catch {
+                // SW not available — fall through to direct API call
             }
-        }
 
-        // 4. Open the job link in a new tab
-        window.open(url, '_blank');
+            // Direct API call fallback (also runs if SW not active)
+            if (!swHandled) {
+                try {
+                    const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/candidates/track-clicks-batch`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ clicks: [{ job_listing_id: jobListingId, count: 1 }] }),
+                    });
+                } catch (e) {
+                    console.warn("Job click tracking failed:", e);
+                }
+            }
+        })();
     }, []);
 
     // ----------------------------
@@ -928,10 +932,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, []);
 
     useEffect(() => {
-        if (setupStatus?.has_binary_resume) {
+        if (setupStatus?.has_binary_resume && !resumeFile) {
             setShowTemplates(true);
         }
-    }, [setupStatus]);
+    }, [setupStatus, resumeFile]);
 
     // Pre-fetch AI prep session as soon as candidateId is available so the
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
