@@ -807,10 +807,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         if (!isValid) {
             toast.error(`Validation Failed. Missing mandatory fields: ${errors.join(", ")}`);
-        } else if (warnings.length > 0) {
-            toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
         } else {
-            toast.success("Validation Passed! JSON resume structure is perfectly valid.");
+            if (warnings.length > 0) {
+                toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
+            } else {
+                toast.success("Validation Passed! JSON resume structure is perfectly valid.");
+            }
+            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
         }
     };
 
