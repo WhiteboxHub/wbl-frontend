@@ -520,7 +520,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                 const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (res.ok) {
@@ -726,7 +729,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const email = payload.sub || payload.email || payload.uname || "candidate";
                 const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (resSummary.ok) {
@@ -939,7 +945,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                 const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (!res.ok) return;
@@ -1770,7 +1779,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                     const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
                         body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                     });
                     if (res.ok) {
