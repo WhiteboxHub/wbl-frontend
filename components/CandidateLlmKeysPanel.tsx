@@ -355,10 +355,30 @@ export function CandidateLlmKeysPanel({
                     };
                 }
             );
-            setRevealed(initialRevealed);
             setRows(list);
             if (list.length > 0) {
                 void validateAllKeys(list);
+                try {
+                    const revealedKeys: Record<number, string> = {};
+                    await Promise.all(
+                        list.map(async (row) => {
+                            try {
+                                const rev = await apiFetch(`coderpad/me/llm-keys/${row.id}/reveal`);
+                                const k = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
+                                if (k) {
+                                    revealedKeys[row.id] = k;
+                                }
+                            } catch (e) {
+                                console.error(`Failed to reveal key ${row.id}:`, e);
+                            }
+                        })
+                    );
+                    setRevealed(revealedKeys);
+                } catch (e) {
+                    console.error("Failed to automatically reveal keys:", e);
+                }
+            } else {
+                setRevealed({});
             }
         } catch (err: unknown) {
             const e = err as { body?: { detail?: string }; status?: number };
