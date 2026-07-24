@@ -413,12 +413,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         setActiveTab(defaultTab as TabType);
     }, [defaultTab]);
 
+    const dismissEasyApplyPopup = () => {
+        setEasyApplyPopupOpen(false);
+        if (typeof window !== "undefined") {
+            try {
+                sessionStorage.setItem("easy_apply_popup_shown", "true");
+            } catch (e) {
+                console.warn("Session storage is unavailable:", e);
+            }
+        }
+    };
+
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
         setForceShowUploader(false);
         setActiveTab(tab);
-        if (tab === 'overview') {
-            setEasyApplyPopupOpen(true);
+        if (tab !== 'overview') {
+            dismissEasyApplyPopup();
         }
         router.push(`/user_dashboard/${tab}`);
     };
@@ -583,7 +594,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
-    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
+    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(false);
+    useEffect(() => {
+        if (typeof window !== "undefined" && defaultTab === 'overview') {
+            try {
+                if (!sessionStorage.getItem("easy_apply_popup_shown")) {
+                    setEasyApplyPopupOpen(true);
+                }
+            } catch (e) {
+                console.warn("Session storage is unavailable:", e);
+                setEasyApplyPopupOpen(true);
+            }
+        }
+    }, [defaultTab]);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
 
     // Inline Resume states & refs
@@ -3457,7 +3480,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     <div
                         className="fixed inset-0 z-50 flex items-center justify-center p-4"
                         style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
-                        onClick={() => setEasyApplyPopupOpen(false)}
+                        onClick={() => dismissEasyApplyPopup()}
                     >
                         <div
                             className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${isEasyApplyLow
@@ -3467,7 +3490,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             onClick={(e) => e.stopPropagation()}
                         >
                             <button
-                                onClick={() => setEasyApplyPopupOpen(false)}
+                                onClick={() => dismissEasyApplyPopup()}
                                 className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors z-10"
                             >
                                 <X className="w-4 h-4" />
