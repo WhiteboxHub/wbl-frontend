@@ -65,6 +65,7 @@ export function getAllGridRoutes(): GridRoute[] {
     "schedule",
     "setup",
     "credentials", // Permanently skipped from tests
+    "misc",
   ]);
 
   // ── Routes where hasGrid is always false regardless of source analysis ──
@@ -76,7 +77,7 @@ export function getAllGridRoutes(): GridRoute[] {
   const SKIP_ROUTES = new Set([
     "/avatar/companies",
     "/avatar/company_contacts",
-    "/avatar/misc/authuser",
+    "/avatar/misc", // Skip all routes under /avatar/misc
   ]);
 
   const walk = (dir: string) => {
