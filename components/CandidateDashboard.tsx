@@ -833,17 +833,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
 
             if (defaultKey) {
-                // Check validation cache
-                try {
-                    const raw = localStorage.getItem("wbl_llm_key_validation_v1");
-                    if (raw) {
-                        const cache = JSON.parse(raw);
-                        if (cache[String(defaultKey.id)]?.status === "active") {
-                            hasValidDefaultKey = true;
-                        }
-                    }
-                } catch {
-                    // Ignore localStorage errors
+                // Validation status is now returned directly from the DB via GET /coderpad/me/llm-keys
+                // (V124 migration: status column on candidate_llm_api_keys)
+                if (defaultKey.validation_status === "active") {
+                    hasValidDefaultKey = true;
                 }
             }
         } catch {
@@ -2116,8 +2109,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             return (
                                                 <div
                                                     className={`relative overflow-hidden border rounded-2xl p-5 ${isEasyApplyLow
-                                                            ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
-                                                            : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                        ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                        : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
                                                         }`}
                                                 >
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
@@ -2126,8 +2119,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isEasyApplyLow
-                                                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                                                                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                                                ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                                                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                                                                 }`}>
                                                                 <Zap className="w-4 h-4" />
                                                             </div>
@@ -2871,6 +2864,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
+                                                    {setupStatus && !setupStatus.api_keys_configured && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => goToTab('my-llm-setup')}
+                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 transition-colors px-2.5 py-1.5 bg-amber-100 dark:bg-amber-900/40 rounded-lg"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                            Add Key
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -2915,8 +2918,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                                         >
-                                                            <Sparkles className="w-4 h-4" />
-                                                            Complete Setup
+                                                            {!setupStatus.api_keys_configured ? (
+                                                                <>
+                                                                    <Plus className="w-4 h-4" />
+                                                                    Add Key
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Sparkles className="w-4 h-4" />
+                                                                    Complete Setup
+                                                                </>
+                                                            )}
                                                         </button>
                                                     )}
                                                 </div>
@@ -2985,8 +2997,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     return (
                                                         <div
                                                             className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${isEasyApplyLow
-                                                                    ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
-                                                                    : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                                ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                                : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
                                                                 }`}
                                                         >
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
@@ -2994,14 +3006,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             </div>
                                                             <div className="flex items-center justify-between mb-4">
                                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEasyApplyLow
-                                                                        ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
-                                                                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                                                    ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+                                                                    : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                                                                     }`}>
                                                                     <Zap className="w-5 h-5" />
                                                                 </div>
                                                                 <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isEasyApplyLow
-                                                                        ? "text-red-500 bg-red-500/10"
-                                                                        : "text-emerald-500 bg-emerald-500/10"
+                                                                    ? "text-red-500 bg-red-500/10"
+                                                                    : "text-emerald-500 bg-emerald-500/10"
                                                                     }`}>
                                                                     Easy Apply
                                                                 </span>
@@ -3461,8 +3473,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     >
                         <div
                             className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${isEasyApplyLow
-                                    ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
-                                    : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
                                 }`}
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -3478,14 +3490,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             </div>
                             <div className="flex items-center justify-between mb-4 pr-8">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isEasyApplyLow
-                                        ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
-                                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                    ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+                                    : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                                     }`}>
                                     <Zap className="w-5 h-5" />
                                 </div>
                                 <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${isEasyApplyLow
-                                        ? "text-red-500 bg-red-500/10"
-                                        : "text-emerald-500 bg-emerald-500/10"
+                                    ? "text-red-500 bg-red-500/10"
+                                    : "text-emerald-500 bg-emerald-500/10"
                                     }`}>
                                     Easy Apply
                                 </span>
