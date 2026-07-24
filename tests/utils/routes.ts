@@ -104,10 +104,7 @@ export function getAllGridRoutes(): GridRoute[] {
         if (routePath === "") routePath = "/";
 
         if (routePath.startsWith("/avatar")) {
-          const shouldSkip = Array.from(SKIP_ROUTES).some((skipPath) =>
-            routePath.startsWith(skipPath)
-          );
-          if (shouldSkip) return;
+          if (SKIP_ROUTES.has(routePath)) return;
           const hasGrid = FORCE_NO_GRID.has(routePath)
             ? false
             : pageHasGrid(fullPath);
