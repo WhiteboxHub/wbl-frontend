@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     AlertCircle,
     Check,
@@ -182,6 +182,8 @@ export function CandidateLlmKeysPanel({
     const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
+    const loadCountRef = useRef(0);
+    const isMounted = useRef(true);
     const [revealingId, setRevealingId] = useState<number | null>(null);
     const [validatingId, setValidatingId] = useState<number | null>(null);
     const [voiceUpdatingId, setVoiceUpdatingId] = useState<number | null>(null);
@@ -311,6 +313,8 @@ export function CandidateLlmKeysPanel({
     }, [applyValidationResults]);
 
     const loadKeys = useCallback(async () => {
+        loadCountRef.current += 1;
+        const currentLoadCount = loadCountRef.current;
         setLoading(true);
         setRevealed({});
         // One-time cleanup: remove old localStorage cache from existing users' browsers
@@ -319,7 +323,6 @@ export function CandidateLlmKeysPanel({
         }
         try {
             const data = await apiFetch("coderpad/me/llm-keys");
-            const initialRevealed: Record<number, string> = {};
             const list: LlmKeyRow[] = (Array.isArray(data) ? data : []).map(
                 (k: {
                     id: number;
@@ -333,9 +336,6 @@ export function CandidateLlmKeysPanel({
                     validation_status?: string | null;
                     validation_message?: string | null;
                 }) => {
-                    if (k.api_key) {
-                        initialRevealed[k.id] = k.api_key;
-                    }
                     const rawStatus = k.validation_status ?? "inactive";
                     const st: ValidationStatus =
                         rawStatus === "active" || rawStatus === "inactive" || rawStatus === "invalid" || rawStatus === "checking"
@@ -355,15 +355,39 @@ export function CandidateLlmKeysPanel({
                     };
                 }
             );
-            setRevealed(initialRevealed);
+            if (currentLoadCount !== loadCountRef.current || !isMounted.current) return;
             setRows(list);
             if (list.length > 0) {
                 void validateAllKeys(list);
+                try {
+                    const revealedKeys: Record<number, string> = {};
+                    await Promise.all(
+                        list.map(async (row) => {
+                            try {
+                                const rev = await apiFetch(`coderpad/me/llm-keys/${row.id}/reveal`);
+                                const k = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
+                                if (k && currentLoadCount === loadCountRef.current && isMounted.current) {
+                                    revealedKeys[row.id] = k;
+                                }
+                            } catch (e) {
+                                console.error(`Failed to reveal key ${row.id}:`, e);
+                            }
+                        })
+                    );
+                    if (currentLoadCount === loadCountRef.current && isMounted.current) {
+                        setRevealed(revealedKeys);
+                    }
+                } catch (e) {
+                    console.error("Failed to automatically reveal keys:", e);
+                }
+            } else {
+                setRevealed({});
             }
         } catch (err: unknown) {
             const e = err as { body?: { detail?: string }; status?: number };
             const detail =
                 typeof e?.body?.detail === "string" ? e.body.detail : null;
+            if (currentLoadCount !== loadCountRef.current || !isMounted.current) return;
             if (e?.status === 404) {
                 toast.error(detail ?? "Candidate profile not found.");
             } else {
@@ -371,12 +395,18 @@ export function CandidateLlmKeysPanel({
             }
             setRows([]);
         } finally {
-            setLoading(false);
+            if (currentLoadCount === loadCountRef.current && isMounted.current) {
+                setLoading(false);
+            }
         }
-    }, []);
+    }, [validateAllKeys]);
 
     useEffect(() => {
+        isMounted.current = true;
         void loadKeys();
+        return () => {
+            isMounted.current = false;
+        };
     }, [loadKeys]);
 
     useEffect(() => {
