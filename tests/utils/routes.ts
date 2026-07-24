@@ -76,6 +76,7 @@ export function getAllGridRoutes(): GridRoute[] {
   const SKIP_ROUTES = new Set([
     "/avatar/companies",
     "/avatar/company_contacts",
+    "/avatar/misc/authuser",
   ]);
 
   const walk = (dir: string) => {
