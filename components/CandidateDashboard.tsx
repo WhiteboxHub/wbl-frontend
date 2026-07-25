@@ -404,6 +404,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [hasMissingFields, setHasMissingFields] = useState(true);
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
+    const [onboardingDocSubmittedAt, setOnboardingDocSubmittedAt] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
@@ -1619,7 +1620,27 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             const status = fullProfile?.enrollment?.agreement || 'N';
             setAgreementStatus(status);
-            const isApproved = status === 'Y';
+
+            const onboardingSubmittedAt = fullProfile?.enrollment?.onboarding_doc_submitted_at || null;
+            setOnboardingDocSubmittedAt(onboardingSubmittedAt);
+
+
+
+            let isWithin24Hours = false;
+            if (status === 'P' && onboardingSubmittedAt) {
+                // Force interpretation as UTC by adding 'Z' if not present
+                const utcString = onboardingSubmittedAt.endsWith('Z') ? onboardingSubmittedAt : onboardingSubmittedAt + 'Z';
+                const submittedDate = new Date(utcString);
+                const now = new Date();
+                const diffInMs = now.getTime() - submittedDate.getTime();
+                const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
+                isWithin24Hours = diffInMs >= 0 && diffInMs < twentyFourHoursInMs;
+            }
+
+
+
+
+            const isApproved = status === 'Y' || isWithin24Hours;
             const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
 
 
@@ -1788,7 +1809,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 loginCount={userProfile?.login_count || 0}
                 currentAgreementStatus={agreementStatus || 'N'}
                 initialHasMissingFields={hasMissingFields}
+                onboardingDocSubmittedAt={onboardingDocSubmittedAt}
                 onComplete={() => {
+
                     localStorage.setItem('onboarding_completed', 'true');
                     setShowOnboarding(false);
                     loadDashboard(); // Reload to see if approved
