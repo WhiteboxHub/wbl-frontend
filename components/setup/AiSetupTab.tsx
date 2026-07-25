@@ -19,12 +19,7 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
     try {
       const result: any = await apiFetch("coderpad/me/finish-setup", { method: "POST" });
       if (result?.setup_complete) {
-        toast.success("Setup complete! Redirecting to WBL SmartPrep...");
-        if (onFinishSetup) {
-          onFinishSetup();
-        } else {
-          setCurrentStep("done");
-        }
+        toast.success("Setup Completed!");
       } else {
         toast.error(result?.error || "Default API key is not valid. Please validate it first.");
       }
@@ -44,11 +39,7 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
         {currentStep === "llm-key" && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
             <CandidateLlmKeysPanel onValidationChange={setIsValidLlm}>
-              <div className="p-6 bg-gray-50/50 dark:bg-gray-950/20 border border-gray-100 dark:border-gray-800/80 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-bold text-gray-950 dark:text-white">Ready to start?</h3>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Once you have added and validated your LLM keys, click finish to complete your profile setup.</p>
-                </div>
+              <div className="pt-3 flex items-center justify-end gap-4">
                 <button 
                   onClick={() => {
                     if (!isValidLlm) {
@@ -58,18 +49,16 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
                     if (!finishing) finishSetup();
                   }}
                   disabled={finishing}
-                  className={`w-full md:w-auto px-8 py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-98 transition-all duration-200 ${
+                  className={`w-full md:w-auto px-6 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-98 transition-all duration-200 ${
                     isValidLlm && !finishing ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 cursor-pointer" : "bg-gray-400 cursor-not-allowed opacity-70"
                   }`}
                 >
-                  {finishing ? "Finishing..." : "Finish Setup"} <ArrowRight className="w-5 h-5" />
+                  {finishing ? "Completing..." : "Complete Setup"} <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </CandidateLlmKeysPanel>
           </motion.div>
         )}
-
-
 
         {/* Step: Done */}
         {currentStep === "done" && (
