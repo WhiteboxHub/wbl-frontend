@@ -1860,15 +1860,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </React.Fragment>
                                 );
                             })}
-                            <a
-                                href="/coderpad"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                            >
-                                <Code2 className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
-                                <span>Coderpad</span>
-                            </a>
+
                             <button
                                 onClick={() => goToTab('wbl-smartprep')}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'wbl-smartprep'
@@ -2003,15 +1995,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             </React.Fragment>
                         );
                     })}
-                    <a
-                        href="/coderpad"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                    >
-                        <Puzzle className="w-3.5 h-3.5" />
-                        CoderPad
-                    </a>
+                   
                     <button
                         onClick={() => goToTab('wbl-smartprep')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'wbl-smartprep'
