@@ -18,6 +18,7 @@ interface CandidateOnboardingProps {
     loginCount?: number;
     currentAgreementStatus?: string;
     initialHasMissingFields?: boolean;
+    onboardingDocSubmittedAt?: string | null;
 }
 
 export default function CandidateOnboarding({
@@ -26,11 +27,30 @@ export default function CandidateOnboarding({
     onSkip,
     loginCount = 0,
     currentAgreementStatus,
-    initialHasMissingFields = true
+    initialHasMissingFields = true,
+    onboardingDocSubmittedAt = null
 }: CandidateOnboardingProps) {
+
+
+
+    const isWithin24Hours = (() => {
+        if (currentAgreementStatus === 'P' && onboardingDocSubmittedAt) {
+            // Force interpretation as UTC by adding 'Z' if not present
+            const utcString = onboardingDocSubmittedAt.endsWith('Z') ? onboardingDocSubmittedAt : onboardingDocSubmittedAt + 'Z';
+            const submittedDate = new Date(utcString);
+            const now = new Date();
+            const diffInMs = now.getTime() - submittedDate.getTime();
+            return diffInMs >= 0 && diffInMs < 24 * 60 * 60 * 1000;
+        }
+        return false;
+    })();
+
+
     const [step, setStep] = useState(initialHasMissingFields ? 1 : 2);
     const [loading, setLoading] = useState(false);
-    const [isPendingApproval, setIsPendingApproval] = useState(currentAgreementStatus === 'P' && !initialHasMissingFields);
+    const [isPendingApproval, setIsPendingApproval] = useState(
+        currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours
+    );
 
     // Step 1 State
     const [profile, setProfile] = useState<any>({
@@ -249,8 +269,8 @@ export default function CandidateOnboarding({
                 throw new Error(error.detail || "Upload failed");
             }
 
-            toast.success("Documents uploaded and sent for review!");
-            setIsPendingApproval(true);
+            toast.success("Documents uploaded successfully! You have temporary dashboard access for 24 hours while we review your documents.");
+            onComplete();
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Failed to upload documents");
@@ -361,21 +381,38 @@ export default function CandidateOnboarding({
         }
     };
 
+
+
+
     if (isPendingApproval) {
+        const isExpired = currentAgreementStatus === 'P' && onboardingDocSubmittedAt && !isWithin24Hours;
+
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-3xl p-10 shadow-2xl border border-gray-100 dark:border-gray-800 text-center">
-                    <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${isExpired ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                        {isExpired ? (
+                            <AlertTriangle className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                            <CheckCircle className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+                        )}
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Registration Submitted!</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        {isExpired ? "Access Expired" : "Registration Submitted!"}
+                    </h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-8">
-                        Thank you for completing your profile and uploading your documents. Your application is currently under review by our recruiting team.
+                        {isExpired
+                            ? "Your temporary access has expired. Document verification is in progress."
+                            : "Thank you for completing your profile and uploading your documents. Your application is currently under review by our recruiting team."
+                        }
                     </p>
                 </div>
             </div>
         );
     }
+
+
+
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
