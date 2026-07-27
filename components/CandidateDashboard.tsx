@@ -368,7 +368,29 @@ interface CandidateDashboardProps {
 export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const { userRole } = useAuth() as { userRole: string };
+    const { userRole, authToken } = useAuth() as { userRole: string; authToken?: string };
+
+    const getStoredToken = useCallback(() => {
+        if (authToken) return authToken;
+        if (typeof window !== "undefined" && window.localStorage) {
+            try {
+                return localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+            } catch {
+                return "";
+            }
+        }
+        return "";
+    }, [authToken]);
+
+    const safeSetLocalStorage = useCallback((key: string, value: string) => {
+        if (typeof window !== "undefined" && window.localStorage) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (e) {
+                console.warn(`Unable to set ${key} in localStorage:`, e);
+            }
+        }
+    }, []);
 
     const getAiPrepApiUrl = () => {
         return (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
@@ -420,7 +442,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        router.push(`/user_dashboard/${tab}`);
+        if (typeof window !== "undefined") {
+            window.history.pushState({}, "", `/user_dashboard/${tab}`);
+        }
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -1673,6 +1697,21 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
+    const silentRefreshDashboard = useCallback(async () => {
+        if (!candidateId) return;
+        try {
+            const token = getStoredToken();
+            const dashboardData = await apiFetch(`candidates/${candidateId}/dashboard/overview`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (dashboardData) {
+                setData(dashboardData);
+            }
+        } catch (err) {
+            console.error("Silent dashboard refresh error:", err);
+        }
+    }, [candidateId, getStoredToken]);
+
     useEffect(() => {
         if (data) {
             const timeoutId = setTimeout(() => {
@@ -1688,9 +1727,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             loadPositions();
         }
         if (activeTab === 'my-interviews') {
-            // Auto-refresh interview data when switching to this tab
-            // so employee UI changes (feedback, notes) are visible immediately
-            loadDashboard();
+            // Auto-refresh interview data silently in background without showing full loading screen
+            silentRefreshDashboard();
         }
         if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
@@ -2060,6 +2098,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         />
                                     </div>
                                 )}
+
                                 {activeTab === 'overview' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Phase Cards Row */}
@@ -2116,6 +2155,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
                                                         <Zap className={`w-20 h-20 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
                                                     </div>
+                                                    
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isEasyApplyLow
@@ -2293,140 +2333,126 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'my-sessions' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                                                <div>
-                                                    <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                                        <PlayCircle className="w-4 h-4 text-blue-500" />
-                                                        Sessions
-                                                    </h2>
-                                                    <p className="text-xs text-gray-400 mt-0.5">Your recorded and upcoming sessions.</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Attendance Cards Grid in Sessions Tab */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-                                                {/* Card 1: Classes Attended */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
-                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
-                                                        <Video className="w-20 h-20 text-blue-500" />
-                                                    </div>
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="w-9 h-9 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
-                                                            <Video className="w-4 h-4" />
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Classes</span>
-                                                    </div>
-                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classes Attended</h3>
-                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.classes_joined ?? 0}
-                                                    </p>
-                                                </div>
-
-                                                {/* Card 2: Sessions Attended */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-rose-50 to-orange-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-rose-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
-                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
-                                                        <PlayCircle className="w-20 h-20 text-rose-500" />
-                                                    </div>
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="w-9 h-9 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg flex items-center justify-center">
-                                                            <PlayCircle className="w-4 h-4" />
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded-full">Sessions</span>
-                                                    </div>
-                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Sessions Attended</h3>
-                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.sessions_joined ?? 0}
-                                                    </p>
-                                                </div>
-
-                                                {/* Card 3: Individual Sessions */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-yellow-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-amber-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
-                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
-                                                        <Award className="w-20 h-20 text-amber-500" />
-                                                    </div>
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="w-9 h-9 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center">
-                                                            <Award className="w-4 h-4" />
-                                                        </div>
-                                                    </div>
-                                                    <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Individual Sessions</h3>
-                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {sessions.length}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {sessionsLoading ? (
-                                                <div className="text-center py-12">
-                                                    <div className="inline-block w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-                                                    <p className="text-sm text-gray-400">Loading your sessions...</p>
-                                                </div>
-                                            ) : sessions.length === 0 ? (
-                                                <div className="text-center py-16">
-                                                    <PlayCircle className="w-14 h-14 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
-                                                    <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 mb-1">No Sessions Found</h3>
-                                                    <p className="text-sm text-gray-400">
-                                                        {`No sessions found for ${firstName} yet`}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <p className="text-xs text-gray-400 mb-3">Found <span className="font-bold text-blue-600">{sessions.length}</span> sessions</p>
-                                                    <div className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-xl">
-                                                        <table className="w-full text-left border-collapse">
-                                                            <thead>
-                                                                <tr className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800">
-                                                                    <th className="px-4 py-2.5">Session Title</th>
-                                                                    <th className="px-4 py-2.5 hidden sm:table-cell">Date</th>
-                                                                    <th className="px-4 py-2.5 text-right">Action</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-                                                                {sessions.map((session) => (
-                                                                    <tr key={session.sessionid} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                                                        <td className="px-4 py-2.5 max-w-xs sm:max-w-md">
-                                                                            <div className="flex flex-col">
-                                                                                <span className="text-xs font-bold text-gray-900 dark:text-white truncate">{session.title || "Untitled"}</span>
-                                                                                <span className="text-[10px] text-gray-400 sm:hidden">
-                                                                                    {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
-                                                                                </span>
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-gray-500">
-                                                                            {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
-                                                                        </td>
-                                                                        <td className="px-4 py-2.5 text-right">
-                                                                            {session.link ? (
-                                                                                <a href={session.link} target="_blank" rel="noopener noreferrer"
-                                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors text-[11px] font-bold">
-                                                                                    <PlayCircle size={13} />
-                                                                                    Watch
-                                                                                </a>
-                                                                            ) : (
-                                                                                <span className="text-[10px] text-gray-300">N/A</span>
-                                                                            )}
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'my-interviews' && (
+                                {(activeTab === 'my-sessions' || activeTab === 'my-interviews') && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                            <div className="flex items-center justify-between mb-6">
-                                                <div className="flex items-center justify-center gap-2 w-full">
-                                                    <MessageSquare className="w-5 h-5 text-blue-600" />
-                                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Interviews</h2>
+                                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                                            <div>
+                                                <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <PlayCircle className="w-4 h-4 text-blue-500" />
+                                                    Sessions
+                                                </h2>
+                                                <p className="text-xs text-gray-400 mt-0.5">Your recorded and upcoming sessions.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Attendance Cards Grid in Sessions Tab */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+                                            {/* Card 1: Classes Attended */}
+                                            <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                    <Video className="w-20 h-20 text-blue-500" />
+                                                </div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="w-9 h-9 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
+                                                        <Video className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Classes</span>
+                                                </div>
+                                                <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classes Attended</h3>
+                                                <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                    {data.candidate_stats?.classes_joined ?? 0}
+                                                </p>
+                                            </div>
+
+                                            {/* Card 2: Sessions Attended */}
+                                            <div className="relative overflow-hidden bg-gradient-to-br from-rose-50 to-orange-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-rose-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                    <PlayCircle className="w-20 h-20 text-rose-500" />
+                                                </div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="w-9 h-9 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg flex items-center justify-center">
+                                                        <PlayCircle className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-500/10 px-2 py-0.5 rounded-full">Sessions</span>
+                                                </div>
+                                                <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Sessions Attended</h3>
+                                                <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                    {data.candidate_stats?.sessions_joined ?? 0}
+                                                </p>
+                                            </div>
+
+                                            {/* Card 3: Individual Sessions */}
+                                            <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 to-yellow-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-amber-100/50 dark:border-gray-700/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:scale-[1.01] group">
+                                                <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                    <Award className="w-20 h-20 text-amber-500" />
+                                                </div>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="w-9 h-9 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center">
+                                                        <Award className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+                                                <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Individual Sessions</h3>
+                                                <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                                                    {sessions.length}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {sessionsLoading ? (
+                                            <div className="text-center py-12">
+                                                <div className="inline-block w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+                                                <p className="text-sm text-gray-400">Loading your sessions...</p>
+                                            </div>
+                                        ) : sessions.length === 0 ? (
+                                            <div className="text-center py-16">
+                                                <PlayCircle className="w-14 h-14 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
+                                                <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 mb-1">No Sessions Found</h3>
+                                                <p className="text-sm text-gray-400">
+                                                    {`No sessions found for ${firstName} yet`}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs text-gray-400 mb-3">Found <span className="font-bold text-blue-600">{sessions.length}</span> sessions</p>
+                                                <div className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-xl">
+                                                    <table className="w-full text-left border-collapse">
+                                                        <thead>
+                                                            <tr className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800">
+                                                                <th className="px-4 py-2.5">Session Title</th>
+                                                                <th className="px-4 py-2.5 hidden sm:table-cell">Date</th>
+                                                                <th className="px-4 py-2.5 text-right">Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                                                            {sessions.map((session) => (
+                                                                <tr key={session.sessionid} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                                                    <td className="px-4 py-2.5 max-w-xs sm:max-w-md">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-xs font-bold text-gray-900 dark:text-white truncate">{session.title || "Untitled"}</span>
+                                                                            <span className="text-[10px] text-gray-400 sm:hidden">
+                                                                                {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
+                                                                            </span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-gray-500">
+                                                                        {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-right">
+                                                                        {session.link ? (
+                                                                            <a href={session.link} target="_blank" rel="noopener noreferrer"
+                                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors text-[11px] font-bold">
+                                                                                <PlayCircle size={13} />
+                                                                                Watch
+                                                                            </a>
+                                                                        ) : (
+                                                                            <span className="text-[10px] text-gray-300">N/A</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
                                                 <div className="flex items-center justify-center gap-2 w-full">
                                                     <button
@@ -2447,7 +2473,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <Plus className="w-4 h-4" /> Add Interview
                                                     </button>
                                                 </div>
-                                            </div>
+                                            </>
+                                        )}
 
                                             {/* Add Interview Modal Overlay */}
                                             {showAddInterview && (
@@ -2938,11 +2965,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
-
                                 {activeTab === 'my-applications' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
-                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
+                                    <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
                                             {/* Header */}
                                             <div className="mb-8">
                                                 <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">

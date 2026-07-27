@@ -18,15 +18,6 @@ interface UserProfile {
 
 // ── Candidate sub-component with setup-status banner ─────────────────────────
 function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }) {
-  const [setupStatus, setSetupStatus] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    setupApi
-      .getStatus()
-      .then((data: any) => setSetupStatus(data))
-      .catch(() => setSetupStatus(null));
-  }, []);
-
   return (
     <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <Toaster richColors position="top-center" />
