@@ -100,6 +100,7 @@ interface DashboardData {
         batch_name: string;
         login_count: number;
         fee_paid: number;
+
     };
     journey: {
         enrolled: { completed: boolean; date: string; days_since: number };
@@ -132,6 +133,7 @@ interface DashboardData {
         feedback: string;
         source_job_id?: string;
     }>;
+ 
     alerts: Array<{ type: string; phase: string; message: string }>;
     candidate_stats?: {
         total_days_in_system: number;
@@ -143,10 +145,19 @@ interface DashboardData {
         job_listings_clicked: number;
         outreach_counter: number;
         easy_apply_counter: number;
+        daily_outreach: number;
+        weekly_outreach: number;
         classes_joined?: number;
         sessions_joined?: number;
         mocks_joined?: number;
     };
+    easy_apply_logs?: Array<{
+        id: number;
+        company: string;
+        role: string;
+        date: string;
+        status?: string;
+    }>;
 }
 
 interface UserProfile {
@@ -408,6 +419,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+    const [viewApplicationsOpen, setViewApplicationsOpen] = useState(false);
 
     useEffect(() => {
         setActiveTab(defaultTab as TabType);
@@ -2941,8 +2953,107 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
                                 {activeTab === 'my-applications' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
-                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
+                                    <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-4">
+                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-3 lg:p-8">
+                                            {viewApplicationsOpen && (
+                                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                                                onClick={() => setViewApplicationsOpen(false)}
+                                                >
+                                                    <div className="relative flex h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-900"
+                                                      onClick={(e) => e.stopPropagation()}
+                                                    >{/* Close Button */}
+                                                    <button 
+                                                    onClick={() => setViewApplicationsOpen(false)} 
+                                                    className="absolute right-5 top-5 z-20 rounded-full p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
+                                                        <X className="h-6 w-6" />
+                                                        </button>
+                                                         {/* Header */}
+                                                        <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-8 py-4 dark:border-gray-700 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+                                                            <div className="text-center">
+                                                                <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-3xl font-extrabold text-transparent">
+                                                                    Easy Apply Applications
+                                                                </h2>
+                                                                <p className="mt-2 inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                                                Total Applications : {data?.easy_apply_logs?.length ?? 0}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        {/* Body */}
+                                                        <div className="flex-1 overflow-hidden px-3 pt-4 pb-4">
+                                                            <div className="h-full overflow-y-auto rounded-2xl border border-gray-200 shadow-sm dark:border-gray-700">
+                                                            <table className="w-full">
+                                                                <thead className="sticky top-0 z-5 bg-white shadow-sm dark:bg-gray-900">
+                                                                    <tr className="border-b">
+                                                                        <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wide text-blue-700">
+                                                                            Company Name
+                                                                        </th>
+                                                                        <th className="px-6 py-4 text-left text-sm font-bold uppercase tracking-wide text-blue-700">
+                                                                            Role
+                                                                        </th>
+                                                                        <th className="px-6 py-4 text-center text-sm font-bold uppercase tracking-wide text-blue-700">
+                                                                            Applied Date
+                                                                        </th>
+                                                                        <th className="px-6 py-4 text-center text-sm font-bold uppercase tracking-wide text-blue-700">
+                                                                            Status
+                                                                        </th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {data?.easy_apply_logs?.length ? (
+                                                                        data.easy_apply_logs.map((log: any, index: number) => (
+                                                                        <tr
+                                                                        key={log.id}
+                                                                        className={`border-b transition duration-200 hover:bg-blue-50 dark:hover:bg-gray-800 ${
+                                                                            index % 2 === 0
+                                                                            ? "bg-white dark:bg-gray-900"
+                                                                            : "bg-gray-50 dark:bg-gray-800/30"
+                                                                        }`}
+                                                                        >
+                                                                        <td className="px-8 py-3 font-semibold text-gray-900 dark:text-white">
+                                                                            {log.company}
+                                                                            </td>
+                                                                            <td className="px-8 py-3 text-gray-700 dark:text-gray-300">
+                                                                                {log.role}
+                                                                            </td>
+                                                                            <td className="px-8 py-3 text-center text-gray-600 dark:text-gray-400">
+                                                                                {log.date
+                                                                                ? format(parseISO(log.date), "dd MMM yyyy")
+                                                                                : "N/A"}
+                                                                            </td>
+                                                                            <td className="px-8 py-3 text-center">
+                                                                                <span
+                                                                                className={`inline-flex rounded-full px-4 py-1.5 text-xs font-bold ${
+                                                                                    log.status === "Success"
+                                                                                    ? "bg-green-100 text-green-700"
+                                                                                    : log.status === "Failed"
+                                                                                    ? "bg-red-100 text-red-700"
+                                                                                    : log.status === "Pending"
+                                                                                    ? "bg-yellow-100 text-yellow-700"
+                                                                                    : "bg-blue-100 text-blue-700"
+                                                                                }`}
+                                                                                >
+                                                                                    {log.status || "Submitted"}
+                                                                                </span>
+                                                                                </td>
+                                                                                </tr>
+                                                                                ))
+                                                                            ) : (
+                                                                            <tr>
+                                                                                <td 
+                                                                                colSpan={4}
+                                                                                className="py-20 text-center text-lg font-medium text-gray-500"
+                                                                                >
+                                                                                    No applications found.
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {/* Header */}
                                             <div className="mb-8">
                                                 <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
@@ -2984,9 +3095,24 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full">Outreach</span>
                                                     </div>
                                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Campaign Outreaches</h3>
-                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.outreach_counter ?? 0}
-                                                    </p>
+                                                    <div className="mt-5 rounded-xl bg-white/70 p-4 shadow-sm ring-1 ring-purple-100 dark:bg-gray-800/60 dark:ring-gray-700">
+                                                        <div className="grid grid-cols-2">
+                                                            {/* Daily */}
+                                                            <div className="border-r border-gray-200 text-center dark:border-gray-700">
+                                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Daily</p>
+                                                                <p className="mt-2 text-4xl font-extrabold text-purple-600 dark:text-purple-400">
+                                                                    {data.candidate_stats?.daily_outreach ?? 0}
+                                                                </p>
+                                                            </div>
+                                                            {/* Weekly */}
+                                                            <div className="text-center">
+                                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Weekly</p>
+                                                                <p className="mt-2 text-4xl font-extrabold text-purple-600 dark:text-purple-400">
+                                                                    {data.candidate_stats?.weekly_outreach ?? 0}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                     <p className="text-[10px] text-gray-400 mt-2">Emails sent to vendors and hiring managers</p>
                                                 </div>
 
@@ -2996,9 +3122,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     const isEasyApplyLow = easyApplyCount < 30;
                                                     return (
                                                         <div
-                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${isEasyApplyLow
-                                                                ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
-                                                                : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                            className={`group relative overflow-hidden rounded-2xl border p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-md
+                                                                ${
+                                                                    isEasyApplyLow? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                                     : "bg-gradient-to-br from-gray-50 to-gray-100/50 border-gray-200 dark:from-gray-800/40 dark:to-gray-900/40 dark:border-gray-700"
                                                                 }`}
                                                         >
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
@@ -3022,6 +3149,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             <p className={`text-3xl font-extrabold ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
                                                                 {easyApplyCount}
                                                             </p>
+                                                            <button type="button" onClick={() => setViewApplicationsOpen(true)}
+                                                            className="inline-flex items-center gap-2 bg-transparent text-sm font-medium text-gray-500 transition-colors duration-200 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                                                                <Eye className="h-4 w-4" />
+                                                                <span>View</span>
+                                                            </button>
                                                             <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
                                                             <p className={`text-[10px] font-semibold mt-1 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
                                                                 {isEasyApplyLow ? `⚠ ${30 - easyApplyCount} more needed to reach target` : "✓ Target reached"}
