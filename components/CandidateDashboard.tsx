@@ -881,17 +881,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
 
             if (defaultKey) {
-                // Check validation cache
-                try {
-                    const raw = localStorage.getItem("wbl_llm_key_validation_v1");
-                    if (raw) {
-                        const cache = JSON.parse(raw);
-                        if (cache[String(defaultKey.id)]?.status === "active") {
-                            hasValidDefaultKey = true;
-                        }
-                    }
-                } catch {
-                    // Ignore localStorage errors
+                // Validation status is now returned directly from the DB via GET /coderpad/me/llm-keys
+                // (V124 migration: status column on candidate_llm_api_keys)
+                if (defaultKey.validation_status === "active") {
+                    hasValidDefaultKey = true;
                 }
             }
         } catch {
@@ -1925,15 +1918,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </React.Fragment>
                                 );
                             })}
-                            <a
-                                href="/coderpad"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                            >
-                                <Code2 className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
-                                <span>Coderpad</span>
-                            </a>
+
                             <button
                                 onClick={() => goToTab('wbl-smartprep')}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'wbl-smartprep'
@@ -1942,7 +1927,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     }`}
                             >
                                 <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
-                                <span>WBL SmartPrep</span>
+                                <span>AI PrepTool</span>
                                 {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
                         </div>
@@ -2068,15 +2053,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             </React.Fragment>
                         );
                     })}
-                    <a
-                        href="/coderpad"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                    >
-                        <Puzzle className="w-3.5 h-3.5" />
-                        CoderPad
-                    </a>
+
                     <button
                         onClick={() => goToTab('wbl-smartprep')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'wbl-smartprep'
@@ -2085,7 +2062,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             }`}
                     >
                         <Sparkles className="w-3.5 h-3.5" />
-                        WBL SmartPrep
+                        AI PrepTool
                     </button>
                 </div>
 
@@ -2932,6 +2909,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Added" : "Not added"}
                                                         </p>
                                                     </div>
+                                                    {setupStatus && !setupStatus.api_keys_configured && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => goToTab('my-llm-setup')}
+                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 transition-colors px-2.5 py-1.5 bg-amber-100 dark:bg-amber-900/40 rounded-lg"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                            Add Key
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -2962,7 +2949,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                                         >
                                                             <PlayCircle className="w-4 h-4" />
-                                                            Start Preparation
+                                                            Open AI PrepTool
                                                         </button>
                                                     ) : (
                                                         <button
@@ -2976,8 +2963,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                                         >
-                                                            <Sparkles className="w-4 h-4" />
-                                                            Complete Setup
+                                                            {!setupStatus.api_keys_configured ? (
+                                                                <>
+                                                                    <Plus className="w-4 h-4" />
+                                                                    Add Key
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Sparkles className="w-4 h-4" />
+                                                                    Complete Setup
+                                                                </>
+                                                            )}
                                                         </button>
                                                     )}
                                                 </div>

@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     AlertCircle,
+    Check,
     CheckCircle,
+    Copy,
     Eye,
     EyeOff,
     KeyRound,
@@ -11,6 +13,7 @@ import {
     Mic,
     Pencil,
     Plus,
+    RefreshCw,
     Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -163,78 +166,24 @@ function formatEntryDate(value: string | null | undefined): string {
     });
 }
 
-const VALIDATION_CACHE_KEY = "wbl_llm_key_validation_v1";
-
-type StoredValidationStatus = "active" | "inactive" | "invalid";
-
-type CachedValidation = {
-    status: StoredValidationStatus;
-    message: string | null;
-};
-
-function readValidationCache(): Record<string, CachedValidation> {
-    if (typeof window === "undefined") return {};
-    try {
-        const raw = localStorage.getItem(VALIDATION_CACHE_KEY);
-        if (!raw) return {};
-        const parsed = JSON.parse(raw) as Record<string, CachedValidation>;
-        return parsed && typeof parsed === "object" ? parsed : {};
-    } catch {
-        return {};
-    }
-}
-
-function writeValidationCache(cache: Record<string, CachedValidation>) {
-    if (typeof window === "undefined") return;
-    try {
-        localStorage.setItem(VALIDATION_CACHE_KEY, JSON.stringify(cache));
-    } catch {
-        /* quota / private mode */
-    }
-}
-
-function applyValidationCache(rows: LlmKeyRow[]): LlmKeyRow[] {
-    const cache = readValidationCache();
-    return rows.map((row) => {
-        const hit = cache[String(row.id)];
-        if (!hit) return row;
-        return {
-            ...row,
-            validation_status: hit.status,
-            validation_message: hit.message,
-        };
-    });
-}
-
-function persistRowsToValidationCache(rows: LlmKeyRow[]) {
-    const cache = readValidationCache();
-    for (const row of rows) {
-        if (row.validation_status === "checking") continue;
-        cache[String(row.id)] = {
-            status: row.validation_status as StoredValidationStatus,
-            message: row.validation_message,
-        };
-    }
-    writeValidationCache(cache);
-}
-
-function removeKeyFromValidationCache(keyId: number) {
-    const cache = readValidationCache();
-    delete cache[String(keyId)];
-    writeValidationCache(cache);
-}
+// Validation state is now persisted in the DB (V124 migration: status, failure_reason,
+// failure_code, last_validated_at columns on candidate_llm_api_keys).
+// The localStorage cache (wbl_llm_key_validation_v1) has been removed; status is
+// returned directly from GET /coderpad/me/llm-keys and written by validate-batch.
 
 /** Keys from ``candidate_llm_api_keys`` for the logged-in candidate (via ``candidate.id``). */
-export function CandidateLlmKeysPanel({ 
+export function CandidateLlmKeysPanel({
     onValidationChange,
-    children 
-}: { 
+    children
+}: {
     onValidationChange?: (isValid: boolean) => void;
     children?: React.ReactNode;
 }) {
     const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
+    const loadCountRef = useRef(0);
+    const isMounted = useRef(true);
     const [revealingId, setRevealingId] = useState<number | null>(null);
     const [validatingId, setValidatingId] = useState<number | null>(null);
     const [voiceUpdatingId, setVoiceUpdatingId] = useState<number | null>(null);
@@ -246,6 +195,53 @@ export function CandidateLlmKeysPanel({
     const [formModel, setFormModel] = useState(MODELS_BY_PROVIDER.OpenAI[0]);
     const [formVoice, setFormVoice] = useState<"yes" | "no">("no");
     const [formSaving, setFormSaving] = useState(false);
+    const [autoDetecting, setAutoDetecting] = useState(false);
+    const [detectionResult, setDetectionResult] = useState<{
+        provider?: string;
+        status?: string;
+        message?: string;
+        models?: string[];
+        defaultModel?: string;
+    } | null>(null);
+    const [dynamicModels, setDynamicModels] = useState<string[]>([]);
+    const [allExhaustedModalOpen, setAllExhaustedModalOpen] = useState(false);
+
+    const recomputeDefaultKey = useCallback((currentRows: LlmKeyRow[]): LlmKeyRow[] => {
+        if (currentRows.length === 0) return currentRows;
+
+        // Find current default key
+        const currentDefault = currentRows.find((r) => r.is_default);
+
+        // 1. If current default key is active, keep it as default!
+        if (currentDefault && currentDefault.validation_status === "active") {
+            return currentRows.map((r) => ({
+                ...r,
+                is_default: r.id === currentDefault.id,
+            }));
+        }
+
+        // 2. Current default is missing or NOT active (invalid / credits exhausted) -> find first active key
+        const firstActive = currentRows.find((r) => r.validation_status === "active");
+
+        if (firstActive) {
+            void apiFetch(`coderpad/me/llm-keys/${firstActive.id}/set-default`, { method: "POST" }).catch(() => {});
+            return currentRows.map((r) => ({
+                ...r,
+                is_default: r.id === firstActive.id,
+            }));
+        }
+
+        // 3. No active key exists (all keys invalid or credits exhausted)
+        const allEvaluated = currentRows.every((r) => r.validation_status !== "checking");
+        if (allEvaluated && currentRows.length > 0) {
+            setAllExhaustedModalOpen(true);
+        }
+
+        return currentRows.map((r) => ({
+            ...r,
+            is_default: false,
+        }));
+    }, []);
 
     const applyValidationResults = useCallback(
         (results: Array<{ id: number; status: string; message?: string | null }>) => {
@@ -256,8 +252,8 @@ export function CandidateLlmKeysPanel({
                     if (!hit) return row;
                     const st =
                         hit.status === "active" ||
-                        hit.status === "inactive" ||
-                        hit.status === "invalid"
+                            hit.status === "inactive" ||
+                            hit.status === "invalid"
                             ? (hit.status as ValidationStatus)
                             : "inactive";
                     return {
@@ -266,11 +262,10 @@ export function CandidateLlmKeysPanel({
                         validation_message: hit.message ?? null,
                     };
                 });
-                persistRowsToValidationCache(next);
-                return next;
+                return recomputeDefaultKey(next);
             });
         },
-        []
+        [recomputeDefaultKey]
     );
 
     const validateAllKeys = useCallback(async (keysToValidate: LlmKeyRow[]) => {
@@ -318,8 +313,14 @@ export function CandidateLlmKeysPanel({
     }, [applyValidationResults]);
 
     const loadKeys = useCallback(async () => {
+        loadCountRef.current += 1;
+        const currentLoadCount = loadCountRef.current;
         setLoading(true);
         setRevealed({});
+        // One-time cleanup: remove old localStorage cache from existing users' browsers
+        if (typeof window !== "undefined") {
+            localStorage.removeItem("wbl_llm_key_validation_v1");
+        }
         try {
             const data = await apiFetch("coderpad/me/llm-keys");
             const list: LlmKeyRow[] = (Array.isArray(data) ? data : []).map(
@@ -327,31 +328,66 @@ export function CandidateLlmKeysPanel({
                     id: number;
                     provider_name: string;
                     masked_key: string;
+                    api_key?: string | null;
                     model_name?: string | null;
                     entry_date?: string | null;
                     voice_enabled?: boolean;
                     is_default?: boolean;
-                }) => ({
-                    id: k.id,
-                    provider_name: k.provider_name,
-                    masked_key: k.masked_key,
-                    model_name: k.model_name ?? null,
-                    entry_date: k.entry_date ?? null,
-                    voice_enabled: parseBoolFlag(k.voice_enabled),
-                    is_default: parseBoolFlag(k.is_default),
-                    validation_status: "inactive" as const,
-                    validation_message: null,
-                })
+                    validation_status?: string | null;
+                    validation_message?: string | null;
+                }) => {
+                    const rawStatus = k.validation_status ?? "inactive";
+                    const st: ValidationStatus =
+                        rawStatus === "active" || rawStatus === "inactive" || rawStatus === "invalid" || rawStatus === "checking"
+                            ? (rawStatus as ValidationStatus)
+                            : "inactive";
+                    return {
+                        id: k.id,
+                        provider_name: k.provider_name,
+                        masked_key: k.masked_key,
+                        model_name: k.model_name ?? null,
+                        entry_date: k.entry_date ?? null,
+                        voice_enabled: parseBoolFlag(k.voice_enabled),
+                        is_default: parseBoolFlag(k.is_default),
+                        // Status comes from DB now — no localStorage cache needed
+                        validation_status: st,
+                        validation_message: k.validation_message ?? null,
+                    };
+                }
             );
-            const loadedList = applyValidationCache(list);
-            setRows(loadedList);
-            if (loadedList.length > 0) {
-                void validateAllKeys(loadedList);
+            if (currentLoadCount !== loadCountRef.current || !isMounted.current) return;
+            setRows(list);
+            if (list.length > 0) {
+                void validateAllKeys(list);
+                try {
+                    const revealedKeys: Record<number, string> = {};
+                    await Promise.all(
+                        list.map(async (row) => {
+                            try {
+                                const rev = await apiFetch(`coderpad/me/llm-keys/${row.id}/reveal`);
+                                const k = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
+                                if (k && currentLoadCount === loadCountRef.current && isMounted.current) {
+                                    revealedKeys[row.id] = k;
+                                }
+                            } catch (e) {
+                                console.error(`Failed to reveal key ${row.id}:`, e);
+                            }
+                        })
+                    );
+                    if (currentLoadCount === loadCountRef.current && isMounted.current) {
+                        setRevealed(revealedKeys);
+                    }
+                } catch (e) {
+                    console.error("Failed to automatically reveal keys:", e);
+                }
+            } else {
+                setRevealed({});
             }
         } catch (err: unknown) {
             const e = err as { body?: { detail?: string }; status?: number };
             const detail =
                 typeof e?.body?.detail === "string" ? e.body.detail : null;
+            if (currentLoadCount !== loadCountRef.current || !isMounted.current) return;
             if (e?.status === 404) {
                 toast.error(detail ?? "Candidate profile not found.");
             } else {
@@ -359,19 +395,22 @@ export function CandidateLlmKeysPanel({
             }
             setRows([]);
         } finally {
-            setLoading(false);
+            if (currentLoadCount === loadCountRef.current && isMounted.current) {
+                setLoading(false);
+            }
         }
-    }, []);
+    }, [validateAllKeys]);
 
     useEffect(() => {
+        isMounted.current = true;
         void loadKeys();
+        return () => {
+            isMounted.current = false;
+        };
     }, [loadKeys]);
 
     useEffect(() => {
-        const defaultRow = rows.find((r) => r.is_default);
-        const hasActiveKey = defaultRow
-            ? defaultRow.validation_status === "active"
-            : (rows.length === 1 && rows[0].validation_status === "active");
+        const hasActiveKey = rows.some((r) => r.validation_status === "active");
         onValidationChange?.(hasActiveKey);
     }, [rows, onValidationChange]);
 
@@ -379,6 +418,8 @@ export function CandidateLlmKeysPanel({
         setModalOpen(false);
         setEditRow(null);
         setFormKey("");
+        setDetectionResult(null);
+        setDynamicModels([]);
     };
 
     const openAddModal = () => {
@@ -387,6 +428,8 @@ export function CandidateLlmKeysPanel({
         setFormModel(MODELS_BY_PROVIDER.OpenAI[0]);
         setFormKey("");
         setFormVoice("no");
+        setDetectionResult(null);
+        setDynamicModels([]);
         setModalOpen(true);
     };
 
@@ -401,16 +444,54 @@ export function CandidateLlmKeysPanel({
         );
         setFormKey("");
         setFormVoice(row.voice_enabled ? "yes" : "no");
+        setDetectionResult(null);
+        setDynamicModels([]);
         setModalOpen(true);
     };
 
-    const onProviderChange = (provider: ProviderId) => {
+    const onProviderChange = useCallback((provider: ProviderId) => {
         setFormProvider(provider);
-        const models = MODELS_BY_PROVIDER[provider];
-        if (!models.includes(formModel)) {
-            setFormModel(models[0]);
+        setDynamicModels([]);
+        const models = MODELS_BY_PROVIDER[provider] || ["default"];
+        setFormModel(models[0]);
+    }, []);
+
+    const runKeyDetection = useCallback(async (keyVal: string) => {
+        const trimmed = keyVal.trim();
+        if (!trimmed || trimmed.length < 8) {
+            setDetectionResult(null);
+            setDynamicModels([]);
+            return;
         }
-    };
+        setAutoDetecting(true);
+        try {
+            const res = await apiFetch("coderpad/me/llm-keys/detect-and-validate", {
+                method: "POST",
+                body: { api_key: trimmed },
+            });
+            if (res && res.detected_provider) {
+                const provName = normalizeProvider(res.detected_provider);
+                setFormProvider(provName);
+                const fallback = MODELS_BY_PROVIDER[provName] || ["default"];
+                const available = Array.isArray(res.available_models) && res.available_models.length > 0
+                    ? res.available_models
+                    : fallback;
+                setDynamicModels(available);
+                setFormModel(res.default_model || available[0] || fallback[0]);
+                setDetectionResult({
+                    provider: res.display_name || res.detected_provider,
+                    status: res.status,
+                    message: res.message,
+                    models: available,
+                    defaultModel: res.default_model || available[0],
+                });
+            }
+        } catch {
+            /* ignore detection error */
+        } finally {
+            setAutoDetecting(false);
+        }
+    }, []);
 
     const toggleReveal = async (row: LlmKeyRow) => {
         if (revealed[row.id]) {
@@ -434,6 +515,38 @@ export function CandidateLlmKeysPanel({
         }
     };
 
+    const [copiedId, setCopiedId] = useState<number | null>(null);
+
+    const copyKey = async (row: LlmKeyRow) => {
+        let textToCopy = revealed[row.id];
+        if (!textToCopy) {
+            setRevealingId(row.id);
+            try {
+                const rev = await apiFetch(`coderpad/me/llm-keys/${row.id}/reveal`);
+                textToCopy = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
+                if (textToCopy) {
+                    setRevealed((prev) => ({ ...prev, [row.id]: textToCopy }));
+                }
+            } catch {
+                toast.error("Could not fetch API key for copy.");
+                setRevealingId(null);
+                return;
+            } finally {
+                setRevealingId(null);
+            }
+        }
+        if (textToCopy) {
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                setCopiedId(row.id);
+                toast.success(`${row.provider_name} API Key copied to clipboard!`);
+                setTimeout(() => setCopiedId(null), 2000);
+            } catch {
+                toast.error("Failed to copy API key to clipboard.");
+            }
+        }
+    };
+
     const validateRow = async (row: LlmKeyRow) => {
         const previousStatus =
             row.validation_status === "checking" ? "inactive" : row.validation_status;
@@ -444,10 +557,10 @@ export function CandidateLlmKeysPanel({
             prev.map((r) =>
                 r.id === row.id
                     ? {
-                          ...r,
-                          validation_status: "checking",
-                          validation_message: "Validating…",
-                      }
+                        ...r,
+                        validation_status: "checking",
+                        validation_message: "Validating…",
+                    }
                     : r
             )
         );
@@ -462,11 +575,11 @@ export function CandidateLlmKeysPanel({
             if (!hit) throw new Error("No validation result");
             applyValidationResults([hit]);
             if (hit.status === "active") {
-                toast.success(`${row.provider_name} key is active.`);
+                toast.success(`${row.provider_name} API Key is valid & active!`);
             } else if (hit.status === "invalid") {
-                toast.error(hit.message || "Invalid API key");
+                toast.error(`${row.provider_name} API Key is invalid.`);
             } else {
-                toast.error(hit.message || "Key inactive");
+                toast.error(`${row.provider_name} API Key is inactive.`);
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Validation failed";
@@ -474,10 +587,10 @@ export function CandidateLlmKeysPanel({
                 prev.map((r) =>
                     r.id === row.id
                         ? {
-                              ...r,
-                              validation_status: previousStatus,
-                              validation_message: previousMessage,
-                          }
+                            ...r,
+                            validation_status: previousStatus,
+                            validation_message: previousMessage,
+                        }
                         : r
                 )
             );
@@ -541,7 +654,6 @@ export function CandidateLlmKeysPanel({
         if (!confirm(`Delete ${row.provider_name} key?`)) return;
         try {
             await apiFetch(`coderpad/me/llm-keys/${row.id}`, { method: "DELETE" });
-            removeKeyFromValidationCache(row.id);
             toast.success("Key deleted.");
             await loadKeys();
         } catch (err: unknown) {
@@ -586,12 +698,29 @@ export function CandidateLlmKeysPanel({
                 });
                 toast.success("LLM key updated.");
             } else {
+                let targetProvider = formProvider;
+                let targetModel = formModel;
+
+                // Live auto-detection before saving so candidate never needs to select provider or model manually
+                try {
+                    const detectRes = await apiFetch("coderpad/me/llm-keys/detect-and-validate", {
+                        method: "POST",
+                        body: { api_key: k },
+                    });
+                    if (detectRes && detectRes.detected_provider && detectRes.detected_provider !== "Unknown") {
+                        targetProvider = normalizeProvider(detectRes.detected_provider);
+                        targetModel = detectRes.default_model || detectRes.available_models?.[0] || MODELS_BY_PROVIDER[targetProvider]?.[0] || targetModel;
+                    }
+                } catch {
+                    /* fallback to form values */
+                }
+
                 const res = await apiFetch("coderpad/me/llm-keys", {
                     method: "POST",
                     body: {
-                        provider_name: formProvider,
+                        provider_name: targetProvider,
                         api_key: k,
-                        model_name: formModel,
+                        model_name: targetModel,
                         voice_enabled: voiceEnabled,
                     },
                 });
@@ -599,9 +728,9 @@ export function CandidateLlmKeysPanel({
                 toast.success("LLM key saved.");
                 setEditRow({
                     id: savedId,
-                    provider_name: formProvider,
+                    provider_name: targetProvider,
                     masked_key: "***",
-                    model_name: formModel,
+                    model_name: targetModel,
                     entry_date: new Date().toISOString(),
                     voice_enabled: voiceEnabled,
                     is_default: false,
@@ -609,9 +738,6 @@ export function CandidateLlmKeysPanel({
                     validation_message: null
                 });
                 setFormKey("");
-            }
-            if (editRow && k) {
-                removeKeyFromValidationCache(editRow.id);
             }
             if (shouldClose) {
                 closeModal();
@@ -652,9 +778,9 @@ export function CandidateLlmKeysPanel({
             });
             const hit = batch?.results?.[0];
             if (!hit) throw new Error("No validation result");
-            
+
             applyValidationResults([hit]);
-            
+
             if (hit.status === "active") {
                 toast.success(`${formProvider} key is active.`, { id: "validate-toast" });
             } else if (hit.status === "invalid") {
@@ -741,169 +867,213 @@ export function CandidateLlmKeysPanel({
                         </Button>
                     </div>
 
-                <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
-                    <DialogContent className="max-w-[min(42rem,95vw)] sm:max-w-3xl gap-0 p-0 overflow-hidden">
-                        <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
-                            <DialogHeader className="space-y-1 text-left">
-                                <DialogTitle className="text-base">
-                                    {editRow ? "Edit LLM key" : "Add LLM key"}
-                                </DialogTitle>
-                                <DialogDescription className="text-xs leading-relaxed">
-                                {editRow
-                                    ? "Update this key’s provider, model, or speech settings. Leave the API key blank to keep the current value."
-                                    : "Add another API key. Existing keys are kept."}
-                                </DialogDescription>
-                            </DialogHeader>
-                        </div>
-
-                        <div className="px-6 py-4 space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                                <div className="min-w-0">
-                                    <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                                        Provider
-                                    </Label>
-                                    <Select
-                                        value={formProvider}
-                                        onValueChange={(val) => onProviderChange(val as ProviderId)}
-                                    >
-                                        <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
-                                            <SelectValue placeholder="Select provider" />
-                                        </SelectTrigger>
-                                        <SelectContent nativeScroll>
-                                            {PROVIDERS.map((p) => (
-                                                <SelectItem key={p.id} value={p.id}>
-                                                    {p.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="min-w-0 sm:col-span-1">
-                                    <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                                        Model
-                                    </Label>
-                                    <Select
-                                        value={formModel}
-                                        onValueChange={setFormModel}
-                                    >
-                                        <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
-                                            <SelectValue placeholder="Select model" />
-                                        </SelectTrigger>
-                                        <SelectContent nativeScroll>
-                                            {MODELS_BY_PROVIDER[formProvider].map((m) => (
-                                                <SelectItem key={m} value={m}>
-                                                    {m}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="min-w-0">
-                                    <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                                        Speech enabled
-                                        <Mic
-                                            className={`h-3.5 w-3.5 ${
-                                                formVoice === "yes"
-                                                    ? "text-emerald-600"
-                                                    : "text-gray-400"
-                                            }`}
-                                        />
-                                    </Label>
-                                    <Select
-                                        value={formVoice}
-                                        onValueChange={(val) => setFormVoice(val as "yes" | "no")}
-                                    >
-                                        <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
-                                            <SelectValue placeholder="Select" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-h-44">
-                                            <SelectItem value="no">No</SelectItem>
-                                            <SelectItem value="yes">Yes</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                    <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
+                        <DialogContent className="max-w-[min(42rem,95vw)] sm:max-w-3xl gap-0 p-0 overflow-hidden min-h-[420px] flex flex-col justify-between">
+                            <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                                <DialogHeader className="space-y-1 text-left">
+                                    <DialogTitle className="text-base">
+                                        {editRow ? "Edit LLM key" : "Add LLM key"}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs leading-relaxed">
+                                        {editRow
+                                            ? "Update this key’s provider, model, or speech settings. Leave the API key blank to keep the current value."
+                                            : "Add another API key. Existing keys are kept."}
+                                    </DialogDescription>
+                                </DialogHeader>
                             </div>
 
-                            <div className="min-w-0">
-                                <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                                    {editRow ? "API key (optional)" : "API key"}
-                                </Label>
-                                <Input
-                                    type="password"
-                                    value={formKey}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormKey(val);
-                                        
-                                        // Auto-detect provider based on API key prefix
-                                        const trimmed = val.trim();
-                                        let detectedProvider = null;
-                                        if (trimmed.startsWith("sk-ant-")) detectedProvider = "Claude";
-                                        else if (trimmed.startsWith("sk-proj-")) detectedProvider = "OpenAI";
-                                        else if (trimmed.startsWith("sk-or-")) detectedProvider = "OpenRouter";
-                                        else if (trimmed.startsWith("gsk_")) detectedProvider = "Groq";
-                                        else if (trimmed.startsWith("xai-")) detectedProvider = "Grok";
-                                        else if (trimmed.startsWith("AIza")) detectedProvider = "Gemini";
-                                        else if (trimmed.startsWith("sk-") && trimmed.length > 40 && !trimmed.includes(" ")) detectedProvider = "OpenAI";
+                            <div className="px-6 py-4 space-y-4 flex-1 flex flex-col justify-start">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                                    <div className="min-w-0">
+                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                                            Provider
+                                        </Label>
+                                        <Select
+                                            value={formProvider}
+                                            onValueChange={(val) => onProviderChange(val as ProviderId)}
+                                        >
+                                            <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
+                                                <SelectValue placeholder="Select provider" />
+                                            </SelectTrigger>
+                                            <SelectContent nativeScroll>
+                                                {PROVIDERS.map((p) => (
+                                                    <SelectItem key={p.id} value={p.id}>
+                                                        {p.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
-                                        if (detectedProvider && detectedProvider !== formProvider) {
-                                            setFormProvider(detectedProvider as any);
-                                            setFormModel(MODELS_BY_PROVIDER[detectedProvider as any][0]);
+                                    <div className="min-w-0 sm:col-span-1">
+                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                                            Model
+                                        </Label>
+                                        <Select
+                                            value={formModel}
+                                            onValueChange={setFormModel}
+                                        >
+                                            <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
+                                                <SelectValue placeholder="Select model" />
+                                            </SelectTrigger>
+                                            <SelectContent nativeScroll>
+                                                {(dynamicModels.length > 0
+                                                    ? dynamicModels
+                                                    : (MODELS_BY_PROVIDER[formProvider] || ["default"])
+                                                ).map((m) => (
+                                                    <SelectItem key={m} value={m}>
+                                                        {m}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="min-w-0">
+                                        <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                                            Speech enabled
+                                            <Mic
+                                                className={`h-3.5 w-3.5 ${formVoice === "yes"
+                                                        ? "text-emerald-600"
+                                                        : "text-gray-400"
+                                                    }`}
+                                            />
+                                        </Label>
+                                        <Select
+                                            value={formVoice}
+                                            onValueChange={(val) => setFormVoice(val as "yes" | "no")}
+                                        >
+                                            <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
+                                                <SelectValue placeholder="Speech enabled" />
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-44">
+                                                <SelectItem value="no">No</SelectItem>
+                                                <SelectItem value="yes">Yes</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                <div className="min-w-0">
+                                    <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                                        API key
+                                    </Label>
+                                    <Input
+                                        type="password"
+                                        value={formKey}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormKey(val);
+
+                                            const trimmed = val.trim();
+                                            if (trimmed.startsWith("sk-ant-")) {
+                                                onProviderChange("Claude");
+                                            } else if (trimmed.startsWith("AIza") || trimmed.startsWith("AQ.") || trimmed.startsWith("AQ")) {
+                                                onProviderChange("Gemini");
+                                            } else if (trimmed.startsWith("gsk_")) {
+                                                onProviderChange("Groq");
+                                            } else if (trimmed.startsWith("xai-")) {
+                                                onProviderChange("Grok");
+                                            } else if (trimmed.startsWith("sk-or-")) {
+                                                onProviderChange("OpenRouter");
+                                            } else if (trimmed.startsWith("pplx-")) {
+                                                onProviderChange("Perplexity");
+                                            } else if (trimmed.startsWith("sk-proj-") || trimmed.startsWith("sk-admin-")) {
+                                                onProviderChange("OpenAI");
+                                            } else if (trimmed.startsWith("deepseek-") || trimmed.startsWith("ds-")) {
+                                                onProviderChange("DeepSeek");
+                                            }
+                                            void runKeyDetection(val);
+                                        }}
+                                        placeholder={
+                                            editRow
+                                                ? "Leave blank to keep current key"
+                                                : "Paste API key (Provider & Models auto-detected)"
                                         }
-                                    }}
-                                    placeholder={
-                                        editRow
-                                            ? "Leave blank to keep current key"
-                                            : formProvider === "OpenAI"
-                                              ? "sk-…"
-                                              : "Paste API key"
-                                    }
-                                    className="mt-1 h-9 font-mono text-sm"
-                                    autoComplete="new-password"
-                                />
+                                        className="mt-1 h-9 font-mono text-sm"
+                                        autoComplete="new-password"
+                                    />
+                                </div>
+
+                                {/* Reserved min-height container for Live Detection & Validation Status */}
+                                <div className="min-h-[56px] flex flex-col justify-center">
+                                    {autoDetecting && (
+                                        <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                                            <span>Auto-detecting provider and fetching supported models…</span>
+                                        </div>
+                                    )}
+
+                                    {detectionResult && !autoDetecting && (
+                                        <div
+                                            className={`p-2.5 border rounded-lg text-xs space-y-0.5 ${detectionResult.status === "active"
+                                                    ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
+                                                    : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200"
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-2 font-semibold">
+                                                {detectionResult.status === "active" ? (
+                                                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                ) : (
+                                                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                                )}
+                                                <span>
+                                                    {detectionResult.status === "active"
+                                                        ? `Provider Detected: ${detectionResult.provider}`
+                                                        : `Provider Detection / Validation Error`}
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] opacity-90">
+                                                {detectionResult.message}
+                                            </p>
+                                            {detectionResult.status === "active" && (
+                                                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                                                    Found {detectionResult.models?.length || 0} supported models. Default selected: <strong>{detectionResult.defaultModel}</strong>
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        <DialogFooter className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/50 flex-row justify-end gap-2 sm:space-x-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={closeModal}
-                                disabled={formSaving}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="min-w-[7rem]"
-                                disabled={formSaving || (!editRow && !formKey.trim())}
-                                onClick={() => void validateFormKey()}
-                            >
-                                Validate
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                disabled={formSaving || (!editRow && !formKey.trim())}
-                                onClick={() => void saveKey()}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold min-w-[7rem]"
-                            >
-                                {formSaving
-                                    ? "Saving…"
-                                    : editRow
-                                      ? "Update key"
-                                      : "Save key"}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                            <DialogFooter className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/50 flex-row justify-end gap-2 sm:space-x-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={closeModal}
+                                    disabled={formSaving}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="min-w-[7rem]"
+                                    disabled={formSaving || (!editRow && !formKey.trim())}
+                                    onClick={() => void validateFormKey()}
+                                >
+                                    Validate
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={formSaving || (!editRow && !formKey.trim())}
+                                    onClick={() => void saveKey()}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold min-w-[7rem]"
+                                >
+                                    {formSaving
+                                        ? "Saving…"
+                                        : editRow
+                                            ? "Update key"
+                                            : "Save key"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
-                <div className="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-950/20">
+                    <div className="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-950/20">
                         <table className="w-full min-w-[820px] text-base">
                             <thead>
                                 <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-sm font-bold text-gray-500 uppercase tracking-wide">
@@ -913,20 +1083,21 @@ export function CandidateLlmKeysPanel({
                                     <th className="px-4 py-3">Entry Date</th>
                                     <th className="px-4 py-3">Speech Enabled</th>
                                     <th className="px-4 py-3">Default</th>
+                                    <th className="px-4 py-3">Validate</th>
                                     <th className="px-4 py-3 w-20" />
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                             Loading…
                                         </td>
                                     </tr>
                                 ) : rows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                                             No LLM keys yet. Click Add key to save your first API key.
                                         </td>
                                     </tr>
@@ -943,32 +1114,45 @@ export function CandidateLlmKeysPanel({
                                                 <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">
                                                     {row.provider_name}
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-2 w-full max-w-[280px]">
+                                                <td className="px-4 py-3 min-w-[320px]">
+                                                    <div className="flex items-start gap-2 w-full max-w-[420px]">
                                                         <div
                                                             onClick={() => openEditModal(row)}
-                                                            className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 scroll-smooth overscroll-x-contain cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-track]:bg-transparent"
+                                                            className="flex-1 min-w-0 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                                                             title="Click to edit key"
                                                         >
                                                             {showPlain ? (
                                                                 <span
-                                                                    className="inline-block min-w-max px-2 py-1.5 text-xs font-mono whitespace-nowrap text-gray-700 dark:text-gray-300 select-all"
+                                                                    className="block text-xs font-mono text-gray-800 dark:text-gray-200 break-all leading-relaxed whitespace-pre-wrap select-all"
                                                                     aria-label={`${row.provider_name} API key`}
                                                                 >
                                                                     {displayKey}
                                                                 </span>
                                                             ) : (
                                                                 <input
-                                                                    type="password"
+                                                                    type="text"
                                                                     readOnly
-                                                                    value={displayKey}
-                                                                    className="block min-w-max w-full border-0 bg-transparent px-2 py-1.5 text-xs font-mono text-gray-700 dark:text-gray-300 outline-none focus:ring-0 whitespace-nowrap"
+                                                                    value="••••••••••••"
+                                                                    className="block w-full border-0 bg-transparent p-0 text-xs font-mono text-gray-700 dark:text-gray-300 outline-none focus:ring-0 cursor-pointer"
                                                                     autoComplete="off"
                                                                     spellCheck={false}
                                                                     aria-label={`${row.provider_name} API key`}
                                                                 />
                                                             )}
                                                         </div>
+                                                        <button
+                                                            type="button"
+                                                            className="shrink-0 p-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                                                            title="Copy API key"
+                                                            disabled={revealingId === row.id}
+                                                            onClick={() => void copyKey(row)}
+                                                        >
+                                                            {copiedId === row.id ? (
+                                                                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                                            ) : (
+                                                                <Copy className="h-4 w-4" />
+                                                            )}
+                                                        </button>
                                                         <button
                                                             type="button"
                                                             className="shrink-0 p-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -993,11 +1177,10 @@ export function CandidateLlmKeysPanel({
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-1.5">
                                                         <select
-                                                            className={`rounded-md border px-2 py-1 text-xs font-semibold min-w-[4.5rem] disabled:opacity-60 ${
-                                                                row.voice_enabled
+                                                            className={`rounded-md border px-2 py-1 text-xs font-semibold min-w-[4.5rem] disabled:opacity-60 ${row.voice_enabled
                                                                     ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
                                                                     : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                                                            }`}
+                                                                }`}
                                                             value={row.voice_enabled ? "yes" : "no"}
                                                             disabled={voiceUpdatingId === row.id}
                                                             onChange={(e) =>
@@ -1015,41 +1198,43 @@ export function CandidateLlmKeysPanel({
                                                             <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
                                                         ) : (
                                                             <Mic
-                                                                className={`h-3.5 w-3.5 shrink-0 ${
-                                                                    row.voice_enabled
+                                                                className={`h-3.5 w-3.5 shrink-0 ${row.voice_enabled
                                                                         ? "text-emerald-600 dark:text-emerald-400"
                                                                         : "text-gray-300 dark:text-gray-600"
-                                                                }`}
+                                                                    }`}
                                                                 aria-hidden
                                                             />
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <select
-                                                            className={`rounded-md border px-2 py-1 text-xs font-semibold min-w-[4.5rem] disabled:opacity-60 ${
-                                                                row.is_default
-                                                                    ? "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                                                    : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                                    <span
+                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${row.is_default && row.validation_status === "active"
+                                                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                                                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
                                                             }`}
-                                                            value={row.is_default ? "yes" : "no"}
-                                                            disabled={defaultUpdatingId === row.id}
-                                                            onChange={(e) =>
-                                                                void updateIsDefault(
-                                                                    row,
-                                                                    e.target.value === "yes"
-                                                                )
-                                                            }
-                                                            aria-label={`Default key for ${row.provider_name}`}
-                                                        >
-                                                            <option value="no">No</option>
-                                                            <option value="yes">Yes</option>
-                                                        </select>
-                                                        {defaultUpdatingId === row.id && (
-                                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                                                    >
+                                                        {row.is_default && row.validation_status === "active" ? "Yes" : "No"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 px-2.5 text-xs font-semibold text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                        disabled={validatingId === row.id}
+                                                        onClick={() => void validateRow(row)}
+                                                    >
+                                                        {validatingId === row.id ? (
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                                Validating…
+                                                            </span>
+                                                        ) : (
+                                                            "Validate"
                                                         )}
-                                                    </div>
+                                                    </Button>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-end gap-1">
@@ -1084,6 +1269,49 @@ export function CandidateLlmKeysPanel({
                     {children}
                 </div>
             </div>
+
+            {/* All Keys Invalid / Credits Completed Popup Modal */}
+            <Dialog open={allExhaustedModalOpen} onOpenChange={setAllExhaustedModalOpen}>
+                <DialogContent className="max-w-md p-6 rounded-2xl space-y-4">
+                    <DialogHeader className="text-left space-y-1">
+                        <DialogTitle className="text-base font-bold flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            All LLM Keys Invalid / Credits Completed
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed pt-1">
+                            All of your configured LLM API keys are invalid or have exhausted their available credits.
+                            Please add a new API key or add credits to continue using AI features.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 font-medium">
+                        No active LLM key is currently available for AI features.
+                    </div>
+
+                    <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAllExhaustedModalOpen(false)}
+                        >
+                            Dismiss
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                            onClick={() => {
+                                setAllExhaustedModalOpen(false);
+                                openAddModal();
+                            }}
+                        >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Key
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
