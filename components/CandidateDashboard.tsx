@@ -420,7 +420,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        router.push(`/user_dashboard/${tab}`);
+        if (typeof window !== "undefined") {
+            window.history.pushState({}, "", `/user_dashboard/${tab}`);
+        }
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -1568,7 +1570,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const loadDashboard = useCallback(async (retryCount = 0) => {
         try {
-            setLoading(true);
+            if (!data) {
+                setLoading(true);
+            }
             setError(null);
 
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -1671,7 +1675,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, data, setData, setLoading, setError]);
 
     useEffect(() => {
         if (data) {
