@@ -3040,9 +3040,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                             ) : (
                                                                             <tr>
                                                                                 <td 
-                                                                                colSpan={4}
-                                                                                className="py-20 text-center text-lg font-medium text-gray-500"
-                                                                                >
+                                                                                colSpan={4} className="py-20 text-center text-lg font-medium text-gray-500">
                                                                                     No applications found.
                                                                                 </td>
                                                                             </tr>
@@ -3227,8 +3225,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                     : resumeDragOver
                                                                         ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
                                                                         : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
-                                                                    }`}
-                                                            >
+                                                                    }`} >
                                                                 <input
                                                                     type="file"
                                                                     ref={inlineFileInputRef}
