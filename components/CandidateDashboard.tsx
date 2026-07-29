@@ -400,6 +400,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
+    const dataRef = useRef(data);
+    dataRef.current = data;
     const [candidateId, setCandidateId] = useState<number | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [hasMissingFields, setHasMissingFields] = useState(true);
@@ -1570,7 +1572,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const loadDashboard = useCallback(async (retryCount = 0) => {
         try {
-            if (!data) {
+            if (!dataRef.current) {
                 setLoading(true);
             }
             setError(null);
@@ -1675,7 +1677,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, data, setData, setLoading, setError]);
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
     useEffect(() => {
         if (data) {
