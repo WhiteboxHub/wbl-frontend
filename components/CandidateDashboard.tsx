@@ -368,6 +368,7 @@ interface CandidateDashboardProps {
 let candidateDashboardCache: {
     token: string | null;
     candidateId: number | null;
+    targetCidNum: number | null;
     data: DashboardData | null;
     userProfile: UserProfile | null;
     setupStatus: any;
@@ -375,6 +376,7 @@ let candidateDashboardCache: {
 } = {
     token: null,
     candidateId: null,
+    targetCidNum: null,
     data: null,
     userProfile: null,
     setupStatus: null,
@@ -417,7 +419,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         currentToken != null &&
         candidateDashboardCache.token === currentToken &&
         candidateDashboardCache.candidateId != null &&
-        (targetCidNum != null ? candidateDashboardCache.candidateId === targetCidNum : true);
+        candidateDashboardCache.targetCidNum === targetCidNum;
 
     const [loading, setLoading] = useState(!hasCachedData);
     const [error, setError] = useState<string | null>(null);
@@ -425,7 +427,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [data, setDataState] = useState<DashboardData | null>(hasCachedData ? candidateDashboardCache.data : null);
     const setData = useCallback((val: any) => {
         const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
+        const searchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
+        const targetCid = searchCid ? Number(searchCid) : null;
         candidateDashboardCache.token = token;
+        candidateDashboardCache.targetCidNum = targetCid;
         candidateDashboardCache.data = val;
         setDataState(val);
     }, []);
@@ -1820,7 +1825,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             mountToken != null &&
             candidateDashboardCache.token === mountToken &&
             candidateDashboardCache.candidateId != null &&
-            (mountTargetCid != null ? candidateDashboardCache.candidateId === mountTargetCid : true);
+            candidateDashboardCache.targetCidNum === mountTargetCid;
 
         if (isCached) {
             // Instant render from cache (0ms delay). Revalidate in background!
@@ -1834,6 +1839,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             candidateDashboardCache = {
                 token: null,
                 candidateId: null,
+                targetCidNum: null,
                 data: null,
                 userProfile: null,
                 setupStatus: null,
