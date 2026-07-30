@@ -27,7 +27,7 @@ export default defineConfig({
   retries: 0,
 
   // Run tests in parallel: limit to 2 workers in CI, use default locally
-  workers: isCI ? 2 : undefined,
+  workers: isCI ? 3 : undefined,
 
   reporter: [["list"], ["html"]],
 
