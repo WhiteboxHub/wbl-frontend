@@ -420,8 +420,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        router.push(`/user_dashboard/${tab}`);
+        const searchString = typeof window !== "undefined" ? window.location.search : "";
+        window.history.pushState(null, "", `/user_dashboard/${tab}${searchString}`);
     };
+
+    useEffect(() => {
+        const handlePopState = () => {
+            if (typeof window !== "undefined") {
+                const pathSegments = window.location.pathname.split("/").filter(Boolean);
+                const tabFromUrl = pathSegments[1] as TabType;
+                if (tabFromUrl) {
+                    setActiveTab(tabFromUrl);
+                }
+            }
+        };
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+    }, []);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
 
@@ -1687,11 +1702,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'my-interviews') {
-            // Auto-refresh interview data when switching to this tab
-            // so employee UI changes (feedback, notes) are visible immediately
-            loadDashboard();
-        }
         if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
                 try {
@@ -1726,7 +1736,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadDashboard, loadPositions]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
