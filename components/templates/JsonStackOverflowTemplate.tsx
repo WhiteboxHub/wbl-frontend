@@ -3,10 +3,10 @@ import { TemplateProps, contactItems, formatDateRange } from "./shared";
 export function JsonStackOverflowTemplate({ data }: TemplateProps) {
   const contact = contactItems(data.contact);
   return (
-    <div className="bg-[#f8f9f9] text-gray-800 min-h-[842px] font-sans text-[11px]">
+    <div className="bg-[#f8f9f9] text-gray-800 min-h-[842px] font-sans text-[13px]">
       <header className="bg-[#f48024] px-10 py-6">
         <h1 className="text-3xl font-bold text-white">{data.fullName || "Your Name"}</h1>
-        <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-[10px] text-orange-100">
+        <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-xs text-orange-100">
           {contact.map((c, i) => <span key={i}>{c}</span>)}
         </div>
       </header>
@@ -15,19 +15,19 @@ export function JsonStackOverflowTemplate({ data }: TemplateProps) {
         <aside className="w-[180px] bg-white border-r border-gray-200 flex-shrink-0 p-5">
           {data.skills.filter(Boolean).length > 0 && (
             <div className="mb-5">
-              <h2 className="text-[9px] font-bold uppercase tracking-widest text-[#f48024] mb-2">Technologies</h2>
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-[#f48024] mb-2">Technologies</h2>
               <div className="flex flex-col gap-1">
                 {data.skills.filter(Boolean).map((s, i) => (
-                  <span key={i} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[9px] border border-gray-200">{s}</span>
+                  <span key={i} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[11px] border border-gray-200">{s}</span>
                 ))}
               </div>
             </div>
           )}
           {data.education.length > 0 && (
             <div>
-              <h2 className="text-[9px] font-bold uppercase tracking-widest text-[#f48024] mb-2">Education</h2>
+              <h2 className="text-[11px] font-bold uppercase tracking-widest text-[#f48024] mb-2">Education</h2>
               {data.education.map((edu) => (
-                <div key={edu.id} className="mb-2 text-[10px]">
+                <div key={edu.id} className="mb-2 text-xs">
                   <strong className="text-gray-800">{edu.degree}</strong>
                   <div className="text-gray-500">{edu.field}</div>
                   <div className="text-gray-400 italic">{edu.school}</div>
@@ -51,10 +51,10 @@ export function JsonStackOverflowTemplate({ data }: TemplateProps) {
                 {data.experience.map((exp) => (
                   <div key={exp.id} className="bg-white border border-gray-200 rounded p-3 shadow-sm">
                     <div className="flex justify-between items-baseline">
-                      <strong className="text-[12px] text-gray-900">{exp.company}</strong>
-                      <span className="text-[10px] text-[#f48024]">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
+                      <strong className="text-sm text-gray-900">{exp.company}</strong>
+                      <span className="text-xs text-[#f48024]">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                     </div>
-                    <div className="text-gray-500 text-[10px]">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
+                    <div className="text-gray-500 text-[13px]">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
                     <ul className="mt-1.5 space-y-1 text-gray-600">
                       {exp.bullets.filter(Boolean).map((b, i) => (
                         <li key={i} className="flex items-start gap-2">

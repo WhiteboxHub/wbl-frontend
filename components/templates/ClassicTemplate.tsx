@@ -3,10 +3,10 @@ import { TemplateProps, contactItems, formatDateRange } from "./shared";
 export function ClassicTemplate({ data }: TemplateProps) {
   const contact = contactItems(data.contact);
   return (
-    <div className="bg-white text-gray-900 p-8 font-sans text-[11px] leading-relaxed min-h-[842px]">
+    <div className="bg-white text-gray-900 p-8 font-sans text-[13px] leading-relaxed min-h-[842px]">
       <header className="text-center border-b-2 border-[#1e3a5f] pb-4 mb-5">
         <h1 className="text-2xl font-bold text-[#1e3a5f] tracking-wide">{data.fullName || "Your Name"}</h1>
-        <p className="text-[10px] text-gray-500 mt-2">{contact.join("  •  ")}</p>
+        <p className="text-xs text-gray-500 mt-2">{contact.join("  •  ")}</p>
       </header>
       {data.summary && (
         <section className="mb-4">
@@ -20,12 +20,12 @@ export function ClassicTemplate({ data }: TemplateProps) {
           {data.experience.map((exp) => (
             <div key={exp.id} className="mb-3">
               <div className="flex justify-between items-baseline">
-                <strong className="text-[12px]">{exp.title}</strong>
-                <span className="text-gray-500 text-[10px]">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
+                <strong className="text-sm">{exp.title}</strong>
+                <span className="text-gray-500 text-xs">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span className="italic">{exp.company}</span>
-                <span className="text-[10px]">{exp.location}</span>
+                <span className="text-xs">{exp.location}</span>
               </div>
               <ul className="mt-1 text-gray-700 space-y-1">
                 {exp.bullets.filter(Boolean).map((b, i) => (
