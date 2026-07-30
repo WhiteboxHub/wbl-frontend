@@ -365,6 +365,20 @@ interface CandidateDashboardProps {
     defaultTab?: string;
 }
 
+let candidateDashboardCache: {
+    candidateId: number | null;
+    data: DashboardData | null;
+    userProfile: UserProfile | null;
+    setupStatus: any;
+    prefetchedSession: any;
+} = {
+    candidateId: null,
+    data: null,
+    userProfile: null,
+    setupStatus: null,
+    prefetchedSession: null,
+};
+
 export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -393,38 +407,62 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         window.open(url, '_blank');
     }, []);
 
-    // ----------------------------
+    // Module-level in-memory cache for candidate dashboard data across section navigations
+    const searchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
+    const targetCidNum = searchCid ? Number(searchCid) : null;
+    const hasCachedData = candidateDashboardCache.data != null &&
+        (targetCidNum ? candidateDashboardCache.candidateId === targetCidNum : true);
 
-    // ----------------------------
-
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!hasCachedData);
     const [error, setError] = useState<string | null>(null);
-    const [data, setData] = useState<DashboardData | null>(null);
+
+    const [data, setDataState] = useState<DashboardData | null>(candidateDashboardCache.data);
+    const setData = useCallback((val: any) => {
+        candidateDashboardCache.data = val;
+        setDataState(val);
+    }, []);
+
     const dataRef = useRef(data);
     dataRef.current = data;
-    const [candidateId, setCandidateId] = useState<number | null>(null);
+
+    const [candidateId, setCandidateIdState] = useState<number | null>(candidateDashboardCache.candidateId);
+    const setCandidateId = useCallback((val: any) => {
+        candidateDashboardCache.candidateId = val;
+        setCandidateIdState(val);
+    }, []);
+
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [hasMissingFields, setHasMissingFields] = useState(true);
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+    const [userProfile, setUserProfileState] = useState<UserProfile | null>(candidateDashboardCache.userProfile);
+    const setUserProfile = useCallback((val: any) => {
+        candidateDashboardCache.userProfile = val;
+        setUserProfileState(val);
+    }, []);
+
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     useEffect(() => {
-        setActiveTab(defaultTab as TabType);
+        if (defaultTab && defaultTab !== activeTab) {
+            setActiveTab(defaultTab as TabType);
+        }
     }, [defaultTab]);
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
         setForceShowUploader(false);
-        setActiveTab(tab);
+        if (activeTab !== tab) {
+            setActiveTab(tab);
+        }
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        if (typeof window !== "undefined") {
-            window.history.pushState({}, "", `/user_dashboard/${tab}`);
-        }
+        const searchString = typeof window !== "undefined" ? window.location.search : "";
+        const targetUrl = `/user_dashboard/${tab}${searchString}`;
+        router.push(targetUrl, { scroll: false });
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -456,10 +494,24 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
-    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(null);
+    const [setupStatus, setSetupStatusState] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(candidateDashboardCache.setupStatus);
+    const setSetupStatus = useCallback((val: any) => {
+        candidateDashboardCache.setupStatus = val;
+        setSetupStatusState(val);
+    }, []);
+
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
-    const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
-    const [prefetchDone, setPrefetchDone] = useState(false);
+
+    const [prefetchedSession, setPrefetchedSessionState] = useState<{ sessionId: string; summaryData: any } | null>(candidateDashboardCache.prefetchedSession);
+    const setPrefetchedSession = useCallback((val: any) => {
+        candidateDashboardCache.prefetchedSession = val;
+        setPrefetchedSessionState(val);
+    }, []);
+
+    const [prefetchDone, setPrefetchDoneState] = useState(false);
+    const setPrefetchDone = useCallback((val: any) => {
+        setPrefetchDoneState(val);
+    }, []);
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
@@ -817,12 +869,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     useEffect(() => {
+        console.log("[DEBUG] CandidateDashboard mounted");
         setMounted(true);
         const handleNavEvent = () => {
             goToTab('overview');
         };
         window.addEventListener('nav-to-overview', handleNavEvent);
         return () => {
+            console.log("[DEBUG] CandidateDashboard unmounted");
             window.removeEventListener('nav-to-overview', handleNavEvent);
         };
     }, []);
@@ -1693,12 +1747,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'my-interviews') {
-            // Auto-refresh interview data when switching to this tab
-            // so employee UI changes (feedback, notes) are visible immediately
-            loadDashboard();
-        }
-        if (activeTab === 'my-resume' && candidateId) {
+        if (activeTab === 'my-resume' && candidateId && !prefetchedSession) {
             const run = async () => {
                 try {
                     const token = localStorage.getItem("access_token") || "";
@@ -1732,7 +1781,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadDashboard, loadPositions]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions, prefetchedSession]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1750,7 +1799,37 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     useEffect(() => {
         sessionStorage.removeItem('onboarding_skipped');
-        loadDashboard();
+        const mountSearchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
+        const mountTargetCid = mountSearchCid ? Number(mountSearchCid) : null;
+        const isFresh = candidateDashboardCache.data != null &&
+            (mountTargetCid ? candidateDashboardCache.candidateId === mountTargetCid : true);
+
+        if (!isFresh) {
+            loadDashboard();
+        }
+
+        const handleLogout = () => {
+            candidateDashboardCache = {
+                candidateId: null,
+                data: null,
+                userProfile: null,
+                setupStatus: null,
+                prefetchedSession: null,
+            };
+        };
+        if (typeof window !== "undefined") {
+            window.addEventListener("wbl-logout", handleLogout);
+            window.addEventListener("storage", (e) => {
+                if (e.key === "logout" || (e.key === "access_token" && !e.newValue)) {
+                    handleLogout();
+                }
+            });
+        }
+        return () => {
+            if (typeof window !== "undefined") {
+                window.removeEventListener("wbl-logout", handleLogout);
+            }
+        };
     }, []);
 
     if (loading) {
