@@ -365,24 +365,6 @@ interface CandidateDashboardProps {
     defaultTab?: string;
 }
 
-let candidateDashboardCache: {
-    token: string | null;
-    candidateId: number | null;
-    targetCidNum: number | null;
-    data: DashboardData | null;
-    userProfile: UserProfile | null;
-    setupStatus: any;
-    prefetchedSession: any;
-} = {
-    token: null,
-    candidateId: null,
-    targetCidNum: null,
-    data: null,
-    userProfile: null,
-    setupStatus: null,
-    prefetchedSession: null,
-};
-
 export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -411,71 +393,34 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         window.open(url, '_blank');
     }, []);
 
-    // Module-level in-memory cache with strict token and candidate ID isolation
-    const currentToken = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
-    const searchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
-    const targetCidNum = searchCid ? Number(searchCid) : null;
-    const hasCachedData = candidateDashboardCache.data != null &&
-        currentToken != null &&
-        candidateDashboardCache.token === currentToken &&
-        candidateDashboardCache.candidateId != null &&
-        candidateDashboardCache.targetCidNum === targetCidNum;
+    // ----------------------------
 
-    const [loading, setLoading] = useState(!hasCachedData);
+    // ----------------------------
+
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const [data, setDataState] = useState<DashboardData | null>(hasCachedData ? candidateDashboardCache.data : null);
-    const setData = useCallback((val: any) => {
-        const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
-        const searchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
-        const targetCid = searchCid ? Number(searchCid) : null;
-        candidateDashboardCache.token = token;
-        candidateDashboardCache.targetCidNum = targetCid;
-        candidateDashboardCache.data = val;
-        setDataState(val);
-    }, []);
-
-    const dataRef = useRef(data);
-    dataRef.current = data;
-
-    const [candidateId, setCandidateIdState] = useState<number | null>(hasCachedData ? candidateDashboardCache.candidateId : null);
-    const setCandidateId = useCallback((val: any) => {
-        candidateDashboardCache.candidateId = val;
-        setCandidateIdState(val);
-    }, []);
-
+    const [data, setData] = useState<DashboardData | null>(null);
+    const [candidateId, setCandidateId] = useState<number | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [hasMissingFields, setHasMissingFields] = useState(true);
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
-
-    const [userProfile, setUserProfileState] = useState<UserProfile | null>(hasCachedData ? candidateDashboardCache.userProfile : null);
-    const setUserProfile = useCallback((val: any) => {
-        candidateDashboardCache.userProfile = val;
-        setUserProfileState(val);
-    }, []);
-
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     useEffect(() => {
-        if (defaultTab && defaultTab !== activeTab) {
-            setActiveTab(defaultTab as TabType);
-        }
+        setActiveTab(defaultTab as TabType);
     }, [defaultTab]);
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
         setForceShowUploader(false);
-        if (activeTab !== tab) {
-            setActiveTab(tab);
-        }
+        setActiveTab(tab);
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        const searchString = typeof window !== "undefined" ? window.location.search : "";
-        const targetUrl = `/user_dashboard/${tab}${searchString}`;
-        router.push(targetUrl, { scroll: false });
+        router.push(`/user_dashboard/${tab}`);
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -483,6 +428,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     // Sessions state
     const [sessions, setSessions] = useState<Session[]>([]);
     const [sessionsLoading, setSessionsLoading] = useState(false);
+
 
     // Jobs state
     const [positions, setPositions] = useState<any[]>([]);
@@ -506,24 +452,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
-    const [setupStatus, setSetupStatusState] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(hasCachedData ? candidateDashboardCache.setupStatus : null);
-    const setSetupStatus = useCallback((val: any) => {
-        candidateDashboardCache.setupStatus = val;
-        setSetupStatusState(val);
-    }, []);
-
+    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(null);
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
-
-    const [prefetchedSession, setPrefetchedSessionState] = useState<{ sessionId: string; summaryData: any } | null>(hasCachedData ? candidateDashboardCache.prefetchedSession : null);
-    const setPrefetchedSession = useCallback((val: any) => {
-        candidateDashboardCache.prefetchedSession = val;
-        setPrefetchedSessionState(val);
-    }, []);
-
-    const [prefetchDone, setPrefetchDoneState] = useState(false);
-    const setPrefetchDone = useCallback((val: any) => {
-        setPrefetchDoneState(val);
-    }, []);
+    const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
+    const [prefetchDone, setPrefetchDone] = useState(false);
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
@@ -881,14 +813,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     useEffect(() => {
-        console.log("[DEBUG] CandidateDashboard mounted");
         setMounted(true);
         const handleNavEvent = () => {
             goToTab('overview');
         };
         window.addEventListener('nav-to-overview', handleNavEvent);
         return () => {
-            console.log("[DEBUG] CandidateDashboard unmounted");
             window.removeEventListener('nav-to-overview', handleNavEvent);
         };
     }, []);
@@ -1636,14 +1566,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     }, [setPositionsLoading, setPositions]);
 
-    const loadDashboard = useCallback(async (retryCount = 0, isBackground = false) => {
+    const loadDashboard = useCallback(async (retryCount = 0) => {
         try {
-            if (!dataRef.current && !isBackground) {
-                setLoading(true);
-            }
-            if (!isBackground) {
-                setError(null);
-            }
+            setLoading(true);
+            setError(null);
 
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
 
@@ -1730,13 +1656,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } catch (err: any) {
             console.error("Dashboard loading error:", err);
 
-            if (!isBackground) {
-                const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
-                setError(errorMessage);
-            }
+            const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
+            setError(errorMessage);
 
             if (retryCount === 0 && err.status >= 500) {
-                setTimeout(() => loadDashboard(1, isBackground), 2000);
+                setTimeout(() => loadDashboard(1), 2000);
                 return;
             }
 
@@ -1745,9 +1669,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 router.push("/login");
             }
         } finally {
-            if (!isBackground) {
-                setLoading(false);
-            }
+            setLoading(false);
         }
     }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
@@ -1765,7 +1687,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'my-resume' && candidateId && !prefetchedSession) {
+        if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
                 try {
                     const token = localStorage.getItem("access_token") || "";
@@ -1799,7 +1721,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions, prefetchedSession]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1817,49 +1739,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     useEffect(() => {
         sessionStorage.removeItem('onboarding_skipped');
-        const mountToken = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
-        const mountSearchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
-        const mountTargetCid = mountSearchCid ? Number(mountSearchCid) : null;
-        const isCached = candidateDashboardCache.data != null &&
-            mountToken != null &&
-            candidateDashboardCache.token === mountToken &&
-            candidateDashboardCache.candidateId != null &&
-            candidateDashboardCache.targetCidNum === mountTargetCid;
-
-        if (isCached) {
-            // Instant render from cache (0ms delay). Revalidate in background!
-            loadDashboard(0, true);
-        } else {
-            // Initial load with loading spinner
-            loadDashboard(0, false);
-        }
-
-        const handleLogout = () => {
-            candidateDashboardCache = {
-                token: null,
-                candidateId: null,
-                targetCidNum: null,
-                data: null,
-                userProfile: null,
-                setupStatus: null,
-                prefetchedSession: null,
-            };
-        };
-        const handleStorage = (e: StorageEvent) => {
-            if (e.key === "logout" || (e.key === "access_token" && !e.newValue)) {
-                handleLogout();
-            }
-        };
-        if (typeof window !== "undefined") {
-            window.addEventListener("wbl-logout", handleLogout);
-            window.addEventListener("storage", handleStorage);
-        }
-        return () => {
-            if (typeof window !== "undefined") {
-                window.removeEventListener("wbl-logout", handleLogout);
-                window.removeEventListener("storage", handleStorage);
-            }
-        };
+        loadDashboard();
     }, []);
 
     if (loading) {
