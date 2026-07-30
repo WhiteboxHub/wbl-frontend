@@ -366,12 +366,14 @@ interface CandidateDashboardProps {
 }
 
 let candidateDashboardCache: {
+    token: string | null;
     candidateId: number | null;
     data: DashboardData | null;
     userProfile: UserProfile | null;
     setupStatus: any;
     prefetchedSession: any;
 } = {
+    token: null,
     candidateId: null,
     data: null,
     userProfile: null,
@@ -407,17 +409,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         window.open(url, '_blank');
     }, []);
 
-    // Module-level in-memory cache for candidate dashboard data across section navigations
+    // Module-level in-memory cache with strict token and candidate ID isolation
+    const currentToken = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
     const searchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
     const targetCidNum = searchCid ? Number(searchCid) : null;
     const hasCachedData = candidateDashboardCache.data != null &&
-        (targetCidNum ? candidateDashboardCache.candidateId === targetCidNum : true);
+        currentToken != null &&
+        candidateDashboardCache.token === currentToken &&
+        candidateDashboardCache.candidateId != null &&
+        (targetCidNum != null ? candidateDashboardCache.candidateId === targetCidNum : true);
 
     const [loading, setLoading] = useState(!hasCachedData);
     const [error, setError] = useState<string | null>(null);
 
-    const [data, setDataState] = useState<DashboardData | null>(candidateDashboardCache.data);
+    const [data, setDataState] = useState<DashboardData | null>(hasCachedData ? candidateDashboardCache.data : null);
     const setData = useCallback((val: any) => {
+        const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
+        candidateDashboardCache.token = token;
         candidateDashboardCache.data = val;
         setDataState(val);
     }, []);
@@ -425,7 +433,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const dataRef = useRef(data);
     dataRef.current = data;
 
-    const [candidateId, setCandidateIdState] = useState<number | null>(candidateDashboardCache.candidateId);
+    const [candidateId, setCandidateIdState] = useState<number | null>(hasCachedData ? candidateDashboardCache.candidateId : null);
     const setCandidateId = useCallback((val: any) => {
         candidateDashboardCache.candidateId = val;
         setCandidateIdState(val);
@@ -1805,10 +1813,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     useEffect(() => {
         sessionStorage.removeItem('onboarding_skipped');
+        const mountToken = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
         const mountSearchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
         const mountTargetCid = mountSearchCid ? Number(mountSearchCid) : null;
         const isCached = candidateDashboardCache.data != null &&
-            (mountTargetCid ? candidateDashboardCache.candidateId === mountTargetCid : true);
+            mountToken != null &&
+            candidateDashboardCache.token === mountToken &&
+            candidateDashboardCache.candidateId != null &&
+            (mountTargetCid != null ? candidateDashboardCache.candidateId === mountTargetCid : true);
 
         if (isCached) {
             // Instant render from cache (0ms delay). Revalidate in background!
@@ -1820,6 +1832,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         const handleLogout = () => {
             candidateDashboardCache = {
+                token: null,
                 candidateId: null,
                 data: null,
                 userProfile: null,
