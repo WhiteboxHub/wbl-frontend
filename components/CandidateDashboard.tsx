@@ -1624,12 +1624,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     }, [setPositionsLoading, setPositions]);
 
-    const loadDashboard = useCallback(async (retryCount = 0) => {
+    const loadDashboard = useCallback(async (retryCount = 0, isBackground = false) => {
         try {
-            if (!dataRef.current) {
+            if (!dataRef.current && !isBackground) {
                 setLoading(true);
             }
-            setError(null);
+            if (!isBackground) {
+                setError(null);
+            }
 
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
 
@@ -1716,11 +1718,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } catch (err: any) {
             console.error("Dashboard loading error:", err);
 
-            const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
-            setError(errorMessage);
+            if (!isBackground) {
+                const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
+                setError(errorMessage);
+            }
 
             if (retryCount === 0 && err.status >= 500) {
-                setTimeout(() => loadDashboard(1), 2000);
+                setTimeout(() => loadDashboard(1, isBackground), 2000);
                 return;
             }
 
@@ -1729,7 +1733,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 router.push("/login");
             }
         } finally {
-            setLoading(false);
+            if (!isBackground) {
+                setLoading(false);
+            }
         }
     }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
@@ -1801,11 +1807,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         sessionStorage.removeItem('onboarding_skipped');
         const mountSearchCid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("candidateId") : null;
         const mountTargetCid = mountSearchCid ? Number(mountSearchCid) : null;
-        const isFresh = candidateDashboardCache.data != null &&
+        const isCached = candidateDashboardCache.data != null &&
             (mountTargetCid ? candidateDashboardCache.candidateId === mountTargetCid : true);
 
-        if (!isFresh) {
-            loadDashboard();
+        if (isCached) {
+            // Instant render from cache (0ms delay). Revalidate in background!
+            loadDashboard(0, true);
+        } else {
+            // Initial load with loading spinner
+            loadDashboard(0, false);
         }
 
         const handleLogout = () => {
