@@ -420,8 +420,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        router.push(`/user_dashboard/${tab}`);
+        const searchString = typeof window !== "undefined" ? window.location.search : "";
+        window.history.pushState(null, "", `/user_dashboard/${tab}${searchString}`);
     };
+
+    useEffect(() => {
+        const handlePopState = () => {
+            if (typeof window !== "undefined") {
+                const pathSegments = window.location.pathname.split("/").filter(Boolean);
+                const tabFromUrl = pathSegments[1] as TabType;
+                if (tabFromUrl) {
+                    setActiveTab(tabFromUrl);
+                }
+            }
+        };
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+    }, []);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
 
