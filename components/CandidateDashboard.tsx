@@ -449,7 +449,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
 
-    const [userProfile, setUserProfileState] = useState<UserProfile | null>(candidateDashboardCache.userProfile);
+    const [userProfile, setUserProfileState] = useState<UserProfile | null>(hasCachedData ? candidateDashboardCache.userProfile : null);
     const setUserProfile = useCallback((val: any) => {
         candidateDashboardCache.userProfile = val;
         setUserProfileState(val);
@@ -484,7 +484,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [sessions, setSessions] = useState<Session[]>([]);
     const [sessionsLoading, setSessionsLoading] = useState(false);
 
-
     // Jobs state
     const [positions, setPositions] = useState<any[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<any[]>([]);
@@ -507,7 +506,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
-    const [setupStatus, setSetupStatusState] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(candidateDashboardCache.setupStatus);
+    const [setupStatus, setSetupStatusState] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(hasCachedData ? candidateDashboardCache.setupStatus : null);
     const setSetupStatus = useCallback((val: any) => {
         candidateDashboardCache.setupStatus = val;
         setSetupStatusState(val);
@@ -515,7 +514,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
 
-    const [prefetchedSession, setPrefetchedSessionState] = useState<{ sessionId: string; summaryData: any } | null>(candidateDashboardCache.prefetchedSession);
+    const [prefetchedSession, setPrefetchedSessionState] = useState<{ sessionId: string; summaryData: any } | null>(hasCachedData ? candidateDashboardCache.prefetchedSession : null);
     const setPrefetchedSession = useCallback((val: any) => {
         candidateDashboardCache.prefetchedSession = val;
         setPrefetchedSessionState(val);
