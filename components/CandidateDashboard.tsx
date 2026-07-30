@@ -1845,17 +1845,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 prefetchedSession: null,
             };
         };
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === "logout" || (e.key === "access_token" && !e.newValue)) {
+                handleLogout();
+            }
+        };
         if (typeof window !== "undefined") {
             window.addEventListener("wbl-logout", handleLogout);
-            window.addEventListener("storage", (e) => {
-                if (e.key === "logout" || (e.key === "access_token" && !e.newValue)) {
-                    handleLogout();
-                }
-            });
+            window.addEventListener("storage", handleStorage);
         }
         return () => {
             if (typeof window !== "undefined") {
                 window.removeEventListener("wbl-logout", handleLogout);
+                window.removeEventListener("storage", handleStorage);
             }
         };
     }, []);
