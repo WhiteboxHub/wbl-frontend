@@ -17,8 +17,8 @@ export default defineConfig({
   // 120 s per test — enough for slow grid loads; individual tests can override
   timeout: 120 * 1000,
 
-  // Fully sequential: grids depend on login state, parallel breaks auth flow
-  fullyParallel: false,
+  // Enable parallel execution now that authentication is decoupled and cached
+  fullyParallel: true,
 
   // Fail fast in CI if someone accidentally left test.only() in the code
   forbidOnly: isCI,
@@ -26,7 +26,8 @@ export default defineConfig({
   // No retries — a flaky grid test should surface immediately
   retries: 0,
 
-  workers: 1,
+  // Run tests in parallel: limit to 2 workers in CI, use default locally
+  workers: isCI ? 2 : undefined,
 
   reporter: [["list"], ["html"]],
 
@@ -47,19 +48,24 @@ export default defineConfig({
   },
 
   projects: [
+    // Setup project to authenticate once and save storage state
+    {
+      name: "setup",
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Main testing project using the saved storage state
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
     },
   ],
 
-  // Only spin up the dev server locally (not in CI where Docker provides it)
-  webServer: !isCI
-    ? {
-        command: "npm run dev",
-        url: baseURL,
-        reuseExistingServer: true,
-        timeout: 120 * 1000,
-      }
-    : undefined,
+  // Automatically start and stop the Next.js server for testing
+  webServer: {
+    command: isCI ? "npm run start" : "npm run dev",
+    url: baseURL,
+    reuseExistingServer: !isCI,
+    timeout: 120 * 1000,
+  },
 });

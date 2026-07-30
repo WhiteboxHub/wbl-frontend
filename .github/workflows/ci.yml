@@ -43,17 +43,29 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Reverting to npm install because Windows-generated package-lock.json causes npm ci to fail on Linux runners
         run: npm install
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+      - name: Cache Playwright Binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright Browsers & Deps
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            npx playwright install --with-deps chromium
+          else
+            npx playwright install-deps chromium
+          fi
+        shell: bash
+
+      - name: Build Next.js
+        run: npm run build
 
       - name: Run Playwright Grid Regression
-        run: |
-          npm run dev &
-          npx wait-on http://localhost:3000 --timeout 120000
-          npx playwright test
+        run: npx playwright test
         env:
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
@@ -70,3 +82,6 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+
+

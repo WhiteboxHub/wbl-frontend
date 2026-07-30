@@ -37,3 +37,6 @@ frontend-env.yaml
 tsconfig.tsbuildinfo
 
 Dockerfile.dev
+
+# Playwright authentication storage
+/.auth
