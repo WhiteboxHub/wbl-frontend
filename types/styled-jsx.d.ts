@@ -2,7 +2,7 @@ import 'react';
 
 declare module 'react' {
   interface StyleHTMLAttributes<T> extends React.HTMLAttributes<T> {
-    jsx?: boolean | string;
-    global?: boolean | string;
+    jsx?: boolean;
+    global?: boolean;
   }
 }
