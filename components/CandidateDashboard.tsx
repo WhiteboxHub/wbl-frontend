@@ -1645,8 +1645,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             let isWithin24Hours = false;
             if (status === 'P' && onboardingSubmittedAt) {
-                // Force interpretation as UTC by adding 'Z' if not present
-                const utcString = onboardingSubmittedAt.endsWith('Z') ? onboardingSubmittedAt : onboardingSubmittedAt + 'Z';
+                // Force interpretation as UTC by adding 'Z' if not present (checking for existing Z or timezone offset)
+                const utcString = /Z|[+-]\d{2}(:\d{2})?$/.test(onboardingSubmittedAt) ? onboardingSubmittedAt : onboardingSubmittedAt + 'Z';
                 const submittedDate = new Date(utcString);
                 const now = new Date();
                 const diffInMs = now.getTime() - submittedDate.getTime();

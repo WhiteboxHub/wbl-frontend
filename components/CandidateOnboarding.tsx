@@ -35,8 +35,8 @@ export default function CandidateOnboarding({
 
     const isWithin24Hours = (() => {
         if (currentAgreementStatus === 'P' && onboardingDocSubmittedAt) {
-            // Force interpretation as UTC by adding 'Z' if not present
-            const utcString = onboardingDocSubmittedAt.endsWith('Z') ? onboardingDocSubmittedAt : onboardingDocSubmittedAt + 'Z';
+            // Force interpretation as UTC by adding 'Z' if not present (checking for existing Z or timezone offset)
+            const utcString = /Z|[+-]\d{2}(:\d{2})?$/.test(onboardingDocSubmittedAt) ? onboardingDocSubmittedAt : onboardingDocSubmittedAt + 'Z';
             const submittedDate = new Date(utcString);
             const now = new Date();
             const diffInMs = now.getTime() - submittedDate.getTime();
@@ -51,6 +51,11 @@ export default function CandidateOnboarding({
     const [isPendingApproval, setIsPendingApproval] = useState(
         currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours
     );
+
+    // Sync state with props changes to prevent stale UI
+    useEffect(() => {
+        setIsPendingApproval(currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours);
+    }, [currentAgreementStatus, initialHasMissingFields, isWithin24Hours]);
 
     // Step 1 State
     const [profile, setProfile] = useState<any>({
