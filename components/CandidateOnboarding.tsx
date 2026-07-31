@@ -19,6 +19,7 @@ interface CandidateOnboardingProps {
     currentAgreementStatus?: string;
     initialHasMissingFields?: boolean;
     onboardingDocSubmittedAt?: string | null;
+    serverTime?: string | null;
 }
 
 export default function CandidateOnboarding({
@@ -28,7 +29,8 @@ export default function CandidateOnboarding({
     loginCount = 0,
     currentAgreementStatus,
     initialHasMissingFields = true,
-    onboardingDocSubmittedAt = null
+    onboardingDocSubmittedAt = null,
+    serverTime = null
 }: CandidateOnboardingProps) {
 
 
@@ -38,7 +40,7 @@ export default function CandidateOnboarding({
             // Force interpretation as UTC by adding 'Z' if not present (checking for existing Z or timezone offset)
             const utcString = /Z|[+-]\d{2}(:\d{2})?$/.test(onboardingDocSubmittedAt) ? onboardingDocSubmittedAt : onboardingDocSubmittedAt + 'Z';
             const submittedDate = new Date(utcString);
-            const now = new Date();
+            const now = serverTime ? new Date(serverTime) : new Date();
             const diffInMs = now.getTime() - submittedDate.getTime();
             return diffInMs >= 0 && diffInMs < 24 * 60 * 60 * 1000;
         }
@@ -46,16 +48,15 @@ export default function CandidateOnboarding({
     })();
 
 
+
     const [step, setStep] = useState(initialHasMissingFields ? 1 : 2);
     const [loading, setLoading] = useState(false);
-    const [isPendingApproval, setIsPendingApproval] = useState(
+    const [isProfileSaved, setIsProfileSaved] = useState(false);
+
+    const isPendingApproval = isProfileSaved || (
         currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours
     );
 
-    // Sync state with props changes to prevent stale UI
-    useEffect(() => {
-        setIsPendingApproval(currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours);
-    }, [currentAgreementStatus, initialHasMissingFields, isWithin24Hours, setIsPendingApproval]);
 
 
     // Step 1 State
@@ -232,7 +233,7 @@ export default function CandidateOnboarding({
 
             toast.success("Profile details saved successfully");
             if (currentAgreementStatus === 'P') {
-                setIsPendingApproval(true);
+                setIsProfileSaved(true);
             } else {
                 setStep(profile.enrollment_status === 'completed' ? 3 : 2);
             }

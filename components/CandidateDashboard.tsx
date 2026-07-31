@@ -473,6 +473,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
+    const [serverTime, setServerTime] = useState<string | null>(null);
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
@@ -1643,16 +1644,30 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
 
+                        // Fetch server time to prevent client clock skew
+            let now = new Date();
+            let serverTimeStr: string | null = null;
+            try {
+                const timeData = await apiFetch('candidates/server-time');
+                if (timeData?.server_time) {
+                    serverTimeStr = timeData.server_time;
+                    setServerTime(serverTimeStr);
+                    now = new Date(serverTimeStr);
+                }
+            } catch (err) {
+                console.error("Failed to sync server time, falling back to local clock:", err);
+            }
+
             let isWithin24Hours = false;
             if (status === 'P' && onboardingSubmittedAt) {
                 // Force interpretation as UTC by adding 'Z' if not present (checking for existing Z or timezone offset)
                 const utcString = /Z|[+-]\d{2}(:\d{2})?$/.test(onboardingSubmittedAt) ? onboardingSubmittedAt : onboardingSubmittedAt + 'Z';
                 const submittedDate = new Date(utcString);
-                const now = new Date();
                 const diffInMs = now.getTime() - submittedDate.getTime();
                 const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
                 isWithin24Hours = diffInMs >= 0 && diffInMs < twentyFourHoursInMs;
             }
+
 
 
 
@@ -1709,7 +1724,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError,setServerTime]);
 
     useEffect(() => {
         if (data) {
@@ -1822,6 +1837,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 currentAgreementStatus={agreementStatus || 'N'}
                 initialHasMissingFields={hasMissingFields}
                 onboardingDocSubmittedAt={onboardingDocSubmittedAt}
+                serverTime={serverTime}
                 onComplete={() => {
 
                     localStorage.setItem('onboarding_completed', 'true');
