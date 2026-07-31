@@ -84,21 +84,25 @@ export async function smartLogin(page: Page, role: "admin" | "candidate") {
   // --- API health preflight check ---
   // Verify the backend is reachable before we attempt to log in, so we get a
   // clear diagnostic instead of the generic "An error occurred during login".
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-  console.log(`[smartLogin] Checking backend reachability at ${apiUrl} ...`);
-  try {
-    const healthRes = await page.request.get(apiUrl.replace(/\/api$/, "/"), {
-      timeout: 10000,
-    });
-    console.log(
-      `[smartLogin] Backend responded with status ${healthRes.status()}.`,
-    );
-  } catch (err) {
-    throw new Error(
-      `[smartLogin] Cannot reach the backend API at ${apiUrl}. ` +
-        `Make sure the backend server is running before executing tests. ` +
-        `Original error: ${err}`,
-    );
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    console.log(`[smartLogin] NEXT_PUBLIC_API_URL not set — skipping backend health check.`);
+  } else {
+    console.log(`[smartLogin] Checking backend reachability...`);
+    try {
+      const healthRes = await page.request.get(apiUrl.replace(/\/api$/, "/"), {
+        timeout: 10000,
+      });
+      console.log(
+        `[smartLogin] Backend responded with status ${healthRes.status()}.`,
+      );
+    } catch (err) {
+      throw new Error(
+        `[smartLogin] Cannot reach the backend API. ` +
+          `Make sure the backend server is running and NEXT_PUBLIC_API_URL is set correctly. ` +
+          `Original error: ${err}`,
+      );
+    }
   }
   // --- end preflight check ---
 
