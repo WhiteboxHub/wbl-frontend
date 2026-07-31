@@ -3195,12 +3195,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             </div>
                                         )}
 
-                                        <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800" style={{ height: '380px' }}>
+                                        <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 flex-1 min-h-[500px]" style={{ height: 'calc(100vh - 180px)' }}>
                                             <CandidateGrid
                                                 rowData={filteredPositions}
                                                 columnDefs={jobColumnDefs}
                                                 loading={positionsLoading}
-                                                height="380px"
+                                                height="100%"
                                                 paginationPageSize={100}
                                                 enableMultiSelection={true}
                                                 selectedJobIds={selectedJobIds}
