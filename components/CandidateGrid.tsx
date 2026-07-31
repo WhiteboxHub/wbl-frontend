@@ -105,8 +105,8 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                     {...(suppressClientPagination
                         ? {}
                         : {
-                            paginationPageSize,
-                            paginationPageSizeSelector: [10, 25, 50, 100],
+                            paginationPageSize: paginationPageSize && paginationPageSize !== 100 ? paginationPageSize : 25,
+                            paginationPageSizeSelector: [25, 50, 100],
                         })}
                     animateRows={true}
                     rowHeight={rowHeight}
