@@ -3083,7 +3083,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 {activeTab === 'job-board' && (
                                     <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-6 pb-8 w-full min-h-0">
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between mb-4 w-full">
-                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                                            <div className="relative w-full sm:w-[320px]">
+                                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                                <Input
+                                                    id="job-search"
+                                                    type="text"
+                                                    value={jobSearchTerm}
+                                                    placeholder="Search by title, company, location..."
+                                                    onChange={(e) => setJobSearchTerm(e.target.value)}
+                                                    className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-xl"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
                                                 <select
                                                     value={selectedAts[0] || 'All'}
                                                     onChange={(e) => {
@@ -3097,20 +3109,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <option key={ats.id} value={ats.id}>{ats.name}</option>
                                                     ))}
                                                 </select>
-                                                <div className="relative w-full sm:w-[320px]">
-                                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                                    <Input
-                                                        id="job-search"
-                                                        type="text"
-                                                        value={jobSearchTerm}
-                                                        placeholder="Search by title, company, location..."
-                                                        onChange={(e) => setJobSearchTerm(e.target.value)}
-                                                        className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-xl"
-                                                    />
-                                                </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-3">
                                                 <button
                                                     type="button"
                                                     disabled={filteredPositions.length === 0}
@@ -3201,7 +3200,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 columnDefs={jobColumnDefs}
                                                 loading={positionsLoading}
                                                 height="100%"
-                                                paginationPageSize={25}
+                                                paginationPageSize={100}
                                                 enableMultiSelection={true}
                                                 selectedJobIds={selectedJobIds}
                                                 onRowClicked={handleRowToggle}
