@@ -55,7 +55,8 @@ export default function CandidateOnboarding({
     // Sync state with props changes to prevent stale UI
     useEffect(() => {
         setIsPendingApproval(currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours);
-    }, [currentAgreementStatus, initialHasMissingFields, isWithin24Hours]);
+    }, [currentAgreementStatus, initialHasMissingFields, isWithin24Hours, setIsPendingApproval]);
+
 
     // Step 1 State
     const [profile, setProfile] = useState<any>({
