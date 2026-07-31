@@ -11,7 +11,10 @@ import {
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+if (typeof window !== 'undefined') {
+    ModuleRegistry.registerModules([AllCommunityModule]);
+}
+
 
 interface CandidateGridProps {
     rowData: any[];
@@ -22,6 +25,8 @@ interface CandidateGridProps {
     rowHeight?: number;
     /** When true, disables AG Grid client pagination (use with server-backed pages). */
     suppressClientPagination?: boolean;
+    enableMultiSelection?: boolean;
+    selectedJobIds?: Set<number | string>;
     onGridReady?: (params: GridReadyEvent) => void;
     onSelectionChanged?: (selectedRows: any[]) => void;
     onRowClicked?: (data: any) => void;
@@ -36,6 +41,8 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     paginationPageSize = 100,
     rowHeight = 48,
     suppressClientPagination = false,
+    enableMultiSelection = true,
+    selectedJobIds,
     onGridReady,
     components,
     onSelectionChanged,
@@ -58,6 +65,13 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
         return () => observer.disconnect();
     }, []);
 
+    // Refresh grid cells when selectedJobIds changes
+    useEffect(() => {
+        if (gridRef.current?.api) {
+            gridRef.current.api.refreshCells({ force: true });
+        }
+    }, [selectedJobIds]);
+
     return (
         <div className="w-full h-full flex flex-col min-h-0">
             <div
@@ -77,11 +91,14 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                         },
                         cellClass: "custom-cell-style",
                     }}
+                    rowClassRules={{
+                        'ag-row-selected': (params) => {
+                            if (!selectedJobIds || !params.data) return false;
+                            const id = params.data.id ?? params.data._id;
+                            return selectedJobIds.has(id);
+                        }
+                    }}
                     loading={loading}
-                    // When the parent paginates server-side (e.g. CandidateDashboard Jobs tab)
-                    // we MUST disable AG Grid's own pagination AND hide the panel — otherwise
-                    // some AG Grid versions still render the "1 to N of M · Page X of Y"
-                    // panel at the bottom even with pagination={false}.
                     pagination={!suppressClientPagination}
                     suppressPaginationPanel={suppressClientPagination}
                     paginationAutoPageSize={false}
@@ -95,20 +112,9 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                     rowHeight={rowHeight}
                     theme="legacy"
                     onGridReady={onGridReady}
-                    rowSelection={{
-                        mode: "singleRow",
-                        enableClickSelection: true,
-                        checkboxes: false,
-                    }}
+                    suppressCellFocus={true}
                     getRowId={(params) => params.data.id?.toString() || params.data._id?.toString()}
-                    suppressRowDeselection={true}
-                    onSelectionChanged={(e) => {
-                        const rows = e.api.getSelectedRows();
-                        onSelectionChanged?.(rows);
-                    }}
                     onRowClicked={(e) => {
-                        e.node.setSelected(true);
-                        onSelectionChanged?.([e.data]);
                         onRowClicked?.(e.data);
                     }}
                     components={components}

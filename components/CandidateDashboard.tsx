@@ -11,6 +11,7 @@ import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
 import { normalizeResume } from "@/utils/resumeNormalizer";
 import { validateResumeStructure } from "@/utils/resumeValidator";
 import AiSetupTab from "./setup/AiSetupTab";
+import { SUPPORTED_ATS_LIST, detectAtsSystem } from "@/utils/atsDetector";
 import {
     Mail,
     Upload,
@@ -35,6 +36,7 @@ import {
     Video,
     Check,
     ChevronRight,
+    ChevronDown,
     LogOut,
     Settings,
     LayoutDashboard,
@@ -78,16 +80,26 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/admin_ui/dropdown-menu";
+import dynamic from "next/dynamic";
 import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { TimePicker } from "@/components/admin_ui/TimePicker";
 import { useAuth } from "@/utils/AuthContext";
-import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
-import { ColDef, ValueFormatterParams } from "ag-grid-community";
+import type { ColDef, ValueFormatterParams } from "ag-grid-community";
+
+const CandidateGrid = dynamic(() => import("./CandidateGrid"), {
+    ssr: false,
+    loading: () => (
+        <div className="flex items-center justify-center p-12 text-gray-500 font-medium">
+            Loading Job Board Grid...
+        </div>
+    )
+});
+
 
 interface DashboardData {
     basic_info: {
@@ -393,6 +405,155 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         window.open(url, '_blank');
     }, []);
 
+    // Ref so handleApplyQueue (declared early) can access prefetchedSession
+    // without a temporal dead-zone error (prefetchedSession state is declared later).
+    const prefetchedSessionRef = useRef<{ sessionId: string; summaryData: any } | null>(null);
+
+    const handleApplyQueue = useCallback((targetJobs: any[]) => {
+        const ts = () => new Date().toISOString().substring(11, 23);
+        console.log(`[${ts()}] CandidateDashboard.handleApplyQueue() | Jobs = ${targetJobs?.length || 0}`);
+        if (!targetJobs || targetJobs.length === 0) {
+            toast.error("No jobs selected to apply.");
+            return;
+        }
+
+        const openedUrls = new Set<string>();
+        const validJobsToOpen: { id: any; url: string; title: string; company: string; ats: string; source_job_id?: string; source_uid?: string; source?: string }[] = [];
+
+        targetJobs.forEach(j => {
+            const rawJobId = j.source_job_id || j.source_uid;
+            const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
+            const source = j.source?.toLowerCase() || "";
+            let rawUrl = j.job_url ||
+                (jobId ? (source.includes('trueup')
+                    ? `https://trueup.io/jobs/${jobId}`
+                    : source.includes('hiring') || source.includes('cafe')
+                        ? `https://hiring.cafe/viewjob/${jobId}`
+                        : source.includes('jobright')
+                            ? `https://jobright.ai/jobs/info/${jobId}`
+                            : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
+
+            if (rawUrl && typeof rawUrl === 'string') {
+                rawUrl = rawUrl.trim();
+                if (rawUrl.length > 0) {
+                    if (!/^https?:\/\//i.test(rawUrl)) rawUrl = `https://${rawUrl}`;
+                    if (!openedUrls.has(rawUrl)) {
+                        openedUrls.add(rawUrl);
+                        validJobsToOpen.push({
+                            id: j.id,
+                            url: rawUrl,
+                            title: j.title || 'Job Listing',
+                            company: j.company_name || 'Company',
+                            ats: detectAtsSystem(j),
+                            source_job_id: j.source_job_id,
+                            source_uid: j.source_uid,
+                            source: j.source,
+                        });
+                    }
+                }
+            }
+        });
+
+        if (validJobsToOpen.length === 0) {
+            toast.error("No valid job links found in the selected jobs.");
+            return;
+        }
+
+        // ── Open ALL selected job tabs synchronously (Job #1 opened last so it stays active) ──
+        let blockedCount = 0;
+        validJobsToOpen.slice().reverse().forEach((job) => {
+            try {
+                const w = window.open(job.url, '_blank');
+                if (!w || w.closed || typeof w.closed === 'undefined') {
+                    blockedCount++;
+                }
+            } catch (err) {
+                blockedCount++;
+                console.error(`[handleApplyQueue] Failed to open tab for job ${job.id} (${job.url}):`, err);
+            }
+        });
+
+        // If Chrome blocked popups, show the guide
+        if (blockedCount === validJobsToOpen.length && validJobsToOpen.length > 0) {
+            setPopupsBlocked(true);
+            toast.error('Popups are blocked! See the guide below to allow them for this site.');
+            return;
+        }
+        if (blockedCount > 0) {
+            setPopupsBlocked(true);
+        } else {
+            setPopupsBlocked(false);
+        }
+
+        toast.success(
+            validJobsToOpen.length === 1
+                ? `Opening 1 job application tab.`
+                : `Opening ${validJobsToOpen.length} job application tabs simultaneously.`
+        );
+
+        // Clear checkbox selection
+        setSelectedJobIds(new Set());
+    }, []);
+
+    const handleOpenSelectedJobs = useCallback((targetJobs: any[]) => {
+        if (!targetJobs || targetJobs.length === 0) {
+            toast.error("No jobs selected to open.");
+            return;
+        }
+
+        const openedUrls = new Set<string>();
+        const validJobsToOpen: { id: any; url: string; title: string; company: string }[] = [];
+
+        targetJobs.forEach(j => {
+            const rawJobId = j.source_job_id || j.source_uid;
+            const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
+            const source = j.source?.toLowerCase() || "";
+            let url = j.job_url ||
+                (jobId ? (source.includes('trueup')
+                    ? `https://trueup.io/jobs/${jobId}`
+                    : source.includes('hiring') || source.includes('cafe')
+                        ? `https://hiring.cafe/viewjob/${jobId}`
+                        : source.includes('jobright')
+                            ? `https://jobright.ai/jobs/info/${jobId}`
+                            : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
+
+            if (url && typeof url === 'string') {
+                url = url.trim();
+                if (url.length > 0) {
+                    if (!/^https?:\/\//i.test(url)) {
+                        url = `https://${url}`;
+                    }
+                    if (!openedUrls.has(url)) {
+                        openedUrls.add(url);
+                        validJobsToOpen.push({
+                            id: j.id,
+                            url: url,
+                            title: j.title || 'Job Listing',
+                            company: j.company_name || 'Company'
+                        });
+                    }
+                }
+            }
+        });
+
+        if (validJobsToOpen.length === 0) {
+            toast.error("No valid job links found in the selected jobs.");
+            return;
+        }
+
+        toast.success(`Opening ${validJobsToOpen.length} selected job link(s)...`);
+
+        // Open in reverse sequence so Job #1 is opened last and stays in focus
+        validJobsToOpen.slice().reverse().forEach((job) => {
+            try {
+                window.open(job.url, '_blank');
+            } catch (err) {
+                console.error(`Failed to open tab for job ID ${job.id} (${job.url}):`, err);
+            }
+        });
+    }, []);
+
+
     // ----------------------------
 
     // ----------------------------
@@ -433,10 +594,146 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     // Jobs state
     const [positions, setPositions] = useState<any[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<any[]>([]);
+
+    // Job Board Statistics Calculations
+    const totalJobsCount = positions.length;
+    const appliedJobsCount = useMemo(() => {
+        return positions.filter(p => {
+            const s = (p.status || '').toLowerCase();
+            return s === 'submitted' || s === 'applied';
+        }).length;
+    }, [positions]);
+    const remainingJobsCount = useMemo(() => {
+        return Math.max(0, totalJobsCount - appliedJobsCount);
+    }, [totalJobsCount, appliedJobsCount]);
     const [positionsLoading, setPositionsLoading] = useState(false);
     const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+    const [selectedAts, setSelectedAts] = useState<string[]>([]);
+    const [selectedJobIds, setSelectedJobIds] = useState<Set<number | string>>(new Set());
+
+    // Apply queue progress tracking
+    const [applyQueueInProgress, setApplyQueueInProgress] = useState(false);
+    const [applyQueueTotal, setApplyQueueTotal] = useState(0);
+    const [applyQueueCompleted, setApplyQueueCompleted] = useState(0);
+    const [popupsBlocked, setPopupsBlocked] = useState(false);
+
+    const selectedJobs = useMemo(() => {
+        return positions.filter(p => selectedJobIds.has(p.id));
+    }, [positions, selectedJobIds]);
+
+    const handleRowToggle = useCallback((jobData: any) => {
+        if (!jobData || !jobData.id) return;
+        setSelectedJobIds(prev => {
+            const next = new Set(prev);
+            if (next.has(jobData.id)) {
+                next.delete(jobData.id);
+            } else {
+                next.add(jobData.id);
+            }
+            return next;
+        });
+    }, []);
+
+    const markJobAsApplied = useCallback(async (jobId: string | number) => {
+        if (!jobId) return;
+        const idStr = String(jobId);
+
+        // 1. Immediately update local React state for instantaneous UI sync (0ms delay)
+        setPositions(prev => prev.map(p => {
+            const pId = String(p.id ?? '');
+            const pSourceJobId = String(p.source_job_id ?? '');
+            const pSourceUid = String(p.source_uid ?? '');
+            if (pId === idStr || pSourceJobId === idStr || pSourceUid === idStr) {
+                return { ...p, status: 'submitted' };
+            }
+            return p;
+        }));
+
+        // 2. Clear from selection set if present
+        setSelectedJobIds(prev => {
+            const next = new Set(prev);
+            next.delete(Number(jobId));
+            next.delete(idStr);
+            return next;
+        });
+
+        // 3. Persist to Backend API in background
+        try {
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+            const targetPos = positions.find(p => String(p.id) === idStr || String(p.source_job_id) === idStr || String(p.source_uid) === idStr);
+            const numId = targetPos?.id || (typeof jobId === 'number' ? jobId : parseInt(idStr, 10));
+
+            if (numId && !isNaN(numId)) {
+                await apiFetch(`positions/${numId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ status: "submitted" })
+                });
+                if (process.env.NODE_ENV === 'development') {
+                    console.log(`[CandidateDashboard] Persistent DB status updated to 'submitted' for job #${numId}`);
+                }
+            }
+        } catch (err) {
+            console.error(`[CandidateDashboard] Failed to persist job #${jobId} status to DB:`, err);
+        }
+    }, [positions]);
+
+    // Listen for confirmed successful job submissions from extension
+    useEffect(() => {
+        const handleExtensionMessage = (event: MessageEvent) => {
+            if (!event.data || typeof event.data !== 'object') return;
+            const { type, action, jobId, status } = event.data;
+
+            const isAppliedEvent =
+                type === 'WBL_JOB_APPLIED_SUCCESS' ||
+                action === 'WBL_JOB_APPLIED_SUCCESS' ||
+                (type === 'WBL_JOB_STATUS_UPDATE' && (status === 'submitted' || status === 'applied'));
+
+            if (isAppliedEvent) {
+                const targetId = jobId || event.data.id;
+                if (targetId) {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('[CandidateDashboard] Received confirmed submission event for job:', targetId);
+                    }
+                    markJobAsApplied(targetId);
+                }
+                // Increment progress counter
+                setApplyQueueCompleted(prev => {
+                    const next = prev + 1;
+                    // Auto-close progress when all done
+                    setApplyQueueTotal(total => {
+                        if (total > 0 && next >= total) {
+                            setTimeout(() => {
+                                setApplyQueueInProgress(false);
+                                setApplyQueueCompleted(0);
+                                setApplyQueueTotal(0);
+                            }, 3000);
+                        }
+                        return total;
+                    });
+                    return next;
+                });
+            }
+
+            // Extension signals completion of entire queue
+            if (type === 'WBL_APPLY_QUEUE_COMPLETE' || type === 'WBL_PARALLEL_APPLY_DONE') {
+                setTimeout(() => {
+                    setApplyQueueInProgress(false);
+                    setApplyQueueCompleted(0);
+                    setApplyQueueTotal(0);
+                }, 2500);
+            }
+        };
+
+        window.addEventListener('message', handleExtensionMessage);
+        return () => window.removeEventListener('message', handleExtensionMessage);
+    }, [markJobAsApplied]);
+
     const [jobSearchTerm, setJobSearchTerm] = useState("");
     const [showAddInterview, setShowAddInterview] = useState(false);
     const [addInterviewForm, setAddInterviewForm] = useState({
@@ -456,6 +753,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
+
+    // Keep prefetchedSessionRef in sync with state so handleApplyQueue (declared earlier)
+    // can always read the latest value without a closure/TDZ issue.
+    useEffect(() => {
+        prefetchedSessionRef.current = prefetchedSession;
+    }, [prefetchedSession]);
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
@@ -1082,14 +1385,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                 if (!url) {
                     return (
-                        <div className="flex items-center h-full">
-                            <span className="font-semibold text-gray-800 dark:text-gray-200">{params.value}</span>
+                        <div className="flex items-center h-full truncate">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200 truncate">{params.value}</span>
                         </div>
                     );
                 }
 
                 return (
-                    <div className="flex items-center h-full">
+                    <div className="flex items-center h-full truncate">
                         <a
                             href={url}
                             target="_blank"
@@ -1098,10 +1401,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 e.preventDefault();
                                 handleJobClick(params.data.id, url);
                             }}
-                            className="font-semibold text-blue-600 hover:text-blue-800 hover:underline decoration-blue-400 group flex items-center gap-1.5"
+                            className="font-semibold text-blue-600 hover:text-blue-800 hover:underline decoration-blue-400 group flex items-center gap-1.5 truncate"
                         >
-                            <span>{params.value}</span>
-                            <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="truncate">{params.value}</span>
+                            <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                         </a>
                     </div>
                 );
@@ -1242,12 +1545,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         },
         {
             headerName: "Apply",
-            width: 100,
+            width: 120,
             cellRenderer: (params: any) => {
                 const rawJobId = params.data.source_job_id || params.data.source_uid;
                 const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
-                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
-
                 const source = params.data.source?.toLowerCase() || "";
                 const url = params.data.job_url ||
                     (jobId ? (source.includes('trueup')
@@ -1258,29 +1559,49 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 ? `https://jobright.ai/jobs/info/${jobId}`
                                 : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
 
+                const isSelected = params.data?.id ? selectedJobIds.has(params.data.id) : false;
+
                 return (
-                    <div className="flex items-center h-full">
-                        <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                handleJobClick(params.data.id, url);
-                            }}
-                            className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
-                        >
-                            <span>Apply</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
+                    <div className="flex items-center justify-between h-full w-full pr-1">
+                        {url ? (
+                            <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleJobClick(params.data.id, url);
+                                }}
+                                className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
+                            >
+                                <span>Apply</span>
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                        ) : (
+                            <span className="text-gray-400">-</span>
+                        )}
+
+                        {isSelected && (
+                            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 dark:bg-blue-500 text-white text-[10px] font-extrabold flex-shrink-0 shadow-sm animate-in fade-in zoom-in-75 duration-150 ml-auto">
+                                ✓
+                            </span>
+                        )}
                     </div>
                 );
             }
         },
-    ], [selectedModes, selectedStatuses, selectedTypes]);
+    ], [selectedModes, selectedStatuses, selectedTypes, selectedJobIds]);
 
     useEffect(() => {
         let filtered = [...positions];
+
+        // Hide Applied & Submitted jobs by default (Only show New, Pending, Failed, Manual Review)
+        if (selectedStatuses.length === 0 || (!selectedStatuses.includes('Submitted') && !selectedStatuses.includes('Applied'))) {
+            filtered = filtered.filter(p => {
+                const s = (p.status || '').toLowerCase();
+                return s !== 'submitted' && s !== 'applied';
+            });
+        }
 
         // Apply Mode Filter — empty means 'All'
         if (selectedModes.length > 0 && !selectedModes.includes('All')) {
@@ -1303,7 +1624,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             );
         }
 
-        // Apply Source Filter
+        // Apply ATS Filter
+        if (selectedAts.length > 0 && !selectedAts.includes('All')) {
+            filtered = filtered.filter(p => {
+                const detected = detectAtsSystem(p);
+                return selectedAts.some(a => a.toLowerCase() === detected.toLowerCase());
+            });
+        }
 
         // Apply Search Term Filter
         if (jobSearchTerm.trim() !== "") {
@@ -1316,7 +1643,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
 
         setFilteredPositions(filtered);
-    }, [positions, selectedModes, selectedStatuses, selectedTypes, jobSearchTerm]);
+    }, [positions, selectedModes, selectedStatuses, selectedTypes, selectedAts, jobSearchTerm]);
 
     const handleAddInterview = async () => {
         const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview, position_title, job_description } = addInterviewForm;
@@ -1530,7 +1857,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-            const posData = await apiFetch("positions/?limit=500", {
+            const posData = await apiFetch("positions/?limit=5000", {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -2761,10 +3088,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                                 </div>
                                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                    Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
+                                                    Jobs
                                                 </h2>
                                             </div>
                                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                                                <select
+                                                    value={selectedAts[0] || 'All'}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setSelectedAts(val === 'All' ? [] : [val]);
+                                                    }}
+                                                    className="h-10 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-semibold rounded-xl text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-blue-500/20"
+                                                >
+                                                    <option value="All">All ATS Platforms</option>
+                                                    {SUPPORTED_ATS_LIST.map(ats => (
+                                                        <option key={ats.id} value={ats.id}>{ats.name}</option>
+                                                    ))}
+                                                </select>
                                                 <div className="relative w-full sm:w-[320px]">
                                                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                                     <Input
@@ -2777,8 +3117,149 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     />
                                                 </div>
                                             </div>
-
                                         </div>
+
+
+
+                                        {/* Bulk Selection Controls Bar */}
+                                        <div className="flex flex-wrap items-center justify-between gap-3 mb-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedJobIds(new Set(filteredPositions.map(p => p.id)))}
+                                                    className="px-3 py-1.5 text-xs font-bold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                >
+                                                    Select All Filtered ({filteredPositions.length})
+                                                </button>
+                                                {selectedJobIds.size > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedJobIds(new Set())}
+                                                        className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                                                    >
+                                                        Deselect All
+                                                    </button>
+                                                )}
+                                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 ml-2">
+                                                    {selectedJobIds.size} selected
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            disabled={selectedJobIds.size === 0}
+                                                            className="px-4 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+                                                        >
+                                                            <span>Actions</span>
+                                                            <ChevronDown className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleOpenSelectedJobs(selectedJobs)}
+                                                            className="px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer flex items-center gap-2"
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5" />
+                                                            <span>Open</span>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={selectedJobIds.size === 0}
+                                                    onClick={() => handleApplyQueue(selectedJobs)}
+                                                    className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all"
+                                                >
+                                                    Apply Selected ({selectedJobIds.size})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={filteredPositions.length === 0}
+                                                    onClick={() => handleApplyQueue(filteredPositions)}
+                                                    className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all"
+                                                >
+                                                    Apply All ({filteredPositions.length})
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Popup Blocker Warning & Guide Banner */}
+                                        {popupsBlocked && (
+                                            <div className="flex items-start justify-between gap-3 mb-3 p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl text-amber-900 dark:text-amber-200 shadow-sm">
+                                                <div className="flex items-start gap-3 min-w-0">
+                                                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                                                    <div className="space-y-1 text-xs">
+                                                        <p className="font-bold text-sm text-amber-900 dark:text-amber-100">
+                                                            Pop-ups are blocked by Chrome!
+                                                        </p>
+                                                        <p className="text-amber-800 dark:text-amber-300">
+                                                            Chrome prevented job tabs from opening. Follow these 2 quick steps to fix it:
+                                                        </p>
+                                                        <ol className="list-decimal list-inside space-y-1 font-medium mt-1 text-amber-950 dark:text-amber-200">
+                                                            <li>Look at the Chrome address bar at top right for the <strong>Pop-up blocked icon (🚫)</strong>.</li>
+                                                            <li>Click the icon, select <strong>&quot;Always allow pop-ups and redirects from http://localhost:3000&quot;</strong>, then click <strong>Done</strong>.</li>
+                                                        </ol>
+                                                        <p className="text-[11px] text-amber-700 dark:text-amber-400 pt-1">
+                                                            Once allowed, click <strong>Apply All</strong> again and all job tabs will open simultaneously!
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPopupsBlocked(false)}
+                                                    className="p-1 rounded-lg text-amber-500 hover:text-amber-800 dark:hover:text-amber-100 hover:bg-amber-200/50 transition-colors flex-shrink-0"
+                                                    title="Dismiss guide"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* TalentScreen Autofill Progress Banner */}
+                                        {applyQueueInProgress && (
+                                            <div className="flex items-center justify-between gap-3 mb-3 px-4 py-3 bg-gradient-to-r from-purple-600/10 to-blue-600/10 border border-purple-200 dark:border-purple-800/50 rounded-xl">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="relative flex-shrink-0">
+                                                        <Loader2 className="w-4 h-4 text-purple-500 animate-spin" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-purple-700 dark:text-purple-300 truncate">
+                                                            TalentScreen Autofill In Progress
+                                                        </p>
+                                                        <p className="text-[11px] text-purple-500 dark:text-purple-400 mt-0.5">
+                                                            Filling job applications one by one across open tabs...
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3 flex-shrink-0">
+                                                    {/* Progress bar */}
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                                                            {applyQueueCompleted} / {applyQueueTotal}
+                                                        </span>
+                                                        <div className="w-28 h-1.5 bg-purple-200 dark:bg-purple-900/50 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500"
+                                                                style={{ width: applyQueueTotal > 0 ? `${Math.round((applyQueueCompleted / applyQueueTotal) * 100)}%` : '0%' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setApplyQueueInProgress(false); setApplyQueueCompleted(0); setApplyQueueTotal(0); }}
+                                                        className="p-1 rounded-lg text-purple-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                                                        title="Dismiss progress"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800" style={{ height: '380px' }}>
                                             <CandidateGrid
                                                 rowData={filteredPositions}
@@ -2786,6 +3267,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 loading={positionsLoading}
                                                 height="380px"
                                                 paginationPageSize={100}
+                                                enableMultiSelection={true}
+                                                selectedJobIds={selectedJobIds}
+                                                onRowClicked={handleRowToggle}
                                             />
                                         </div>
                                     </div>

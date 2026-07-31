@@ -1,6 +1,9 @@
 "use client";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
-ModuleRegistry.registerModules([AllCommunityModule]);
+if (typeof window !== 'undefined') {
+  ModuleRegistry.registerModules([AllCommunityModule]);
+}
+
 import {
   ColDef,
   GridReadyEvent,
@@ -18,7 +21,15 @@ import {
   TrashIcon,
   DownloadIcon,
   SettingsIcon,
+  ChevronDown,
+  ExternalLink,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/admin_ui/dropdown-menu";
 import { MutableRefObject } from "react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
@@ -265,6 +276,42 @@ export function AGGridTable({
     }
   }, [onSelectionChanged]);
 
+  const handleOpenSelectedRows = useCallback(() => {
+    if (!selectedRowData || selectedRowData.length === 0) return;
+
+    const openedUrls = new Set<string>();
+    selectedRowData.forEach((row) => {
+      const rawJobId = row.source_job_id || row.source_uid;
+      const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
+      const source = (row.source || "").toLowerCase();
+      let url = row.job_url || row.url || row.link ||
+        (jobId ? (source.includes('trueup')
+          ? `https://trueup.io/jobs/${jobId}`
+          : source.includes('hiring') || source.includes('cafe')
+            ? `https://hiring.cafe/viewjob/${jobId}`
+            : source.includes('jobright')
+              ? `https://jobright.ai/jobs/info/${jobId}`
+              : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
+
+      if (url && typeof url === 'string') {
+        url = url.trim();
+        if (url.length > 0) {
+          if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+          }
+          if (!openedUrls.has(url)) {
+            openedUrls.add(url);
+            try {
+              window.open(url, '_blank');
+            } catch (err) {
+              console.error(`Failed to open tab for URL ${url}:`, err);
+            }
+          }
+        }
+      }
+    });
+  }, [selectedRowData]);
+
   const onColumnMoved = useCallback((event: ColumnMovedEvent) => { }, []);
 
   // Returns the currently displayed (filtered and sorted) rows
@@ -484,6 +531,29 @@ export function AGGridTable({
           )}
           <div className="ml-auto flex items-center  space-x-2">
             {extraToolbarContent}
+            {selectedRowData && selectedRowData.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs font-semibold flex items-center gap-1"
+                  >
+                    <span>Actions</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
+                  <DropdownMenuItem
+                    onClick={handleOpenSelectedRows}
+                    className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer flex items-center gap-2"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Open</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {!shouldHideAddButton && showAddButton !== false && (
               <Button
                 variant="outline"
