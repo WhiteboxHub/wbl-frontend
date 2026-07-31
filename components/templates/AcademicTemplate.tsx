@@ -3,20 +3,20 @@ import { TemplateProps, contactItems, formatDateRange } from "./shared";
 export function AcademicTemplate({ data }: TemplateProps) {
   const contact = contactItems(data.contact);
   return (
-    <div className="bg-white text-gray-900 p-8 min-h-[842px] font-sans text-[10px] leading-relaxed">
+    <div className="bg-white text-gray-900 p-8 min-h-[842px] font-sans text-xs leading-relaxed">
       <header className="mb-5">
         <h1 className="text-xl font-bold text-[#4338ca]">{data.fullName || "Your Name"}</h1>
-        <p className="text-[9px] text-gray-500 mt-1">{contact.join(" | ")}</p>
+        <p className="text-[11px] text-gray-500 mt-1">{contact.join(" | ")}</p>
       </header>
       {data.summary && (
         <section className="mb-4">
-          <h2 className="font-bold text-[#4338ca] text-[11px] mb-1">Research Interests & Summary</h2>
+          <h2 className="font-bold text-[#4338ca] text-[13px] mb-1">Research Interests & Summary</h2>
           <p className="text-gray-700 text-justify">{data.summary}</p>
         </section>
       )}
       {data.education.length > 0 && (
         <section className="mb-4">
-          <h2 className="font-bold text-[#4338ca] text-[11px] border-b border-indigo-200 pb-0.5 mb-2">Education</h2>
+          <h2 className="font-bold text-[#4338ca] text-[13px] border-b border-indigo-200 pb-0.5 mb-2">Education</h2>
           {data.education.map((edu) => (
             <div key={edu.id} className="mb-2 ml-2">
               <div className="flex justify-between">
@@ -30,7 +30,7 @@ export function AcademicTemplate({ data }: TemplateProps) {
       )}
       {data.experience.length > 0 && (
         <section className="mb-4">
-          <h2 className="font-bold text-[#4338ca] text-[11px] border-b border-indigo-200 pb-0.5 mb-2">Professional Experience</h2>
+          <h2 className="font-bold text-[#4338ca] text-[13px] border-b border-indigo-200 pb-0.5 mb-2">Professional Experience</h2>
           {data.experience.map((exp) => (
             <div key={exp.id} className="mb-3 ml-2">
               <div className="flex justify-between">
@@ -51,13 +51,13 @@ export function AcademicTemplate({ data }: TemplateProps) {
       )}
       {data.skills.filter(Boolean).length > 0 && (
         <section className="mb-4">
-          <h2 className="font-bold text-[#4338ca] text-[11px] border-b border-indigo-200 pb-0.5 mb-2">Technical Skills</h2>
+          <h2 className="font-bold text-[#4338ca] text-[13px] border-b border-indigo-200 pb-0.5 mb-2">Technical Skills</h2>
           <p className="ml-2">{data.skills.filter(Boolean).join("; ")}</p>
         </section>
       )}
       {data.certifications && data.certifications.length > 0 && (
         <section>
-          <h2 className="font-bold text-[#4338ca] text-[11px] border-b border-indigo-200 pb-0.5 mb-2">Certifications & Awards</h2>
+          <h2 className="font-bold text-[#4338ca] text-[13px] border-b border-indigo-200 pb-0.5 mb-2">Certifications & Awards</h2>
           <ul className="list-disc list-inside ml-2">
             {data.certifications.map((c, i) => <li key={i}>{c}</li>)}
           </ul>
