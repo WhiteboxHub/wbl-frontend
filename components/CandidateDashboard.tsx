@@ -1644,7 +1644,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
 
-                        // Fetch server time to prevent client clock skew
+            // Fetch server time to prevent client clock skew
             let now = new Date();
             let serverTimeStr: string | null = null;
             try {
@@ -1724,7 +1724,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError,setServerTime]);
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError, setServerTime, localStorage, sessionStorage]);
 
     useEffect(() => {
         if (data) {
