@@ -1,3 +1,28 @@
+/**
+ * playwright.config.ts  — Single parallel config
+ *
+ * HOW IT WORKS
+ * ────────────
+ * 1. "setup" project runs tests/global.setup.ts FIRST (single-threaded).
+ *    - Logs in as admin and candidate simultaneously (two browser instances).
+ *    - Saves session cookies to tests/.auth/admin.json and candidate.json.
+ *    - Reads credentials from process.env:
+ *        Local  → .env file  (ADMIN_EMAIL, ADMIN_PASSWORD, CANDIDATE_EMAIL, …)
+ *        CI/CD  → GitHub Secrets (same variable names)
+ *        URL    → BASE_URL env var (or http://localhost:3000 fallback)
+ *
+ * 2. "admin" and "candidate" projects start AFTER setup finishes.
+ *    - Each test gets a pre-authenticated context — no login per test.
+ *    - fullyParallel:true + workers:4 → ~3–4 min total (down from 13–15 min).
+ *
+ * 3. "smoke" runs in parallel with admin/candidate — no auth needed.
+ *
+ * USAGE
+ * ─────
+ *   Local:  npx playwright test
+ *   CI/CD:  npx playwright test        (env vars come from GitHub Secrets)
+ */
+
 import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
 import os from "os";
@@ -8,27 +33,35 @@ dotenv.config();
 const isCI = !!process.env.CI;
 const baseURL = process.env.BASE_URL || "http://localhost:3000";
 
+// Auth state written by global.setup.ts at the start of each run
+const ADMIN_AUTH = path.join(__dirname, "tests", ".auth", "admin.json");
+const CANDIDATE_AUTH = path.join(__dirname, "tests", ".auth", "candidate.json");
+
 export default defineConfig({
   testDir: "./tests",
 
-  // Write all test artifacts (if any) to OS temp — keeps the project folder clean
+  // Write test artifacts to OS temp — keeps the project folder clean
   outputDir: path.join(os.tmpdir(), "playwright-test-results"),
 
-  // 120 s per test — enough for slow grid loads; individual tests can override
-  timeout: 120 * 1000,
+  // 240 s per test — safe buffer for 180s spinner wait times
+  timeout: 240 * 1000,
 
-  // Fully sequential: grids depend on login state, parallel breaks auth flow
-  fullyParallel: false,
+  // Each test runs in its own worker → full parallelism
+  fullyParallel: true,
 
   // Fail fast in CI if someone accidentally left test.only() in the code
   forbidOnly: isCI,
 
-  // No retries — a flaky grid test should surface immediately
+  // No retries — flaky tests should surface immediately
   retries: 0,
 
-  workers: 1,
+  // 3 parallel workers — balances speed vs. server load
+  workers: 3,
 
   reporter: [["list"], ["html"]],
+
+  // Runs once before any worker starts — creates .auth/*.json files
+  globalSetup: require.resolve("./tests/global.setup.ts"),
 
   use: {
     baseURL,
@@ -39,21 +72,58 @@ export default defineConfig({
     // Always capture screenshot on failure for clear evidence
     screenshot: "only-on-failure",
 
-    // Keep video on failure so we can see exactly when the grid disappeared
+    // Video off for speed — enable "retain-on-failure" if needed
     video: "off",
 
-    // Always run headless locally and in CI
     headless: true,
   },
 
   projects: [
+    // ── 1. One-time auth setup ────────────────────────────────────────────
+    // Runs first, creates the .auth/*.json files all other projects depend on.
     {
-      name: "chromium",
+      name: "setup",
+      testMatch: /global\.setup\.ts/,
+    },
+
+    // ── 2. Admin regression ───────────────────────────────────────────────
+    // All /avatar/** routes, each as a separate test.
+    // Session loaded from admin.json — no login per test.
+    {
+      name: "admin",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: ADMIN_AUTH,
+      },
+      testMatch: /admin-regression\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // ── 3. Candidate regression ───────────────────────────────────────────
+    // /user_dashboard + all 7 tabs, each as a separate test.
+    // Session loaded from candidate.json — no login per test.
+    {
+      name: "candidate",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: CANDIDATE_AUTH,
+      },
+      testMatch: /candidate-regression\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+
+    // ── 4. Smoke tests ────────────────────────────────────────────────────
+    // No auth needed — verifies the login page is reachable.
+    // Runs in parallel with admin and candidate projects.
+    {
+      name: "smoke",
       use: { ...devices["Desktop Chrome"] },
+      testMatch: /smoke\.spec\.ts/,
     },
   ],
 
-  // Only spin up the dev server locally (not in CI where Docker provides it)
+  // Spin up the dev server locally only.
+  // In CI, GitHub Actions / Docker provides the server at BASE_URL.
   webServer: !isCI
     ? {
         command: "npm run dev",

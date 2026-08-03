@@ -9,6 +9,8 @@
 /coverage
 /playwright-report/
 /test-results/
+# Playwright auth state — contains active session cookies, never commit
+/tests/.auth/
 # next.js
 /.next/
 /out/

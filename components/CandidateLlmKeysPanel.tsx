@@ -1263,9 +1263,6 @@ export function CandidateLlmKeysPanel({
                             </tbody>
                         </table>
                     </div>
-                    <p className="px-4 py-3 text-[11px] text-gray-400">
-                        Status is remembered until you click Validate. Keys are loaded from your profile.
-                    </p>
                     {children}
                 </div>
             </div>
