@@ -2335,6 +2335,58 @@ export function EditModal({
       return enumOptions.campaign_email_status;
     }
 
+    if (title.toLowerCase().includes("outreach email")) {
+      if (keyLower === "status") {
+        return [
+          { value: "ACTIVE", label: "Active" },
+          { value: "PAUSED", label: "Paused" },
+          { value: "SUPPRESSED", label: "Suppressed" },
+          { value: "UNSUBSCRIBED", label: "Unsubscribed" },
+          { value: "INVALID", label: "Invalid" },
+          { value: "BOUNCED", label: "Bounced" },
+          { value: "COMPLAINED", label: "Complained" },
+        ];
+      }
+      if (keyLower === "validation_status") {
+        return [
+          { value: "VALID", label: "Valid" },
+          { value: "EMAIL_INVALID", label: "Email Invalid" },
+          { value: "DOMAIN_INVALID", label: "Domain Invalid" },
+          { value: "MAILBOX_INVALID", label: "Mailbox Invalid" },
+          { value: "UNKNOWN", label: "Unknown" },
+        ];
+      }
+      if (keyLower === "bounce_type") {
+        return [
+          { value: "", label: "None" },
+          { value: "HARD", label: "Hard" },
+          { value: "SOFT", label: "Soft" },
+          { value: "TRANSIENT", label: "Transient" },
+          { value: "BLOCKED", label: "Blocked" },
+          { value: "POLICY", label: "Policy" },
+          { value: "SPAM", label: "Spam" },
+          { value: "UNKNOWN", label: "Unknown" },
+        ];
+      }
+      if (keyLower === "failure_type") {
+        return [
+          { value: "", label: "None" },
+          { value: "EMAIL_INVALID", label: "Email Invalid" },
+          { value: "DOMAIN_INVALID", label: "Domain Invalid" },
+          { value: "MAILBOX_INVALID", label: "Mailbox Invalid" },
+          { value: "DNS_FAILURE", label: "DNS Failure" },
+          { value: "SMTP_REJECTED", label: "SMTP Rejected" },
+          { value: "SPAM_BLOCKED", label: "Spam Blocked" },
+          { value: "RATE_LIMITED", label: "Rate Limited" },
+          { value: "TIMEOUT", label: "Timeout" },
+          { value: "PROVIDER_ERROR", label: "Provider Error" },
+          { value: "TEMPLATE_ERROR", label: "Template Error" },
+          { value: "SUPPRESSION_LIST", label: "Suppression List" },
+          { value: "UNKNOWN", label: "Unknown" },
+        ];
+      }
+    }
+
     if (keyLower === "position_type") return enumOptions.position_type;
     if (keyLower === "employment_mode") return enumOptions.employment_mode;
     if (keyLower === "source") {
