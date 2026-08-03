@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
@@ -47,6 +47,9 @@ export default function OutreachEmailsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [emails, setEmails] = useState<any[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<any[]>([]);
+  const [filterEmails, setFilterEmails] = useState<any[] | null>(null);
+  const gridApiRef = useRef<any>(null);
+  const filterRequestRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
@@ -219,23 +222,57 @@ export default function OutreachEmailsPage() {
   }, [fetchEmails]);
 
   useEffect(() => {
-    const search = searchTerm.toLowerCase();
+    const search = searchTerm.trim();
 
     if (!search) {
       setFilteredEmails(emails);
       return;
     }
 
-    setFilteredEmails(
-      emails.filter((row) =>
-        Object.values(row).some((v) =>
-          String(v ?? "")
-            .toLowerCase()
-            .includes(search)
-        )
-      )
-    );
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await cachedApiFetch(
+          `/outreach-emails/search?term=${encodeURIComponent(search)}`
+        );
+        if (!cancelled) {
+          setFilteredEmails(Array.isArray(res) ? res : res?.data ?? []);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          toast.error(getErrorMessage(e, "Failed to search outreach emails"));
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [searchTerm, emails]);
+
+  const handleFilterChanged = useCallback(async () => {
+    const filterModel = gridApiRef.current?.getFilterModel() ?? {};
+    const hasServerFilter = ["status", "validation_status", "bounce_type"].some(
+      (field) => filterModel[field]
+    );
+    const requestId = ++filterRequestRef.current;
+
+    if (!hasServerFilter) {
+      setFilterEmails(null);
+      return;
+    }
+    if (filterEmails) return;
+
+    try {
+      const res = await cachedApiFetch("/outreach-emails/?limit=999999");
+      if (requestId === filterRequestRef.current) {
+        setFilterEmails(Array.isArray(res) ? res : res?.data ?? []);
+      }
+    } catch (e: any) {
+      toast.error(getErrorMessage(e, "Failed to filter outreach emails"));
+    }
+  }, [filterEmails]);
 
   const handleRowUpdated = async (row: any) => {
     try {
@@ -317,10 +354,14 @@ export default function OutreachEmailsPage() {
 
       <AGGridTable
         title={`Outreach Emails (${filteredEmails.length})`}
-        rowData={filteredEmails}
+        rowData={filterEmails ?? filteredEmails}
         columnDefs={columnDefs}
         height="75vh"
         showSearch={false}
+        onGridReady={(params) => {
+          gridApiRef.current = params.api;
+        }}
+        onFilterChanged={handleFilterChanged}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleDelete}
         onRowAdded={async (row: any) => {
