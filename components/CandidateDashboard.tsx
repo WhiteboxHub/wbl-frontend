@@ -3572,29 +3572,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         <div className="flex flex-col flex-1 overflow-hidden p-4">
                             <div className="rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col flex-1">
 
-                                {/* Table Header — always fixed */}
-                                <div className="shrink-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
-                                    <table className="w-full text-left" style={{ tableLayout: "fixed" }}>
-                                        <colgroup>
-                                            <col style={{ width: "20%" }} />
-                                            <col style={{ width: "35%" }} />
-                                            <col style={{ width: "20%" }} />
-                                            <col style={{ width: "25%" }} />
-                                        </colgroup>
-                                        <thead>
-                                            <tr className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                <th className="px-5 py-3 text-left">Company Name</th>
-                                                <th className="px-5 py-3 text-left">Job Role</th>
-                                                <th className="px-5 py-3 text-center">Applied Date</th>
-                                                <th className="px-5 py-3 text-center">Submitted Status</th>
-                                            </tr>
-                                        </thead>
-                                    </table>
-                                </div>
-
-                                {/* Scrollable tbody — only this scrolls */}
                                 <div
-                                    className="easy-apply-scroll flex-1 overflow-y-scroll bg-white dark:bg-gray-900"
+                                    className="easy-apply-scroll flex-1 overflow-y-auto bg-white dark:bg-gray-900"
                                     style={{
                                         scrollbarWidth: "thin",
                                         scrollbarColor: "#c7d2fe transparent",
@@ -3607,6 +3586,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             <col style={{ width: "20%" }} />
                                             <col style={{ width: "25%" }} />
                                         </colgroup>
+                                        <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
+                                            <tr className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                <th className="px-5 py-3 text-left">Company Name</th>
+                                                <th className="px-5 py-3 text-left">Job Role</th>
+                                                <th className="px-5 py-3 text-center">Applied Date</th>
+                                                <th className="px-5 py-3 text-center">Submitted Status</th>
+                                            </tr>
+                                        </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                             {data?.easy_apply_logs?.length ? (
                                                 data.easy_apply_logs.map((log: any, index: number) => (
