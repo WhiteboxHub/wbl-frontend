@@ -1663,7 +1663,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const submittedDate = new Date(utcString);
                 const diffInMs = now.getTime() - submittedDate.getTime();
                 const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
-                isWithin24Hours = diffInMs >= 0 && diffInMs < twentyFourHoursInMs;
+                isWithin24Hours = diffInMs >= -60000 && diffInMs < twentyFourHoursInMs;
             }
 
             const isApproved = status === 'Y' || isWithin24Hours;

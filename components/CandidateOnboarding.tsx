@@ -42,7 +42,7 @@ export default function CandidateOnboarding({
             const submittedDate = new Date(utcString);
             const now = serverTime ? new Date(serverTime) : new Date();
             const diffInMs = now.getTime() - submittedDate.getTime();
-            return diffInMs >= 0 && diffInMs < 24 * 60 * 60 * 1000;
+            return diffInMs >= -60000 && diffInMs < 24 * 60 * 60 * 1000;
         }
         return false;
     })();
