@@ -479,7 +479,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [resumeJsonError, setResumeJsonError] = useState<string | null>(null);
     const [isSavingResumeJson, setIsSavingResumeJson] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (showAddInterview) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
 
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [showAddInterview]);
     const openResumeJsonModal = async () => {
         setIsResumeJsonModalOpen(true);
         setResumeJsonError(null);
@@ -621,6 +631,34 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [editInterviewForm, setEditInterviewForm] = useState<any>({});
     const [editInterviewLoading, setEditInterviewLoading] = useState(false);
     const [viewData, setViewData] = useState<any>(null);
+    const [selectedUpcomingInterview, setSelectedUpcomingInterview] = useState<any | null>(null);
+
+    const handleOpenView = (interviewData?: any) => {
+        const item = interviewData || selectedUpcomingInterview;
+        if (!item) return;
+        setViewData(item);
+    };
+
+    const handleOpenEdit = (interviewData?: any) => {
+        const item = interviewData || selectedUpcomingInterview;
+        if (!item) return;
+        setEditData(item);
+        setEditInterviewForm({
+            ...item,
+            company: item.company ?? "",
+            position_title: item.position_title ?? "",
+            interview_date: item.interview_date ?? "",
+            interview_time: item.interview_time ?? "10:00",
+            interviewer_emails: item.interviewer_emails ?? "",
+            interviewer_contact: item.interviewer_contact ?? "",
+            interviewer_linkedin: item.interviewer_linkedin ?? "",
+            mode_of_interview: item.mode_of_interview ?? "Virtual",
+            type_of_interview: item.type_of_interview ?? "Recruiter Call",
+            feedback: item.feedback ?? "Pending",
+            job_description: item.job_description ?? "",
+            feedback_text: item.feedback_text ?? "",
+        });
+    };
 
     const handleInlineFileValidate = (file: File): boolean => {
         const allowedExtensions = [".pdf", ".doc", ".docx"];
@@ -1895,7 +1933,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3' : 'min-h-[56px] lg:min-h-[64px] py-2'} ${activeTab !== 'overview' && activeTab !== 'job-board' ? 'flex lg:hidden' : 'flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'min-h-[56px] lg:min-h-[64px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -2417,14 +2455,38 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {activeTab === 'my-interviews' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                            <div className="flex items-center justify-between mb-6">
-                                                <div className="flex items-center justify-center gap-2 w-full">
+                                    <div className="flex-1 overflow-y-auto p-0  space-y-4">
+                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center  gap-2 ">
                                                     <MessageSquare className="w-5 h-5 text-blue-600" />
                                                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Interviews</h2>
                                                 </div>
-                                                <div className="flex items-center justify-center gap-2 w-full">
+                                                <div className="flex items-center gap-2">
+                                                    {data?.interviews?.some((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))) && (
+                                                        <>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                disabled={!selectedUpcomingInterview}
+                                                                onClick={() => handleOpenView(selectedUpcomingInterview)}
+                                                                className="h-8 w-8 p-0"
+                                                                title={selectedUpcomingInterview ? `View selected interview (${selectedUpcomingInterview.company})` : "Select an upcoming round to view"}
+                                                            >
+                                                                <EyeIcon className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                disabled={!selectedUpcomingInterview}
+                                                                onClick={() => handleOpenEdit(selectedUpcomingInterview)}
+                                                                className="h-8 w-8 p-0"
+                                                                title={selectedUpcomingInterview ? `Edit selected interview (${selectedUpcomingInterview.company})` : "Select an upcoming round to edit"}
+                                                            >
+                                                                <EditIcon className="h-4 w-4" />
+                                                            </Button>
+                                                        </>
+                                                    )}
                                                     <button
                                                         onClick={() => loadDashboard()}
                                                         disabled={loading}
@@ -2438,7 +2500,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </button>
                                                     <button
                                                         onClick={() => setShowAddInterview(true)}
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600  hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
                                                     >
                                                         <Plus className="w-4 h-4" /> Add Interview
                                                     </button>
@@ -2447,40 +2509,40 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                             {/* Add Interview Modal Overlay */}
                                             {showAddInterview && (
-                                                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                                                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+                                                <div className="fixed inset-0 !z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4">
+                                                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-6xl overflow-hidden sm:rounded-2xl max-h-[90vh] flex flex-col">
 
                                                         {/* Header: matches Employee UI exactly */}
-                                                        <div className="flex items-center justify-between px-6 py-3 border-b border-blue-100 dark:border-blue-900 bg-white dark:bg-gray-900">
-                                                            <h3 className="text-[15px] font-bold text-blue-600 dark:text-blue-400">Add New Interviews</h3>
-                                                            <button onClick={() => setShowAddInterview(false)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                        <div className=" sticky top-0 flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 md:px-6 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900 dark:via-purple-900 dark:to-pink-900 z-10 shrink-0">
+                                                            <h3 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">Add New Interviews</h3>
+                                                            <button onClick={() => setShowAddInterview(false)} className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900 text-2xl font-light">×</button>
                                                         </div>
 
-                                                        <div className="p-6 max-h-[80vh] overflow-y-auto">
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+                                                        <div className="bg-white dark:bg-gray-900 p-3 sm:p-4 md:p-6 overflow-y-auto flex-1">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                                                                 {/* Column 1: Basic Information */}
                                                                 <div className="space-y-4">
                                                                     <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                        <h4 className="text-[14px] font-bold text-blue-600">Company Information</h4>
+                                                                        <h4 className="text-sm font-bold text-blue-600">Company Information</h4>
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400  mb-1">Company <span className="text-red-500 font-bold">*</span></label>
                                                                         <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" placeholder="Search company..." />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" placeholder="Search company..." />
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title</label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title</label>
                                                                         <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
                                                                         <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
                                                                         <TimePicker
                                                                             value={addInterviewForm.interview_time}
                                                                             onChange={(time) => setAddInterviewForm(p => ({ ...p, interview_time: time }))}
@@ -2492,42 +2554,42 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                                 {/* Column 2: Contact Information */}
                                                                 <div className="space-y-4">
-                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                        <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
+                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-2 mb-4">
+                                                                        <h4 className="text-sm font-bold text-blue-600">Interviewer Information</h4>
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
                                                                         <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
                                                                         <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
                                                                         <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
                                                                 </div>
 
                                                                 {/* Column 4: Other */}
                                                                 <div className="space-y-4">
-                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-2 mb-4">
                                                                         <h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4>
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 sm:text-sm">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
                                                                         <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                             <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
                                                                         </select>
                                                                     </div>
-                                                                    <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
+                                                                    <div className="space-y-1 sm:space-y-1.5">
+                                                                        <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 sm:text-sm">Type of Interview <span className="text-red-500 font-bold">*</span></label>
                                                                         <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                             <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                         </select>
                                                                     </div>
@@ -2535,26 +2597,25 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                             </div>
                                                             {/* Job Description Field */}
-                                                            <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                                <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
-                                                                    Job Description
+                                                            <div className="mt-8 border-t border-blue-100 dark:border-blue-900/50 pt-6">
+                                                                <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-2 sm:text-sm">                                                                 Job Description
                                                                 </label>
                                                                 <textarea
                                                                     value={addInterviewForm.job_description}
                                                                     onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
                                                                     placeholder="Enter Job Description..."
-                                                                    className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
+                                                                    className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                             </div>
                                                         </div>
 
                                                         {/* Footer Buttons */}
-                                                        <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                        <div className="mt-8 pt-4 border-t border-blue-100 dark:border-blue-900 flex justify-end gap-3px-6 pb-6 bg-white dark:bg-gray-900">
                                                             <button onClick={() => setShowAddInterview(false)}
-                                                                className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
+                                                                className="px-6 py-2 rounded-lg border border-blue-200 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-all">
                                                                 Cancel
                                                             </button>
                                                             <button onClick={handleAddInterview} disabled={addInterviewLoading}
-                                                                className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
+                                                                className="px-6 py-2 rounded-lg ml-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm font-bold transition-all shadow-md disabled:opacity-50 mr-2">
                                                                 {addInterviewLoading ? "Saving..." : "Add Interview"}
                                                             </button>
                                                         </div>
@@ -2611,10 +2672,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
                                                                     <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description</label>
                                                                     <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
-                                                                </div>
-                                                                <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
-                                                                    <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
                                                                     <button onClick={() => setViewData(null)} className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md">Close</button>
@@ -2688,10 +2745,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                     <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description</label>
                                                                     <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
-                                                                <div className="mt-4">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Detailed Feedback</label>
-                                                                    <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
-                                                                </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
                                                                     <button onClick={() => setEditData(null)} className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">Cancel</button>
                                                                     <button onClick={handleEditInterview} disabled={editInterviewLoading} className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
@@ -2718,6 +2771,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 columnDefs={interviewColumnDefs.filter(col => col.field !== 'feedback_text')}
                                                                 height="300px"
                                                                 rowHeight={60}
+                                                                onSelectionChanged={(rows) => setSelectedUpcomingInterview(rows.length > 0 ? rows[0] : null)}
+                                                                onRowClicked={(data) => setSelectedUpcomingInterview(data)}
                                                             />
                                                         </div>
                                                     </div>
@@ -2741,6 +2796,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             columnDefs={interviewColumnDefs}
                                                             height="400px"
                                                             rowHeight={60}
+                                                            onSelectionChanged={() => setSelectedUpcomingInterview(null)}
                                                         />
                                                     </div>
                                                 </div>
