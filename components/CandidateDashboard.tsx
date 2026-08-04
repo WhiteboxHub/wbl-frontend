@@ -1724,7 +1724,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError, setServerTime, localStorage, sessionStorage]);
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setOnboardingDocSubmittedAt, setShowOnboarding, setData, setLoading, setError, setServerTime, localStorage, sessionStorage, loadSetupStatus]);
 
     useEffect(() => {
         if (data) {
