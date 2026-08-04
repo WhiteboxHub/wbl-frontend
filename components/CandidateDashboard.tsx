@@ -1656,6 +1656,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 console.error("Failed to sync server time, falling back to local clock:", err);
             }
 
+
+            
             let isWithin24Hours = false;
             if (status === 'P' && onboardingSubmittedAt) {
                 // Force interpretation as UTC by adding 'Z' if not present (checking for existing Z or timezone offset)
