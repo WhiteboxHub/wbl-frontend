@@ -3013,8 +3013,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                 {/* Card 3: Easy Apply Counter */}
                                                 {(() => {
-                                                    const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
-                                                    const isEasyApplyLow = easyApplyCount < 30;
+                                                    const successfulEasyApplyCount = data.easy_apply_logs?.filter((log: any) =>
+                                                        log.status?.toString().toLowerCase() === "success"
+                                                    ).length ?? 0;
+                                                    const isEasyApplyLow = successfulEasyApplyCount < 30;
                                                     return (
                                                         <div
                                                             className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group ${isEasyApplyLow
@@ -3042,7 +3044,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
                                                             <div className="flex items-center justify-between mt-1">
                                                                 <p className={`text-3xl font-extrabold ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
-                                                                    {easyApplyCount}
+                                                                    {successfulEasyApplyCount}
                                                                 </p>
                                                                 <button
                                                                     type="button"
@@ -3053,9 +3055,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                     <span>View</span>
                                                                 </button>
                                                             </div>
-                                                            <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                                                            <p className="text-[10px] text-gray-400 mt-2">Total auto-filled forms and quick-applied positions</p>
                                                             <p className={`text-[10px] font-semibold mt-1 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
-                                                                {isEasyApplyLow ? `⚠ ${30 - easyApplyCount} more needed to reach target` : "✓ Target reached"}
+                                                                {isEasyApplyLow ? `⚠ ${30 - successfulEasyApplyCount} more needed today` : "✓ Daily target reached"}
                                                             </p>
                                                         </div>
                                                     );
@@ -3554,89 +3556,99 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         </button>
 
                         {/* Modal Header — always fixed */}
-                        <div className="shrink-0 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-6 py-4 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 rounded-t-3xl">
-                            <div className="flex flex-col items-center gap-1.5 text-center">
-                                <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-xl font-extrabold text-transparent">
-                                    Easy Apply Applications
-                                </h2>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Recent job applications automatically submitted on your behalf
-                                </p>
-                                <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                    Total Applications: {data?.easy_apply_logs?.length ?? 0}
-                                </span>
-                            </div>
-                        </div>
+                        {(() => {
+                            const successfulEasyApplyLogs = data?.easy_apply_logs?.filter((log: any) =>
+                                log.status?.toString().toLowerCase() === "success"
+                            ) ?? [];
 
-                        {/* Table wrapper */}
-                        <div className="flex flex-col flex-1 overflow-hidden p-4">
-                            <div className="rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col flex-1">
+                            return (
+                                <>
+                                    <div className="shrink-0 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-6 py-4 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 rounded-t-3xl">
+                                        <div className="flex flex-col items-center gap-1.5 text-center">
+                                            <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-xl font-extrabold text-transparent">
+                                                Easy Apply Applications
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Recent job applications automatically submitted on your behalf
+                                            </p>
+                                            <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                                Successful Applications: {successfulEasyApplyLogs.length}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                                <div
-                                    className="easy-apply-scroll flex-1 overflow-y-auto bg-white dark:bg-gray-900"
-                                    style={{
-                                        scrollbarWidth: "thin",
-                                        scrollbarColor: "#c7d2fe transparent",
-                                    }}
-                                >
-                                    <table className="w-full text-left" style={{ tableLayout: "fixed" }}>
-                                        <colgroup>
-                                            <col style={{ width: "20%" }} />
-                                            <col style={{ width: "35%" }} />
-                                            <col style={{ width: "20%" }} />
-                                            <col style={{ width: "25%" }} />
-                                        </colgroup>
-                                        <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
-                                            <tr className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                <th className="px-5 py-3 text-left">Company Name</th>
-                                                <th className="px-5 py-3 text-left">Job Role</th>
-                                                <th className="px-5 py-3 text-center">Applied Date</th>
-                                                <th className="px-5 py-3 text-center">Submitted Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                            {data?.easy_apply_logs?.length ? (
-                                                data.easy_apply_logs.map((log: any, index: number) => (
-                                                    <tr key={log.id || index} className="hover:bg-blue-50/50 dark:hover:bg-gray-800/50 transition-colors">
-                                                        <td className="px-5 py-3 font-bold text-xs text-gray-900 dark:text-white truncate">
-                                                            {log.company}
-                                                        </td>
-                                                        <td className="px-5 py-3 text-xs text-gray-600 dark:text-gray-300 font-medium truncate">
-                                                            {log.role}
-                                                        </td>
-                                                        <td className="px-5 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                                                            {log.date ? format(parseISO(log.date), "dd MMM yyyy") : "N/A"}
-                                                        </td>
-                                                        <td className="px-5 py-3 text-center">
-                                                            <span
-                                                                className={`inline-flex rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
-                                                                    log.status === "Success"
-                                                                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                                                        : log.status === "Failed"
-                                                                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                                                        : log.status === "Pending"
-                                                                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                                                        : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                                                                }`}
-                                                            >
-                                                                {log.status || "Submitted"}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={4} className="py-12 text-center text-sm font-medium text-gray-400">
-                                                        No applications recorded yet.
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                    {/* Table wrapper */}
+                                    <div className="flex flex-col flex-1 overflow-hidden p-4">
+                                        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col flex-1">
 
-                            </div>
-                        </div>
+                                            <div
+                                                className="easy-apply-scroll flex-1 overflow-y-auto bg-white dark:bg-gray-900"
+                                                style={{
+                                                    scrollbarWidth: "thin",
+                                                    scrollbarColor: "#c7d2fe transparent",
+                                                }}
+                                            >
+                                                <table className="w-full text-left" style={{ tableLayout: "fixed" }}>
+                                                    <colgroup>
+                                                        <col style={{ width: "20%" }} />
+                                                        <col style={{ width: "35%" }} />
+                                                        <col style={{ width: "20%" }} />
+                                                        <col style={{ width: "25%" }} />
+                                                    </colgroup>
+                                                    <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-800">
+                                                        <tr className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                            <th className="px-5 py-3 text-left">Company Name</th>
+                                                            <th className="px-5 py-3 text-left">Job Role</th>
+                                                            <th className="px-5 py-3 text-center">Applied Date</th>
+                                                            <th className="px-5 py-3 text-center">Submitted Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                        {successfulEasyApplyLogs.length ? (
+                                                            successfulEasyApplyLogs.map((log: any, index: number) => (
+                                                                <tr key={log.id || index} className="hover:bg-blue-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                                                                    <td className="px-5 py-3 font-bold text-xs text-gray-900 dark:text-white truncate">
+                                                                        {log.company}
+                                                                    </td>
+                                                                    <td className="px-5 py-3 text-xs text-gray-600 dark:text-gray-300 font-medium truncate">
+                                                                        {log.role}
+                                                                    </td>
+                                                                    <td className="px-5 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                                                                        {log.date ? format(parseISO(log.date), "dd MMM yyyy") : "N/A"}
+                                                                    </td>
+                                                                    <td className="px-5 py-3 text-center">
+                                                                        <span
+                                                                            className={`inline-flex rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                                                                                log.status === "Success"
+                                                                                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                                                                    : log.status === "Failed"
+                                                                                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                                                                    : log.status === "Pending"
+                                                                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                                                                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                                                            }`}
+                                                                        >
+                                                                            {log.status || "Submitted"}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        ) : (
+                                                            <tr>
+                                                                <td colSpan={4} className="py-12 text-center text-sm font-medium text-gray-400">
+                                                                    No successful applications found.
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             )}
