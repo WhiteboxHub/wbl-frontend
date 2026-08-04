@@ -1656,8 +1656,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 console.error("Failed to sync server time, falling back to local clock:", err);
             }
 
-
-            
             let isWithin24Hours = false;
             if (status === 'P' && onboardingSubmittedAt) {
                 // Force interpretation as UTC by adding 'Z' if not present (checking for existing Z or timezone offset)
@@ -1665,7 +1663,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const submittedDate = new Date(utcString);
                 const diffInMs = now.getTime() - submittedDate.getTime();
                 const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
-                isWithin24Hours = diffInMs >= -60000 && diffInMs < twentyFourHoursInMs;
+                isWithin24Hours = Math.max(diffInMs, 0) < twentyFourHoursInMs;
             }
 
             const isApproved = status === 'Y' || isWithin24Hours;

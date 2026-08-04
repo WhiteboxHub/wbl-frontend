@@ -42,11 +42,14 @@ export default function CandidateOnboarding({
             const submittedDate = new Date(utcString);
             const now = serverTime ? new Date(serverTime) : new Date();
             const diffInMs = now.getTime() - submittedDate.getTime();
-            return diffInMs >= -60000 && diffInMs < 24 * 60 * 60 * 1000;
+            return Math.max(diffInMs, 0) < 24 * 60 * 60 * 1000;
         }
         return false;
     })();
 
+
+
+    
 
 
     const [step, setStep] = useState(initialHasMissingFields ? 1 : 2);
