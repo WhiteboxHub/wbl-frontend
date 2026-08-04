@@ -378,30 +378,6 @@ export default function AuthUsersPage() {
       const originalUser = users.find(u => u.id === updatedRow.id);
 
       if (originalUser) {
-        // Use oldRole if it was set during edit, otherwise fallback to role
-        const origRole = originalUser.oldRole?.toLowerCase() ?? originalUser.role?.toLowerCase() ?? 'candidate';
-        const newRole = dataToSend.role?.toLowerCase() || 'candidate';
-
-        if (origRole === 'candidate' && (newRole === 'employee' || newRole === 'admin')) {
-          toast.error("A Candidate cannot be changed to an Employee or Admin.");
-          if (originalUser.oldRole !== undefined) {
-            originalUser.role = originalUser.oldRole;
-            delete originalUser.oldRole;
-          }
-          setUsers([...users]); // Revert UI
-          return;
-        }
-
-        if ((origRole === 'employee' || origRole === 'admin') && newRole === 'candidate') {
-          toast.error(`An ${origRole === 'admin' ? 'Admin' : 'Employee'} cannot be changed to a Candidate.`);
-          if (originalUser.oldRole !== undefined) {
-            originalUser.role = originalUser.oldRole;
-            delete originalUser.oldRole;
-          }
-          setUsers([...users]); // Revert UI
-          return;
-        }
-        
         delete originalUser.oldRole;
         delete dataToSend.oldRole;
       }

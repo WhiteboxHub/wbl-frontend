@@ -3,13 +3,13 @@ import { TemplateProps, contactItems, formatDateRange } from "./shared";
 export function AtsTemplate({ data }: TemplateProps) {
   const contact = contactItems(data.contact);
   return (
-    <div className="bg-white text-gray-900 p-10 font-sans text-[11px] leading-relaxed min-h-[842px]">
+    <div className="bg-white text-gray-900 p-10 font-sans text-[13px] leading-relaxed min-h-[842px]">
       {/* Header section with clean, centered contact info */}
       <header className="text-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-wide uppercase">
           {data.fullName || "Your Name"}
         </h1>
-        <p className="text-[10px] text-gray-600 mt-2 font-mono">
+        <p className="text-xs text-gray-600 mt-2 font-mono">
           {contact.join("   |   ")}
         </p>
       </header>
@@ -34,12 +34,12 @@ export function AtsTemplate({ data }: TemplateProps) {
             {data.experience.map((exp) => (
               <div key={exp.id}>
                 <div className="flex justify-between items-baseline font-semibold">
-                  <span className="text-[12px] text-gray-900">{exp.company}</span>
-                  <span className="text-gray-800 text-[10px] font-mono">
+                  <span className="text-sm text-gray-900">{exp.company}</span>
+                  <span className="text-gray-800 text-xs font-mono">
                     {formatDateRange(exp.startDate, exp.endDate, exp.current)}
                   </span>
                 </div>
-                <div className="flex justify-between text-gray-700 text-[10px] mt-0.5">
+                <div className="flex justify-between text-gray-700 text-[13px] mt-0.5">
                   <span className="italic">{exp.title}</span>
                   <span>{exp.location}</span>
                 </div>
@@ -69,11 +69,11 @@ export function AtsTemplate({ data }: TemplateProps) {
                   <span className="text-gray-900">
                     {edu.degree} in {edu.field}
                   </span>
-                  <span className="text-gray-800 text-[10px] font-mono">
+                  <span className="text-gray-800 text-xs font-mono">
                     {formatDateRange(edu.startDate, edu.endDate)}
                   </span>
                 </div>
-                <div className="flex justify-between text-gray-700 text-[10px] mt-0.5">
+                <div className="flex justify-between text-gray-700 text-[13px] mt-0.5">
                   <span>{edu.school}</span>
                   {edu.gpa ? <span>GPA: {edu.gpa}</span> : null}
                 </div>

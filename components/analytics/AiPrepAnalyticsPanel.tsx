@@ -322,24 +322,11 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
 
   const showLoader = useMinimumLoadingTime(loading && !hasLoaded);
 
-  // AI-Prep backend base URL — configured per environment via NEXT_PUBLIC_AIPREP_API_URL.
-  // Strip a trailing /api if present so we can append /api/analytics/ai-prep-report consistently.
-  // Falls back to the same default production URL as other components in this project.
-  const getApiUrl = () => {
-    if (process.env.NEXT_PUBLIC_AIPREP_API_URL) {
-      return process.env.NEXT_PUBLIC_AIPREP_API_URL;
-    }
-    return "https://ai-backend-560359652969.us-central1.run.app/api";
-  };
-  const AI_PREP_API = getApiUrl().replace(/\/api\/?$/, "");
-
-  // ── Fetch data from AI-Prep backend ────────────────────────────────────────
+  // ── Fetch data from main backend ──────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch(
-        `${AI_PREP_API}/api/analytics/ai-prep-report`
-      ) as ReportSummary;
+      const data = await apiFetch("/api/analytics/ai-prep-report") as ReportSummary;
       setReport(data);
       setHasLoaded(true);
     } catch (err: unknown) {
@@ -349,7 +336,7 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
     } finally {
       setLoading(false);
     }
-  }, [AI_PREP_API]);
+  }, []);
 
   useEffect(() => {
     if (active) loadData();

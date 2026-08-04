@@ -60,6 +60,7 @@ import {
     Edit3,
     Download,
     X,
+    Trash2,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -452,8 +453,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (tab === 'overview') {
             setEasyApplyPopupOpen(true);
         }
-        router.push(`/user_dashboard/${tab}`);
+        const searchString = typeof window !== "undefined" ? window.location.search : "";
+        window.history.pushState(null, "", `/user_dashboard/${tab}${searchString}`);
     };
+
+    useEffect(() => {
+        const handlePopState = () => {
+            if (typeof window !== "undefined") {
+                const pathSegments = window.location.pathname.split("/").filter(Boolean);
+                const tabFromUrl = pathSegments[1] as TabType;
+                if (tabFromUrl) {
+                    setActiveTab(tabFromUrl);
+                }
+            }
+        };
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+    }, []);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
 
@@ -645,6 +661,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const inlineResumeRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
     const [isEditingJson, setIsEditingJson] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [editJsonText, setEditJsonText] = useState("");
     const [editJsonError, setEditJsonError] = useState<string | null>(null);
     const [editJsonSaving, setEditJsonSaving] = useState(false);
@@ -1745,11 +1762,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'my-interviews') {
-            // Auto-refresh interview data when switching to this tab
-            // so employee UI changes (feedback, notes) are visible immediately
-            loadDashboard();
-        }
         if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
                 try {
@@ -1787,7 +1799,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             };
             void run();
         }
+<<<<<<< HEAD
     }, [activeTab, candidateId]);
+=======
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions]);
+>>>>>>> bc63cf8c1de9024e484ddba361e1dc099ae7a912
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1941,7 +1957,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3' : 'min-h-[56px] lg:min-h-[64px] py-2'} flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3' : 'min-h-[56px] lg:min-h-[64px] py-2'} ${activeTab !== 'overview' && activeTab !== 'job-board' ? 'flex lg:hidden' : 'flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -3094,8 +3110,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {activeTab === 'my-resume' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
-                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8 animate-in fade-in duration-200">
+                                    <div className={`flex-1 overflow-y-auto space-y-6 ${showTemplates && !isEditingJson ? 'p-0' : 'p-4 lg:p-6'}`}>
+                                        <div className={`bg-white dark:bg-gray-900 rounded-3xl animate-in fade-in duration-200 ${showTemplates && !isEditingJson ? 'p-2 lg:p-4 rounded-none border-0 shadow-none' : 'p-6 lg:p-8 shadow-lg border border-gray-100 dark:border-gray-800'}`}>
                                             {!showTemplates ? (
                                                 <div className="space-y-6 animate-in fade-in duration-200">
                                                     {/* Header */}
@@ -3266,6 +3282,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <div className="flex items-center gap-3">
                                                             <button
                                                                 type="button"
+                                                                onClick={handleValidateJson}
+                                                                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-br from-indigo-900 to-purple-400 hover:opacity-90 active:opacity-85 transition-all rounded-xl shadow-md cursor-pointer"
+                                                            >
+                                                                <ClipboardCheck size={14} />
+                                                                <span>Validate JSON</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
                                                                 onClick={() => setIsEditingJson(false)}
                                                                 disabled={editJsonSaving}
                                                                 className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 disabled:opacity-50 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50/50 dark:hover:bg-gray-800 transition-all shadow-sm cursor-pointer"
@@ -3311,33 +3335,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="space-y-4">
-                                                    {/* Header */}
-                                                    <div className="mb-3 flex items-center justify-between">
-                                                        <div>
-                                                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
-                                                                My Resume
-                                                            </h2>
-                                                            <p className="text-xs text-gray-400 mt-1">
-                                                                Choose your template and Download the resume
-                                                            </p>
-                                                        </div>
-                                                        {prefetchedSession?.summaryData?.resume_json && (
-                                                            <div className="flex items-center gap-3">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={handleValidateJson}
-                                                                    className="flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-white bg-gradient-to-br from-indigo-900 to-purple-400 hover:opacity-90 active:opacity-85 transition-all rounded-xl shadow-md cursor-pointer"
-                                                                >
-                                                                    <ClipboardCheck size={14} />
-                                                                    <span>Validate JSON</span>
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
+                                                <div className="space-y-3">
                                                     {/* Control bar */}
-                                                    <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                                                    <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800/40 py-2 px-4 rounded-2xl border border-gray-100 dark:border-gray-800/80">
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                                 Template Layout:
@@ -3345,7 +3345,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             <select
                                                                 value={selectedTemplate}
                                                                 onChange={(e) => setSelectedTemplate(e.target.value)}
-                                                                className="text-sm font-semibold bg-white dark:bg-gray-900 text-gray-850 dark:text-gray-250 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+                                                                className="text-sm font-semibold bg-white dark:bg-gray-900 text-gray-850 dark:text-gray-250 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
                                                             >
                                                                 {[
                                                                     { id: "academic", name: "Academic" },
@@ -3406,6 +3406,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                             <span>Download PDF</span>
                                                                         </button>
                                                                     )}
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setShowDeleteConfirm(true)}
+                                                                        className="flex items-center justify-center p-2 text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-600 border border-red-200 transition-colors rounded-xl shadow-sm"
+                                                                        title="Delete Resume"
+                                                                    >
+                                                                        <Trash2 size={18} />
+                                                                    </button>
                                                                 </>
                                                             )}
                                                         </div>
@@ -3423,7 +3432,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             </pre>
                                                         </div>
                                                     ) : (
-                                                        <div className="border border-gray-200 dark:border-gray-800/80 rounded-3xl overflow-hidden bg-white max-h-[80vh] overflow-y-auto p-4 md:p-6 shadow-inner">
+                                                        <div className="border border-gray-200 dark:border-gray-800/80 rounded-3xl overflow-hidden bg-white max-h-[85vh] overflow-y-auto p-4 md:p-6 shadow-inner">
                                                             <div ref={inlineResumeRef} className="origin-top transform scale-[0.95] w-full">
                                                                 <ResumeRenderer
                                                                     data={(() => {
@@ -3627,6 +3636,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     </DialogPrimitive.Portal>
                 </Dialog>
             )}
+<<<<<<< HEAD
 
             {isJobClicksModalOpen && (
                 <Dialog open={isJobClicksModalOpen} onOpenChange={setIsJobClicksModalOpen}>
@@ -3697,6 +3707,36 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
                 </Dialog>
+=======
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-xl border border-gray-200 dark:border-gray-800 animate-in zoom-in-95 duration-200">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Resume</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Are you sure you want to delete this resume?</p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                                    setShowTemplates(false);
+                                    setResumeFile(null);
+                                    setForceShowUploader(true);
+                                    setShowDeleteConfirm(false);
+                                }}
+                                className="px-4 py-2 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 active:bg-red-800 shadow-md shadow-red-500/20 transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+>>>>>>> bc63cf8c1de9024e484ddba361e1dc099ae7a912
             )}
         </div>
     );
