@@ -49,18 +49,19 @@ export default function CandidateOnboarding({
 
 
 
-    
+
 
 
     const [step, setStep] = useState(initialHasMissingFields ? 1 : 2);
     const [loading, setLoading] = useState(false);
     const [isProfileSaved, setIsProfileSaved] = useState(false);
 
-    const isPendingApproval = isProfileSaved || (
-        currentAgreementStatus === 'P' && !initialHasMissingFields && !isWithin24Hours
+    const isPendingApproval = !isWithin24Hours && (
+        isProfileSaved || (currentAgreementStatus === 'P' && !initialHasMissingFields)
     );
 
 
+    
 
     // Step 1 State
     const [profile, setProfile] = useState<any>({
