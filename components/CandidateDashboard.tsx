@@ -405,6 +405,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [hasMissingFields, setHasMissingFields] = useState(true);
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
+    const [onboardingDocSubmittedAt, setOnboardingDocSubmittedAt] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
@@ -472,6 +473,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
+    const [serverTime, setServerTime] = useState<string | null>(null);
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
@@ -1636,7 +1638,36 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             const status = fullProfile?.enrollment?.agreement || 'N';
             setAgreementStatus(status);
-            const isApproved = status === 'Y';
+
+            const onboardingSubmittedAt = fullProfile?.enrollment?.onboarding_doc_submitted_at || null;
+            setOnboardingDocSubmittedAt(onboardingSubmittedAt);
+
+            // Fetch server time to prevent client clock skew
+            let now = new Date();
+            let serverTimeStr: string | null = null;
+            try {
+                const timeData = await apiFetch('candidates/server-time');
+                if (timeData?.server_time) {
+                    const serverTimeUtc = /Z|[+-]\d{2}(:\d{2})?$/.test(timeData.server_time) ? timeData.server_time : timeData.server_time + 'Z';
+                    serverTimeStr = serverTimeUtc;
+                    setServerTime(serverTimeStr);
+                    now = new Date(serverTimeStr);
+                }
+            } catch (err) {
+                console.error("Failed to sync server time, falling back to local clock:", err);
+            }
+
+            let isWithin24Hours = false;
+            if (status === 'P' && onboardingSubmittedAt) {
+                // Force interpretation as UTC by adding 'Z' if not present
+                const utcString = /Z|[+-]\d{2}(:\d{2})?$/.test(onboardingSubmittedAt) ? onboardingSubmittedAt : onboardingSubmittedAt + 'Z';
+                const submittedDate = new Date(utcString);
+                const diffInMs = now.getTime() - submittedDate.getTime();
+                const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
+                isWithin24Hours = Math.max(diffInMs, 0) < twentyFourHoursInMs;
+            }
+
+            const isApproved = status === 'Y' || isWithin24Hours;
             const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
 
 
@@ -1688,7 +1719,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setOnboardingDocSubmittedAt, setServerTime, setShowOnboarding, setData, setLoading, setError]);
 
     useEffect(() => {
         if (data) {
@@ -1800,6 +1831,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 loginCount={userProfile?.login_count || 0}
                 currentAgreementStatus={agreementStatus || 'N'}
                 initialHasMissingFields={hasMissingFields}
+                onboardingDocSubmittedAt={onboardingDocSubmittedAt}
+                serverTime={serverTime}
                 onComplete={() => {
                     localStorage.setItem('onboarding_completed', 'true');
                     setShowOnboarding(false);
