@@ -867,6 +867,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 throw new Error(errData.detail || "Failed to update resume JSON on server.");
             }
 
+            // Persist to primary database
+            const cid = candidateId || await getCandidateId();
+            if (cid) {
+                try {
+                    await apiFetch(`candidates/${cid}`, {
+                        method: "PUT",
+                        body: JSON.stringify({ candidate_json: parsed }),
+                    });
+                } catch (dbErr) {
+                    console.warn("Failed to persist resume JSON to primary database:", dbErr);
+                }
+            }
+
             toast.success("Resume JSON updated successfully!");
 
             if (prefetchedSession) {
@@ -1718,7 +1731,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [setPositionsLoading, setPositions]);
 
 
-    const loadDashboard = async (retryCount = 0) => {
+    const loadDashboard = useCallback(async (retryCount = 0) => {
         try {
             setLoading(true);
             setError(null);
@@ -1823,7 +1836,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setLoading(false);
         }
-    };
+    }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
     useEffect(() => {
         if (data) {
