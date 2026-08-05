@@ -3599,8 +3599,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     title="View Resume"
                     onReupload={() => {
                         setViewResumeOpen(false);
-                        setUploadResumeOpen(true);
-                        setIsResumeJsonModalOpen(true);
+                        setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                        setShowTemplates(false);
+                        setResumeFile(null);
+                        setActiveTab('my-resume');
                     }}
                 />
             )}
