@@ -2797,7 +2797,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <div className="h-[400px]">
                                                         <CandidateGrid
-                                                            rowData={data.interviews.filter((i: any) => !i.interview_date || i.interview_date < todayStr).sort((a: any, b: any) => b.interview_date.localeCompare(a.interview_date))}
+                                                            rowData={data.interviews.filter((i: any) => !i.interview_date || i.interview_date < todayStr).sort((a: any, b: any) => (b.interview_date || "").localeCompare(a.interview_date || ""))}
                                                             columnDefs={interviewColumnDefs}
                                                             height="400px"
                                                             rowHeight={60}
