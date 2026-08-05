@@ -873,7 +873,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 try {
                     await apiFetch(`candidates/${cid}`, {
                         method: "PUT",
-                        body: JSON.stringify({ candidate_json: parsed }),
+                        body: { candidate_json: parsed },
                     });
                 } catch (dbErr) {
                     console.warn("Failed to persist resume JSON to primary database:", dbErr);
