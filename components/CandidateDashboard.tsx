@@ -3599,7 +3599,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     title="View Resume"
                     onReupload={() => {
                         setViewResumeOpen(false);
-                        setUploadResumeOpen(true);
+                        setIsResumeJsonModalOpen(true);
                     }}
                 />
             )}
