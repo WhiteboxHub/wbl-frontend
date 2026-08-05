@@ -328,6 +328,10 @@ export default function AuthUsersPage() {
         if (!val || val === "1990-01-01" || String(val).startsWith("1990-01-01")) return "";
         return val;
       },
+      valueSetter: (params) => {
+        params.data.enddate = params.newValue;
+        return true;
+      },
       valueFormatter: (params) => {
         if (!params.value || params.value === "1990-01-01" || String(params.value).startsWith("1990-01-01")) return "";
         const dateObj = new Date(params.value);
