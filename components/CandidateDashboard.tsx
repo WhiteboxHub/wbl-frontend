@@ -452,12 +452,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [loadingJobClickDetails, setLoadingJobClickDetails] = useState(false);
     const [jobClickDetailsError, setJobClickDetailsError] = useState<string | null>(null);
 
-    const [hasDismissedJobBoardWarning, setHasDismissedJobBoardWarning] = useState(() => {
+    const [hasDismissedJobBoardWarning, setHasDismissedJobBoardWarning] = useState(false);
+
+    useEffect(() => {
         if (typeof window !== "undefined") {
-            return sessionStorage.getItem("job_board_warning_dismissed") === "true";
+            const isDismissed = sessionStorage.getItem("job_board_warning_dismissed") === "true";
+            if (isDismissed) {
+                setHasDismissedJobBoardWarning(true);
+            }
         }
-        return false;
-    });
+    }, []);
 
     useEffect(() => {
         setActiveTab(defaultTab as TabType);
@@ -911,10 +915,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
         if (!isValid) {
             toast.error(`Validation Failed. Missing mandatory fields: ${errors.join(", ")}`);
-        } else if (warnings.length > 0) {
-            toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
         } else {
-            toast.success("Validation Passed! JSON resume structure is perfectly valid.");
+            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true, setup_complete: prev.api_keys_configured } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
+            if (warnings.length > 0) {
+                toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
+            } else {
+                toast.success("Validation Passed! JSON resume structure is perfectly valid.");
+            }
         }
     };
 
