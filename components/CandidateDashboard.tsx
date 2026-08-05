@@ -634,6 +634,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 throw new Error(errData?.detail || "Resume upload failed");
             }
 
+            // Persist to primary database
+            const cid = candidateId || await getCandidateId();
+            if (cid) {
+                try {
+                    await apiFetch(`candidates/${cid}`, {
+                        method: "PUT",
+                        body: { candidate_json: parsed },
+                    });
+                } catch (dbErr) {
+                    console.warn("Failed to persist resume JSON to primary database:", dbErr);
+                }
+            }
+
             toast.success("Resume JSON saved successfully!");
 
             // Update local prefetch state
