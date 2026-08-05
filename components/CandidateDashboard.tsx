@@ -2772,7 +2772,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 height="300px"
                                                                 rowHeight={60}
                                                                 onSelectionChanged={(rows) => setSelectedUpcomingInterview(rows.length > 0 ? rows[0] : null)}
-                                                                onRowClicked={(data) => setSelectedUpcomingInterview(data)}
                                                             />
                                                         </div>
                                                     </div>
