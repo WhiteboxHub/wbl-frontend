@@ -699,6 +699,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
 
+    useEffect(() => {
+        if (uploadResumeOpen) {
+            setUploadResumeOpen(false);
+            setActiveTab('my-resume');
+        }
+    }, [uploadResumeOpen]);
+
     // Inline Resume states & refs
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
@@ -3620,11 +3627,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 />
             )}
 
-            {(uploadResumeOpen || isResumeJsonModalOpen) && (
-                <Dialog open={uploadResumeOpen || isResumeJsonModalOpen} onOpenChange={(open) => {
-                    setIsResumeJsonModalOpen(open);
-                    setUploadResumeOpen(open);
-                }}>
+            {isResumeJsonModalOpen && (
+                <Dialog open={isResumeJsonModalOpen} onOpenChange={setIsResumeJsonModalOpen}>
                     <DialogPrimitive.Portal>
                         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
                         <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(60rem,95vw)] w-full h-[90vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
@@ -3696,10 +3700,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     type="button"
                                     variant="ghost"
                                     className="h-9 px-4 text-sm font-semibold rounded-lg"
-                                    onClick={() => {
-                                        setIsResumeJsonModalOpen(false);
-                                        setUploadResumeOpen(false);
-                                    }}
+                                    onClick={() => setIsResumeJsonModalOpen(false)}
                                 >
                                     Close
                                 </Button>
@@ -3797,15 +3798,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             }) : "—"}
                                                         </td>
                                                     </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </DialogPrimitive.Content>
-                    </DialogPrimitive.Portal>
-                </Dialog>
-            )}
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </DialogPrimitive.Content>
+                        </DialogPrimitive.Portal>
+                    </Dialog>
+                )}
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
