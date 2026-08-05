@@ -323,7 +323,16 @@ export default function AuthUsersPage() {
       field: "enddate",
       headerName: "End Date",
       width: 150,
-      valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "",
+      valueGetter: (params) => {
+        const val = params.data?.enddate;
+        if (!val || val === "1990-01-01" || String(val).startsWith("1990-01-01")) return "";
+        return val;
+      },
+      valueFormatter: (params) => {
+        if (!params.value || params.value === "1990-01-01" || String(params.value).startsWith("1990-01-01")) return "";
+        const dateObj = new Date(params.value);
+        return isNaN(dateObj.getTime()) ? "" : dateObj.toLocaleDateString();
+      },
       editable: true,
       cellEditor: 'agTextCellEditor',
     },
@@ -395,6 +404,10 @@ export default function AuthUsersPage() {
       delete dataToSend.googleId;
       delete dataToSend.registereddate;
 
+      if (!dataToSend.enddate || dataToSend.enddate === "1990-01-01" || String(dataToSend.enddate).startsWith("1990-01-01")) {
+        dataToSend.enddate = null;
+      }
+
       const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
       await invalidateCache("/users");
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
@@ -456,6 +469,10 @@ export default function AuthUsersPage() {
       // Ensure role is lowercase before sending to backend
       if (dataToSend.role) {
         dataToSend.role = dataToSend.role.toLowerCase();
+      }
+
+      if (!dataToSend.enddate || dataToSend.enddate === "1990-01-01" || String(dataToSend.enddate).startsWith("1990-01-01")) {
+        dataToSend.enddate = null;
       }
 
       // Send POST request to create new user
