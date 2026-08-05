@@ -591,7 +591,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         setJobClickDetailsError(null);
         setLoadingJobClickDetails(true);
         try {
-            const rows = await apiFetch("/api/candidates/click-analytics/me");
+            const rows = await apiFetch("candidates/click-analytics/me");
             setJobClickDetails(Array.isArray(rows) ? rows : []);
         } catch (err: any) {
             console.error("Error loading job click details", err);
@@ -1629,7 +1629,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     };
 
-    const loadPositions = async () => {
+    const loadPositions = useCallback(async () => {
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -1667,7 +1667,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } finally {
             setPositionsLoading(false);
         }
-    };
+    }, [setPositionsLoading, setPositions]);
 
 
     const loadDashboard = async (retryCount = 0) => {
@@ -1789,9 +1789,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     // Sync jobBoardClickCount from server data (today's clicks counter)
     useEffect(() => {
-        const stats = data?.candidate_stats;
+        const stats = data?.candidate_stats as any;
         if (stats) {
-            const todayCount = stats.job_board_click_counter ?? stats.today_job_clicks ?? stats.job_clicks_today ?? 0;
+            const todayCount = stats.job_board_click_counter ?? stats.today_job_clicks ?? stats.job_clicks_today ?? stats.job_listings_clicked ?? 0;
             setJobBoardClickCount(todayCount);
         }
     }, [data?.candidate_stats]);
