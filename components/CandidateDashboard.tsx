@@ -371,6 +371,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
+    const getLocalTodayString = () => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const todayStr = getLocalTodayString();
+
     const getAiPrepApiUrl = () => {
         return (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
     };
@@ -2463,7 +2469,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Interviews</h2>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {data?.interviews?.some((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))) && (
+                                                    {data?.interviews?.some((i: any) => i.interview_date && i.interview_date >= todayStr) && (
                                                         <>
                                                             <Button
                                                                 variant="outline"
@@ -2759,7 +2765,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             )}
 
                                             <div className="space-y-4">
-                                                {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 && (
+                                                {data.interviews.some(i => i.interview_date && i.interview_date >= todayStr) && (
                                                     <div>
                                                         <div className="flex items-center gap-2 mb-3">
                                                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -2767,7 +2773,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         </div>
                                                         <div className="h-[300px]">
                                                             <CandidateGrid
-                                                                rowData={data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(a.interview_date).getTime() - new Date(b.interview_date).getTime())}
+                                                                rowData={data.interviews.filter(i => i.interview_date && i.interview_date >= todayStr).sort((a, b) => a.interview_date.localeCompare(b.interview_date))}
                                                                 columnDefs={interviewColumnDefs.filter(col => col.field !== 'feedback_text')}
                                                                 height="300px"
                                                                 rowHeight={60}
@@ -2783,15 +2789,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <div className="hidden sm:flex items-center gap-5">
                                                             <div className="flex items-center justify-center gap-2 w-full">
                                                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming</span>
-                                                                <span className={`text-sm font-bold ${data.interviews.filter((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
-                                                                    {data.interviews.filter((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
+                                                                <span className={`text-sm font-bold ${data.interviews.some((i: any) => i.interview_date && i.interview_date >= todayStr) ? "text-green-600" : "text-gray-300"}`}>
+                                                                    {data.interviews.filter((i: any) => i.interview_date && i.interview_date >= todayStr).length}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="h-[400px]">
                                                         <CandidateGrid
-                                                            rowData={data.interviews.filter((i: any) => !i.interview_date || (new Date(i.interview_date).getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime())).sort((a: any, b: any) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
+                                                            rowData={data.interviews.filter((i: any) => !i.interview_date || i.interview_date < todayStr).sort((a: any, b: any) => b.interview_date.localeCompare(a.interview_date))}
                                                             columnDefs={interviewColumnDefs}
                                                             height="400px"
                                                             rowHeight={60}
