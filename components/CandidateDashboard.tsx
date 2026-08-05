@@ -2609,7 +2609,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         </div>
 
                                                         {/* Footer Buttons */}
-                                                        <div className="mt-8 pt-4 border-t border-blue-100 dark:border-blue-900 flex justify-end gap-3px-6 pb-6 bg-white dark:bg-gray-900">
+                                                        <div className="mt-8 pt-4 border-t border-blue-100 dark:border-blue-900 flex justify-end gap-3 px-6 pb-6 bg-white dark:bg-gray-900">
                                                             <button onClick={() => setShowAddInterview(false)}
                                                                 className="px-6 py-2 rounded-lg border border-blue-200 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-all">
                                                                 Cancel
