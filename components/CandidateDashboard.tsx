@@ -669,7 +669,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
 
             // Update status badge
-            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
+            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true, setup_complete: prev.api_keys_configured } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
 
             setIsResumeJsonModalOpen(false);
         } catch (err: any) {
@@ -878,6 +878,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     }
                 });
             }
+            setSetupStatus((prev) => prev ? { ...prev, resume_uploaded: true, setup_complete: prev.api_keys_configured } : { resume_uploaded: true, api_keys_configured: false, setup_complete: false });
             setIsEditingJson(false);
         } catch (err: any) {
             setEditJsonError(err.message || "An unexpected error occurred while saving.");
