@@ -86,6 +86,7 @@ import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 
+
 import CandidateOnboarding from "./CandidateOnboarding";
 
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -158,6 +159,9 @@ interface UserProfile {
     last_login?: string;
     candidate_id?: number;
 }
+
+
+
 
 interface Session {
     sessionid: number;
