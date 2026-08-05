@@ -406,14 +406,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         // 3. Direct API call fallback (also runs if SW not active)
         if (!swHandled) {
             try {
-                const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/candidates/track-clicks-batch`, {
+                await apiFetch("candidates/track-clicks-batch", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ clicks: [{ job_listing_id: jobListingId, count: 1 }] }),
+                    body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
                 });
             } catch (e) {
                 console.warn("Job click tracking failed:", e);
@@ -467,15 +462,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         setActiveTab(defaultTab as TabType);
     }, [defaultTab]);
 
-    useEffect(() => {
-        if (activeTab !== "job-board") {
-            if (typeof window !== "undefined") {
-                sessionStorage.removeItem("job_board_warning_dismissed");
-            }
-            setHasDismissedJobBoardWarning(false);
-        }
-    }, [activeTab]);
-
     const showJobBoardWarningModal = activeTab === "job-board" && !hasDismissedJobBoardWarning;
 
     const handleDismissJobBoardWarning = () => {
@@ -486,21 +472,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     const handleJobBoardClicksCardClick = () => {
-        if (typeof window !== "undefined") {
-            sessionStorage.removeItem("job_board_warning_dismissed");
-        }
-        setHasDismissedJobBoardWarning(false);
         goToTab("job-board");
     };
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
-        if (tab !== "job-board") {
-            if (typeof window !== "undefined") {
-                sessionStorage.removeItem("job_board_warning_dismissed");
-            }
-            setHasDismissedJobBoardWarning(false);
-        }
         setActiveTab(tab);
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         window.history.pushState(null, "", `/user_dashboard/${tab}${searchString}`);
