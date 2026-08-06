@@ -852,14 +852,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             setEditJsonSaving(true);
             const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
-            if (!prepToken) {
-                throw new Error("No active session found.");
-            }
 
             const formData = new FormData();
             const blob = new Blob([editJsonText], { type: "application/json" });
             formData.append("file", blob, "resume.json");
-            formData.append("session_id", prepToken);
+            if (prepToken) {
+                formData.append("session_id", prepToken);
+            }
 
             const res = await fetch(`${AIPREP_API}/setup/resume`, {
                 method: "POST",
