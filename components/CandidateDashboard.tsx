@@ -563,7 +563,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                 const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                    },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (res.ok) {
@@ -625,8 +628,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             formData.append("file", blob, "resume.json");
             formData.append("session_id", sid);
 
+            const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
             const response = await fetch(`${AIPREP_API}/setup/resume`, {
                 method: "POST",
+                headers: token ? { "Authorization": `Bearer ${token}` } : {},
                 body: formData,
             });
 
@@ -703,7 +708,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     useEffect(() => {
         if (uploadResumeOpen) {
             setUploadResumeOpen(false);
-            setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
             setShowTemplates(false);
             setResumeFile(null);
             setActiveTab('my-resume');
@@ -820,7 +824,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const email = payload.sub || payload.email || payload.uname || "candidate";
                 const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                    },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (resSummary.ok) {
@@ -860,8 +867,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 formData.append("session_id", prepToken);
             }
 
+            const token = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token") || "") : "";
             const res = await fetch(`${AIPREP_API}/setup/resume`, {
                 method: "POST",
+                headers: token ? { "Authorization": `Bearer ${token}` } : {},
                 body: formData,
             });
 
@@ -1048,7 +1057,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                 const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                    },
                     body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                 });
                 if (!res.ok) return;
@@ -1876,7 +1888,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                     const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: {
+                            "Content-Type": "application/json",
+                            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                        },
                         body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
                     });
                     if (res.ok) {
