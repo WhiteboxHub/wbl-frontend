@@ -383,40 +383,41 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const AIPREP_API = getAiPrepApiUrl();
 
     // --- CLICK TRACKING LOGIC ---
-    const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
+    const handleJobClick = useCallback((jobListingId: number, url: string) => {
         // 1. Optimistically update the local counter immediately
         setJobBoardClickCount(prev => prev + 1);
 
-        // 2. Try Service Worker path first (background batch flush)
-        let swHandled = false;
-        try {
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                const { trackLocalClick } = await import('@/utils/clickTracker');
-                await trackLocalClick(jobListingId);
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'TRACK_CLICK',
-                    id: jobListingId
-                });
-                swHandled = true;
-            }
-        } catch {
-            // SW not available — fall through to direct API call
-        }
-
-        // 3. Direct API call fallback (also runs if SW not active)
-        if (!swHandled) {
-            try {
-                await apiFetch("candidates/track-clicks-batch", {
-                    method: "POST",
-                    body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
-                });
-            } catch (e) {
-                console.warn("Job click tracking failed:", e);
-            }
-        }
-
-        // 4. Open the job link in a new tab
+        // 2. Open the job link synchronously to bypass browser popup blockers
         window.open(url, '_blank');
+
+        // 3. Perform click tracking asynchronously in the background
+        void (async () => {
+            let swHandled = false;
+            try {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    const { trackLocalClick } = await import('@/utils/clickTracker');
+                    await trackLocalClick(jobListingId);
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'TRACK_CLICK',
+                        id: jobListingId
+                    });
+                    swHandled = true;
+                }
+            } catch {
+                // SW not available — fall through to direct API call
+            }
+
+            if (!swHandled) {
+                try {
+                    await apiFetch("candidates/track-clicks-batch", {
+                        method: "POST",
+                        body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
+                    });
+                } catch (e) {
+                    console.warn("Job click tracking failed:", e);
+                }
+            }
+        })();
     }, []);
 
     // ----------------------------
