@@ -703,6 +703,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     useEffect(() => {
         if (uploadResumeOpen) {
             setUploadResumeOpen(false);
+            setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+            setShowTemplates(false);
+            setResumeFile(null);
             setActiveTab('my-resume');
         }
     }, [uploadResumeOpen]);
