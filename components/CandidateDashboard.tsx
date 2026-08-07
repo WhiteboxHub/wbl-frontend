@@ -382,48 +382,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
     const AIPREP_API = getAiPrepApiUrl();
 
-    // --- CLICK TRACKING LOGIC ---
-    const handleJobClick = useCallback((jobListingId: number, url: string) => {
-        // 1. Optimistically update the local counter immediately
-        setJobBoardClickCount(prev => prev + 1);
-
-        // 2. Open the job link synchronously to bypass browser popup blockers
-        window.open(url, '_blank');
-
-        // 3. Perform click tracking asynchronously in the background
-        void (async () => {
-            let swHandled = false;
-            try {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    const { trackLocalClick } = await import('@/utils/clickTracker');
-                    await trackLocalClick(jobListingId);
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'TRACK_CLICK',
-                        id: jobListingId
-                    });
-                    swHandled = true;
-                }
-            } catch {
-                // SW not available — fall through to direct API call
-            }
-
-            if (!swHandled) {
-                try {
-                    await apiFetch("candidates/track-clicks-batch", {
-                        method: "POST",
-                        body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
-                    });
-                } catch (e) {
-                    console.warn("Job click tracking failed:", e);
-                }
-            }
-        })();
-    }, []);
-
-    // ----------------------------
-
-    // ----------------------------
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
@@ -437,6 +395,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
+    const [todayClickSummary, setTodayClickSummary] = useState<{
+        job_board_clicks: number;
+        target_clicks: number;
+        remaining_clicks: number;
+        status: string;
+        status_label: string;
+        message: string;
+    } | null>(null);
     const [isJobClicksModalOpen, setIsJobClicksModalOpen] = useState(false);
     const [jobClickDetails, setJobClickDetails] = useState<Array<{
         id: number;
@@ -447,8 +413,48 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }>>([]);
     const [loadingJobClickDetails, setLoadingJobClickDetails] = useState(false);
     const [jobClickDetailsError, setJobClickDetailsError] = useState<string | null>(null);
-
     const [hasDismissedJobBoardWarning, setHasDismissedJobBoardWarning] = useState(false);
+
+    // --- CLICK TRACKING LOGIC ---
+    const loadTodayClickSummary = useCallback(async () => {
+        try {
+            console.log("Requesting /api/candidates/job-clicks/today...");
+            const response: any = await apiFetch("candidates/job-clicks/today");
+            console.log("Today's Click Summary", response);
+            if (response && typeof response === "object") {
+                setTodayClickSummary(response);
+                if (typeof response.job_board_clicks === "number") {
+                    setJobBoardClickCount(response.job_board_clicks);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch today's click summary:", err);
+        }
+    }, []);
+
+    const handleJobClick = useCallback((jobListingId: number, url: string) => {
+        // 1. Open the job link synchronously to bypass browser popup blockers
+        if (url) {
+            window.open(url, '_blank');
+        }
+
+        // 2. Perform click tracking POST request immediately to backend
+        void (async () => {
+            try {
+                await apiFetch("candidates/track-clicks-batch", {
+                    method: "POST",
+                    body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
+                });
+
+                // 3. Immediately refresh today's click summary so Overview card, Job Board modal, etc. update
+                await loadTodayClickSummary();
+            } catch (e) {
+                console.warn("Job click tracking failed:", e);
+            }
+        })();
+    }, [loadTodayClickSummary]);
+
+    // ----------------------------
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -1574,7 +1580,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setEditInterviewLoading(false);
         }
     };
-    const loadUserProfile = async () => {
+    const loadUserProfile = useCallback(async () => {
         try {
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
@@ -1589,11 +1595,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error("Error loading user profile:", err);
             return null;
         }
-    };
+    }, []);
 
-
-
-    const getCandidateId = async (): Promise<number> => {
+    const getCandidateId = useCallback(async (): Promise<number> => {
         try {
             if (typeof window !== "undefined") {
                 const searchParams = new URLSearchParams(window.location.search);
@@ -1659,7 +1663,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error(" Error getting candidate ID:", err);
             throw new Error(extractErrorMessage(err, "Failed to get candidate ID. Please log in again."));
         }
-    };
+    }, []);
 
     const loadSessions = async () => {
         const fullName = data?.basic_info?.full_name;
@@ -1748,8 +1752,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     }, [setPositionsLoading, setPositions]);
 
+    const isFetchingDashboardRef = useRef(false);
 
     const loadDashboard = useCallback(async (retryCount = 0) => {
+        if (isFetchingDashboardRef.current) return;
+        isFetchingDashboardRef.current = true;
         try {
             setLoading(true);
             setError(null);
@@ -1805,21 +1812,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             const isApproved = status === 'Y';
             const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
 
-
             // GATING LOGIC:
-            // 1. If approved, only show onboarding if fields are missing (Step 1).
-            // 2. If not approved, always show onboarding unless skipped in this session.
-            // 3. After 10 logins, skip is no longer allowed.
-
             if (!isApproved) {
-                // Not approved yet (N or P)
                 if (!isSkipped || loginCount >= 10) {
                     setShowOnboarding(true);
                 } else {
                     setShowOnboarding(false);
                 }
             } else {
-                // Approved (Y)
                 if (isMissingRequiredFields) {
                     setShowOnboarding(true);
                 } else {
@@ -1842,17 +1842,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
             setError(errorMessage);
 
-            if (retryCount === 0 && err.status >= 500) {
-                setTimeout(() => loadDashboard(1), 2000);
-                return;
-            }
-
             if (err.status === 401 || err.status === 403) {
                 localStorage.clear();
                 router.push("/login");
             }
         } finally {
             setLoading(false);
+            isFetchingDashboardRef.current = false;
         }
     }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setShowOnboarding, setData, setLoading, setError]);
 
@@ -1869,15 +1865,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     // Sync jobBoardClickCount from server data (today's clicks counter)
     useEffect(() => {
         const stats = data?.candidate_stats as any;
-        if (stats) {
-            const todayCount = stats.job_board_click_counter ?? stats.today_job_clicks ?? stats.job_clicks_today ?? stats.job_listings_clicked ?? 0;
+        if (stats && !todayClickSummary) {
+            const todayCount = stats.today_job_clicks ?? stats.job_clicks_today ?? stats.job_board_click_counter ?? 0;
             setJobBoardClickCount(todayCount);
         }
-    }, [data?.candidate_stats]);
+    }, [data?.candidate_stats, todayClickSummary]);
 
     useEffect(() => {
-        if (activeTab === 'job-board' && positions.length === 0) {
-            loadPositions();
+        if (activeTab === 'job-board') {
+            void loadTodayClickSummary();
+            if (positions.length === 0) {
+                loadPositions();
+            }
         }
         if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
@@ -1942,7 +1941,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     useEffect(() => {
         sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
-    }, []);
+        void loadTodayClickSummary();
+    }, [loadDashboard, loadTodayClickSummary]);
 
     if (loading) {
         return (
@@ -2242,7 +2242,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Job Board Clicks Status Banner */}
                                         {(() => {
-                                            const remainingClicks = Math.max(0, 30 - jobBoardClickCount);
+                                            const clickData = todayClickSummary ?? {
+                                                job_board_clicks: jobBoardClickCount,
+                                                target_clicks: 30,
+                                                remaining_clicks: Math.max(0, 30 - jobBoardClickCount),
+                                                status: 'below_target',
+                                                status_label: 'BELOW TARGET',
+                                                message: `You need ${Math.max(0, 30 - jobBoardClickCount)} more clicks to reach the daily objective.`,
+                                            };
+                                            const isGoalMet = clickData.status === 'goal_met';
                                             return (
                                                 <div
                                                     onClick={handleJobBoardClicksCardClick}
@@ -2260,10 +2268,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 </p>
                                                                 <div className="flex items-baseline">
                                                                     <span className="text-3xl font-black text-gray-900 dark:text-white leading-none">
-                                                                        {jobBoardClickCount}
+                                                                        {clickData.job_board_clicks}
                                                                     </span>
                                                                     <span className="text-xs font-medium text-gray-400 ml-1.5">
-                                                                        / 30
+                                                                        / {clickData.target_clicks}
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -2271,12 +2279,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                         {/* Right Section */}
                                                         <div className="text-right flex flex-col items-end justify-center">
-                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40">
-                                                                BELOW TARGET
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                                                                isGoalMet
+                                                                    ? 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40'
+                                                                    : 'text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40'
+                                                            }`}>
+                                                                {clickData.status_label}
                                                             </span>
                                                             <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 flex items-center justify-end gap-1">
-                                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 inline" />
-                                                                <span>You need {remainingClicks} more clicks to reach the daily objective</span>
+                                                                {isGoalMet
+                                                                    ? <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 inline" />
+                                                                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 inline" />
+                                                                }
+                                                                <span>{clickData.message}</span>
                                                             </p>
                                                         </div>
                                                     </div>
@@ -2973,16 +2988,35 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
 
                                                     {/* Body */}
-                                                    <div className="py-1 text-[15px] leading-[1.5] text-[#78350F] dark:text-amber-100">
-                                                        <p>
-                                                            You have completed <span className="font-bold">{jobBoardClickCount}/30</span> clicks.
-                                                        </p>
-                                                        <p className="mt-0.5">
-                                                            You need <span className="font-bold">{Math.max(0, 30 - jobBoardClickCount)} more</span>
-                                                            <br />
-                                                            clicks to reach today&apos;s goal.
-                                                        </p>
-                                                    </div>
+                                                    {(() => {
+                                                        console.log("Today's Click Summary", todayClickSummary);
+
+                                                        const completedClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
+                                                        const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
+                                                        const remainingClicks = todayClickSummary ? todayClickSummary.remaining_clicks : Math.max(0, targetClicks - completedClicks);
+                                                        const isGoalAchieved = completedClicks >= targetClicks;
+
+                                                        return (
+                                                            <div className="py-1 text-[15px] leading-[1.5] text-[#78350F] dark:text-amber-100">
+                                                                <p>
+                                                                    You have completed <span className="font-bold">{completedClicks}/{targetClicks}</span> clicks.
+                                                                </p>
+                                                                {isGoalAchieved ? (
+                                                                    <p className="mt-0.5">
+                                                                        <span className="font-bold">Daily goal achieved.</span>
+                                                                        <br />
+                                                                        Great job!
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="mt-0.5">
+                                                                        You need <span className="font-bold">{remainingClicks} more</span>
+                                                                        <br />
+                                                                        clicks to reach today&apos;s goal.
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 {/* Footer Buttons (Bottom-Left) */}
