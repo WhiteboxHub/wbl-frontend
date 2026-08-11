@@ -416,24 +416,68 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [jobClickDetailsError, setJobClickDetailsError] = useState<string | null>(null);
     const [hasDismissedJobBoardWarning, setHasDismissedJobBoardWarning] = useState(false);
 
-    // --- CLICK TRACKING LOGIC ---
+    const [totalJobBoardClickCount, setTotalJobBoardClickCount] = useState<number>(0);
+
     const loadTodayClickSummary = useCallback(async () => {
         try {
+            console.log("[CLICK_DEBUG] loadTodayClickSummary START");
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             console.log("Requesting /api/candidates/job-clicks/today...");
-            const response: any = await apiFetch("candidates/job-clicks/today");
-            console.log("Today's Click Summary", response);
+            const response: any = await apiFetch("candidates/job-clicks/today", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            console.log("[CLICK_DEBUG] GET response:", response);
             if (response && typeof response === "object") {
+                console.log("[CLICK_DEBUG] job_board_clicks:", response.job_board_clicks);
+                console.log("[CLICK_DEBUG] setting todayClickSummary:", response);
                 setTodayClickSummary(response);
                 if (typeof response.job_board_clicks === "number") {
                     setJobBoardClickCount(response.job_board_clicks);
                 }
             }
         } catch (err) {
-            console.error("Failed to fetch today's click summary:", err);
+            console.error("[CLICK_DEBUG] Failed to fetch today's click summary:", err);
         }
     }, []);
 
-    const handleJobClick = useCallback((jobListingId: number, url: string) => {
+    const loadTotalClickSummary = useCallback(async () => {
+        try {
+            console.log("[CLICK_DEBUG] loadTotalClickSummary START");
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+            console.log("Requesting /api/candidates/job-clicks/total...");
+            const response: any = await apiFetch("candidates/job-clicks/total", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            console.log("[CLICK_DEBUG] GET total response:", response);
+            if (response && typeof response === "object") {
+                const total = typeof response.job_board_clicks === "number"
+                    ? response.job_board_clicks
+                    : (typeof response.total_job_board_clicks === "number" ? response.total_job_board_clicks : 0);
+                setTotalJobBoardClickCount(total);
+            }
+        } catch (err) {
+            console.error("[CLICK_DEBUG] Failed to fetch total click summary:", err);
+        }
+    }, []);
+
+    const handleJobClick = useCallback((rawJobId: any, url: string) => {
+        let jobListingId = Number(rawJobId);
+        if (!jobListingId || isNaN(jobListingId) || jobListingId <= 0) {
+            if (typeof rawJobId === 'string') {
+                let hash = 0;
+                for (let i = 0; i < rawJobId.length; i++) {
+                    hash = ((hash << 5) - hash) + rawJobId.charCodeAt(i);
+                    hash |= 0;
+                }
+                jobListingId = Math.abs(hash) || 1;
+            } else {
+                jobListingId = 1;
+            }
+        }
+
+        console.log("[CLICK_DEBUG] handleJobClick START");
+        console.log("[CLICK_DEBUG] jobListingId:", jobListingId);
+
         // 1. Open the job link synchronously to bypass browser popup blockers
         if (url) {
             window.open(url, '_blank');
@@ -442,40 +486,52 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         // 2. Perform click tracking POST request immediately to backend
         void (async () => {
             try {
-                await apiFetch("candidates/track-clicks-batch", {
+                console.log("[CLICK_DEBUG] POST request: candidates/track-clicks-batch payload:", { clicks: [{ job_listing_id: jobListingId, count: 1 }] });
+                const res = await apiFetch("candidates/track-clicks-batch", {
                     method: "POST",
                     body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
                 });
+                console.log("[CLICK_DEBUG] POST response:", res);
 
-                // 3. Immediately refresh today's click summary so Overview card, Job Board modal, etc. update
+                if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+                }
+
+                // 3. Immediately refresh today's and total click summaries so Overview, Job Board, and My Applications update
                 await loadTodayClickSummary();
+                await loadTotalClickSummary();
             } catch (e) {
-                console.warn("Job click tracking failed:", e);
+                console.warn("[CLICK_DEBUG] Job click tracking failed:", e);
             }
         })();
-    }, [loadTodayClickSummary]);
+    }, [loadTodayClickSummary, loadTotalClickSummary]);
 
     // ----------------------------
 
+    const warningStorageKey = useMemo(() => {
+        const userIdentifier = candidateId || userProfile?.candidate_id || userProfile?.uname || "user";
+        return `job_board_click_warning_${userIdentifier}_${todayStr}`;
+    }, [candidateId, userProfile?.candidate_id, userProfile?.uname, todayStr]);
+
     useEffect(() => {
         if (typeof window !== "undefined") {
-            const isDismissed = sessionStorage.getItem("job_board_warning_dismissed") === "true";
-            if (isDismissed) {
-                setHasDismissedJobBoardWarning(true);
-            }
+            const isDismissed = localStorage.getItem(warningStorageKey) === "true";
+            setHasDismissedJobBoardWarning(isDismissed);
         }
-    }, []);
+    }, [warningStorageKey]);
 
     useEffect(() => {
         setActiveTab(defaultTab as TabType);
     }, [defaultTab]);
 
-    const showJobBoardWarningModal = activeTab === "job-board" && !hasDismissedJobBoardWarning;
+    const currentTodayClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
+    const isGoalAchieved = currentTodayClicks >= 30;
+    const showJobBoardWarningModal = activeTab === "job-board" && !isGoalAchieved && !hasDismissedJobBoardWarning;
 
     const handleDismissJobBoardWarning = () => {
         setHasDismissedJobBoardWarning(true);
         if (typeof window !== "undefined") {
-            sessionStorage.setItem("job_board_warning_dismissed", "true");
+            localStorage.setItem(warningStorageKey, "true");
         }
     };
 
@@ -1456,7 +1512,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             rel="noopener noreferrer"
                             onClick={(e) => {
                                 e.preventDefault();
-                                handleJobClick(params.data.id, url);
+                                const idToPass = params.data.id || params.data.job_listing_id || params.data.source_job_id || params.data.source_uid || 1;
+                                handleJobClick(idToPass, url);
                             }}
                             className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
                         >
@@ -1867,6 +1924,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
 
             setData(dashboardData);
+            void loadTodayClickSummary();
         } catch (err: any) {
             console.error("Dashboard loading error:", err);
 
@@ -1903,11 +1961,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [data?.candidate_stats, todayClickSummary]);
 
     useEffect(() => {
-        if (activeTab === 'job-board') {
+        if (activeTab === 'job-board' || activeTab === 'overview') {
             void loadTodayClickSummary();
-            if (positions.length === 0) {
-                loadPositions();
-            }
+        }
+        if (activeTab === 'my-applications' || activeTab === 'job-board' || activeTab === 'overview') {
+            void loadTotalClickSummary();
+        }
+        if (activeTab === 'job-board' && positions.length === 0) {
+            loadPositions();
         }
         if (activeTab === 'my-resume' && candidateId) {
             const run = async () => {
@@ -1973,7 +2034,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
         void loadTodayClickSummary();
-    }, [loadDashboard, loadTodayClickSummary]);
+        void loadTotalClickSummary();
+    }, [loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
     if (loading) {
         return (
@@ -2110,7 +2172,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'min-h-[56px] lg:min-h-[64px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'hidden' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -2165,39 +2227,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         )}
 
                     </div>
-
-                    {activeTab === 'job-board' && (
-                        <div className="flex items-center gap-3 translate-y-[3px]">
-                            <button
-                                type="button"
-                                onClick={openResumeJsonModal}
-                                className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95 cursor-pointer border-0"
-                            >
-                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
-                                    <Code2 className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
-                                        Resume JSON
-                                    </span>
-                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                </div>
-                            </button>
-
-                            <a
-                                href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
-                            >
-                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
-                                    <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
-                                        Autofill Extension
-                                    </span>
-                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                </div>
-                            </a>
-                        </div>
-                    )}
 
                 </header>
 
@@ -2275,15 +2304,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Job Board Clicks Status Banner */}
                                         {(() => {
+                                            console.log("[CLICK_DEBUG] rendered todayClickSummary:", todayClickSummary);
                                             const clickData = todayClickSummary ?? {
                                                 job_board_clicks: jobBoardClickCount,
                                                 target_clicks: 30,
                                                 remaining_clicks: Math.max(0, 30 - jobBoardClickCount),
-                                                status: 'below_target',
-                                                status_label: 'BELOW TARGET',
-                                                message: `You need ${Math.max(0, 30 - jobBoardClickCount)} more clicks to reach the daily objective.`,
+                                                status: jobBoardClickCount >= 30 ? 'TARGET_COMPLETED' : 'BELOW_TARGET',
+                                                status_label: jobBoardClickCount >= 30 ? 'GOAL COMPLETED' : 'BELOW TARGET',
+                                                message: jobBoardClickCount >= 30 ? "Today's goal completed." : `You need ${Math.max(0, 30 - jobBoardClickCount)} more clicks to reach today's goal.`,
                                             };
-                                            const isGoalMet = clickData.status === 'goal_met';
+                                            console.log("[CLICK_DEBUG] rendered clickData:", clickData);
+                                            console.log("[CLICK_DEBUG] displayed job_board_clicks:", clickData.job_board_clicks);
+                                            const isGoalMet = clickData.status === 'TARGET_COMPLETED' || clickData.status === 'GOAL_MET' || clickData.status === 'goal_met' || clickData.job_board_clicks >= clickData.target_clicks;
                                             return (
                                                 <div
                                                     onClick={handleJobBoardClicksCardClick}
@@ -2995,83 +3027,114 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {activeTab === 'job-board' && (
-                                    <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
-                                        {showJobBoardWarningModal && (
-                                            <div
-                                                className="w-full max-w-[420px] min-h-[190px] bg-[#FFFBEB] dark:bg-amber-950/60 border border-[#FDE68A] dark:border-amber-800/80 rounded-[12px] p-5 mb-6 transition-all animate-in fade-in zoom-in-95 duration-150 relative flex flex-col justify-between"
-                                                style={{ boxShadow: "0 8px 20px rgba(217,119,6,0.15)" }}
-                                            >
-                                                <div>
-                                                    {/* Header */}
-                                                    <div className="flex items-center justify-between pb-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <AlertTriangle className="w-5 h-5 text-[#D97706] flex-shrink-0" />
-                                                            <h3 className="text-[16px] font-semibold text-[#92400E] dark:text-amber-200">
-                                                                Job Board Clicks Today
-                                                            </h3>
+                                    <div className="flex-1 flex flex-col px-4 lg:px-6 pt-4 pb-8 w-full min-h-0">
+                                        {/* TOP ROW: Warning Card (Left) + Resume JSON & Autofill Buttons (Right) */}
+                                        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 w-full mb-4">
+                                            {showJobBoardWarningModal ? (
+                                                <div
+                                                    className="w-full max-w-[360px] min-h-0 bg-[#FFFBEB] dark:bg-amber-950/60 border border-[#FDE68A] dark:border-amber-800/80 rounded-[12px] p-4 transition-all animate-in fade-in zoom-in-95 duration-150 relative flex flex-col justify-between"
+                                                    style={{ boxShadow: "0 6px 16px rgba(217,119,6,0.12)" }}
+                                                >
+                                                    <div>
+                                                        {/* Header */}
+                                                        <div className="flex items-center justify-between pb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <AlertTriangle className="w-5 h-5 text-[#D97706] flex-shrink-0" />
+                                                                <h3 className="text-[15px] font-semibold text-[#92400E] dark:text-amber-200">
+                                                                    Job Board Clicks Today
+                                                                </h3>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleDismissJobBoardWarning}
+                                                                className="text-[#B45309] hover:text-[#92400E] dark:text-amber-400 dark:hover:text-amber-200 transition-colors p-1 flex items-center justify-center cursor-pointer"
+                                                                aria-label="Close"
+                                                            >
+                                                                <X className="w-[18px] h-[18px]" />
+                                                            </button>
                                                         </div>
+
+                                                        {/* Body */}
+                                                        {(() => {
+                                                            console.log("Today's Click Summary", todayClickSummary);
+
+                                                            const completedClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
+                                                            const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
+                                                            const remainingClicks = todayClickSummary ? todayClickSummary.remaining_clicks : Math.max(0, targetClicks - completedClicks);
+                                                            const isGoalAchieved = completedClicks >= targetClicks;
+
+                                                            return (
+                                                                <div className="py-1 text-[14px] leading-[1.4] text-[#78350F] dark:text-amber-100">
+                                                                    <p>
+                                                                        You have completed <span className="font-bold">{completedClicks}/{targetClicks}</span> clicks.
+                                                                    </p>
+                                                                    {isGoalAchieved ? (
+                                                                        <p className="mt-1 font-bold">
+                                                                            Today&apos;s goal completed.
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="mt-1">
+                                                                            You need <span className="font-bold">{remainingClicks} more</span> clicks to reach today&apos;s goal.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+
+                                                    {/* Footer Buttons (Bottom-Left) */}
+                                                    <div className="flex items-center gap-2.5 pt-3 justify-start">
                                                         <button
                                                             type="button"
                                                             onClick={handleDismissJobBoardWarning}
-                                                            className="text-[#B45309] hover:text-[#92400E] dark:text-amber-400 dark:hover:text-amber-200 transition-colors p-1 flex items-center justify-center cursor-pointer"
-                                                            aria-label="Close"
+                                                            className="w-[80px] h-[34px] bg-[#FEF3C7] hover:bg-[#fde68a] active:bg-[#fcd34d] text-[#78350F] dark:bg-amber-900/60 dark:hover:bg-amber-800 dark:text-amber-200 text-xs font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
                                                         >
-                                                            <X className="w-[18px] h-[18px]" />
+                                                            Close
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleDismissJobBoardWarning}
+                                                            className="w-[80px] h-[34px] bg-[#D97706] hover:bg-[#b45309] active:bg-[#92400E] text-white text-xs font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
+                                                        >
+                                                            Got It
                                                         </button>
                                                     </div>
-
-                                                    {/* Body */}
-                                                    {(() => {
-                                                        console.log("Today's Click Summary", todayClickSummary);
-
-                                                        const completedClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
-                                                        const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
-                                                        const remainingClicks = todayClickSummary ? todayClickSummary.remaining_clicks : Math.max(0, targetClicks - completedClicks);
-                                                        const isGoalAchieved = completedClicks >= targetClicks;
-
-                                                        return (
-                                                            <div className="py-1 text-[15px] leading-[1.5] text-[#78350F] dark:text-amber-100">
-                                                                <p>
-                                                                    You have completed <span className="font-bold">{completedClicks}/{targetClicks}</span> clicks.
-                                                                </p>
-                                                                {isGoalAchieved ? (
-                                                                    <p className="mt-0.5">
-                                                                        <span className="font-bold">Daily goal achieved.</span>
-                                                                        <br />
-                                                                        Great job!
-                                                                    </p>
-                                                                ) : (
-                                                                    <p className="mt-0.5">
-                                                                        You need <span className="font-bold">{remainingClicks} more</span>
-                                                                        <br />
-                                                                        clicks to reach today&apos;s goal.
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
                                                 </div>
+                                            ) : <div />}
 
-                                                {/* Footer Buttons (Bottom-Left) */}
-                                                <div className="flex items-center gap-3 pt-4 justify-start">
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleDismissJobBoardWarning}
-                                                        className="w-[90px] h-[38px] bg-[#FEF3C7] hover:bg-[#fde68a] active:bg-[#fcd34d] text-[#78350F] dark:bg-amber-900/60 dark:hover:bg-amber-800 dark:text-amber-200 text-sm font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
-                                                    >
-                                                        Close
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleDismissJobBoardWarning}
-                                                        className="w-[90px] h-[38px] bg-[#D97706] hover:bg-[#b45309] active:bg-[#92400E] text-white text-sm font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
-                                                    >
-                                                        Got It
-                                                    </button>
-                                                </div>
+                                            {/* Right Section: Resume JSON & Autofill Extension Action Buttons */}
+                                            <div className="flex items-center gap-3 sm:ml-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={openResumeJsonModal}
+                                                    className="group relative flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95 cursor-pointer border-0"
+                                                >
+                                                    <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                                        <Code2 className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                        <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                                            Resume JSON
+                                                        </span>
+                                                        <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                    </div>
+                                                </button>
+
+                                                <a
+                                                    href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="group relative flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
+                                                >
+                                                    <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                                        <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                        <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                                            Autofill Extension
+                                                        </span>
+                                                        <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                    </div>
+                                                </a>
                                             </div>
-                                        )}
-                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
+                                        </div>
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-2 w-full">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
                                                     <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -3294,7 +3357,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Job Board Clicks</h3>
                                                     <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {jobBoardClickCount}
+                                                        {totalJobBoardClickCount}
                                                     </p>
                                                     <p className="text-[10px] text-gray-400 mt-2">Total clicks on job listings from the Job Board</p>
                                                 </div>
