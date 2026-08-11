@@ -278,7 +278,7 @@ export default function OutreachEmailsPage() {
     try {
       const payload = getOutreachEmailPayload(row);
 
-      await apiFetch(`/outreach-emails/${row.id}/`, {
+      await apiFetch(`/outreach-emails/${row.id}`, {
         method: "PUT",
         body: payload,
       });
@@ -300,7 +300,7 @@ export default function OutreachEmailsPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      await apiFetch(`/outreach-emails/${id}/`, { method: "DELETE" });
+      await apiFetch(`/outreach-emails/${id}`, { method: "DELETE" });
 
       await invalidateCache("/outreach-emails/");
 
