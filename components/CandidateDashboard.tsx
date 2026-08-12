@@ -510,8 +510,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const warningStorageKey = useMemo(() => {
         const userIdentifier = candidateId || userProfile?.candidate_id || userProfile?.uname || "user";
+        const todayStr = new Date().toISOString().split("T")[0];
         return `job_board_click_warning_${userIdentifier}_${todayStr}`;
-    }, [candidateId, userProfile?.candidate_id, userProfile?.uname, todayStr]);
+    }, [candidateId, userProfile?.candidate_id, userProfile?.uname]);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
