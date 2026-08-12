@@ -798,6 +798,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             for (const log of candidateLogs) {
                 if (log.notes) {
                     const noteText = log.notes;
+                    let successfullyParsed = false;
 
                     try {
                         const data = JSON.parse(noteText);
@@ -810,6 +811,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     application_date: data["Application Date"] || data["application_date"] || "N/A",
                                     application_status: data["Application Status"] || data["application_status"] || "N/A"
                                 });
+                                successfullyParsed = true;
                             }
                         }
                     } catch (e) {
@@ -849,8 +851,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     application_date: dateMatch ? dateMatch[1].trim() : "N/A",
                                     application_status: statusMatch ? statusMatch[1].trim() : "N/A"
                                 });
+                                foundMatch = true;
                             }
                         }
+
+                        if (foundMatch) {
+                            successfullyParsed = true;
+                        }
+                    }
+
+                    if (successfullyParsed) {
+                        break;
                     }
                 }
             }
@@ -2450,8 +2461,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         {/* Right Section */}
                                                         <div className="text-right flex flex-col items-end justify-center">
                                                             <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${isGoalMet
-                                                                    ? 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40'
-                                                                    : 'text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40'
+                                                                ? 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40'
+                                                                : 'text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40'
                                                                 }`}>
                                                                 {clickData.status_label}
                                                             </span>
