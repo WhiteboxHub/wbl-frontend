@@ -450,9 +450,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             });
             console.log("[CLICK_DEBUG] GET total response:", response);
             if (response && typeof response === "object") {
-                const total = typeof response.job_board_clicks === "number"
-                    ? response.job_board_clicks
-                    : (typeof response.total_job_board_clicks === "number" ? response.total_job_board_clicks : 0);
+                const total = typeof response.total_job_board_clicks === "number"
+                    ? response.total_job_board_clicks
+                    : (typeof response.job_board_clicks === "number" ? response.job_board_clicks : 0);
                 setTotalJobBoardClickCount(total);
             }
         } catch (err) {
@@ -509,13 +509,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     // ----------------------------
 
     const warningStorageKey = useMemo(() => {
-        const userIdentifier = candidateId || userProfile?.candidate_id || userProfile?.uname || "user";
-        const todayStr = new Date().toISOString().split("T")[0];
+        const userIdentifier = candidateId || userProfile?.candidate_id || userProfile?.uname;
+        if (!userIdentifier) return null;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const todayStr = `${year}-${month}-${day}`;
         return `job_board_click_warning_${userIdentifier}_${todayStr}`;
     }, [candidateId, userProfile?.candidate_id, userProfile?.uname]);
 
     useEffect(() => {
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && warningStorageKey) {
             const isDismissed = localStorage.getItem(warningStorageKey) === "true";
             setHasDismissedJobBoardWarning(isDismissed);
         }
@@ -532,7 +537,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const handleDismissJobBoardWarning = () => {
         setHasDismissedJobBoardWarning(true);
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && warningStorageKey) {
             localStorage.setItem(warningStorageKey, "true");
         }
     };
