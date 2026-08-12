@@ -798,7 +798,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             for (const log of candidateLogs) {
                 if (log.notes) {
                     const noteText = log.notes;
-                    let successfullyParsed = false;
 
                     try {
                         const data = JSON.parse(noteText);
@@ -811,7 +810,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     application_date: data["Application Date"] || data["application_date"] || "N/A",
                                     application_status: data["Application Status"] || data["application_status"] || "N/A"
                                 });
-                                successfullyParsed = true;
                             }
                         }
                     } catch (e) {
@@ -854,14 +852,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 foundMatch = true;
                             }
                         }
-
-                        if (foundMatch) {
-                            successfullyParsed = true;
-                        }
-                    }
-
-                    if (successfullyParsed) {
-                        break;
                     }
                 }
             }
