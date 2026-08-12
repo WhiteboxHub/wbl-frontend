@@ -714,7 +714,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [easyApplyError, setEasyApplyError] = useState<string | null>(null);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
 
-    const fetchEasyApplyData = async () => {
+    const fetchEasyApplyData = useCallback(async () => {
         try {
             setLoadingEasyApply(true);
             setEasyApplyError(null);
@@ -756,7 +756,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     const status = parts[parts.length - 1].trim();
                                     const role = parts[2].trim();
                                     const company = parts.slice(3, parts.length - 2).join(',').trim();
-                                    
+
                                     parsedApps.push({
                                         company_name: company || "N/A",
                                         role: role || "N/A",
@@ -767,7 +767,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 }
                             }
                         }
-                        
+
                         if (!foundMatch) {
                             const companyMatch = noteText.match(/Company(?:\s*Name)?:\s*([^\n,]+)/i);
                             const roleMatch = noteText.match(/Role:\s*([^\n,]+)/i);
@@ -791,20 +791,20 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const status = (app.application_status || "").toLowerCase();
                 return status.includes('success') || status.includes('submitted');
             });
-            
+
             setEasyApplyApplications(successfulApps);
         } catch (err: any) {
             setEasyApplyError(err.message || "Failed to fetch Easy Apply details");
         } finally {
             setLoadingEasyApply(false);
         }
-    };
+    }, [candidateId]);
 
     useEffect(() => {
         if (candidateId) {
             fetchEasyApplyData();
         }
-    }, [candidateId]);
+    }, [candidateId, fetchEasyApplyData]);
 
     useEffect(() => {
         if (uploadResumeOpen) {
