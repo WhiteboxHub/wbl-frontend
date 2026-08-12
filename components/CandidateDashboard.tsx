@@ -2174,7 +2174,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'hidden' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'lg:hidden min-h-[56px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
