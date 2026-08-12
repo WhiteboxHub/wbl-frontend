@@ -795,10 +795,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             // Sort by activity date descending to get the most recent application record
             candidateLogs.sort((a, b) => new Date(b.activity_date).getTime() - new Date(a.activity_date).getTime());
 
-            if (candidateLogs.length > 0) {
-                const latestLog = candidateLogs[0];
-                if (latestLog.notes) {
-                    const noteText = latestLog.notes;
+            for (const log of candidateLogs) {
+                if (log.notes) {
+                    const noteText = log.notes;
 
                     try {
                         const data = JSON.parse(noteText);
@@ -2450,11 +2449,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                         {/* Right Section */}
                                                         <div className="text-right flex flex-col items-end justify-center">
-                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                                                isGoalMet
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${isGoalMet
                                                                     ? 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40'
                                                                     : 'text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40'
-                                                            }`}>
+                                                                }`}>
                                                                 {clickData.status_label}
                                                             </span>
                                                             <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 flex items-center justify-end gap-1">
@@ -3480,16 +3478,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full">Outreach</span>
                                                     </div>
                                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Campaign Outreaches</h3>
-                                                    <div className="flex items-center justify-between gap-4 mt-2">
+                                                    <div className="flex items-center justify-between gap-2 mt-2 pr-2">
                                                         <div className="flex flex-col items-center flex-1">
-                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Daily Outreach</p>
+                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Daily Outreach</p>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
                                                                 {data.candidate_stats?.daily_outreach_count ?? 0}
                                                             </p>
                                                         </div>
                                                         <div className="w-px h-10 bg-purple-100 dark:bg-purple-900/30"></div>
                                                         <div className="flex flex-col items-center flex-1">
-                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Complete Outreach</p>
+                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Complete Outreach</p>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
                                                                 {data.candidate_stats?.complete_outreach_count ?? 0}
                                                             </p>
