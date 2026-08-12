@@ -524,8 +524,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         setActiveTab(defaultTab as TabType);
     }, [defaultTab]);
 
+    const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
     const currentTodayClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
-    const isGoalAchieved = currentTodayClicks >= 30;
+    const isGoalAchieved = currentTodayClicks >= targetClicks;
     const showJobBoardWarningModal = activeTab === "job-board" && !isGoalAchieved && !hasDismissedJobBoardWarning;
 
     const handleDismissJobBoardWarning = () => {
