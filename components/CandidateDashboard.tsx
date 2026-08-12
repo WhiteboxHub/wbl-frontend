@@ -143,11 +143,15 @@ interface DashboardData {
         interview_success_rate: number;
         job_listings_clicked: number;
         outreach_counter: number;
+        daily_outreach_count?: number;
+        weekly_outreach_count?: number;
+        complete_outreach_count?: number;
         easy_apply_counter: number;
         classes_joined?: number;
         sessions_joined?: number;
         mocks_joined?: number;
     };
+
 }
 
 interface UserProfile {
@@ -704,8 +708,103 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
-    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
+    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(false);
+    const [easyApplyApplications, setEasyApplyApplications] = useState<any[]>([]);
+    const [loadingEasyApply, setLoadingEasyApply] = useState(false);
+    const [easyApplyError, setEasyApplyError] = useState<string | null>(null);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
+
+    const fetchEasyApplyData = useCallback(async () => {
+        try {
+            setLoadingEasyApply(true);
+            setEasyApplyError(null);
+            const logs = await apiFetch("job_activity_logs");
+
+            const parsedApps: any[] = [];
+            let candidateLogs = Array.isArray(logs) ? logs.filter((log: any) => log.candidate_id === candidateId) : [];
+
+            // Sort by activity date descending to get the most recent application record
+            candidateLogs.sort((a, b) => new Date(b.activity_date).getTime() - new Date(a.activity_date).getTime());
+
+            if (candidateLogs.length > 0) {
+                const latestLog = candidateLogs[0];
+                if (latestLog.notes) {
+                    const noteText = latestLog.notes;
+
+                    try {
+                        const data = JSON.parse(noteText);
+                        if (data && typeof data === 'object') {
+                            const company = data["Company Name"] || data["company_name"];
+                            if (company) {
+                                parsedApps.push({
+                                    company_name: company,
+                                    role: data["Role"] || data["role"] || "N/A",
+                                    application_date: data["Application Date"] || data["application_date"] || "N/A",
+                                    application_status: data["Application Status"] || data["application_status"] || "N/A"
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        // Check for CSV-like lines
+                        const lines = noteText.split('\n');
+                        let foundMatch = false;
+                        for (const line of lines) {
+                            if (line.includes('Easy Apply') || line.includes('Easy Applied')) {
+                                const parts = line.split(',');
+                                if (parts.length >= 6) {
+                                    const date = parts[0].trim();
+                                    const status = parts[parts.length - 1].trim();
+                                    const role = parts[2].trim();
+                                    const company = parts.slice(3, parts.length - 2).join(',').trim();
+
+                                    parsedApps.push({
+                                        company_name: company || "N/A",
+                                        role: role || "N/A",
+                                        application_date: date || "N/A",
+                                        application_status: status
+                                    });
+                                    foundMatch = true;
+                                }
+                            }
+                        }
+
+                        if (!foundMatch) {
+                            const companyMatch = noteText.match(/Company(?:\s*Name)?:\s*([^\n,]+)/i);
+                            const roleMatch = noteText.match(/Role:\s*([^\n,]+)/i);
+                            const dateMatch = noteText.match(/Application Date:\s*([^\n,]+)/i);
+                            const statusMatch = noteText.match(/Application Status:\s*([^\n,]+)/i);
+
+                            if (companyMatch || roleMatch || dateMatch || statusMatch) {
+                                parsedApps.push({
+                                    company_name: companyMatch ? companyMatch[1].trim() : "N/A",
+                                    role: roleMatch ? roleMatch[1].trim() : "N/A",
+                                    application_date: dateMatch ? dateMatch[1].trim() : "N/A",
+                                    application_status: statusMatch ? statusMatch[1].trim() : "N/A"
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            const successfulApps = parsedApps.filter(app => {
+                const status = (app.application_status || "").toLowerCase();
+                return status.includes('success') || status.includes('submitted');
+            });
+
+            setEasyApplyApplications(successfulApps);
+        } catch (err: any) {
+            setEasyApplyError(err.message || "Failed to fetch Easy Apply details");
+        } finally {
+            setLoadingEasyApply(false);
+        }
+    }, [candidateId]);
+
+    useEffect(() => {
+        if (candidateId) {
+            fetchEasyApplyData();
+        }
+    }, [candidateId, fetchEasyApplyData]);
 
     useEffect(() => {
         if (uploadResumeOpen) {
@@ -3276,16 +3375,28 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         </div>
                                                         <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full">Outreach</span>
                                                     </div>
-                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Campaign Outreaches</h3>
-                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.outreach_counter ?? 0}
-                                                    </p>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Campaign Outreaches</h3>
+                                                    <div className="flex items-center justify-between gap-4 mt-2">
+                                                        <div className="flex flex-col items-center flex-1">
+                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Daily Outreach</p>
+                                                            <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                                {data.candidate_stats?.daily_outreach_count ?? 0}
+                                                            </p>
+                                                        </div>
+                                                        <div className="w-px h-10 bg-purple-100 dark:bg-purple-900/30"></div>
+                                                        <div className="flex flex-col items-center flex-1">
+                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Complete Outreach</p>
+                                                            <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                                {data.candidate_stats?.complete_outreach_count ?? 0}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                     <p className="text-[10px] text-gray-400 mt-2">Emails sent to vendors and hiring managers</p>
                                                 </div>
 
                                                 {/* Card 3: Easy Apply Counter */}
                                                 {(() => {
-                                                    const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                                                    const easyApplyCount = easyApplyApplications.length > 0 ? easyApplyApplications.length : (data.candidate_stats?.easy_apply_counter ?? 0);
                                                     return (
                                                         <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md group">
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">
@@ -3295,9 +3406,21 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 <div className="w-10 h-10 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
                                                                     <Zap className="w-5 h-5" />
                                                                 </div>
-                                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                                    Easy Apply
-                                                                </span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                                        Easy Apply
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setEasyApplyPopupOpen(true);
+                                                                        }}
+                                                                        className="p-1 rounded-full hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-colors"
+                                                                        title="View Easy Apply Details"
+                                                                    >
+                                                                        <EyeIcon className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -3799,13 +3922,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 </DialogPrimitive.Close>
                                 {/* ── Header ── */}
                                 <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <DialogPrimitive.Title className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                         <MousePointerClick className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                         Job Listings Tracking
-                                    </div>
-                                    <div className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                    </DialogPrimitive.Title>
+                                    <DialogPrimitive.Description className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
                                         Jobs you&apos;ve clicked on from the Job Board.
-                                    </div>
+                                    </DialogPrimitive.Description>
                                 </div>
 
                                 {/* ── Body ── */}
@@ -3858,6 +3981,78 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         </DialogPrimitive.Portal>
                     </Dialog>
                 )}
+
+            {/* Easy Apply Applications Modal */}
+            {easyApplyPopupOpen && (
+                <Dialog open={easyApplyPopupOpen} onOpenChange={setEasyApplyPopupOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(48rem,95vw)] w-full max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                                <DialogPrimitive.Title className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                                    My Applications (Easy Apply)
+                                    {!loadingEasyApply && easyApplyApplications && (
+                                        <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-sm font-bold border border-emerald-200 dark:border-emerald-800">
+                                            {easyApplyApplications.length} {easyApplyApplications.length === 1 ? 'Application' : 'Applications'}
+                                        </span>
+                                    )}
+                                </DialogPrimitive.Title>
+                                <DialogPrimitive.Description className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                    Applications you&apos;ve submitted via Easy Apply.
+                                </DialogPrimitive.Description>
+                            </div>
+
+                            {/* ── Body ── */}
+                            <div className="flex-1 overflow-y-auto min-h-0">
+                                {loadingEasyApply ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                                        <span className="text-sm">Loading...</span>
+                                    </div>
+                                ) : easyApplyError ? (
+                                    <div className="p-6 text-sm text-red-500 text-center">{easyApplyError}</div>
+                                ) : (!easyApplyApplications || easyApplyApplications.length === 0) ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <Zap className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" />
+                                        <p className="text-sm font-medium text-gray-500">No easy apply applications yet.</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-950/60 border-b border-gray-100 dark:border-gray-800">
+                                            <tr>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Company Name</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Role</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Date</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {easyApplyApplications.map((row, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">{row.company_name || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{row.role || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-500 dark:text-gray-400">{row.application_date || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                            {row.application_status || "—"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
