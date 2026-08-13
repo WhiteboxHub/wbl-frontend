@@ -798,7 +798,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             for (const log of candidateLogs) {
                 if (log.notes) {
                     const noteText = log.notes;
-                    let successfullyParsed = false;
 
                     try {
                         const data = JSON.parse(noteText);
@@ -811,7 +810,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     application_date: data["Application Date"] || data["application_date"] || "N/A",
                                     application_status: data["Application Status"] || data["application_status"] || "N/A"
                                 });
-                                successfullyParsed = true;
                             }
                         }
                     } catch (e) {
@@ -854,19 +852,20 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 foundMatch = true;
                             }
                         }
-
-                        if (foundMatch) {
-                            successfullyParsed = true;
-                        }
-                    }
-
-                    if (successfullyParsed) {
-                        break;
                     }
                 }
             }
+            const seen = new Set();
+            const deduplicatedApps = parsedApps.filter(app => {
+                const key = `${app.company_name}|${app.role}`;
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
 
-            const successfulApps = parsedApps.filter(app => {
+            const successfulApps = deduplicatedApps.filter(app => {
                 const status = (app.application_status || "").toLowerCase();
                 return status.includes('success') || status.includes('submitted');
             });
