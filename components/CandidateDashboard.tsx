@@ -855,8 +855,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     }
                 }
             }
+            const seen = new Set();
+            const deduplicatedApps = parsedApps.filter(app => {
+                const key = `${app.company_name}|${app.role}`;
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
 
-            const successfulApps = parsedApps.filter(app => {
+            const successfulApps = deduplicatedApps.filter(app => {
                 const status = (app.application_status || "").toLowerCase();
                 return status.includes('success') || status.includes('submitted');
             });
