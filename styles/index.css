@@ -383,6 +383,12 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
 .ag-theme-alpine .ag-center-cols-container .ag-row:last-child {
   border-bottom: 1px solid #e5e7eb !important;
 }
+.ag-theme-alpine .ag-body-viewport {
+  overflow-y: auto !important;
+}
+.ag-theme-alpine .ag-root-wrapper-body {
+  min-height: 0;
+}
 .ag-grid-dark-mode.ag-theme-alpine .ag-center-cols-container .ag-row:last-child {
   border-bottom: 1px solid #374151 !important;
 }
@@ -486,4 +492,4 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
 .dark .dropdown-scroller::-webkit-scrollbar-thumb {
   background: #666 !important;
   border: 1px solid #2d2d2d !important;
-}
+}

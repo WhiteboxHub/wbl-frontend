@@ -39,7 +39,7 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     onGridReady,
     components,
     onSelectionChanged,
-    onRowClicked
+    onRowClicked,
 }) => {
     const gridRef = useRef<AgGridReact>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
@@ -78,10 +78,6 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                         cellClass: "custom-cell-style",
                     }}
                     loading={loading}
-                    // When the parent paginates server-side (e.g. CandidateDashboard Jobs tab)
-                    // we MUST disable AG Grid's own pagination AND hide the panel — otherwise
-                    // some AG Grid versions still render the "1 to N of M · Page X of Y"
-                    // panel at the bottom even with pagination={false}.
                     pagination={!suppressClientPagination}
                     suppressPaginationPanel={suppressClientPagination}
                     paginationAutoPageSize={false}

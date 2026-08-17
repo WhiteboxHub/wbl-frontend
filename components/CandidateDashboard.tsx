@@ -366,6 +366,54 @@ interface CandidateDashboardProps {
     defaultTab?: string;
 }
 
+const getAutomationJobUrl = (job: {
+    job_url?: string | null;
+    source_job_id?: string | null;
+    source_uid?: string | null;
+    source?: string | null;
+}) => {
+    const trimmed = job.job_url?.trim();
+    if (trimmed) return trimmed;
+
+    const rawJobId = job.source_job_id || job.source_uid;
+    const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
+    if (!jobId) return null;
+
+    const source = (job.source || '').toLowerCase();
+    if (source.includes('trueup')) return `https://trueup.io/jobs/${jobId}`;
+    if (source.includes('hiring') || source.includes('cafe')) return `https://hiring.cafe/viewjob/${jobId}`;
+    if (source.includes('jobright')) return `https://jobright.ai/jobs/info/${jobId}`;
+    return `https://www.linkedin.com/jobs/view/${jobId}`;
+};
+
+const getWblAuthToken = () => {
+    if (typeof window === 'undefined') return '';
+    return (
+        localStorage.getItem('access_token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('auth_token') ||
+        localStorage.getItem('bearer_token') ||
+        ''
+    );
+};
+
+const sendTalentScreenLaunch = (message: Record<string, unknown>) => {
+    window.postMessage({ type: 'TALENTSCREEN_LAUNCH', payload: message }, '*');
+};
+
+const sendTalentScreenAuth = (payload: { candidateId: number; token: string; apiUrl: string }) => {
+    window.postMessage({ type: 'TALENTSCREEN_WBL_AUTH', payload }, '*');
+};
+
+const sendTalentScreenResumeSync = (payload: {
+    candidateId: number;
+    resumeData: Record<string, unknown> | null;
+    wblAuth: { candidateId: number; token: string; apiUrl: string } | null;
+}) => {
+    if (!payload.wblAuth) return;
+    window.postMessage({ type: 'TALENTSCREEN_SYNC_RESUME', payload }, '*');
+};
+
 export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -383,46 +431,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const AIPREP_API = getAiPrepApiUrl();
 
     // --- CLICK TRACKING LOGIC ---
-    const handleJobClick = useCallback((jobListingId: number, url: string) => {
-        // 1. Optimistically update the local counter immediately
-        setJobBoardClickCount(prev => prev + 1);
-
-        // 2. Open the job link synchronously to bypass browser popup blockers
-        window.open(url, '_blank');
-
-        // 3. Perform click tracking asynchronously in the background
-        void (async () => {
-            let swHandled = false;
-            try {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    const { trackLocalClick } = await import('@/utils/clickTracker');
-                    await trackLocalClick(jobListingId);
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'TRACK_CLICK',
-                        id: jobListingId
-                    });
-                    swHandled = true;
-                }
-            } catch {
-                // SW not available — fall through to direct API call
-            }
-
-            if (!swHandled) {
-                try {
-                    await apiFetch("candidates/track-clicks-batch", {
-                        method: "POST",
-                        body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
-                    });
-                } catch (e) {
-                    console.warn("Job click tracking failed:", e);
-                }
-            }
-        })();
-    }, []);
-
-    // ----------------------------
-
-    // ----------------------------
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -531,7 +539,120 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
+    const [autofillContext, setAutofillContext] = useState<{
+        resume_data: Record<string, unknown> | null;
+        resume_file: { data: string; name: string; type: string; size: number } | null;
+        resume_version: string;
+    } | null>(null);
     const [serverTime, setServerTime] = useState<string | null>(null);
+
+    const loadAutofillContext = useCallback(async (cid: number) => {
+        try {
+            const context = await apiFetch(`candidates/${cid}/autofill-context`);
+            const parsed = {
+                resume_data: context.resume_data || null,
+                resume_file: context.resume_file || null,
+                resume_version: context.resume_version || 'v1',
+            };
+            setAutofillContext(parsed);
+
+            const token = getWblAuthToken();
+            const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+            if (token && apiUrl) {
+                sendTalentScreenResumeSync({
+                    candidateId: cid,
+                    resumeData: parsed.resume_data,
+                    wblAuth: { candidateId: cid, token, apiUrl },
+                });
+            }
+            return context;
+        } catch (e) {
+            console.warn('TalentScreen autofill context could not be loaded:', e);
+            return null;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (candidateId) {
+            void loadAutofillContext(candidateId);
+        }
+    }, [candidateId, loadAutofillContext]);
+
+    useEffect(() => {
+        if (!candidateId) return;
+        setAutofillContext(null);
+        setPrefetchDone(false);
+        setPrefetchedSession(null);
+        setShowTemplates(false);
+        setResumeFile(null);
+        const token = getWblAuthToken();
+        const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+        if (token && apiUrl) {
+            sendTalentScreenAuth({ candidateId, token, apiUrl });
+        }
+    }, [candidateId]);
+
+    const handleJobClick = useCallback(async (jobListingId: number, url: string, job: any = {}, currentCandidateId: number | null = null) => {
+        setJobBoardClickCount(prev => prev + 1);
+
+        const jobStatus = (job.status || '').toLowerCase();
+        const skipExtension = ['closed', 'invalid', 'on_hold', 'duplicate'].includes(jobStatus);
+
+        const token = getWblAuthToken();
+        const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+        const context = autofillContext;
+
+        const launch = {
+            action: 'prepare_talentscreen_apply',
+            jobId: jobListingId,
+            title: job.title || '',
+            company: job.company_name || job.company || '',
+            applicationUrl: url,
+            resumeVersion: context?.resume_version || 'v1',
+            resumeData: context?.resume_data || null,
+            candidateId: currentCandidateId,
+            wblAuth: currentCandidateId && token && apiUrl
+                ? { candidateId: currentCandidateId, token, apiUrl }
+                : null,
+        };
+
+        if (!skipExtension) {
+            sendTalentScreenLaunch(launch);
+        }
+        window.open(url, '_blank');
+
+        if (currentCandidateId && !skipExtension) {
+            loadAutofillContext(currentCandidateId).catch((e) => {
+                console.warn('TalentScreen resume context could not be loaded after apply:', e);
+            });
+        }
+
+        let swHandled = false;
+        try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                const { trackLocalClick } = await import('@/utils/clickTracker');
+                await trackLocalClick(jobListingId);
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'TRACK_CLICK',
+                    id: jobListingId
+                });
+                swHandled = true;
+            }
+        } catch {
+            // SW not available — fall through to direct API call
+        }
+
+        if (!swHandled) {
+            try {
+                await apiFetch("candidates/track-clicks-batch", {
+                    method: "POST",
+                    body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
+                });
+            } catch (e) {
+                console.warn("Job click tracking failed:", e);
+            }
+        }
+    }, [autofillContext, loadAutofillContext]);
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
@@ -784,7 +905,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const handleInlineUpload = async (fileToUpload: File) => {
         setResumeUploadLoading(true);
-        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
+        const token = getWblAuthToken();
         const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
         const uploadUrl = backendUrl.endsWith("/api")
             ? `${backendUrl}/candidates/${candidateId}/marketing/upload-resume`
@@ -807,9 +928,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 throw new Error(errorData.detail || "Failed to upload resume");
             }
 
+            const uploadResult = await response.json().catch(() => ({}));
+
             toast.success("Resume uploaded successfully!");
             setResumeFile(fileToUpload);
-            setShowTemplates(false);
+            if (candidateId) {
+                void loadAutofillContext(candidateId);
+            }
             setSetupStatus(prev => {
                 const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
                 return {
@@ -824,18 +949,38 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             try {
                 const payload = JSON.parse(atob(token.split(".")[1]));
                 const email = payload.sub || payload.email || payload.uname || "candidate";
+                const sessionId = uploadResult.session_id || localStorage.getItem("prep_token");
                 const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         ...(token ? { "Authorization": `Bearer ${token}` } : {})
                     },
-                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                    body: JSON.stringify({
+                        candidate_id: candidateId,
+                        wbl_email: email,
+                        name: email,
+                        ...(sessionId ? { prep_token: sessionId } : {}),
+                    }),
                 });
                 if (resSummary.ok) {
                     const dataSummary = await resSummary.json();
+                    if (dataSummary.session_id) {
+                        localStorage.setItem("prep_token", dataSummary.session_id);
+                    }
                     if (dataSummary.summary) {
                         setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
+                        if (dataSummary.summary.resume_json) {
+                            setShowTemplates(true);
+                        }
+                        const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+                        if (candidateId && dataSummary.summary.resume_json && token && apiUrl) {
+                            sendTalentScreenResumeSync({
+                                candidateId,
+                                resumeData: dataSummary.summary.resume_json,
+                                wblAuth: { candidateId, token, apiUrl },
+                            });
+                        }
                     }
                 }
             } catch (reloadErr) {
@@ -1252,17 +1397,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             sortable: true,
             filter: "agTextColumnFilter",
             cellRenderer: (params: any) => {
-                const rawJobId = params.data.source_job_id || params.data.source_uid;
-                const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
-                const source = params.data.source?.toLowerCase() || "";
-                const url = params.data.job_url ||
-                    (jobId ? (source.includes('trueup')
-                        ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring') || source.includes('cafe')
-                            ? `https://hiring.cafe/viewjob/${jobId}`
-                            : source.includes('jobright')
-                                ? `https://jobright.ai/jobs/info/${jobId}`
-                                : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
+                const url = getAutomationJobUrl(params.data);
 
                 if (!url) {
                     return (
@@ -1280,7 +1415,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             rel="noopener noreferrer"
                             onClick={(e) => {
                                 e.preventDefault();
-                                handleJobClick(params.data.id, url);
+                                handleJobClick(params.data.id, url, params.data, candidateId);
                             }}
                             className="font-semibold text-blue-600 hover:text-blue-800 hover:underline decoration-blue-400 group flex items-center gap-1.5"
                         >
@@ -1426,21 +1561,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         },
         {
             headerName: "Apply",
-            width: 100,
+            width: 185,
+            minWidth: 185,
             cellRenderer: (params: any) => {
-                const rawJobId = params.data.source_job_id || params.data.source_uid;
-                const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
-                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
-
-                const source = params.data.source?.toLowerCase() || "";
-                const url = params.data.job_url ||
-                    (jobId ? (source.includes('trueup')
-                        ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring') || source.includes('cafe')
-                            ? `https://hiring.cafe/viewjob/${jobId}`
-                            : source.includes('jobright')
-                                ? `https://jobright.ai/jobs/info/${jobId}`
-                                : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
+                const url = getAutomationJobUrl(params.data);
+                if (!url) return <span className="text-gray-400">-</span>;
 
                 return (
                     <div className="flex items-center h-full">
@@ -1448,20 +1573,22 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            title="Apply with TalentScreen"
+                            data-talentscreen-apply="true"
                             onClick={(e) => {
                                 e.preventDefault();
-                                handleJobClick(params.data.id, url);
+                                handleJobClick(params.data.id, url, params.data, candidateId);
                             }}
-                            className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
+                            className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs whitespace-nowrap"
                         >
-                            <span>Apply</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Apply with TalentScreen</span>
+                            <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
                         </a>
                     </div>
                 );
             }
         },
-    ], [selectedModes, selectedStatuses, selectedTypes]);
+    ], [candidateId, handleJobClick, selectedModes, selectedStatuses, selectedTypes]);
 
     useEffect(() => {
         let filtered = [...positions];
@@ -1714,22 +1841,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-            const posData = await apiFetch("positions/?limit=500", {
+            const posData = await apiFetch("positions/?limit=500&require_apply_link=true", {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
             if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
             if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Sample job data:", posData?.[0] || {}); }
 
-            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
-            const filteredData = (posData || []).filter((pos: any) => {
-                const src = pos.source?.toLowerCase() || "";
-                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
-
-                // Add a check to confirm the job actually has an actionable link id or url
-                const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
-                return shouldInclude && hasLink;
-            });
+            const filteredData = (posData || []).filter((pos: any) => Boolean(getAutomationJobUrl(pos)));
 
             if (process.env.NODE_ENV === 'development') { console.log("📊 Final filtered positions count:", filteredData.length); }
 
@@ -1911,6 +2030,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             loadPositions();
         }
         if (activeTab === 'my-resume' && candidateId) {
+            void loadAutofillContext(candidateId);
             const run = async () => {
                 try {
                     const token = localStorage.getItem("access_token") || "";
@@ -1953,7 +2073,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
 
-    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions]);
+    }, [activeTab, candidateId, setPrefetchedSession, setSetupStatus, loadPositions, loadAutofillContext]);
 
 
     useEffect(() => {
@@ -2045,9 +2165,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     return (
         <div className="flex h-screen bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
-            {/* Hidden identity tag for browser extension telemetry */}
-            {data?.basic_info?.email && (
-                <div id="wbl-user-identity" data-email={data.basic_info.email} style={{ display: 'none' }} />
+            {/* Hidden tag — extension reads candidate id + api url for resume sync */}
+            {data?.basic_info?.email && candidateId && (
+                <div
+                    id="wbl-user-identity"
+                    data-email={data.basic_info.email}
+                    data-candidate-id={String(candidateId)}
+                    data-api-url={(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}
+                    style={{ display: 'none' }}
+                />
             )}
 
             {/* ==================== SIDEBAR ==================== */}
