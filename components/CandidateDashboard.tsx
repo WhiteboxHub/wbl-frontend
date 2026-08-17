@@ -143,11 +143,15 @@ interface DashboardData {
         interview_success_rate: number;
         job_listings_clicked: number;
         outreach_counter: number;
+        daily_outreach_count?: number;
+        weekly_outreach_count?: number;
+        complete_outreach_count?: number;
         easy_apply_counter: number;
         classes_joined?: number;
         sessions_joined?: number;
         mocks_joined?: number;
     };
+
 }
 
 interface UserProfile {
@@ -382,48 +386,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
     const AIPREP_API = getAiPrepApiUrl();
 
-    // --- CLICK TRACKING LOGIC ---
-    const handleJobClick = useCallback((jobListingId: number, url: string) => {
-        // 1. Optimistically update the local counter immediately
-        setJobBoardClickCount(prev => prev + 1);
-
-        // 2. Open the job link synchronously to bypass browser popup blockers
-        window.open(url, '_blank');
-
-        // 3. Perform click tracking asynchronously in the background
-        void (async () => {
-            let swHandled = false;
-            try {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    const { trackLocalClick } = await import('@/utils/clickTracker');
-                    await trackLocalClick(jobListingId);
-                    navigator.serviceWorker.controller.postMessage({
-                        type: 'TRACK_CLICK',
-                        id: jobListingId
-                    });
-                    swHandled = true;
-                }
-            } catch {
-                // SW not available — fall through to direct API call
-            }
-
-            if (!swHandled) {
-                try {
-                    await apiFetch("candidates/track-clicks-batch", {
-                        method: "POST",
-                        body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
-                    });
-                } catch (e) {
-                    console.warn("Job click tracking failed:", e);
-                }
-            }
-        })();
-    }, []);
-
-    // ----------------------------
-
-    // ----------------------------
-
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
@@ -438,6 +400,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
+    const [todayClickSummary, setTodayClickSummary] = useState<{
+        job_board_clicks: number;
+        target_clicks: number;
+        remaining_clicks: number;
+        status: string;
+        status_label: string;
+        message: string;
+    } | null>(null);
     const [isJobClicksModalOpen, setIsJobClicksModalOpen] = useState(false);
     const [jobClickDetails, setJobClickDetails] = useState<Array<{
         id: number;
@@ -448,28 +418,131 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }>>([]);
     const [loadingJobClickDetails, setLoadingJobClickDetails] = useState(false);
     const [jobClickDetailsError, setJobClickDetailsError] = useState<string | null>(null);
-
     const [hasDismissedJobBoardWarning, setHasDismissedJobBoardWarning] = useState(false);
 
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const isDismissed = sessionStorage.getItem("job_board_warning_dismissed") === "true";
-            if (isDismissed) {
-                setHasDismissedJobBoardWarning(true);
+    const [totalJobBoardClickCount, setTotalJobBoardClickCount] = useState<number>(0);
+
+    const loadTodayClickSummary = useCallback(async () => {
+        try {
+            console.log("[CLICK_DEBUG] loadTodayClickSummary START");
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+            console.log("Requesting /api/candidates/job-clicks/today...");
+            const response: any = await apiFetch("candidates/job-clicks/today", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            console.log("[CLICK_DEBUG] GET response:", response);
+            if (response && typeof response === "object") {
+                console.log("[CLICK_DEBUG] job_board_clicks:", response.job_board_clicks);
+                console.log("[CLICK_DEBUG] setting todayClickSummary:", response);
+                setTodayClickSummary(response);
+                if (typeof response.job_board_clicks === "number") {
+                    setJobBoardClickCount(response.job_board_clicks);
+                }
             }
+        } catch (err) {
+            console.error("[CLICK_DEBUG] Failed to fetch today's click summary:", err);
         }
     }, []);
+
+    const loadTotalClickSummary = useCallback(async () => {
+        try {
+            console.log("[CLICK_DEBUG] loadTotalClickSummary START");
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+            console.log("Requesting /api/candidates/job-clicks/total...");
+            const response: any = await apiFetch("candidates/job-clicks/total", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            console.log("[CLICK_DEBUG] GET total response:", response);
+            if (response && typeof response === "object") {
+                const total = typeof response.total_job_board_clicks === "number"
+                    ? response.total_job_board_clicks
+                    : (typeof response.job_board_clicks === "number" ? response.job_board_clicks : 0);
+                setTotalJobBoardClickCount(total);
+            }
+        } catch (err) {
+            console.error("[CLICK_DEBUG] Failed to fetch total click summary:", err);
+        }
+    }, []);
+
+    const handleJobClick = useCallback((rawJobId: any, url: string) => {
+        let jobListingId = Number(rawJobId);
+        if (!jobListingId || isNaN(jobListingId) || jobListingId <= 0) {
+            if (typeof rawJobId === 'string') {
+                let hash = 0;
+                for (let i = 0; i < rawJobId.length; i++) {
+                    hash = ((hash << 5) - hash) + rawJobId.charCodeAt(i);
+                    hash |= 0;
+                }
+                jobListingId = Math.abs(hash) || 1;
+            } else {
+                jobListingId = 1;
+            }
+        }
+
+        console.log("[CLICK_DEBUG] handleJobClick START");
+        console.log("[CLICK_DEBUG] jobListingId:", jobListingId);
+
+        // 1. Open the job link synchronously to bypass browser popup blockers
+        if (url) {
+            window.open(url, '_blank');
+        }
+
+        // 2. Perform click tracking POST request immediately to backend
+        void (async () => {
+            try {
+                console.log("[CLICK_DEBUG] POST request: candidates/track-clicks-batch payload:", { clicks: [{ job_listing_id: jobListingId, count: 1 }] });
+                const res = await apiFetch("candidates/track-clicks-batch", {
+                    method: "POST",
+                    body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
+                });
+                console.log("[CLICK_DEBUG] POST response:", res);
+
+                if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+                }
+
+                // 3. Immediately refresh today's and total click summaries so Overview, Job Board, and My Applications update
+                await loadTodayClickSummary();
+                await loadTotalClickSummary();
+            } catch (e) {
+                console.warn("[CLICK_DEBUG] Job click tracking failed:", e);
+            }
+        })();
+    }, [loadTodayClickSummary, loadTotalClickSummary]);
+
+    // ----------------------------
+
+    const warningStorageKey = useMemo(() => {
+        const userIdentifier = candidateId || userProfile?.candidate_id || userProfile?.uname;
+        if (!userIdentifier) return null;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const todayStr = `${year}-${month}-${day}`;
+        return `job_board_click_warning_${userIdentifier}_${todayStr}`;
+    }, [candidateId, userProfile?.candidate_id, userProfile?.uname]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined" && warningStorageKey) {
+            const isDismissed = localStorage.getItem(warningStorageKey) === "true";
+            setHasDismissedJobBoardWarning(isDismissed);
+        }
+    }, [warningStorageKey]);
 
     useEffect(() => {
         setActiveTab(defaultTab as TabType);
     }, [defaultTab]);
 
-    const showJobBoardWarningModal = activeTab === "job-board" && !hasDismissedJobBoardWarning;
+    const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
+    const currentTodayClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
+    const isGoalAchieved = currentTodayClicks >= targetClicks;
+    const showJobBoardWarningModal = activeTab === "job-board" && !isGoalAchieved && !hasDismissedJobBoardWarning;
 
     const handleDismissJobBoardWarning = () => {
         setHasDismissedJobBoardWarning(true);
-        if (typeof window !== "undefined") {
-            sessionStorage.setItem("job_board_warning_dismissed", "true");
+        if (typeof window !== "undefined" && warningStorageKey) {
+            localStorage.setItem(warningStorageKey, "true");
         }
     };
 
@@ -704,8 +777,112 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
-    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
+    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(false);
+    const [easyApplyApplications, setEasyApplyApplications] = useState<any[]>([]);
+    const [loadingEasyApply, setLoadingEasyApply] = useState(false);
+    const [easyApplyError, setEasyApplyError] = useState<string | null>(null);
     const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
+
+    const fetchEasyApplyData = useCallback(async () => {
+        try {
+            setLoadingEasyApply(true);
+            setEasyApplyError(null);
+            const logs = await apiFetch("job_activity_logs");
+
+            const parsedApps: any[] = [];
+            let candidateLogs = Array.isArray(logs) ? logs.filter((log: any) => log.candidate_id === candidateId) : [];
+
+            // Sort by activity date descending to get the most recent application record
+            candidateLogs.sort((a, b) => new Date(b.activity_date).getTime() - new Date(a.activity_date).getTime());
+
+            for (const log of candidateLogs) {
+                if (log.notes) {
+                    const noteText = log.notes;
+
+                    try {
+                        const data = JSON.parse(noteText);
+                        if (data && typeof data === 'object') {
+                            const company = data["Company Name"] || data["company_name"];
+                            if (company) {
+                                parsedApps.push({
+                                    company_name: company,
+                                    role: data["Role"] || data["role"] || "N/A",
+                                    application_date: data["Application Date"] || data["application_date"] || "N/A",
+                                    application_status: data["Application Status"] || data["application_status"] || "N/A"
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        // Check for CSV-like lines
+                        const lines = noteText.split('\n');
+                        let foundMatch = false;
+                        for (const line of lines) {
+                            if (line.includes('Easy Apply') || line.includes('Easy Applied')) {
+                                const parts = line.split(',');
+                                if (parts.length >= 6) {
+                                    const date = parts[0].trim();
+                                    const status = parts[parts.length - 1].trim();
+                                    const role = parts[2].trim();
+                                    const company = parts.slice(3, parts.length - 2).join(',').trim();
+
+                                    parsedApps.push({
+                                        company_name: company || "N/A",
+                                        role: role || "N/A",
+                                        application_date: date || "N/A",
+                                        application_status: status
+                                    });
+                                    foundMatch = true;
+                                }
+                            }
+                        }
+
+                        if (!foundMatch) {
+                            const companyMatch = noteText.match(/Company(?:\s*Name)?:\s*([^\n,]+)/i);
+                            const roleMatch = noteText.match(/Role:\s*([^\n,]+)/i);
+                            const dateMatch = noteText.match(/Application Date:\s*([^\n,]+)/i);
+                            const statusMatch = noteText.match(/Application Status:\s*([^\n,]+)/i);
+
+                            if (companyMatch || roleMatch || dateMatch || statusMatch) {
+                                parsedApps.push({
+                                    company_name: companyMatch ? companyMatch[1].trim() : "N/A",
+                                    role: roleMatch ? roleMatch[1].trim() : "N/A",
+                                    application_date: dateMatch ? dateMatch[1].trim() : "N/A",
+                                    application_status: statusMatch ? statusMatch[1].trim() : "N/A"
+                                });
+                                foundMatch = true;
+                            }
+                        }
+                    }
+                }
+            }
+            const seen = new Set();
+            const deduplicatedApps = parsedApps.filter(app => {
+                const key = `${app.company_name}|${app.role}`;
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
+
+            const successfulApps = deduplicatedApps.filter(app => {
+                const status = (app.application_status || "").toLowerCase();
+                return status.includes('success') || status.includes('submitted');
+            });
+
+            setEasyApplyApplications(successfulApps);
+        } catch (err: any) {
+            setEasyApplyError(err.message || "Failed to fetch Easy Apply details");
+        } finally {
+            setLoadingEasyApply(false);
+        }
+    }, [candidateId]);
+
+    useEffect(() => {
+        if (candidateId) {
+            fetchEasyApplyData();
+        }
+    }, [candidateId, fetchEasyApplyData]);
 
     useEffect(() => {
         if (uploadResumeOpen) {
@@ -1450,7 +1627,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             rel="noopener noreferrer"
                             onClick={(e) => {
                                 e.preventDefault();
-                                handleJobClick(params.data.id, url);
+                                const idToPass = params.data.id || params.data.job_listing_id || params.data.source_job_id || params.data.source_uid || 1;
+                                handleJobClick(idToPass, url);
                             }}
                             className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
                         >
@@ -1576,7 +1754,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setEditInterviewLoading(false);
         }
     };
-    const loadUserProfile = async () => {
+    const loadUserProfile = useCallback(async () => {
         try {
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
@@ -1591,11 +1769,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error("Error loading user profile:", err);
             return null;
         }
-    };
+    }, []);
 
-
-
-    const getCandidateId = async (): Promise<number> => {
+    const getCandidateId = useCallback(async (): Promise<number> => {
         try {
             if (typeof window !== "undefined") {
                 const searchParams = new URLSearchParams(window.location.search);
@@ -1661,7 +1837,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             console.error(" Error getting candidate ID:", err);
             throw new Error(extractErrorMessage(err, "Failed to get candidate ID. Please log in again."));
         }
-    };
+    }, []);
 
     const loadSessions = async () => {
         const fullName = data?.basic_info?.full_name;
@@ -1750,8 +1926,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     }, [setPositionsLoading, setPositions]);
 
+    const isFetchingDashboardRef = useRef(false);
 
     const loadDashboard = useCallback(async (retryCount = 0) => {
+        if (isFetchingDashboardRef.current) return;
+        isFetchingDashboardRef.current = true;
         try {
             setLoading(true);
             setError(null);
@@ -1836,21 +2015,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             const isApproved = status === 'Y' || isWithin24Hours;
             const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
 
-
             // GATING LOGIC:
-            // 1. If approved, only show onboarding if fields are missing (Step 1).
-            // 2. If not approved, always show onboarding unless skipped in this session.
-            // 3. After 10 logins, skip is no longer allowed.
-
             if (!isApproved) {
-                // Not approved yet (N or P)
                 if (!isSkipped || loginCount >= 10) {
                     setShowOnboarding(true);
                 } else {
                     setShowOnboarding(false);
                 }
             } else {
-                // Approved (Y)
                 if (isMissingRequiredFields) {
                     setShowOnboarding(true);
                 } else {
@@ -1867,16 +2039,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
 
             setData(dashboardData);
+            void loadTodayClickSummary();
         } catch (err: any) {
             console.error("Dashboard loading error:", err);
 
             const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
             setError(errorMessage);
-
-            if (retryCount === 0 && err.status >= 500) {
-                setTimeout(() => loadDashboard(1), 2000);
-                return;
-            }
 
             if (err.status === 401 || err.status === 403) {
                 localStorage.clear();
@@ -1884,6 +2052,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         } finally {
             setLoading(false);
+            isFetchingDashboardRef.current = false;
         }
     }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setOnboardingDocSubmittedAt, setServerTime, setShowOnboarding, setData, setLoading, setError]);
 
@@ -1900,13 +2069,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     // Sync jobBoardClickCount from server data (today's clicks counter)
     useEffect(() => {
         const stats = data?.candidate_stats as any;
-        if (stats) {
-            const todayCount = stats.job_board_click_counter ?? stats.today_job_clicks ?? stats.job_clicks_today ?? stats.job_listings_clicked ?? 0;
+        if (stats && !todayClickSummary) {
+            const todayCount = stats.today_job_clicks ?? stats.job_clicks_today ?? stats.job_board_click_counter ?? 0;
             setJobBoardClickCount(todayCount);
         }
-    }, [data?.candidate_stats]);
+    }, [data?.candidate_stats, todayClickSummary]);
 
     useEffect(() => {
+        if (activeTab === 'job-board' || activeTab === 'overview') {
+            void loadTodayClickSummary();
+        }
+        if (activeTab === 'my-applications' || activeTab === 'job-board' || activeTab === 'overview') {
+            void loadTotalClickSummary();
+        }
         if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
@@ -1973,7 +2148,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     useEffect(() => {
         sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
-    }, []);
+        void loadTodayClickSummary();
+        void loadTotalClickSummary();
+    }, [loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
     if (loading) {
         return (
@@ -2110,7 +2287,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'min-h-[56px] lg:min-h-[64px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'lg:hidden min-h-[56px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -2165,39 +2342,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         )}
 
                     </div>
-
-                    {activeTab === 'job-board' && (
-                        <div className="flex items-center gap-3 translate-y-[3px]">
-                            <button
-                                type="button"
-                                onClick={openResumeJsonModal}
-                                className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95 cursor-pointer border-0"
-                            >
-                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
-                                    <Code2 className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
-                                        Resume JSON
-                                    </span>
-                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                </div>
-                            </button>
-
-                            <a
-                                href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
-                            >
-                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
-                                    <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
-                                        Autofill Extension
-                                    </span>
-                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                </div>
-                            </a>
-                        </div>
-                    )}
 
                 </header>
 
@@ -2275,7 +2419,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Job Board Clicks Status Banner */}
                                         {(() => {
-                                            const remainingClicks = Math.max(0, 30 - jobBoardClickCount);
+                                            console.log("[CLICK_DEBUG] rendered todayClickSummary:", todayClickSummary);
+                                            const clickData = todayClickSummary ?? {
+                                                job_board_clicks: jobBoardClickCount,
+                                                target_clicks: 30,
+                                                remaining_clicks: Math.max(0, 30 - jobBoardClickCount),
+                                                status: jobBoardClickCount >= 30 ? 'TARGET_COMPLETED' : 'BELOW_TARGET',
+                                                status_label: jobBoardClickCount >= 30 ? 'GOAL COMPLETED' : 'BELOW TARGET',
+                                                message: jobBoardClickCount >= 30 ? "Today's goal completed." : `You need ${Math.max(0, 30 - jobBoardClickCount)} more clicks to reach today's goal.`,
+                                            };
+                                            console.log("[CLICK_DEBUG] rendered clickData:", clickData);
+                                            console.log("[CLICK_DEBUG] displayed job_board_clicks:", clickData.job_board_clicks);
+                                            const isGoalMet = clickData.status === 'TARGET_COMPLETED' || clickData.status === 'GOAL_MET' || clickData.status === 'goal_met' || clickData.job_board_clicks >= clickData.target_clicks;
                                             return (
                                                 <div
                                                     onClick={handleJobBoardClicksCardClick}
@@ -2293,10 +2448,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 </p>
                                                                 <div className="flex items-baseline">
                                                                     <span className="text-3xl font-black text-gray-900 dark:text-white leading-none">
-                                                                        {jobBoardClickCount}
+                                                                        {clickData.job_board_clicks}
                                                                     </span>
                                                                     <span className="text-xs font-medium text-gray-400 ml-1.5">
-                                                                        / 30
+                                                                        / {clickData.target_clicks}
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -2304,12 +2459,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                         {/* Right Section */}
                                                         <div className="text-right flex flex-col items-end justify-center">
-                                                            <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40">
-                                                                BELOW TARGET
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${isGoalMet
+                                                                ? 'text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40'
+                                                                : 'text-amber-600 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40'
+                                                                }`}>
+                                                                {clickData.status_label}
                                                             </span>
                                                             <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1 flex items-center justify-end gap-1">
-                                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 inline" />
-                                                                <span>You need {remainingClicks} more clicks to reach the daily objective</span>
+                                                                {isGoalMet
+                                                                    ? <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 inline" />
+                                                                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 inline" />
+                                                                }
+                                                                <span>{clickData.message}</span>
                                                             </p>
                                                         </div>
                                                     </div>
@@ -2980,64 +3141,114 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {activeTab === 'job-board' && (
-                                    <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
-                                        {showJobBoardWarningModal && (
-                                            <div
-                                                className="w-full max-w-[420px] min-h-[190px] bg-[#FFFBEB] dark:bg-amber-950/60 border border-[#FDE68A] dark:border-amber-800/80 rounded-[12px] p-5 mb-6 transition-all animate-in fade-in zoom-in-95 duration-150 relative flex flex-col justify-between"
-                                                style={{ boxShadow: "0 8px 20px rgba(217,119,6,0.15)" }}
-                                            >
-                                                <div>
-                                                    {/* Header */}
-                                                    <div className="flex items-center justify-between pb-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <AlertTriangle className="w-5 h-5 text-[#D97706] flex-shrink-0" />
-                                                            <h3 className="text-[16px] font-semibold text-[#92400E] dark:text-amber-200">
-                                                                Job Board Clicks Today
-                                                            </h3>
+                                    <div className="flex-1 flex flex-col px-4 lg:px-6 pt-4 pb-8 w-full min-h-0">
+                                        {/* TOP ROW: Warning Card (Left) + Resume JSON & Autofill Buttons (Right) */}
+                                        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 w-full mb-4">
+                                            {showJobBoardWarningModal ? (
+                                                <div
+                                                    className="w-full max-w-[360px] min-h-0 bg-[#FFFBEB] dark:bg-amber-950/60 border border-[#FDE68A] dark:border-amber-800/80 rounded-[12px] p-4 transition-all animate-in fade-in zoom-in-95 duration-150 relative flex flex-col justify-between"
+                                                    style={{ boxShadow: "0 6px 16px rgba(217,119,6,0.12)" }}
+                                                >
+                                                    <div>
+                                                        {/* Header */}
+                                                        <div className="flex items-center justify-between pb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <AlertTriangle className="w-5 h-5 text-[#D97706] flex-shrink-0" />
+                                                                <h3 className="text-[15px] font-semibold text-[#92400E] dark:text-amber-200">
+                                                                    Job Board Clicks Today
+                                                                </h3>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleDismissJobBoardWarning}
+                                                                className="text-[#B45309] hover:text-[#92400E] dark:text-amber-400 dark:hover:text-amber-200 transition-colors p-1 flex items-center justify-center cursor-pointer"
+                                                                aria-label="Close"
+                                                            >
+                                                                <X className="w-[18px] h-[18px]" />
+                                                            </button>
                                                         </div>
+
+                                                        {/* Body */}
+                                                        {(() => {
+                                                            console.log("Today's Click Summary", todayClickSummary);
+
+                                                            const completedClicks = todayClickSummary ? todayClickSummary.job_board_clicks : jobBoardClickCount;
+                                                            const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
+                                                            const remainingClicks = todayClickSummary ? todayClickSummary.remaining_clicks : Math.max(0, targetClicks - completedClicks);
+                                                            const isGoalAchieved = completedClicks >= targetClicks;
+
+                                                            return (
+                                                                <div className="py-1 text-[14px] leading-[1.4] text-[#78350F] dark:text-amber-100">
+                                                                    <p>
+                                                                        You have completed <span className="font-bold">{completedClicks}/{targetClicks}</span> clicks.
+                                                                    </p>
+                                                                    {isGoalAchieved ? (
+                                                                        <p className="mt-1 font-bold">
+                                                                            Today&apos;s goal completed.
+                                                                        </p>
+                                                                    ) : (
+                                                                        <p className="mt-1">
+                                                                            You need <span className="font-bold">{remainingClicks} more</span> clicks to reach today&apos;s goal.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </div>
+
+                                                    {/* Footer Buttons (Bottom-Left) */}
+                                                    <div className="flex items-center gap-2.5 pt-3 justify-start">
                                                         <button
                                                             type="button"
                                                             onClick={handleDismissJobBoardWarning}
-                                                            className="text-[#B45309] hover:text-[#92400E] dark:text-amber-400 dark:hover:text-amber-200 transition-colors p-1 flex items-center justify-center cursor-pointer"
-                                                            aria-label="Close"
+                                                            className="w-[80px] h-[34px] bg-[#FEF3C7] hover:bg-[#fde68a] active:bg-[#fcd34d] text-[#78350F] dark:bg-amber-900/60 dark:hover:bg-amber-800 dark:text-amber-200 text-xs font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
                                                         >
-                                                            <X className="w-[18px] h-[18px]" />
+                                                            Close
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleDismissJobBoardWarning}
+                                                            className="w-[80px] h-[34px] bg-[#D97706] hover:bg-[#b45309] active:bg-[#92400E] text-white text-xs font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
+                                                        >
+                                                            Got It
                                                         </button>
                                                     </div>
+                                                </div>
+                                            ) : <div />}
 
-                                                    {/* Body */}
-                                                    <div className="py-1 text-[15px] leading-[1.5] text-[#78350F] dark:text-amber-100">
-                                                        <p>
-                                                            You have completed <span className="font-bold">{jobBoardClickCount}/30</span> clicks.
-                                                        </p>
-                                                        <p className="mt-0.5">
-                                                            You need <span className="font-bold">{Math.max(0, 30 - jobBoardClickCount)} more</span>
-                                                            <br />
-                                                            clicks to reach today&apos;s goal.
-                                                        </p>
+                                            {/* Right Section: Resume JSON & Autofill Extension Action Buttons */}
+                                            <div className="flex items-center gap-3 sm:ml-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={openResumeJsonModal}
+                                                    className="group relative flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95 cursor-pointer border-0"
+                                                >
+                                                    <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                                        <Code2 className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                        <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                                            Resume JSON
+                                                        </span>
+                                                        <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
                                                     </div>
-                                                </div>
+                                                </button>
 
-                                                {/* Footer Buttons (Bottom-Left) */}
-                                                <div className="flex items-center gap-3 pt-4 justify-start">
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleDismissJobBoardWarning}
-                                                        className="w-[90px] h-[38px] bg-[#FEF3C7] hover:bg-[#fde68a] active:bg-[#fcd34d] text-[#78350F] dark:bg-amber-900/60 dark:hover:bg-amber-800 dark:text-amber-200 text-sm font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
-                                                    >
-                                                        Close
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleDismissJobBoardWarning}
-                                                        className="w-[90px] h-[38px] bg-[#D97706] hover:bg-[#b45309] active:bg-[#92400E] text-white text-sm font-semibold rounded-[8px] border-none transition-colors cursor-pointer flex items-center justify-center shadow-none"
-                                                    >
-                                                        Got It
-                                                    </button>
-                                                </div>
+                                                <a
+                                                    href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="group relative flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
+                                                >
+                                                    <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                                        <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                        <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                                            Autofill Extension
+                                                        </span>
+                                                        <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                                    </div>
+                                                </a>
                                             </div>
-                                        )}
-                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
+                                        </div>
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-2 w-full">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
                                                     <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -3260,7 +3471,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Job Board Clicks</h3>
                                                     <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {jobBoardClickCount}
+                                                        {totalJobBoardClickCount}
                                                     </p>
                                                     <p className="text-[10px] text-gray-400 mt-2">Total clicks on job listings from the Job Board</p>
                                                 </div>
@@ -3276,16 +3487,28 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         </div>
                                                         <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full">Outreach</span>
                                                     </div>
-                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Campaign Outreaches</h3>
-                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.outreach_counter ?? 0}
-                                                    </p>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Campaign Outreaches</h3>
+                                                    <div className="flex items-center justify-between gap-2 mt-2 pr-2">
+                                                        <div className="flex flex-col items-center flex-1">
+                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Daily Outreach</p>
+                                                            <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                                {data.candidate_stats?.daily_outreach_count ?? 0}
+                                                            </p>
+                                                        </div>
+                                                        <div className="w-px h-10 bg-purple-100 dark:bg-purple-900/30"></div>
+                                                        <div className="flex flex-col items-center flex-1">
+                                                            <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Complete Outreach</p>
+                                                            <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                                {data.candidate_stats?.complete_outreach_count ?? 0}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                     <p className="text-[10px] text-gray-400 mt-2">Emails sent to vendors and hiring managers</p>
                                                 </div>
 
                                                 {/* Card 3: Easy Apply Counter */}
                                                 {(() => {
-                                                    const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                                                    const easyApplyCount = easyApplyApplications.length > 0 ? easyApplyApplications.length : (data.candidate_stats?.easy_apply_counter ?? 0);
                                                     return (
                                                         <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md group">
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">
@@ -3295,9 +3518,21 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 <div className="w-10 h-10 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
                                                                     <Zap className="w-5 h-5" />
                                                                 </div>
-                                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                                                    Easy Apply
-                                                                </span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                                        Easy Apply
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setEasyApplyPopupOpen(true);
+                                                                        }}
+                                                                        className="p-1 rounded-full hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-colors"
+                                                                        title="View Easy Apply Details"
+                                                                    >
+                                                                        <EyeIcon className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -3799,13 +4034,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 </DialogPrimitive.Close>
                                 {/* ── Header ── */}
                                 <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                                    <div className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <DialogPrimitive.Title className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                         <MousePointerClick className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                         Job Listings Tracking
-                                    </div>
-                                    <div className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                    </DialogPrimitive.Title>
+                                    <DialogPrimitive.Description className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
                                         Jobs you&apos;ve clicked on from the Job Board.
-                                    </div>
+                                    </DialogPrimitive.Description>
                                 </div>
 
                                 {/* ── Body ── */}
@@ -3858,6 +4093,78 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         </DialogPrimitive.Portal>
                     </Dialog>
                 )}
+
+            {/* Easy Apply Applications Modal */}
+            {easyApplyPopupOpen && (
+                <Dialog open={easyApplyPopupOpen} onOpenChange={setEasyApplyPopupOpen}>
+                    <DialogPrimitive.Portal>
+                        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-w-[min(48rem,95vw)] w-full max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl">
+                            <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
+                                <X className="h-4 w-4 text-gray-500 hover:text-gray-750 dark:text-gray-400 dark:hover:text-gray-200" />
+                                <span className="sr-only">Close</span>
+                            </DialogPrimitive.Close>
+                            {/* ── Header ── */}
+                            <div className="pl-6 pr-12 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                                <DialogPrimitive.Title className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                                    My Applications (Easy Apply)
+                                    {!loadingEasyApply && easyApplyApplications && (
+                                        <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-sm font-bold border border-emerald-200 dark:border-emerald-800">
+                                            {easyApplyApplications.length} {easyApplyApplications.length === 1 ? 'Application' : 'Applications'}
+                                        </span>
+                                    )}
+                                </DialogPrimitive.Title>
+                                <DialogPrimitive.Description className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                                    Applications you&apos;ve submitted via Easy Apply.
+                                </DialogPrimitive.Description>
+                            </div>
+
+                            {/* ── Body ── */}
+                            <div className="flex-1 overflow-y-auto min-h-0">
+                                {loadingEasyApply ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                                        <span className="text-sm">Loading...</span>
+                                    </div>
+                                ) : easyApplyError ? (
+                                    <div className="p-6 text-sm text-red-500 text-center">{easyApplyError}</div>
+                                ) : (!easyApplyApplications || easyApplyApplications.length === 0) ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                                        <Zap className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-2" />
+                                        <p className="text-sm font-medium text-gray-500">No easy apply applications yet.</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-gray-50 dark:bg-gray-950/60 border-b border-gray-100 dark:border-gray-800">
+                                            <tr>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Company Name</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Role</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Date</th>
+                                                <th className="text-left font-semibold text-gray-500 dark:text-gray-400 px-6 py-3">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {easyApplyApplications.map((row, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">{row.company_name || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400">{row.role || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-500 dark:text-gray-400">{row.application_date || "—"}</td>
+                                                    <td className="px-6 py-3 text-gray-800 dark:text-gray-200">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                                            {row.application_status || "—"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </DialogPrimitive.Content>
+                    </DialogPrimitive.Portal>
+                </Dialog>
+            )}
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (

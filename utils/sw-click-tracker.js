@@ -175,13 +175,13 @@ self.addEventListener('message', (event) => {
     }
 
     if (event.data.type === 'TRACK_CLICK') {
-        // just log it, SET_TOKEN and FLUSH already handle the sync
         lastClickTime = Date.now();
-        console.log(`[SW] Click for ${event.data.id} saved to DB. Inactivity timer reset.`);
+        console.log(`[SW] Click for ${event.data.id} received. Flushing immediately to backend...`);
+        attemptFlush(true);
     }
 
     if (event.data.type === 'FLUSH') {
-        console.log('[SW] FLUSH event received. Evaluating sync...');
+        console.log('[SW] FLUSH event received. Flushing immediately to backend...');
         attemptFlush(true);
     }
 });
