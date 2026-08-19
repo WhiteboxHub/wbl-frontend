@@ -13,12 +13,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { aiprepApi, Assessment, Question, AssessmentType } from '@/lib/aiprep-api';
+import { aiprepApi, Assessment, Question, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { QuestionDisplay } from '@/components/aiprep/QuestionDisplay';
 import { YOLOAnalyzer } from '@/components/aiprep/YOLOAnalyzer';
+import { ChunkedUploader } from '@/components/aiprep/ChunkedUploader';
+import { useMediaRecorder } from '@/hooks/useMediaRecorder';
+import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
 import ThemeToggler from '@/components/Header/ThemeToggler';
-import { Video, Mic, Clock, Pause, Play, ChevronRight, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Video, Mic, Clock, Pause, Play, ChevronRight, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function AssessmentSessionPage() {
   const router = useRouter();
@@ -32,12 +35,42 @@ export default function AssessmentSessionPage() {
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(90); // default fallback
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [isRecording, setIsRecording] = useState<boolean>(true);
   const [isEnding, setIsEnding] = useState<boolean>(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Hook 1: Upload Queue Manager
+  const { state: uploadState, enqueueChunk, retryFailedChunks, waitForAllUploads, resetQueue } =
+    useChunkUploadQueue({
+      assessmentId: assessmentId || 0,
+      onError: (err) => console.error(`Sync error: ${err.message}`),
+    });
+
+  // Hook 2: MediaRecorder Engine
+  const {
+    recordingState,
+    elapsedSeconds,
+    chunkCount,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+  } = useMediaRecorder({
+    stream,
+    mode: assessment?.assessment_mode || 'VIDEO_AUDIO',
+    chunkDurationMs: 30000,
+    onChunkReady: (chunkBlob, chunkNumber) => {
+      console.log(`Secured 30s media slice #${chunkNumber + 1} (${Math.round(chunkBlob.size / 1024)} KB)`);
+      enqueueChunk(chunkBlob, chunkNumber);
+    },
+    onError: (err) => console.error(`Recorder Error: ${err.message}`),
+    onDeviceDisconnected: () => console.warn('Alert: Hardware audio/video input disconnected.'),
+  });
+
+  const isPaused = recordingState === 'paused';
+  const isRecording = recordingState === 'recording';
 
   // Video / Audio hardware refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -80,7 +113,7 @@ export default function AssessmentSessionPage() {
           };
           setAssessment(mockAssessment);
           setTimeLeft(getTimeLimit('TECHNICAL'));
-          setTimeout(initCameraFeed, 100);
+          setTimeout(() => initMediaFeed('VIDEO_AUDIO'), 100);
           setIsLoading(false);
           return;
         }
@@ -92,10 +125,8 @@ export default function AssessmentSessionPage() {
         const initialTime = getTimeLimit(data.assessment_type);
         setTimeLeft(initialTime);
 
-        // Start device feed if video mode
-        if (data.assessment_mode === 'VIDEO_AUDIO') {
-          setTimeout(initCameraFeed, 100);
-        }
+        // Start device feed (mic is always active; camera matches mode selection)
+        setTimeout(() => initMediaFeed(data.assessment_mode), 100);
       } catch (err: any) {
         console.error('Error fetching assessment info:', err);
         setErrorMsg(err.message || 'Failed to fetch the assessment details.');
@@ -110,6 +141,13 @@ export default function AssessmentSessionPage() {
       stopTimer();
     };
   }, [assessmentId]);
+
+  // Auto-start recording once media stream is ready
+  useEffect(() => {
+    if (stream && recordingState === 'inactive') {
+      startRecording();
+    }
+  }, [stream, recordingState, startRecording]);
 
   // Handle countdown timer
   useEffect(() => {
@@ -165,20 +203,21 @@ export default function AssessmentSessionPage() {
     }
   };
 
-  const initCameraFeed = async () => {
+  const initMediaFeed = async (mode: AssessmentMode) => {
     try {
       stopCameraFeed();
-      // Request standard webcam resolution dimensions
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false, // audio tracks processed in backend/separate node
-      });
-      streamRef.current = stream;
+      const constraints: MediaStreamConstraints = {
+        audio: true,
+        video: mode === 'VIDEO_AUDIO' ? { width: { ideal: 640 }, height: { ideal: 480 } } : false,
+      };
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = mediaStream;
       }
     } catch (err) {
-      console.error('Failed to initialize webcam overlay feed:', err);
+      console.error('Failed to initialize media feed:', err);
     }
   };
 
@@ -186,6 +225,7 @@ export default function AssessmentSessionPage() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      setStream(null);
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
@@ -218,14 +258,21 @@ export default function AssessmentSessionPage() {
         return;
       }
 
-      // 1. Submit final status change to COMPLETED
+      // 1. Stop recording and wait for final chunks
+      await stopRecording();
+      await waitForAllUploads();
+
+      // 2. Assemble media
+      await aiprepApi.assembleMedia(assessment.id, chunkCount);
+
+      // 3. Submit final status change to COMPLETED
       await aiprepApi.updateAssessmentStatus(assessment.id, 'COMPLETED');
 
-      // 2. Stop streams
+      // 4. Stop streams
       stopCameraFeed();
 
-      // 3. Route to results report
-      router.push(`/aiprep/reports/${assessment.id}`);
+      // 5. Route to processing page
+      router.push(`/aiprep/session/${assessment.id}/processing`);
     } catch (err: any) {
       console.error('Error ending assessment session:', err);
       alert(err.message || 'Failed to complete session telemetry sync.');
@@ -240,7 +287,11 @@ export default function AssessmentSessionPage() {
     const pauseAllowed = !['GENERAL_INTRO', 'JOB_DESCRIPTION_INTRO'].includes(assessment.assessment_type);
     if (!pauseAllowed) return;
 
-    setIsPaused((prev) => !prev);
+    if (recordingState === 'recording') {
+      pauseRecording();
+    } else if (recordingState === 'paused') {
+      resumeRecording();
+    }
   };
 
   // Helper formatting for timer mm:ss
@@ -276,64 +327,77 @@ export default function AssessmentSessionPage() {
   const activeQuestion = assessment.questions[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 py-12 px-6 flex flex-col justify-between relative overflow-hidden transition-colors duration-200">
-      {/* Theme Toggler absolute placement */}
-      <div className="absolute top-6 right-6 z-50">
-        <ThemeToggler />
-      </div>
-
-      {/* Background visual indicators */}
-      <div className="absolute top-0 right-1/4 -z-10 h-72 w-72 rounded-full bg-[#4A6CF7]/5 blur-3xl" />
-      <div className="absolute bottom-0 left-1/4 -z-10 h-72 w-72 rounded-full bg-sky-500/5 blur-3xl" />
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 py-4 px-4 md:px-6 flex flex-col justify-between relative overflow-y-auto transition-colors duration-300">
+      {/* Background glassmorphic visual indicators */}
+      <div className="absolute top-0 right-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-[#4A6CF7]/8 dark:bg-[#4A6CF7]/5 blur-3xl animate-pulse duration-[8000ms]" />
+      <div className="absolute bottom-0 left-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-indigo-500/8 dark:bg-indigo-500/4 blur-3xl animate-pulse duration-[8000ms]" style={{ animationDelay: '3s' }} />
 
       {/* Top Banner: Timer + Recording Indicator */}
-      <div className="max-w-5xl mx-auto w-full flex items-center justify-between mb-8 pb-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="max-w-5xl mx-auto w-full flex items-center justify-between mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800/80">
         <div className="flex items-center gap-3">
-          <span className="relative flex h-3 w-3 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-          </span>
-          <span className="text-sm font-bold text-slate-750 dark:text-slate-300 tracking-wider uppercase">
-            {isPaused ? 'Recording Paused' : 'Live Session Recording'}
-          </span>
+          <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/60 dark:border-slate-700/60 px-4 py-1.5 rounded-2xl shadow-sm">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isPaused ? 'bg-amber-400' : 'bg-red-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${isPaused ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+            </span>
+            <span className="text-[11px] font-bold text-slate-750 dark:text-slate-200 tracking-wider uppercase">
+              {isPaused ? 'Recording Paused' : 'Live Assessment Active'}
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl text-slate-800 dark:text-white font-bold text-sm shadow-sm">
-            <Clock className="w-4 h-4 text-[#4A6CF7]" />
-            <span>{formatTime(timeLeft)}</span>
+        <div className="flex items-center gap-3">
+          <ChunkedUploader uploadState={uploadState} onRetryFailed={retryFailedChunks} compact={true} isRecording={isRecording} />
+          <div className="inline-flex items-center justify-center gap-2 bg-white/85 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/60 px-4 py-1.5 rounded-2xl text-slate-850 dark:text-white font-bold text-sm shadow-md backdrop-blur-md shrink-0 select-none whitespace-nowrap">
+            <Clock className="w-4 h-4 text-[#4A6CF7] animate-pulse shrink-0 relative top-[6px]" />
+            <span className="font-mono text-sm tracking-wide leading-none">{formatTime(timeLeft)}</span>
           </div>
+          <ThemeToggler />
         </div>
       </div>
 
       {/* Main Workspace: Camera screen on Left + Active Question on Right */}
-      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col md:flex-row gap-8 items-center justify-center my-8">
-        {/* Camera stream overlay on the left (increased size) */}
+      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col md:flex-row gap-8 items-center justify-center my-2">
+        {/* Camera stream overlay on the left (increased size with futuristic scan lines) */}
         {assessment.assessment_mode === 'VIDEO_AUDIO' && (
-          <div className="relative w-full md:w-[480px] h-[360px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-950 shadow-md flex items-center justify-center shrink-0">
+          <div className={`relative w-full md:w-[500px] h-[280px] md:h-[375px] rounded-3xl overflow-hidden border bg-slate-100 dark:bg-slate-950 shadow-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${isPaused
+              ? 'border-amber-500/30 dark:border-amber-500/20'
+              : 'border-slate-200 dark:border-[#333756] shadow-[0_0_50px_rgba(74,108,247,0.06)]'
+            }`}>
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover transform -scale-x-100 bg-slate-950"
+              className="w-full h-full object-cover transform -scale-x-100 bg-slate-955"
             />
+            {/* HUD Bounding Target Lines */}
+            <div className="absolute inset-5 border border-white/5 dark:border-white/2 rounded-2xl pointer-events-none" />
+            <div className="absolute top-5 left-5 w-4 h-4 border-t-2 border-l-2 border-[#4A6CF7]/70" />
+            <div className="absolute top-5 right-5 w-4 h-4 border-t-2 border-r-2 border-[#4A6CF7]/70" />
+            <div className="absolute bottom-5 left-5 w-4 h-4 border-b-2 border-l-2 border-[#4A6CF7]/70" />
+            <div className="absolute bottom-5 right-5 w-4 h-4 border-b-2 border-r-2 border-[#4A6CF7]/70" />
+
             {/* Embedded YOLO Face Analytics */}
             <YOLOAnalyzer
               videoRef={videoRef}
               enabled={!isPaused && isRecording}
               assessmentId={assessment.id}
             />
+
             {isPaused && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-955/70 dark:bg-slate-950/80 text-slate-350 text-xs font-bold gap-1">
-                <Pause className="w-4 h-4" /> Camera Feed Paused
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-955/70 dark:bg-slate-950/80 text-slate-355 text-xs font-bold gap-1 animate-fade-in backdrop-blur-md">
+                <div className="p-3 bg-white/10 rounded-full border border-white/20 animate-pulse">
+                  <Pause className="w-5 h-5 text-white" />
+                </div>
+                <span className="uppercase tracking-widest text-[10px] text-slate-350">Camera Stream Paused</span>
               </div>
             )}
           </div>
         )}
 
         {/* Active Question Display on the right */}
-        <div className="flex-1 w-full">
+        <div className="flex-1 w-full max-w-[440px] flex flex-col gap-4">
           {activeQuestion ? (
             <QuestionDisplay
               question={activeQuestion}
@@ -342,13 +406,16 @@ export default function AssessmentSessionPage() {
               category={assessment.assessment_type}
             />
           ) : (
-            <div className="text-center text-slate-500 dark:text-slate-400 text-sm">No active question prompt.</div>
+            <div className="text-center text-slate-550 dark:text-slate-400 text-sm py-8 bg-white/60 dark:bg-slate-800/40 rounded-3xl border border-slate-200/50 dark:border-slate-700/50">No active question prompt.</div>
           )}
+          <div className="flex justify-center transition-all duration-300">
+            <ChunkedUploader uploadState={uploadState} onRetryFailed={retryFailedChunks} isRecording={isRecording} />
+          </div>
         </div>
       </div>
 
       {/* Footer Controllers */}
-      <div className="max-w-5xl mx-auto w-full border-t border-slate-200 dark:border-slate-800 pt-8 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto w-full border-t border-slate-200/80 dark:border-slate-800/80 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Left Side: Exit/Cancel */}
         <button
           onClick={() => {
@@ -356,23 +423,23 @@ export default function AssessmentSessionPage() {
               router.push('/aiprep');
             }
           }}
-          className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-805 dark:hover:text-white font-semibold text-xs transition-colors"
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-semibold text-xs transition-all duration-200 active:scale-98"
         >
           Quit Practice
         </button>
 
         {/* Right Side: Action Controllers */}
-        <div className="flex items-center gap-3">
+        <div className="w-full sm:w-auto flex items-center justify-end gap-3.5">
           {/* Conditional Pause Action */}
           {!isPauseDisabled && (
             <button
               onClick={handleTogglePause}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border font-semibold text-xs transition-all duration-200 ${isPaused
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-250 dark:border-emerald-800 text-emerald-655 dark:text-emerald-400 hover:bg-emerald-100/50'
-                  : 'bg-slate-100/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-750 hover:text-slate-800 dark:hover:text-white'
+              className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border font-bold text-xs shadow-sm transition-all duration-200 active:scale-95 ${isPaused
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
+                : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white'
                 }`}
             >
-              {isPaused ? <Play className="w-3.5 h-3.5 fill-emerald-650" /> : <Pause className="w-3.5 h-3.5" />}
+              {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
               <span>{isPaused ? 'Resume' : 'Pause'}</span>
             </button>
           )}
@@ -381,7 +448,7 @@ export default function AssessmentSessionPage() {
           {currentQuestionIndex + 1 < assessment.questions.length ? (
             <button
               onClick={handleNextQuestion}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#4A6CF7] hover:bg-[#4A6CF7]/90 text-white font-semibold text-xs shadow-lg shadow-[#4A6CF7]/15 transition-all duration-200"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/15 hover:shadow-lg hover:shadow-blue-500/20 hover:-translate-y-0.5 transition-all duration-200 active:scale-95"
             >
               <span>Next Question</span>
               <ChevronRight className="w-4 h-4" />
@@ -390,9 +457,9 @@ export default function AssessmentSessionPage() {
             <button
               onClick={handleEndSession}
               disabled={isEnding}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-650 hover:bg-emerald-600 disabled:opacity-40 disabled:hover:bg-emerald-650 text-white font-semibold text-xs shadow-lg shadow-emerald-600/15 transition-all duration-200"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/10 hover:shadow-lg transition-all duration-200 active:scale-95"
             >
-              <CheckCircle className="w-4 h-4" />
+              {isEnding ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
               <span>{isEnding ? 'Finishing...' : 'Complete Session'}</span>
             </button>
           )}

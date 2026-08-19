@@ -175,7 +175,6 @@ export default function DeviceCheckPage() {
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Failed to save configuration settings or start assessment.');
-    } finally {
       setIsSaving(false);
     }
   };

@@ -57,6 +57,7 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
 
   const landmarkerRef = useRef<any>(null);
   const animationFrameId = useRef<number | null>(null);
+  const lookDirection = useRef<'straight' | 'up' | 'down' | 'away'>('straight');
 
   // Initialize and load MediaPipe Face Landmarker
   useEffect(() => {
@@ -208,6 +209,16 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
               }
             }
 
+            if (isLookingUp) {
+              lookDirection.current = 'up';
+            } else if (isLookingDown) {
+              lookDirection.current = 'down';
+            } else if (isLookingAway) {
+              lookDirection.current = 'away';
+            } else {
+              lookDirection.current = 'straight';
+            }
+
             let currentStability = 100;
             let currentMessage = 'Straight / Stable';
 
@@ -335,9 +346,6 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
   };
 
   if (!enabled) return null;
-
-  // Add ref to track overall orientation state
-  const lookDirection = useRef<'straight' | 'up' | 'down' | 'away'>('straight');
 
   // Existing isStraight calculation updated to consider lookDirection
   const isStraight = faceVisible && stabilityScore.current >= 80 && lookDirection.current === 'straight';

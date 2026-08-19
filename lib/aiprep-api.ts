@@ -2,13 +2,13 @@
  * AIPrep API Client Layer
  * 
  * Target Workspace: wbl-frontend
- * Primary Developer: Narasimha (FE1)
+ * Primary Developer: Narasimha (FE1) & Kartik (FE2)
  * 
  * Provides TypeScript definitions and API caller methods for candidate assessments,
- * device checks, consent logs, and analytical reports.
+ * device checks, consent logs, chunked upload, and analytical reports.
  */
 
-import { authFetch } from './authFetch';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 // ============================================================================
 // TypeScript Interfaces & Types
@@ -23,6 +23,11 @@ export type AssessmentType =
   | 'SYSTEM_DESIGN'
   | 'HR';
 
+export const NO_PAUSE_ASSESSMENT_TYPES: ReadonlyArray<AssessmentType> = [
+  'GENERAL_INTRO',
+  'JOB_DESCRIPTION_INTRO',
+];
+
 export type AssessmentMode = 'VIDEO_AUDIO' | 'AUDIO_ONLY';
 
 export type AssessmentStatus =
@@ -32,14 +37,44 @@ export type AssessmentStatus =
   | 'COMPLETED'
   | 'FAILED';
 
-export interface Question {
+export type StepExecutionStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface ProcessingSteps {
+  stt: StepExecutionStatus;
+  audio: StepExecutionStatus;
+  vision: StepExecutionStatus;
+  llm: StepExecutionStatus;
+  finalize: StepExecutionStatus;
+}
+
+export interface ProcessingStatusResponse {
+  status: AssessmentStatus;
+  steps: ProcessingSteps;
+  error?: string;
+}
+
+export interface UploadChunkResponse {
+  chunk_number: number;
+  gcs_path: string;
+}
+
+export interface AssembleMediaResponse {
+  assessment_id: number;
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  task_id: string;
+}
+
+export interface AssessmentQuestion {
   id: number;
   order_index: number;
   question_text: string;
   difficulty_level: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
 }
 
-export interface Assessment {
+// Narasimha uses type alias 'Question' pointing to 'AssessmentQuestion'
+export type Question = AssessmentQuestion;
+
+export interface AssessmentDetails {
   id: number;
   candidate_id: number;
   assessment_type: AssessmentType;
@@ -47,11 +82,14 @@ export interface Assessment {
   status: AssessmentStatus;
   attempt_number: number;
   job_description_text?: string | null;
-  questions: Question[];
-  created_at: string;
+  questions: AssessmentQuestion[];
   started_at?: string | null;
   completed_at?: string | null;
+  created_at: string;
 }
+
+// Narasimha uses type alias 'Assessment' pointing to 'AssessmentDetails'
+export type Assessment = AssessmentDetails;
 
 export interface CreateAssessmentRequest {
   assessment_type: AssessmentType;
@@ -89,20 +127,6 @@ export interface ConsentResponse {
   consented: boolean;
   consented_at: string;
   revoked_at?: string | null;
-}
-
-// ----------------------------------------------------------------------------
-// Stubs for other FE tasks (FE2 / FE3)
-// ----------------------------------------------------------------------------
-export interface ProcessingStatusResponse {
-  status: AssessmentStatus;
-  steps: {
-    stt: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-    audio: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-    vision: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-    llm: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-    finalize: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  };
 }
 
 export interface ReportResponse {
@@ -148,10 +172,54 @@ export interface DashboardResponse {
 }
 
 // ============================================================================
-// API Operations Client
+// Core Fetch Request Helper
 // ============================================================================
 
-// Local storage simulation database helpers
+function getAuthToken(): string | null {
+  return typeof window !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('access_token')) : null;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  isJson: boolean = true
+): Promise<T> {
+  const token = getAuthToken();
+  const headers = new Headers(options.headers || {});
+
+  if (isJson && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    let errorDetail = response.statusText;
+    try {
+      const errJson = await response.json();
+      errorDetail = errJson.detail || errJson.message || JSON.stringify(errJson);
+    } catch {
+      const errText = await response.text();
+      if (errText) errorDetail = errText;
+    }
+    const errorObj: any = new Error(`[${response.status}] ${errorDetail}`);
+    errorObj.status = response.status;
+    throw errorObj;
+  }
+
+  return response.json();
+}
+
+// ============================================================================
+// Local Storage Simulation Database Helpers
+// ============================================================================
+
 const getMockQuestions = (type: AssessmentType): Question[] => {
   switch (type) {
     case 'GENERAL_INTRO':
@@ -245,6 +313,10 @@ const saveLocalReport = (assessmentId: number) => {
   }
 };
 
+// ============================================================================
+// API Operations Client
+// ============================================================================
+
 export const aiprepApi = {
   // --------------------------------------------------------------------------
   // Narasimha (FE1) API calls
@@ -254,14 +326,13 @@ export const aiprepApi = {
    * Creates a new assessment session.
    * POST /api/ai-prep/assessments
    */
-  async createAssessment(data: CreateAssessmentRequest): Promise<Assessment> {
+  async createAssessment(data: CreateAssessmentRequest, signal?: AbortSignal): Promise<Assessment> {
     try {
-      const res = await authFetch('/api/ai-prep/assessments', {
+      return await request<Assessment>('/api/ai-prep/assessments', {
         method: 'POST',
         body: JSON.stringify(data),
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn("Backend createAssessment API not found or failed. Simulating locally.");
       const assessments = getLocalAssessments();
@@ -294,13 +365,12 @@ export const aiprepApi = {
    * Fetches an assessment session including assigned questions.
    * GET /api/ai-prep/assessments/{id}
    */
-  async getAssessment(id: number): Promise<Assessment> {
+  async getAssessment(id: number, signal?: AbortSignal): Promise<Assessment> {
     try {
-      const res = await authFetch(`/api/ai-prep/assessments/${id}`, {
+      return await request<Assessment>(`/api/ai-prep/assessments/${id}`, {
         method: 'GET',
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn(`Backend getAssessment API not found or failed. Retrieving assessment ${id} locally.`);
       const assessments = getLocalAssessments();
@@ -323,14 +393,20 @@ export const aiprepApi = {
    * Transitions the status of an assessment session (e.g. to IN_PROGRESS).
    * PATCH /api/ai-prep/assessments/{id}/status
    */
-  async updateAssessmentStatus(id: number, status: AssessmentStatus): Promise<{ status: AssessmentStatus }> {
+  async updateAssessmentStatus(
+    id: number,
+    status: AssessmentStatus,
+    signal?: AbortSignal
+  ): Promise<{ id: number; status: AssessmentStatus }> {
     try {
-      const res = await authFetch(`/api/ai-prep/assessments/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error();
-      return res.json();
+      return await request<{ id: number; status: AssessmentStatus }>(
+        `/api/ai-prep/assessments/${id}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+          signal,
+        }
+      );
     } catch (err) {
       console.warn(`Backend updateAssessmentStatus API not found or failed. Updating status of assessment ${id} locally to ${status}.`);
       const assessments = getLocalAssessments();
@@ -346,7 +422,7 @@ export const aiprepApi = {
         }
         saveLocalAssessments(assessments);
       }
-      return { status };
+      return { id, status };
     }
   },
 
@@ -354,14 +430,13 @@ export const aiprepApi = {
    * Saves hardware checks results for a specific assessment.
    * POST /api/ai-prep/hardware-check
    */
-  async saveHardwareCheck(data: HardwareCheckRequest): Promise<HardwareCheckResponse> {
+  async saveHardwareCheck(data: HardwareCheckRequest, signal?: AbortSignal): Promise<HardwareCheckResponse> {
     try {
-      const res = await authFetch('/api/ai-prep/hardware-check', {
+      return await request<HardwareCheckResponse>('/api/ai-prep/hardware-check', {
         method: 'POST',
         body: JSON.stringify(data),
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn("Backend saveHardwareCheck API not found or failed. Simulating locally.");
       if (typeof window !== 'undefined') {
@@ -381,14 +456,13 @@ export const aiprepApi = {
    * Records candidate consent for analytics.
    * POST /api/ai-prep/consents
    */
-  async recordConsent(data: ConsentRequest): Promise<ConsentResponse> {
+  async recordConsent(data: ConsentRequest, signal?: AbortSignal): Promise<ConsentResponse> {
     try {
-      const res = await authFetch('/api/ai-prep/consents', {
+      return await request<ConsentResponse>('/api/ai-prep/consents', {
         method: 'POST',
         body: JSON.stringify(data),
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn("Backend recordConsent API not found or failed. Simulating locally.");
       if (typeof window !== 'undefined') {
@@ -414,14 +488,13 @@ export const aiprepApi = {
     face_visible_pct: number;
     head_nods_count: number;
     frame_stability_score: number;
-  }): Promise<any> {
+  }, signal?: AbortSignal): Promise<any> {
     try {
-      const res = await authFetch('/api/ai-prep/vision-telemetry', {
+      return await request<any>('/api/ai-prep/vision-telemetry', {
         method: 'POST',
         body: JSON.stringify(data),
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn("Backend saveVisionTelemetry API not found or failed. Simulating locally.");
       if (typeof window !== 'undefined') {
@@ -434,26 +507,36 @@ export const aiprepApi = {
   },
 
   // --------------------------------------------------------------------------
-  // Karthik (FE2) API calls (Initialized as stubs)
+  // Karthik (FE2) API calls
   // --------------------------------------------------------------------------
 
   /**
    * Uploads a single 30-second audio/video WebM segment.
    * POST /api/ai-prep/media/upload-chunk
    */
-  async uploadChunk(assessmentId: number, chunkNumber: number, fileBlob: Blob): Promise<{ chunk_number: number; gcs_path: string }> {
+  async uploadChunk(
+    assessmentId: number,
+    chunkNumber: number,
+    blob: Blob,
+    totalChunks: number = -1,
+    signal?: AbortSignal
+  ): Promise<UploadChunkResponse> {
     try {
-      const form = new FormData();
-      form.append('assessment_id', String(assessmentId));
-      form.append('chunk_number', String(chunkNumber));
-      form.append('file', fileBlob, `chunk-${chunkNumber}.webm`);
+      const formData = new FormData();
+      formData.append('assessment_id', String(assessmentId));
+      formData.append('chunk_number', String(chunkNumber));
+      formData.append('total_chunks', String(totalChunks));
+      formData.append('file', blob, `chunk-${chunkNumber}.webm`);
 
-      const res = await authFetch('/api/ai-prep/media/upload-chunk', {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) throw new Error();
-      return res.json();
+      return await request<UploadChunkResponse>(
+        '/api/ai-prep/media/upload-chunk',
+        {
+          method: 'POST',
+          body: formData,
+          signal,
+        },
+        false
+      );
     } catch (err) {
       console.warn(`Backend uploadChunk API not found or failed. Simulating upload of chunk ${chunkNumber} locally.`);
       return {
@@ -467,14 +550,20 @@ export const aiprepApi = {
    * Triggers assembly of uploaded media chunks in GCS.
    * POST /api/ai-prep/media/assemble
    */
-  async assembleMedia(assessmentId: number, totalChunks: number): Promise<{ assessment_id: number; status: string; task_id: string }> {
+  async assembleMedia(
+    assessmentId: number,
+    totalChunks: number,
+    signal?: AbortSignal
+  ): Promise<AssembleMediaResponse> {
     try {
-      const res = await authFetch('/api/ai-prep/media/assemble', {
-        method: 'POST',
-        body: JSON.stringify({ assessment_id: assessmentId, total_chunks: totalChunks }),
-      });
-      if (!res.ok) throw new Error();
-      return res.json();
+      return await request<AssembleMediaResponse>(
+        '/api/ai-prep/media/assemble',
+        {
+          method: 'POST',
+          body: JSON.stringify({ assessment_id: assessmentId, total_chunks: totalChunks }),
+          signal,
+        }
+      );
     } catch (err) {
       console.warn(`Backend assembleMedia API not found or failed. Simulating assembly of ${totalChunks} chunks locally.`);
       return {
@@ -486,29 +575,59 @@ export const aiprepApi = {
   },
 
   /**
+   * Fetches processing status for an assessment.
+   * GET /api/ai-prep/assessments/{id}/processing-status
+   */
+  async getProcessingStatus(
+    assessmentId: number,
+    signal?: AbortSignal
+  ): Promise<ProcessingStatusResponse> {
+    try {
+      return await request<ProcessingStatusResponse>(
+        `/api/ai-prep/assessments/${assessmentId}/processing-status`,
+        { method: 'GET', signal }
+      );
+    } catch (err) {
+      console.warn(`Backend getProcessingStatus API not found or failed. Returning mock status.`);
+      return {
+        status: 'COMPLETED',
+        steps: { stt: 'COMPLETED', audio: 'COMPLETED', vision: 'COMPLETED', llm: 'COMPLETED', finalize: 'COMPLETED' }
+      };
+    }
+  },
+
+  /**
    * Subscribes to Server-Sent Events (SSE) for processing status.
    * GET /api/ai-prep/assessments/{id}/processing-status
    */
-  subscribeToProcessing(assessmentId: number, onUpdate: (status: ProcessingStatusResponse) => void): () => void {
+  subscribeToProcessing(
+    assessmentId: number,
+    onUpdate: (status: ProcessingStatusResponse) => void,
+    onError?: (error: Event) => void
+  ): () => void {
     const isClient = typeof window !== 'undefined';
     if (!isClient) return () => { };
 
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('access_token') || '';
-      const es = new EventSource(`/api/ai-prep/assessments/${assessmentId}/processing-status?token=${encodeURIComponent(token)}`);
+      const token = getAuthToken();
+      const basePath = `${API_BASE}/api/ai-prep/assessments/${assessmentId}/processing-status`;
+      const url = token ? `${basePath}?token=${encodeURIComponent(token)}` : basePath;
 
-      es.onmessage = (e) => {
+      const eventSource = new EventSource(url, { withCredentials: true });
+
+      eventSource.onmessage = (event) => {
+        if (!event.data || event.data.trim() === '' || event.data.startsWith(':')) return;
         try {
-          const data = JSON.parse(e.data);
+          const data: ProcessingStatusResponse = JSON.parse(event.data);
           onUpdate(data);
         } catch (err) {
-          console.error('Error parsing status event data:', err);
+          console.error('[SSE Parse Error]:', err);
         }
       };
 
-      return () => {
-        es.close();
-      };
+      if (onError) eventSource.onerror = onError;
+
+      return () => eventSource.close();
     } catch (err) {
       console.warn(`EventSource connection failed for assessment ${assessmentId}. Simulating completion callback.`);
 
@@ -524,20 +643,19 @@ export const aiprepApi = {
   },
 
   // --------------------------------------------------------------------------
-  // Vishnu (FE3) API calls (Initialized as stubs)
+  // Vishnu (FE3) API calls
   // --------------------------------------------------------------------------
 
   /**
    * Fetches the completed coaching report for an assessment.
    * GET /api/ai-prep/reports/{assessment_id}
    */
-  async getReport(assessmentId: number): Promise<ReportResponse> {
+  async getReport(assessmentId: number, signal?: AbortSignal): Promise<ReportResponse> {
     try {
-      const res = await authFetch(`/api/ai-prep/reports/${assessmentId}`, {
+      return await request<ReportResponse>(`/api/ai-prep/reports/${assessmentId}`, {
         method: 'GET',
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn(`Backend getReport API not found or failed. Retrieving report for assessment ${assessmentId} locally.`);
       const reports = getLocalReports();
@@ -551,13 +669,12 @@ export const aiprepApi = {
    * Fetches user executive overview statistics and radar metrics.
    * GET /api/ai-prep/analytics/dashboard/{candidate_id}
    */
-  async getDashboard(candidateId: number): Promise<DashboardResponse> {
+  async getDashboard(candidateId: number, signal?: AbortSignal): Promise<DashboardResponse> {
     try {
-      const res = await authFetch(`/api/ai-prep/analytics/dashboard/${candidateId}`, {
+      return await request<DashboardResponse>(`/api/ai-prep/analytics/dashboard/${candidateId}`, {
         method: 'GET',
+        signal,
       });
-      if (!res.ok) throw new Error();
-      return res.json();
     } catch (err) {
       console.warn(`Backend getDashboard API not found or failed. Aggregating dashboard data locally.`);
       const assessments = getLocalAssessments();
