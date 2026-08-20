@@ -529,7 +529,7 @@ export const aiprepApi = {
       formData.append('file', blob, `chunk-${chunkNumber}.webm`);
 
       return await request<UploadChunkResponse>(
-        '/api/ai-prep/media/upload-chunk',
+        '/ai-prep/media/upload-chunk',
         {
           method: 'POST',
           body: formData,
