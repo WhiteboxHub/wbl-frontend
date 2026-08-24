@@ -194,7 +194,8 @@ async function request<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const cleanPath = (API_BASE.endsWith('/api') && path.startsWith('/api/')) ? path.substring(4) : path;
+  const response = await fetch(`${API_BASE}${cleanPath}`, {
     ...options,
     headers,
   });
@@ -557,7 +558,7 @@ export const aiprepApi = {
   ): Promise<AssembleMediaResponse> {
     try {
       return await request<AssembleMediaResponse>(
-        '/api/ai-prep/media/assemble',
+        '/ai-prep/media/assemble',
         {
           method: 'POST',
           body: JSON.stringify({ assessment_id: assessmentId, total_chunks: totalChunks }),
@@ -584,7 +585,7 @@ export const aiprepApi = {
   ): Promise<ProcessingStatusResponse> {
     try {
       return await request<ProcessingStatusResponse>(
-        `/api/ai-prep/assessments/${assessmentId}/processing-status`,
+        `/ai-prep/assessments/${assessmentId}/processing-status`,
         { method: 'GET', signal }
       );
     } catch (err) {
