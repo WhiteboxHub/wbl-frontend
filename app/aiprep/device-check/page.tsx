@@ -25,6 +25,23 @@ import { AlertCircle, AlertTriangle, X, RefreshCw } from 'lucide-react';
 
 export default function DeviceCheckPage() {
   const router = useRouter();
+
+  // Route Security Guard: Ensure candidate is logged in using existing apiFetch helper
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function verifyAuth() {
+      try {
+        await apiFetch("user_dashboard");
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check. Redirecting to login.');
+        router.replace('/login');
+      }
+    }
+    verifyAuth();
+  }, [router]);
+
   const searchParams = useSearchParams();
 
   // Params
@@ -130,10 +147,10 @@ export default function DeviceCheckPage() {
         const jdText = sessionStorage.getItem('aiprep_jd_text') || null;
 
         const assessment = await aiprepApi.createAssessment({
-          assessment_type: queryType!,
+          assessment_type: effectiveType!,
           assessment_mode: videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
           candidate_id: hasRealCandidate ? candidateId : undefined,
-          job_description_text: queryType === 'JOB_DESCRIPTION_INTRO' ? jdText : null,
+          job_description_text: effectiveType === 'JOB_DESCRIPTION_INTRO' ? jdText : null,
         });
         newId = assessment.id;
         setAssessmentMode(assessment.assessment_mode);
@@ -144,6 +161,7 @@ export default function DeviceCheckPage() {
       const searchParts = [];
       searchParts.push(`assessmentId=${newId}`);
       if (effectiveType) searchParts.push(`type=${effectiveType}`);
+      if (effectiveMode) searchParts.push(`mode=${effectiveMode}`);
       if (isMockMode) searchParts.push('mock=true');
       if (isEmbedded) searchParts.push('embed=true');
       const searchStr = `?${searchParts.join('&')}`;
@@ -156,6 +174,7 @@ export default function DeviceCheckPage() {
       const searchParts = [];
       searchParts.push(`assessmentId=${mockId}`);
       if (effectiveType) searchParts.push(`type=${effectiveType}`);
+      if (effectiveMode) searchParts.push(`mode=${effectiveMode}`);
       searchParts.push('mock=true');
       if (isEmbedded) searchParts.push('embed=true');
       const searchStr = `?${searchParts.join('&')}`;
@@ -289,7 +308,7 @@ export default function DeviceCheckPage() {
                 type="button"
                 onClick={() => {
                   setErrorMsg(null);
-                  if (!queryType || !queryMode) {
+                  if (!effectiveType || !effectiveMode) {
                     router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
                   } else {
                     window.location.reload();

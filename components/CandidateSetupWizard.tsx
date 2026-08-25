@@ -855,32 +855,13 @@ export function CandidateSetupWizard({
 
                 <button
                   onClick={async () => {
-                    if (isEmbedded) {
-                      const baseUrl =
-                        process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
-                      const token = localStorage.getItem("prep_token");
-                      if (token) {
-                        window.open(`${baseUrl}/auth?token=${token}`, "_blank");
-                      } else {
-                        window.open(baseUrl, "_blank");
-                      }
-                      await onSetupComplete?.();
-                    } else {
-                      router.push("/user_dashboard");
-                    }
+                    router.push('/aiprep');
+                    await onSetupComplete?.();
                   }}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 px-8 py-3 text-sm font-bold text-white transition duration-500 shadow-md shadow-emerald-900/20"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 px-8 py-3 text-sm font-bold text-white transition duration-500 shadow-md shadow-emerald-900/20 cursor-pointer"
                 >
-                  {isEmbedded ? (
-                    <>
-                      <PlayCircle className="w-4 h-4" />
-                      Start Preparation
-                    </>
-                  ) : (
-                    <>
-                      Go to Dashboard <ChevronRight size={16} />
-                    </>
-                  )}
+                  <PlayCircle className="w-4 h-4" />
+                  Start Preparation
                 </button>
               </div>
             )}

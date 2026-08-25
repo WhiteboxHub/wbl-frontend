@@ -181,6 +181,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   // Speaker
   const [speakerTested, setSpeakerTested] = useState(false);
   const [speakerOk, setSpeakerOk] = useState<boolean | null>(null);
+  const [isPlayingTone, setIsPlayingTone] = useState(false);
   const [hardwareError, setHardwareError] = useState<string | null>(null);
 
   // Network
@@ -267,7 +268,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         const t = setTimeout(() => {
           if (videoRef.current && videoRef.current.srcObject !== stream) {
             videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().catch(() => { });
           }
         }, 80);
         return () => clearTimeout(t);
@@ -281,8 +282,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
     if (micAnimRef.current) cancelAnimationFrame(micAnimRef.current);
-    audioContextRef.current?.close().catch(() => {});
-    try { recognitionRef.current?.stop(); } catch (_) {}
+    audioContextRef.current?.close().catch(() => { });
+    try { recognitionRef.current?.stop(); } catch (_) { }
   };
 
   const loadDevices = async () => {
@@ -339,8 +340,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     setTranscriptionText('');
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
     if (micAnimRef.current) cancelAnimationFrame(micAnimRef.current);
-    audioContextRef.current?.close().catch(() => {});
-    try { recognitionRef.current?.stop(); } catch (_) {}
+    audioContextRef.current?.close().catch(() => { });
+    try { recognitionRef.current?.stop(); } catch (_) { }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -378,7 +379,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           rec.continuous = true;
           rec.interimResults = true;
           rec.lang = 'en-US';
-          
+
           rec.onresult = (e: any) => {
             let txt = '';
             for (let i = 0; i < e.results.length; i++) {
@@ -398,7 +399,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             if (micStreamRef.current && micStreamRef.current.active) {
               try {
                 rec.start();
-              } catch (_) {}
+              } catch (_) { }
             }
           };
 
@@ -429,23 +430,26 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
   };
 
-  const playTestTone = () => {
+  const playTestTone = async () => {
     try {
-      const AC = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AC();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, ctx.currentTime);
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.0);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 1.0);
+      setIsPlayingTone(true);
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      [587, 880].forEach((freq, idx) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.5, ctx.currentTime + idx * 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.22 + 0.35);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + idx * 0.22);
+        osc.stop(ctx.currentTime + idx * 0.22 + 0.35);
+      });
+
       setSpeakerTested(true);
-    } catch (e) {
-      console.error('Speaker error:', e);
+      setTimeout(() => setIsPlayingTone(false), 600);
+    } catch {
+      setIsPlayingTone(false);
     }
   };
 
@@ -510,7 +514,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-indigo-500" />
           <div>
-            <h2 className="text-sm font-black text-slate-900 dark:text-white leading-none">Interview Readiness</h2>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
               <Laptop className="w-3 h-3" /> Secure Proctoring Check
             </p>
@@ -521,16 +524,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         <div className="flex items-center gap-2">
           {/* Step 1 */}
           <div className="flex items-center gap-1.5">
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${
-              step === 'DEVICE_CHECK'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-            }`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${step === 'DEVICE_CHECK'
+              ? 'bg-indigo-600 text-white'
+              : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+              }`}>
               {step === 'REVIEW_INSTRUCTIONS' ? <Check className="w-3 h-3 stroke-[3]" /> : '1'}
             </span>
-            <span className={`text-[11px] font-bold transition-colors ${
-              step === 'DEVICE_CHECK' ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
-            }`}>
+            <span className={`text-[11px] font-bold transition-colors ${step === 'DEVICE_CHECK' ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
+              }`}>
               Device Check
             </span>
           </div>
@@ -539,16 +540,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
           {/* Step 2 */}
           <div className="flex items-center gap-1.5">
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${
-              step === 'REVIEW_INSTRUCTIONS'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
-            }`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-colors ${step === 'REVIEW_INSTRUCTIONS'
+              ? 'bg-indigo-600 text-white'
+              : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+              }`}>
               2
             </span>
-            <span className={`text-[11px] font-bold transition-colors ${
-              step === 'REVIEW_INSTRUCTIONS' ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
-            }`}>
+            <span className={`text-[11px] font-bold transition-colors ${step === 'REVIEW_INSTRUCTIONS' ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500'
+              }`}>
               Guidelines
             </span>
           </div>
@@ -573,9 +572,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 {audioOnly ? (
                   <div className="flex flex-col items-center gap-3 p-8 text-center">
                     <div className="w-14 h-14 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                      <Mic className="w-6 h-6 text-indigo-400 animate-pulse" />
+                      <Mic className="w-6 h-6 text-indigo-400 animate-pulse  mt-3" />
                     </div>
-                    <p className="text-sm font-bold text-white">Audio-Only Assessment</p>
+                    <p className="text-sm font-bold text-white">Audio-Only</p>
                     <p className="text-xs text-slate-400">No camera required for this session.</p>
                   </div>
                 ) : cameraOk === false ? (
@@ -648,8 +647,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         i < 14
                           ? active ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-emerald-100 dark:bg-emerald-900/40'
                           : i < 20
-                          ? active ? 'bg-amber-400 dark:bg-amber-300' : 'bg-amber-100 dark:bg-amber-900/40'
-                          : active ? 'bg-red-500 dark:bg-red-400' : 'bg-red-100 dark:bg-red-900/40';
+                            ? active ? 'bg-amber-400 dark:bg-amber-300' : 'bg-amber-100 dark:bg-amber-900/40'
+                            : active ? 'bg-red-500 dark:bg-red-400' : 'bg-red-100 dark:bg-red-900/40';
                       return (
                         <div
                           key={i}
@@ -705,9 +704,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     options={
                       videoDevices.length
                         ? videoDevices.map((d, i) => ({
-                            value: d.deviceId,
-                            label: d.label || `Camera ${i + 1}`,
-                          }))
+                          value: d.deviceId,
+                          label: d.label || `Camera ${i + 1}`,
+                        }))
                         : [{ value: '', label: 'Default Camera' }]
                     }
                   />
@@ -723,9 +722,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   options={
                     audioDevices.length
                       ? audioDevices.map((d, i) => ({
-                          value: d.deviceId,
-                          label: d.label || `Microphone ${i + 1}`,
-                        }))
+                        value: d.deviceId,
+                        label: d.label || `Microphone ${i + 1}`,
+                      }))
                       : [{ value: '', label: 'Default Microphone' }]
                   }
                 />
@@ -741,10 +740,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     </div>
                     <button
                       onClick={playTestTone}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[11px] font-bold text-indigo-700 dark:text-indigo-300 transition-colors shrink-0"
+                      disabled={isPlayingTone}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[11px] font-bold text-indigo-700 dark:text-indigo-300 transition-all shrink-0 active:scale-95 disabled:opacity-75"
                     >
-                      <Volume2 className="w-3.5 h-3.5" />
-                      Test
+                      <Volume2 className={`w-3.5 h-3.5 ${isPlayingTone ? 'animate-bounce text-indigo-600 dark:text-indigo-400' : ''}`} />
+                      <span>{isPlayingTone ? 'Playing...' : 'Test'}</span>
                     </button>
                   </div>
 
@@ -755,21 +755,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => setSpeakerOk(true)}
-                          className={`px-3 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                            speakerOk === true
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-400'
-                          }`}
+                          className={`px-3 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${speakerOk === true
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-400'
+                            }`}
                         >
                           Yes
                         </button>
                         <button
                           onClick={() => setSpeakerOk(false)}
-                          className={`px-3 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                            speakerOk === false
-                              ? 'bg-red-600 text-white border-red-600'
-                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-red-400'
-                          }`}
+                          className={`px-3 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${speakerOk === false
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-red-400'
+                            }`}
                         >
                           No
                         </button>
@@ -781,9 +779,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
               {/* ── Readiness Checklist card ───────────────────────────────── */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm shrink-0">
-                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                  <ListChecks className="w-3.5 h-3.5" /> Readiness Checklist
-                </h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <ListChecks className="w-3.5 h-3.5" /> Readiness Checklist
+                  </h3>
+                  <button
+                    onClick={runDiagnostics}
+                    className="px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors flex items-center gap-1 active:scale-95"
+                  >
+                    <Zap className="w-3 h-3" /> Re-scan Devices
+                  </button>
+                </div>
 
                 <ChecklistRow
                   label="Browser"
@@ -839,11 +845,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 />
 
                 {/* Overall status */}
-                <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-bold transition-colors ${
-                  allChecksPass
-                    ? 'bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                    : 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
-                }`}>
+                <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-bold transition-colors ${allChecksPass
+                  ? 'bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                  }`}>
                   {allChecksPass ? (
                     <>
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
@@ -942,7 +947,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           disabled={step === 'DEVICE_CHECK' && !allChecksPass}
           className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[12px] font-black text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md"
         >
-          {step === 'DEVICE_CHECK' ? 'Next Step' : 'Start Assessment'}
+          {step === 'DEVICE_CHECK' ? 'Next Step' : 'Start Practice'}
           <ChevronRight className="w-4 h-4 stroke-[2.5]" />
         </button>
       </div>

@@ -58,24 +58,22 @@ export const RecordingControls: React.FC<RecordingControlsProps> = memo(({
           role="timer"
           aria-live="off"
           aria-label={`Elapsed time: ${formatTime(elapsedSeconds)}`}
-          className={`flex items-center gap-2 px-3.5 py-1 rounded-full font-mono text-sm font-semibold tracking-wider transition-colors ${
-            isOvertime
+          className={`flex items-center gap-2 px-3.5 py-1 rounded-full font-mono text-sm font-semibold tracking-wider transition-colors ${isOvertime
               ? 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse'
               : recordingState === 'recording'
-              ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-              : recordingState === 'paused'
-              ? 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-              : 'bg-gray-100 dark:bg-[#121723] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#333756]'
-          }`}
+                ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                : recordingState === 'paused'
+                  ? 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                  : 'bg-gray-100 dark:bg-[#121723] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-[#333756]'
+            }`}
         >
           <span
-            className={`w-2 h-2 rounded-full ${
-              recordingState === 'recording'
+            className={`w-2 h-2 rounded-full ${recordingState === 'recording'
                 ? 'bg-emerald-500 dark:bg-emerald-400 animate-ping'
                 : recordingState === 'paused'
-                ? 'bg-amber-500 dark:bg-amber-400'
-                : 'bg-gray-400 dark:bg-slate-500'
-            }`}
+                  ? 'bg-amber-500 dark:bg-amber-400'
+                  : 'bg-gray-400 dark:bg-slate-500'
+              }`}
             aria-hidden="true"
           />
           <span>{formatTime(elapsedSeconds)}</span>
@@ -107,7 +105,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = memo(({
             className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primarylight text-white font-medium rounded-xl shadow-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <IconPlayerPlay className="w-4 h-4 fill-current" aria-hidden="true" />
-            <span>Start Answer</span>
+            <span>Start</span>
           </button>
         )}
 
