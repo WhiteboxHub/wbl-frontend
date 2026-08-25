@@ -21,8 +21,7 @@ import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { ConsentModal } from '@/components/aiprep/ConsentModal';
-import ThemeToggler from '@/components/Header/ThemeToggler';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, X, RefreshCw } from 'lucide-react';
 
 export default function DeviceCheckPage() {
   const router = useRouter();
@@ -33,13 +32,38 @@ export default function DeviceCheckPage() {
   const queryType = searchParams.get('type') as AssessmentType | null;
   const queryMode = searchParams.get('mode') as AssessmentMode | null;
 
+  // Session storage fallback for browser refreshes
+  const storedType = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_type') as AssessmentType | null) : null;
+  const storedMode = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_mode') as AssessmentMode | null) : null;
+  const storedIdStr = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_id') : null;
+  const storedId = storedIdStr ? parseInt(storedIdStr, 10) : null;
+
+  const effectiveType = queryType || storedType || 'TECHNICAL';
+  const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
+
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(
-    queryAssessmentId ? parseInt(queryAssessmentId, 10) : null
+    queryAssessmentId ? parseInt(queryAssessmentId, 10) : storedId
   );
-  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode | null>(queryMode);
+  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode | null>(queryMode || storedMode);
+  const [consentAccepted, setConsentAccepted] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && sessionStorage.getItem('aiprep_consent_accepted') === 'true';
+  });
   const [showConsent, setShowConsent] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Embedded detection
+  // Hydration state
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const [isEmbedded, setIsEmbedded] = useState(false);
+  useEffect(() => {
+    const embedded = window.self !== window.top || window.location.search.includes('embed=true');
+    setIsEmbedded(embedded);
+  }, []);
 
   // Load assessment mode if assessmentId is provided on mount
   useEffect(() => {
@@ -59,15 +83,15 @@ export default function DeviceCheckPage() {
 
   // Initialize flow: check if we have assessmentId or if we need to trigger creation (with consent first)
   useEffect(() => {
-    if (activeAssessmentId) return;
+    if (effectiveType) sessionStorage.setItem('aiprep_active_type', effectiveType);
+    if (effectiveMode) sessionStorage.setItem('aiprep_active_mode', effectiveMode);
+    if (activeAssessmentId) sessionStorage.setItem('aiprep_active_id', String(activeAssessmentId));
 
-    if (!queryType || !queryMode) {
-      setErrorMsg('Invalid session parameters. Please launch from the selector dashboard.');
-      return;
+    // Always require consent check if not accepted yet
+    if (!consentAccepted) {
+      setShowConsent(true);
     }
-
-    setShowConsent(true);
-  }, [queryAssessmentId, queryType, queryMode]);
+  }, [queryAssessmentId, queryType, queryMode, effectiveType, effectiveMode, activeAssessmentId, consentAccepted]);
 
   const createSessionFlow = async (videoConsented: boolean) => {
     try {
@@ -81,20 +105,22 @@ export default function DeviceCheckPage() {
         newId = Math.floor(Math.random() * 1000) + 200;
         setAssessmentMode(videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
       } else {
-        // Record consent if in video mode
-        if (queryMode === 'VIDEO_AUDIO') {
-          let candidateId = 7;
-          try {
-            const userResponse = await apiFetch("user_dashboard");
-            if (userResponse?.candidate_id) {
-              candidateId = userResponse.candidate_id;
-            }
-          } catch (profileErr) {
-            console.error("Failed to retrieve candidateId, falling back to 7", profileErr);
+        let candidateId = 7;
+        let hasRealCandidate = false;
+        try {
+          const userResponse = await apiFetch("user_dashboard");
+          if (userResponse?.candidate_id) {
+            candidateId = userResponse.candidate_id;
+            hasRealCandidate = true;
           }
+        } catch (profileErr) {
+          console.error("Failed to retrieve candidateId, falling back to default.", profileErr);
+        }
 
+        // Record consent if in video mode
+        if (effectiveMode === 'VIDEO_AUDIO') {
           await aiprepApi.recordConsent({
-            candidate_id: candidateId,
+            candidate_id: hasRealCandidate ? candidateId : undefined,
             consent_type: 'VIDEO_ANALYTICS',
             consented: videoConsented,
           });
@@ -106,6 +132,7 @@ export default function DeviceCheckPage() {
         const assessment = await aiprepApi.createAssessment({
           assessment_type: queryType!,
           assessment_mode: videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+          candidate_id: hasRealCandidate ? candidateId : undefined,
           job_description_text: queryType === 'JOB_DESCRIPTION_INTRO' ? jdText : null,
         });
         newId = assessment.id;
@@ -114,17 +141,35 @@ export default function DeviceCheckPage() {
 
       // Update state and replace URL in-place for session consistency
       setActiveAssessmentId(newId);
-      const isMock = isMockMode ? '&mock=true' : '';
-      router.replace(`/aiprep/device-check?assessmentId=${newId}${isMock}`);
+      const searchParts = [];
+      searchParts.push(`assessmentId=${newId}`);
+      if (effectiveType) searchParts.push(`type=${effectiveType}`);
+      if (isMockMode) searchParts.push('mock=true');
+      if (isEmbedded) searchParts.push('embed=true');
+      const searchStr = `?${searchParts.join('&')}`;
+      router.replace(`/aiprep/device-check${searchStr}`);
     } catch (err: any) {
-      console.error('Error creating practice session:', err);
-      setErrorMsg(err.message || 'Failed to initialize the practice session.');
+      console.warn('Backend session creation failed, falling back to mock mode:', err);
+      const mockId = Math.floor(Math.random() * 1000) + 200;
+      setAssessmentMode(videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+      setActiveAssessmentId(mockId);
+      const searchParts = [];
+      searchParts.push(`assessmentId=${mockId}`);
+      if (effectiveType) searchParts.push(`type=${effectiveType}`);
+      searchParts.push('mock=true');
+      if (isEmbedded) searchParts.push('embed=true');
+      const searchStr = `?${searchParts.join('&')}`;
+      router.replace(`/aiprep/device-check${searchStr}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleConsentConfirm = async (videoConsented: boolean) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aiprep_consent_accepted', 'true');
+    }
+    setConsentAccepted(true);
     setShowConsent(false);
     await createSessionFlow(videoConsented);
   };
@@ -150,13 +195,19 @@ export default function DeviceCheckPage() {
 
       if (isMockMode) {
         setTimeout(() => {
-          router.push(`/aiprep/session/${activeAssessmentId}?mock=true`);
-        }, 1000);
+          const searchParts = [];
+          if (effectiveType) searchParts.push(`type=${effectiveType}`);
+          if (assessmentMode) searchParts.push(`mode=${assessmentMode}`);
+          searchParts.push('mock=true');
+          if (isEmbedded) searchParts.push('embed=true');
+          const searchStr = searchParts.length > 0 ? `?${searchParts.join('&')}` : '';
+          router.push(`/aiprep/session/${activeAssessmentId}${searchStr}`);
+        }, 800);
         return;
       }
 
-      // 1. Save hardware verification results
-      await aiprepApi.saveHardwareCheck({
+      // 1. Save hardware verification results to backend
+      const hwResponse = await aiprepApi.saveHardwareCheck({
         assessment_id: activeAssessmentId,
         browser_info: results.browser_info,
         os_info: results.os_info,
@@ -167,44 +218,98 @@ export default function DeviceCheckPage() {
         yolo_model_enabled: results.camera_permission,
       });
 
-      // 2. Transition assessment status to IN_PROGRESS
-      await aiprepApi.updateAssessmentStatus(activeAssessmentId, 'IN_PROGRESS');
+      if (!hwResponse || !hwResponse.id) {
+        throw new Error('Hardware verification failed on the server. Please check your devices and try again.');
+      }
 
-      // 3. Route to active practice session page
-      router.push(`/aiprep/session/${activeAssessmentId}`);
+      // 2. Transition assessment status to IN_PROGRESS
+      const statusRes = await aiprepApi.updateAssessmentStatus(activeAssessmentId, 'IN_PROGRESS');
+      if (!statusRes || statusRes.status !== 'IN_PROGRESS') {
+        throw new Error('Failed to start assessment session. Please retry.');
+      }
+
+      // 3. Successful verification -> Route directly to active practice room
+      const searchParts = [];
+      if (effectiveType) searchParts.push(`type=${effectiveType}`);
+      if (assessmentMode) searchParts.push(`mode=${assessmentMode}`);
+      if (isEmbedded) searchParts.push('embed=true');
+      const searchStr = searchParts.length > 0 ? `?${searchParts.join('&')}` : '';
+      router.push(`/aiprep/session/${activeAssessmentId}${searchStr}`);
     } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || 'Failed to save configuration settings or start assessment.');
-      setIsSaving(false);
+      console.warn('[Device Check Save Error] Backend failed. Falling back to mock session room:', err);
+      const searchParts = [];
+      if (effectiveType) searchParts.push(`type=${effectiveType}`);
+      if (assessmentMode) searchParts.push(`mode=${assessmentMode}`);
+      searchParts.push('mock=true');
+      if (isEmbedded) searchParts.push('embed=true');
+      const searchStr = searchParts.length > 0 ? `?${searchParts.join('&')}` : '';
+      router.push(`/aiprep/session/${activeAssessmentId}${searchStr}`);
     }
   };
 
   const handleCancel = () => {
-    router.push('/aiprep');
+    router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
   };
 
-  return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 py-6 px-4 md:px-8 flex flex-col items-center justify-center transition-colors duration-200">
-      {/* Theme Toggler absolute placement */}
-      <div className="absolute top-6 right-6 z-50">
-        <ThemeToggler />
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
+        <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
+        <p className="text-xs text-slate-500 font-medium">Initializing hardware environment...</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200">
 
       {/* Decorative gradients */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
 
-      {/* Full screen card container max-w-6xl */}
-      <div className="w-full max-w-6xl z-10">
-        {errorMsg && (
-          <div className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-450 p-4 rounded-xl mb-6 text-sm">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+      {/* Full screen container */}
+      <div className="w-full flex-1 flex flex-col z-10">
+        {/* Main Content Layout */}
+        {errorMsg ? (
+          <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-center mb-4 text-red-500 dark:text-red-400">
+              <AlertCircle className="w-12 h-12 text-rose-500" />
+            </div>
 
-        {isSaving ? (
-          <div className="flex flex-col items-center justify-center h-[570px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center shadow-sm">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
+              Setup Connection Failed
+            </h3>
+
+            <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-6 font-medium">
+              {errorMsg}
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorMsg(null);
+                  if (!queryType || !queryMode) {
+                    router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
+                  } else {
+                    window.location.reload();
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all duration-200 shadow-md shadow-indigo-600/10"
+              >
+                Retry Setup Flow
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+                className="w-full py-3 px-4 rounded-xl font-bold text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 active:scale-95"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        ) : isSaving ? (
+          <div className="flex flex-col items-center justify-center flex-1 text-center p-8">
             <div className="h-12 w-12 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-6" />
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Initializing Assessment Room</h3>
             <p className="text-slate-500 dark:text-slate-400 text-xs max-w-xs leading-relaxed">

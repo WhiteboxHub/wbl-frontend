@@ -53,6 +53,13 @@ export default function ProcessingPage() {
   const rawId = routeParams?.assessmentId;
   const assessmentId = Array.isArray(rawId) ? Number(rawId[0]) : Number(rawId);
 
+  // Embedded detection
+  const [isEmbedded, setIsEmbedded] = React.useState(false);
+  React.useEffect(() => {
+    const embedded = window.self !== window.top || window.location.search.includes('embed=true');
+    setIsEmbedded(embedded);
+  }, []);
+
   const {
     steps,
     progressPercent,
@@ -64,7 +71,9 @@ export default function ProcessingPage() {
     assessmentId: isNaN(assessmentId) || !assessmentId ? null : assessmentId,
     onCompleted: () => {
       setTimeout(() => {
-        router.push(`/aiprep/reports/${assessmentId}`);
+        const isMock = typeof window !== 'undefined' && window.location.search.includes('mock=true');
+        const queryStr = `${isMock ? '?mock=true' : ''}${isEmbedded ? (isMock ? '&embed=true' : '?embed=true') : ''}`;
+        router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
       }, 1200);
     },
   });
@@ -99,13 +108,12 @@ export default function ProcessingPage() {
               aria-valuenow={progressPercent}
               aria-valuemin={0}
               aria-valuemax={100}
-              className={`h-full transition-all duration-500 ease-out rounded-full ${
-                isFailed
+              className={`h-full transition-all duration-500 ease-out rounded-full ${isFailed
                   ? 'bg-rose-500'
                   : isCompleted
-                  ? 'bg-emerald-500'
-                  : 'bg-primary'
-              }`}
+                    ? 'bg-emerald-500'
+                    : 'bg-primary'
+                }`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -126,27 +134,25 @@ export default function ProcessingPage() {
               <div
                 key={step.key}
                 role="listitem"
-                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
-                  isRunning
+                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${isRunning
                     ? 'bg-primary/5 dark:bg-primary/10 border-primary/40 shadow-md'
                     : isDone
-                    ? 'bg-gray-50 dark:bg-[#121723]/40 border-gray-200 dark:border-[#333756]/60'
-                    : isStepFailed
-                    ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
-                    : 'bg-gray-50/50 dark:bg-[#121723]/20 border-gray-200/50 dark:border-[#333756]/30 opacity-60'
-                }`}
+                      ? 'bg-gray-50 dark:bg-[#121723]/40 border-gray-200 dark:border-[#333756]/60'
+                      : isStepFailed
+                        ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
+                        : 'bg-gray-50/50 dark:bg-[#121723]/20 border-gray-200/50 dark:border-[#333756]/30 opacity-60'
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                      isDone
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDone
                         ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                         : isRunning
-                        ? 'bg-primary/10 dark:bg-primary/20 text-primary'
-                        : isStepFailed
-                        ? 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
-                        : 'bg-gray-100 dark:bg-[#121723] text-gray-400 dark:text-gray-500'
-                    }`}
+                          ? 'bg-primary/10 dark:bg-primary/20 text-primary'
+                          : isStepFailed
+                            ? 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                            : 'bg-gray-100 dark:bg-[#121723] text-gray-400 dark:text-gray-500'
+                      }`}
                   >
                     {isDone ? (
                       <IconCheck className="w-4 h-4" aria-hidden="true" />
@@ -161,13 +167,12 @@ export default function ProcessingPage() {
 
                   <div>
                     <p
-                      className={`text-sm font-semibold ${
-                        isRunning
+                      className={`text-sm font-semibold ${isRunning
                           ? 'text-primary dark:text-white'
                           : isDone
-                          ? 'text-gray-800 dark:text-gray-200'
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`}
+                            ? 'text-gray-800 dark:text-gray-200'
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}
                     >
                       {step.title}
                     </p>
@@ -212,7 +217,11 @@ export default function ProcessingPage() {
           <div className="pt-2 text-center">
             <button
               type="button"
-              onClick={() => router.push(`/aiprep/reports/${assessmentId}`)}
+              onClick={() => {
+                const isMock = typeof window !== 'undefined' && window.location.search.includes('mock=true');
+                const queryStr = `${isMock ? '?mock=true' : ''}${isEmbedded ? (isMock ? '&embed=true' : '?embed=true') : ''}`;
+                router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
+              }}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primarylight text-white font-semibold rounded-xl shadow-lg transition-all transform active:scale-95 text-sm"
             >
               <span>View Coaching Report</span>

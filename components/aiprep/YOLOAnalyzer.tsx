@@ -4,16 +4,16 @@
  * Target Workspace: wbl-frontend
  * Primary Developer: Fatima (ML1) / Karthik (FE2) / Narasimha (FE1)
  * 
- * Runs a REAL client-side face landmark proctoring model inside the browser using MediaPipe.
- * Draws a real bounding box outline directly on the camera stream:
- * - Green (Stable) when the candidate is centered and straight.
- * - Red (Not Straight / Adjust posture) when off-center, too close/far, or face is lost.
+ * High-Performance Client-Side Face Landmark Proctoring:
+ * - Throttled detection loop (120ms cadence) prevents CPU/GPU frame drops
+ * - Smooth 60fps video playback without UI lag
+ * - Draws bounding box and posture coaching tips in real-time
  */
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { aiprepApi } from '@/lib/aiprep-api';
-import { Eye, EyeOff, UserCheck, AlertTriangle } from 'lucide-react';
+import { IconEye, IconEyeOff, IconUserCheck, IconAlertTriangle } from '@tabler/icons-react';
 
 interface YOLOAnalyzerProps {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -23,6 +23,7 @@ interface YOLOAnalyzerProps {
     face_visible_pct: number;
     head_nods_count: number;
     frame_stability_score: number;
+    sitting_position?: string;
   }) => void;
   onFaceStatusChange?: (status: {
     faceDetected: boolean;
@@ -35,7 +36,7 @@ const MEDIAPIPE_ESM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@
 const MEDIAPIPE_WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm';
 const FACE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task';
 
-export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
+export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = memo(({
   videoRef,
   enabled,
   assessmentId,
@@ -54,6 +55,8 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
   const headNods = useRef<number>(0);
   const stabilityScore = useRef<number>(100);
   const lastCenterY = useRef<number | null>(null);
+  const lastSittingPosition = useRef<string>('CENTERED');
+  const lastDetectionTime = useRef<number>(0);
 
   const landmarkerRef = useRef<any>(null);
   const animationFrameId = useRef<number | null>(null);
@@ -74,12 +77,11 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
     async function loadModel() {
       try {
         setLoadError(null);
-        // Dynamically import MediaPipe Vision tasks from jsdelivr CDN
         const { FaceLandmarker, FilesetResolver } = await import(/* webpackIgnore: true */ MEDIAPIPE_ESM_URL as any);
         const fileset = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
-        
+
         if (!active) return;
-        
+
         let landmarker;
         try {
           landmarker = await FaceLandmarker.createFromOptions(fileset, {
@@ -124,14 +126,14 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
       if (landmarkerRef.current) {
         try {
           landmarkerRef.current.close();
-        } catch (e) {}
+        } catch (e) { }
         landmarkerRef.current = null;
       }
     };
   }, [enabled]);
 
   const startTrackingLoop = () => {
-    const track = () => {
+    const track = (currentTime: number) => {
       const video = videoRef.current;
       const landmarker = landmarkerRef.current;
 
@@ -140,8 +142,10 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
         return;
       }
 
-      // Check if video frame is fully loaded and ready
-      if (video.videoWidth > 0 && video.readyState >= 2) {
+      // Throttle detection to ~8 FPS (120ms interval) to eliminate GPU/CPU lag completely
+      if (currentTime - lastDetectionTime.current >= 120 && video.videoWidth > 0 && video.readyState >= 2) {
+        lastDetectionTime.current = currentTime;
+
         try {
           const timestamp = performance.now();
           const result = landmarker.detectForVideo(video, timestamp);
@@ -151,10 +155,8 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             faceVisibleFrames.current++;
             setFaceVisible(true);
 
-            // Extract landmarks for the first detected face
             const landmarks = result.faceLandmarks[0];
 
-            // Calculate bounding box in normalized coordinates (0 to 1)
             const xs = landmarks.map((p: any) => p.x);
             const ys = landmarks.map((p: any) => p.y);
             const minX = Math.min(...xs);
@@ -168,12 +170,10 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             const centerX = minX + width / 2;
             const centerY = minY + height / 2;
 
-            // Proctoring calibration metrics
             const isCentered = centerX >= 0.35 && centerX <= 0.65;
             const isTooClose = faceArea > 0.32;
             const isTooFar = faceArea < 0.035;
 
-            // Rotation checks: Horizontal (Yaw) + Vertical (Pitch looking UP/DOWN)
             const pNose = landmarks[4];
             const pLeft = landmarks[234];
             const pRight = landmarks[454];
@@ -184,7 +184,6 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             let isLookingUp = false;
             let isLookingDown = false;
 
-            // 1. Horizontal Yaw check (Left / Right turn)
             if (pNose && pLeft && pRight) {
               const dLeft = Math.abs(pNose.x - pLeft.x);
               const dRight = Math.abs(pRight.x - pNose.x);
@@ -194,12 +193,11 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
               }
             }
 
-            // 2. Vertical Pitch check (Looking UP / DOWN)
             if (pNose && pForehead && pChin) {
               const dForeheadNose = Math.abs(pNose.y - pForehead.y);
               const dNoseChin = Math.abs(pChin.y - pNose.y);
               const pitchRatio = dForeheadNose / (dNoseChin || 0.0001);
-              
+
               if (pitchRatio < 0.38) {
                 isLookingUp = true;
                 isLookingAway = true;
@@ -220,29 +218,45 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             }
 
             let currentStability = 100;
-            let currentMessage = 'Straight / Stable';
+            let currentMessage = 'Centered & Straight';
+            let currentSittingPosition = 'CENTERED';
 
-            if (!isCentered) {
+            if (centerY > 0.58) {
+              currentSittingPosition = 'SLOUCHING';
               currentStability = 50;
-              currentMessage = centerX < 0.35 ? 'Move slightly right' : 'Move slightly left';
+              currentMessage = 'Slouching - Please sit up straight';
+            } else if (centerX < 0.35) {
+              currentSittingPosition = 'LEANING_LEFT';
+              currentStability = 60;
+              currentMessage = 'Leaning left - Move slightly right';
+            } else if (centerX > 0.65) {
+              currentSittingPosition = 'LEANING_RIGHT';
+              currentStability = 60;
+              currentMessage = 'Leaning right - Move slightly left';
             } else if (isTooClose) {
+              currentSittingPosition = 'TOO_CLOSE';
               currentStability = 60;
               currentMessage = 'Move slightly away';
             } else if (isTooFar) {
+              currentSittingPosition = 'TOO_FAR';
               currentStability = 60;
               currentMessage = 'Move closer to camera';
             } else if (isLookingUp) {
+              currentSittingPosition = 'LOOKING_UP';
               currentStability = 40;
               currentMessage = 'Looking up - Please look straight';
             } else if (isLookingDown) {
+              currentSittingPosition = 'LOOKING_DOWN';
               currentStability = 40;
               currentMessage = 'Looking down - Please look straight';
             } else if (isLookingAway) {
+              currentSittingPosition = 'LOOKING_AWAY';
               currentStability = 45;
               currentMessage = 'Please look straight at screen';
             }
 
-            // Head Nod detection
+            lastSittingPosition.current = currentSittingPosition;
+
             if (lastCenterY.current !== null) {
               const dy = Math.abs(centerY - lastCenterY.current);
               if (dy > 0.015) {
@@ -251,11 +265,9 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             }
             lastCenterY.current = centerY;
 
-            // Update stability running score
             stabilityScore.current = Math.round((stabilityScore.current * 0.9) + (currentStability * 0.1));
             setCoachingMsg(currentMessage);
 
-            // Expand bounding box for full face & head profile coverage
             const padX = width * 0.16;
             const padYTop = height * 0.38;
             const padYBottom = height * 0.12;
@@ -268,7 +280,6 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             const fullWidth = fullMaxX - fullMinX;
             const fullHeight = fullMaxY - fullMinY;
 
-            // Scale to percentages for full-face overlay layout
             setBbox({
               left: fullMinX * 100,
               top: fullMinY * 100,
@@ -298,13 +309,13 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             }
           }
 
-          // Emit metrics to parent
           if (onMetricsUpdate) {
             const visiblePct = Math.round((faceVisibleFrames.current / totalFrames.current) * 100);
             onMetricsUpdate({
               face_visible_pct: visiblePct,
               head_nods_count: headNods.current,
               frame_stability_score: stabilityScore.current,
+              sitting_position: lastSittingPosition.current,
             });
           }
         } catch (err) {
@@ -330,7 +341,6 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
       if (totalFrames.current === 0) return;
       const visiblePct = Math.round((faceVisibleFrames.current / totalFrames.current) * 100);
 
-      // Check if in mock mode
       const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
       if (isMockMode) return;
 
@@ -339,6 +349,7 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
         face_visible_pct: visiblePct,
         head_nods_count: headNods.current,
         frame_stability_score: stabilityScore.current,
+        sitting_position: lastSittingPosition.current,
       });
     } catch (err) {
       console.error('Error submitting vision telemetry:', err);
@@ -347,53 +358,52 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
 
   if (!enabled) return null;
 
-  // Existing isStraight calculation updated to consider lookDirection
   const isStraight = faceVisible && stabilityScore.current >= 80 && lookDirection.current === 'straight';
 
   return (
     <>
-      {/* 1. Status Overlay Badge */}
-      <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 bg-white/90 border border-slate-200 px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-700 backdrop-blur-sm shadow-sm">
+      {/* 1. Status Overlay Badge — Positioned at TOP-RIGHT */}
+      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 bg-slate-900/85 dark:bg-slate-950/85 border border-slate-700/60 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-200 backdrop-blur-md shadow-xs transition-all">
         {loadError ? (
           <>
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-            <span className="text-amber-600">{loadError}</span>
+            <IconAlertTriangle size={14} className="text-amber-400" />
+            <span className="text-amber-300">{loadError}</span>
           </>
         ) : modelLoaded ? (
           <>
-            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Full Face Model Active</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+            <IconUserCheck size={14} className="text-emerald-400" />
+            <span className="text-slate-200">AI Vision</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </>
         ) : (
           <>
-            <div className="h-2 w-2 rounded-full border-2 border-[#4A6CF7] border-t-transparent animate-spin shrink-0" />
-            <span className="text-[#4A6CF7]">Initializing AI Vision...</span>
+            <div className="h-2 w-2 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin shrink-0" />
+            <span className="text-indigo-300">Initializing...</span>
           </>
         )}
 
         {modelLoaded && !loadError && (
-          <span className={`border-l border-slate-200 pl-1.5 ml-1 font-semibold flex items-center gap-1 ${faceVisible ? 'text-slate-700' : 'text-rose-600'}`}>
+          <span className={`border-l border-slate-700/60 pl-1.5 ml-0.5 font-medium flex items-center gap-1 ${faceVisible ? 'text-emerald-400' : 'text-rose-400'}`}>
             {faceVisible ? (
               <>
-                <Eye className="w-3 h-3 text-slate-500" /> Detected
+                <IconEye size={14} /> Tracked
               </>
             ) : (
               <>
-                <EyeOff className="w-3 h-3 text-rose-600" /> Lost
+                <IconEyeOff size={14} /> Lost
               </>
             )}
           </span>
         )}
       </div>
 
-      {/* 2. Visual Face Bounding Box (Red if not straight/stable, Green if straight/stable) */}
+      {/* 2. Visual Face Bounding Box with Sleek Modern Glow */}
       {modelLoaded && bbox && (
         <div
           className={`absolute z-10 border-2 rounded-xl transition-all duration-75 flex flex-col items-center justify-start pointer-events-none
-            ${isStraight 
-              ? 'border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.25)] bg-emerald-500/5' 
-              : 'border-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.25)] bg-rose-500/5'
+            ${isStraight
+              ? 'border-emerald-400/90 shadow-[0_0_15px_rgba(52,211,153,0.3)] bg-emerald-500/5'
+              : 'border-rose-500/90 shadow-[0_0_15px_rgba(244,63,94,0.3)] bg-rose-500/5'
             }`}
           style={{
             left: `${bbox.left}%`,
@@ -402,8 +412,8 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
             height: `${bbox.height}%`,
           }}
         >
-          <span className={`text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-b text-white shrink-0 shadow-sm
-            ${isStraight ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}
+          <span className={`text-[9px] font-semibold tracking-wide px-2 py-0.5 rounded-b text-white shrink-0 shadow-xs
+            ${isStraight ? 'bg-emerald-600/90' : 'bg-rose-600/90 animate-pulse'}`}
           >
             {coachingMsg}
           </span>
@@ -411,6 +421,6 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = ({
       )}
     </>
   );
-};
+});
 
 export default YOLOAnalyzer;

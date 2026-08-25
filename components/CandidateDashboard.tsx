@@ -184,7 +184,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume' | 'ai-prep-coach';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -2276,6 +2276,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 <span>AI PrepTool</span>
                                 {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
+
+                            <button
+                                onClick={() => goToTab('ai-prep-coach')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'ai-prep-coach'
+                                    ? "bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400"
+                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep-coach' ? "text-violet-600 dark:text-violet-400" : "text-gray-400"}`} />
+                                <span>AI Prep Coach</span>
+                                {activeTab === 'ai-prep-coach' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-500" />}
+                            </button>
+
                         </div>
                     </div>
 
@@ -2377,6 +2390,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         <Sparkles className="w-3.5 h-3.5" />
                         AI PrepTool
                     </button>
+                    <button
+                        onClick={() => goToTab('ai-prep-coach')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'ai-prep-coach'
+                            ? "bg-violet-600 text-white shadow-sm"
+                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                            }`}
+                    >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        AI Prep Coach
+                    </button>
+
                 </div>
 
                 {/* Scrollable Content */}
@@ -2385,7 +2409,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
                     {/* ==================== TAB CONTENT ==================== */}
-                    <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
+                    <div className={`flex-1 overflow-hidden flex flex-col animate-fadeIn ${activeTab === 'ai-prep-coach' ? 'relative' : ''}`}>
                         {setupWizardOpen ? (
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
                                 <CandidateSetupWizard
@@ -3430,6 +3454,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                     </div>
                                 )}
+
+                                {activeTab === 'ai-prep-coach' && (
+                                    <iframe
+                                        src="/aiprep?embed=true"
+                                        className="absolute inset-0 w-full h-full border-0"
+                                        style={{ display: 'block' }}
+                                        allow="camera; microphone"
+                                    />
+                                )}
+
 
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 

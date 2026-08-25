@@ -1,16 +1,20 @@
 /**
- * QuestionDisplay Component
+ * QuestionDisplay Component — 2026 Next-Gen Broadcast Teleprompter
  * 
  * Target Workspace: wbl-frontend
  * Primary Developer: Narasimha (FE1)
  * 
- * Renders the active question with clean slide-in transitions using framer-motion.
+ * Ultra-Modern Design:
+ * - Frosted ambient glass with gradient border glow
+ * - High-end typography (Inter font-semibold with soft tracking)
+ * - Modern glowing badges & category chip
  */
+
+'use client';
 
 import React from 'react';
 import { Question } from '@/lib/aiprep-api';
-import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, Star, Sparkles } from 'lucide-react';
+import { IconSparkles, IconHelpCircle } from '@tabler/icons-react';
 
 interface QuestionDisplayProps {
   question: Question;
@@ -27,58 +31,42 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
 }) => {
   const { question_text, difficulty_level } = question;
 
-  const difficultyColors = {
-    EASY: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40',
-    MEDIUM: 'text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/30 border-sky-100 dark:border-sky-900/40',
-    HARD: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900/40',
-    EXPERT: 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/40',
+  const difficultyBadges = {
+    EASY: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    MEDIUM: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
+    HARD: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    EXPERT: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30',
   };
 
   return (
-    <div className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 shadow-sm relative overflow-hidden text-slate-850 dark:text-slate-100">
-      {/* Decorative Glow background */}
-      <div className="absolute top-0 left-0 -z-10 h-24 w-24 rounded-full bg-[#4A6CF7]/5 blur-2xl" />
+    <div className="relative w-full rounded-2xl p-[1px] bg-gradient-to-r from-indigo-500/30 via-purple-500/20 to-blue-500/30 shadow-lg shadow-indigo-500/5 transition-all">
+      <div className="w-full bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-2xl rounded-2xl px-5 py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        
+        {/* Left: Badges + Question Prompt */}
+        <div className="flex items-start md:items-center gap-3.5 min-w-0 flex-1">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-1 rounded-xl shadow-sm shadow-indigo-500/20">
+              <IconHelpCircle size={14} stroke={2.2} />
+              Q{currentIndex + 1}/{totalCount}
+            </span>
+            <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-lg border backdrop-blur-md ${difficultyBadges[difficulty_level] || difficultyBadges.MEDIUM}`}>
+              {difficulty_level}
+            </span>
+          </div>
 
-      {/* Meta indicators */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-[#4A6CF7] uppercase tracking-widest bg-[#4A6CF7]/10 px-2.5 py-1 rounded-md border border-[#4A6CF7]/20">
-            {category.replace('_', ' ')}
-          </span>
-          <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border ${difficultyColors[difficulty_level] || difficultyColors.MEDIUM}`}>
-            {difficulty_level}
-          </span>
+          <p className="text-sm md:text-[15px] font-semibold text-slate-900 dark:text-slate-100 leading-relaxed select-text flex-1">
+            "{question_text}"
+          </p>
         </div>
-        <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-          <HelpCircle className="w-4 h-4 text-slate-400" />
-          <span>Question {currentIndex + 1} of {totalCount}</span>
+
+        {/* Right: Category Chip */}
+        <div className="hidden md:flex items-center gap-1.5 shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 dark:bg-indigo-500/15 px-3.5 py-1.5 rounded-xl border border-indigo-500/20 backdrop-blur-md">
+          <IconSparkles size={15} stroke={2} className="text-indigo-500 animate-pulse" />
+          <span className="capitalize">{category.replace(/_/g, ' ').toLowerCase()}</span>
         </div>
-      </div>
-
-      {/* Question Content */}
-      <div className="min-h-[140px] flex items-center justify-center">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={question.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="w-full text-center"
-          >
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 leading-relaxed md:text-3xl px-4 select-none">
-              "{question_text}"
-            </h2>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Footer hint */}
-      <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-4 mt-6">
-        <Sparkles className="w-3.5 h-3.5 text-[#4A6CF7] animate-pulse" />
-        <span>Synthesize your thoughts and answer clearly. Your speech pace and filler words are analyzed.</span>
       </div>
     </div>
   );
 };
+
 export default QuestionDisplay;

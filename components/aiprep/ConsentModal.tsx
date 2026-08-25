@@ -11,6 +11,7 @@ import {
   Loader2,
   Check,
   Zap,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ConsentModalProps {
@@ -101,34 +102,30 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Dark overlay backdrop for focus */}
       <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300" onClick={handleClose} />
 
       {/* Real-time split layout (Left: Stepper panel, Right: Controls) */}
       <div
         className={`relative z-10 w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800
-          transition-all duration-300 ease-out flex flex-col overflow-hidden
+          transition-all duration-300 ease-out flex flex-col overflow-hidden my-auto
           ${revealed ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}
       >
 
         {/* Top Info Bar */}
         <div className="px-6 py-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#4A6CF7]" />
+
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Session Setup Wizard</span>
-          </div>
-          <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Secure Connection • {timeStr}</span>
           </div>
         </div>
 
         {/* 2-Column Split Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
 
           {/* LEFT: Onboarding flow timeline & Info cards (3/5) */}
-          <div className="col-span-3 p-8 bg-slate-50 dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[350px]">
+          <div className="col-span-1 lg:col-span-3 p-8 bg-slate-50 dark:bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[350px]">
 
             <div className="space-y-6">
               <div>
@@ -194,7 +191,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
           </div>
 
           {/* RIGHT: Consent Checkboxes & Actions (2/5) */}
-          <div className="col-span-2 p-8 flex flex-col justify-between bg-white dark:bg-slate-900">
+          <div className="col-span-1 lg:col-span-2 p-8 flex flex-col justify-between bg-white dark:bg-slate-900">
             <div className="space-y-4">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">Select Practice Mode</h4>
@@ -273,6 +270,21 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
               </div>
             </div>
 
+            {/* Action Warnings */}
+            {(!termsAccepted || (audioOnly ? !micConsent : (!cameraConsent && !micConsent))) && (
+              <div className="mt-4 p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold">Required Actions Missing:</p>
+                  <ul className="list-disc pl-4 mt-1 space-y-0.5 font-medium">
+                    {!termsAccepted && <li>Accept the Terms &amp; Policies</li>}
+                    {audioOnly && !micConsent && <li>Provide consent for Microphone usage</li>}
+                    {!audioOnly && !cameraConsent && !micConsent && <li>Provide consent for Camera or Microphone usage</li>}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* CTAs */}
             <div className="space-y-2.5 mt-4 pt-1">
               <button
@@ -302,7 +314,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
                 </button>
               )}
 
-              <button onClick={handleClose} className="w-full text-center text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 font-medium transition-colors">
+              <button onClick={handleClose} className="w-full text-center text-[14px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 font-medium transition-colors">
                 Cancel &amp; return
               </button>
             </div>

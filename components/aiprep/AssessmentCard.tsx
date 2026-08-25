@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
-import { Clock, Play, Pause, AlertCircle, FileText, Video, Mic, AlertTriangle } from 'lucide-react';
+import { Clock, Play, Pause, AlertCircle, FileText, Video, Mic, AlertTriangle, Sparkles } from 'lucide-react';
 
 export interface AssessmentMetadata {
   type: AssessmentType;
@@ -28,7 +28,7 @@ export interface AssessmentMetadata {
 
 interface AssessmentCardProps {
   metadata: AssessmentMetadata;
-  selectedMode: AssessmentMode;
+  questionCountOverride?: string;
   onLaunch: (type: AssessmentType) => void;
   /** Whether this card is the actively selected/clicked one */
   isSelected?: boolean;
@@ -38,7 +38,7 @@ interface AssessmentCardProps {
 
 export const AssessmentCard: React.FC<AssessmentCardProps> = ({
   metadata,
-  selectedMode,
+  questionCountOverride,
   onLaunch,
   isSelected = false,
   jdText = '',
@@ -50,19 +50,17 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
 
   return (
     <div
-      className={`relative group overflow-hidden rounded-2xl border bg-white dark:bg-slate-800 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-950/50 ${
-        isSelected
-          ? 'border-[#4A6CF7] ring-2 ring-[#4A6CF7]/20 shadow-md shadow-[#4A6CF7]/15'
-          : 'border-slate-200 dark:border-slate-700 hover:border-[#4A6CF7]/50'
-      }`}
+      className={`relative group overflow-hidden rounded-2xl border bg-white dark:bg-slate-800 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-950/50 ${isSelected
+        ? 'border-[#4A6CF7] ring-2 ring-[#4A6CF7]/20 shadow-md shadow-[#4A6CF7]/15'
+        : 'border-slate-200 dark:border-slate-700 hover:border-[#4A6CF7]/50'
+        }`}
     >
       {/* Decorative gradient glow on hover / selected */}
       <div
-        className={`absolute -inset-px -z-10 rounded-2xl bg-gradient-to-br transition-opacity duration-300 ${
-          isSelected
-            ? 'from-[#4A6CF7]/10 to-sky-600/10 opacity-100'
-            : 'from-[#4A6CF7]/0 to-sky-600/0 opacity-0 group-hover:from-[#4A6CF7]/5 group-hover:to-sky-600/5 group-hover:opacity-100'
-        }`}
+        className={`absolute -inset-px -z-10 rounded-2xl bg-gradient-to-br transition-opacity duration-300 ${isSelected
+          ? 'from-[#4A6CF7]/10 to-sky-600/10 opacity-100'
+          : 'from-[#4A6CF7]/0 to-sky-600/0 opacity-0 group-hover:from-[#4A6CF7]/5 group-hover:to-sky-600/5 group-hover:opacity-100'
+          }`}
       />
 
       <div className="flex flex-col h-full justify-between">
@@ -84,17 +82,10 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
 
           {/* Mode badge */}
           <div className="mb-3">
-            {selectedMode === 'VIDEO_AUDIO' ? (
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-[#4A6CF7] bg-[#4A6CF7]/10 border border-[#4A6CF7]/20 px-2.5 py-1 rounded-full">
-                <Video className="w-3.5 h-3.5" />
-                Video + Audio
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 px-2.5 py-1 rounded-full">
-                <Mic className="w-3.5 h-3.5" />
-                Audio Only
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-[#4A6CF7] bg-[#4A6CF7]/10 border border-[#4A6CF7]/20 px-2.5 py-1 rounded-full">
+              <Sparkles className="w-3.5 h-3.5" />
+              Interactive Simulation
+            </span>
           </div>
 
           {/* Description */}
@@ -140,11 +131,10 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
             onClick={() => !isJdMissing && onLaunch(type)}
             disabled={isJdMissing}
             title={isJdMissing ? 'Paste a Job Description first to unlock this module' : undefined}
-            className={`w-full relative flex items-center justify-center gap-2 rounded-xl font-semibold py-3 px-4 transition-all duration-200 active:scale-[0.98] ${
-              isJdMissing
-                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
-                : 'bg-[#4A6CF7] hover:bg-[#4A6CF7]/90 text-white shadow-lg shadow-[#4A6CF7]/20 hover:shadow-[#4A6CF7]/30'
-            }`}
+            className={`w-full relative flex items-center justify-center gap-2 rounded-xl font-semibold py-3 px-4 transition-all duration-200 active:scale-[0.98] ${isJdMissing
+              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
+              : 'bg-[#4A6CF7] hover:bg-[#4A6CF7]/90 text-white shadow-lg shadow-[#4A6CF7]/20 hover:shadow-[#4A6CF7]/30'
+              }`}
           >
             <span>Start Practice</span>
             <Play className={`w-4 h-4 ${isJdMissing ? 'fill-slate-400' : 'fill-white'}`} />
