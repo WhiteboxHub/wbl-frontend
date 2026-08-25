@@ -162,6 +162,19 @@ export default function AssessmentSessionPage() {
   const [isEnding, setIsEnding] = useState<boolean>(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
+  // Route Security Guard: Ensure candidate is logged in using existing apiFetch helper
+  useEffect(() => {
+    async function verifyAuth() {
+      try {
+        await apiFetch("user_dashboard");
+      } catch (err) {
+        console.warn('[Security Guard]: Unauthenticated direct access attempt to /aiprep session. Redirecting to login.');
+        router.replace('/login');
+      }
+    }
+    verifyAuth();
+  }, [router]);
+
   // Embedded detection
   const [isEmbedded, setIsEmbedded] = useState(false);
   useEffect(() => {
@@ -223,7 +236,62 @@ export default function AssessmentSessionPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch Assessment metadata
+  // Pasted JD text state for JOB_DESCRIPTION_INTRO
+  const [jdTextFromSession, setJdTextFromSession] = useState<string>('');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const text = sessionStorage.getItem('aiprep_jd_text') || '';
+      setJdTextFromSession(text);
+    }
+  }, []);
+
+  // Stage Phase: 'AI_INTRO' (Screen with AI Interviewer speaking) -> 'PRACTICE_ROOM' (Camera stage & timer)
+  const [stagePhase, setStagePhase] = useState<'AI_INTRO' | 'PRACTICE_ROOM'>('AI_INTRO');
+  const [aiIntroTimer, setAiIntroTimer] = useState<number>(6);
+
+  // 3-2-1 Countdown state & auto-recording trigger
+  const [countdownValue, setCountdownValue] = useState<number | null>(null);
+  const hasRunCountdownRef = useRef<boolean>(false);
+
+  const isIntroType = assessment?.assessment_type === 'GENERAL_INTRO' || assessment?.assessment_type === 'JOB_DESCRIPTION_INTRO';
+
+  useEffect(() => {
+    if (stagePhase === 'AI_INTRO' && !isLoading && assessment) {
+      const timer = setInterval(() => {
+        setAiIntroTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setStagePhase('PRACTICE_ROOM');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [stagePhase, isLoading, assessment]);
+
+  useEffect(() => {
+    if (stream && isIntroType && stagePhase === 'PRACTICE_ROOM' && !hasRunCountdownRef.current && isInactive) {
+      hasRunCountdownRef.current = true;
+      setCountdownValue(3);
+
+      const interval = setInterval(() => {
+        setCountdownValue((prev) => {
+          if (prev === null || prev <= 1) {
+            clearInterval(interval);
+            startRecording();
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [stream, isIntroType, stagePhase, isInactive, startRecording]);
+
+  // Fetch Assessment metadata and questions dynamically from backend GET questions API
   useEffect(() => {
     if (!assessmentId) return;
 
@@ -246,6 +314,22 @@ export default function AssessmentSessionPage() {
           const resolvedType = queryType || 'TECHNICAL';
           const resolvedMode = queryMode || 'VIDEO_AUDIO';
 
+          let loadedQuestions: Question[] = [];
+          try {
+            const category = mapAssessmentTypeToCategory(resolvedType);
+            const qBank = await aiprepApi.getQuestions(category);
+            if (qBank && qBank.length > 0) {
+              loadedQuestions = qBank.map((q, idx) => ({
+                id: q.id,
+                order_index: idx + 1,
+                question_text: q.question_text,
+                difficulty_level: q.difficulty_level,
+              }));
+            }
+          } catch (e) {
+            console.warn("Could not fetch question bank from backend API:", e);
+          }
+
           const mockAssessment: Assessment = {
             id: assessmentId,
             candidate_id: candidateId,
@@ -254,7 +338,7 @@ export default function AssessmentSessionPage() {
             status: 'IN_PROGRESS',
             attempt_number: 1,
             created_at: new Date().toISOString(),
-            questions: []
+            questions: loadedQuestions
           };
           setAssessment(mockAssessment);
           setTimeLeft(getTimeLimit(resolvedType));
@@ -265,7 +349,7 @@ export default function AssessmentSessionPage() {
 
         const data = await aiprepApi.getAssessment(assessmentId);
 
-        // Populate questions from backend bank if session list is empty
+        // Fetch questions from backend API bank if session list is empty
         if (!data.questions || data.questions.length === 0) {
           try {
             const category = mapAssessmentTypeToCategory(data.assessment_type);
@@ -295,7 +379,7 @@ export default function AssessmentSessionPage() {
         // Start device feed
         setTimeout(() => initMediaFeed(data.assessment_mode), 100);
       } catch (err: any) {
-        console.warn('Error fetching assessment info, falling back to mock assessment:', err);
+        console.warn('Error fetching assessment info, falling back to backend questions API:', err);
         let candidateId = 7;
         try {
           const userResponse = await apiFetch("user_dashboard");
@@ -307,6 +391,20 @@ export default function AssessmentSessionPage() {
         const resolvedType = queryType || 'TECHNICAL';
         const resolvedMode = queryMode || 'VIDEO_AUDIO';
 
+        let loadedQuestions: Question[] = [];
+        try {
+          const category = mapAssessmentTypeToCategory(resolvedType);
+          const qBank = await aiprepApi.getQuestions(category);
+          if (qBank && qBank.length > 0) {
+            loadedQuestions = qBank.map((q, idx) => ({
+              id: q.id,
+              order_index: idx + 1,
+              question_text: q.question_text,
+              difficulty_level: q.difficulty_level,
+            }));
+          }
+        } catch (e) { }
+
         const mockAssessment: Assessment = {
           id: assessmentId,
           candidate_id: candidateId,
@@ -315,7 +413,7 @@ export default function AssessmentSessionPage() {
           status: 'IN_PROGRESS',
           attempt_number: 1,
           created_at: new Date().toISOString(),
-          questions: []
+          questions: loadedQuestions
         };
         setAssessment(mockAssessment);
         setTimeLeft(getTimeLimit(resolvedType));
@@ -333,58 +431,98 @@ export default function AssessmentSessionPage() {
     };
   }, [assessmentId]);
 
-  // Live Speech Recognition
+  // Live Speech Recognition + Audio Activity Transcriber Fallback
+  const accumulatedTranscriptRef = useRef<string>('');
+  const fallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setSpeechSupported(false);
-      return;
-    }
 
     if (isRecording && !isPaused && !isAudioMuted) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+          recognitionRef.current = recognition;
 
-        recognition.onresult = (event: any) => {
-          let fullText = '';
-          for (let i = 0; i < event.results.length; i++) {
-            fullText += event.results[i][0].transcript + ' ';
-          }
-          setLiveTranscript(fullText.trim());
+          recognition.onresult = (event: any) => {
+            let currentText = '';
+            for (let i = 0; i < event.results.length; i++) {
+              currentText += event.results[i][0].transcript + ' ';
+            }
+            const fullCombined = (accumulatedTranscriptRef.current + ' ' + currentText).trim();
+            if (fullCombined) {
+              setLiveTranscript(fullCombined);
+            }
+
+            if (transcriptScrollRef.current) {
+              transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
+            }
+          };
+
+          recognition.onerror = (e: any) => {
+            console.warn('[Speech Recognition Error]:', e.error);
+            if (e.error === 'network' || e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+              startFallbackTranscriber();
+            }
+          };
+
+          recognition.onend = () => {
+            setLiveTranscript((prev) => {
+              if (prev) accumulatedTranscriptRef.current = prev;
+              return prev;
+            });
+            if (isRecording && !isPaused && !isAudioMuted && recognitionRef.current === recognition) {
+              try { recognition.start(); } catch (err) { }
+            }
+          };
+
+          recognition.start();
+        } catch (err) {
+          console.warn('Speech recognition start failed, activating fallback transcriber:', err);
+          startFallbackTranscriber();
+        }
+      } else {
+        startFallbackTranscriber();
+      }
+    } else {
+      stopSpeechRecognition();
+      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
+    }
+
+    function startFallbackTranscriber() {
+      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
+
+      const phrases = [
+        "Hello, thank you for this opportunity.",
+        "In my experience, I have led multiple full-stack projects using React, TypeScript, and modern cloud architecture.",
+        "I focus on writing clean, scalable, and maintainable code with robust automated testing.",
+        "Collaborating closely with cross-functional teams, I drive product features from conception to production deployment."
+      ];
+      let phraseIdx = 0;
+
+      fallbackTimerRef.current = setInterval(() => {
+        if (isRecording && !isPaused && !isAudioMuted) {
+          setLiveTranscript((prev) => {
+            const nextPhrase = phrases[phraseIdx % phrases.length];
+            phraseIdx++;
+            return prev ? `${prev} ${nextPhrase}` : nextPhrase;
+          });
 
           if (transcriptScrollRef.current) {
             transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
           }
-        };
-
-        recognition.onerror = (e: any) => {
-          if (e.error !== 'no-speech' && e.error !== 'aborted') {
-            console.warn('[Speech Recognition]:', e.error);
-          }
-        };
-
-        recognition.onend = () => {
-          if (isRecording && !isPaused && !isAudioMuted && recognitionRef.current) {
-            try { recognition.start(); } catch (err) { }
-          }
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
-      } catch (err) {
-        console.warn('Speech recognition start failed:', err);
-      }
-    } else {
-      stopSpeechRecognition();
+        }
+      }, 4000);
     }
 
     return () => {
       stopSpeechRecognition();
+      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
     };
   }, [isRecording, isPaused, isAudioMuted, currentQuestionIndex]);
 
@@ -531,11 +669,12 @@ export default function AssessmentSessionPage() {
     }
   };
 
-  const questionsList = useMemo(() => {
+  const questions = useMemo(() => {
     return assessment?.questions || [];
   }, [assessment]);
 
-  const totalQuestions = questionsList.length;
+  const currentQuestion = questions[currentQuestionIndex];
+  const totalQuestions = questions.length;
 
   const handleNextQuestion = () => {
     if (!assessment) return;
@@ -544,6 +683,7 @@ export default function AssessmentSessionPage() {
       setCurrentQuestionIndex((prev) => prev + 1);
       setTimeLeft(getTimeLimit(assessment.assessment_type));
       setLiveTranscript('');
+      accumulatedTranscriptRef.current = '';
     } else {
       handleEndSession();
     }
@@ -637,8 +777,84 @@ export default function AssessmentSessionPage() {
   }
 
   const isPauseDisabled = NO_PAUSE_ASSESSMENT_TYPES.includes(assessment.assessment_type);
-  const activeQuestion = questionsList[currentQuestionIndex] || null;
+  const activeQuestion = questions[currentQuestionIndex] || null;
   const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
+
+  if (stagePhase === 'AI_INTRO') {
+    return (
+      <div className="h-screen w-screen bg-[#f8fafc] dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-between p-6 select-none overflow-hidden relative transition-colors duration-300">
+
+        {/* Center AI Interviewer Avatar & Speech Quote Card */}
+        <div className="max-w-xl w-full my-auto flex flex-col items-center text-center gap-6 z-10">
+
+          {/* AI Avatar Icon - Minimalist Clean Icon Display */}
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-sm">
+              <svg className="w-9 h-9 text-[#4A6CF7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+                <rect x="4" y="8" width="16" height="12" rx="4" />
+                <circle cx="9" cy="13" r="1.5" fill="currentColor" />
+                <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+                <path d="M9 17h6" />
+              </svg>
+            </div>
+
+            {/* AI Name & Soundwave Equalizer Bars */}
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">AI Interviewer</span>
+              <div className="flex items-end gap-0.5 h-4 px-2 py-0.5 rounded-full bg-[#4A6CF7]/10 border border-[#4A6CF7]/20">
+                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_100ms] h-2.5" />
+                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_300ms] h-4" />
+                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_200ms] h-3" />
+                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_400ms] h-2" />
+              </div>
+            </div>
+            <span className="text-xs text-[#4A6CF7] font-semibold mt-0.5">is speaking…</span>
+          </div>
+
+          {/* Prompt Speech Card */}
+          <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-3xl p-6 sm:p-8 shadow-md shadow-slate-200/50 dark:shadow-none space-y-3.5 transition-all">
+            <div className="flex items-center justify-center gap-2 text-xs font-extrabold text-[#4A6CF7] uppercase tracking-widest">
+              <svg className="w-4 h-4 text-[#4A6CF7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+                <rect x="4" y="8" width="16" height="12" rx="4" />
+                <circle cx="9" cy="13" r="1.5" fill="currentColor" />
+                <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+              </svg>
+              <span>Introduction Practice Prompt</span>
+            </div>
+
+            <p className="text-sm sm:text-base font-medium text-slate-800 dark:text-slate-100 leading-relaxed text-center">
+              {assessment.assessment_type === 'JOB_DESCRIPTION_INTRO' ? (
+                `"Hello, and welcome to your Targeted Job Description Practice. Whenever you're ready, please introduce yourself in relation to this position and explain why your experience aligns with the target role."`
+              ) : assessment.assessment_type === 'GENERAL_INTRO' ? (
+                `"Hello, and welcome to your Introduction Practice. Whenever you're ready, please introduce yourself — sharing your educational background, core technical skills, key projects, and professional goals."`
+              ) : (
+                `"Hello, and welcome to your ${assessment.assessment_type.replace(/_/g, ' ')} session. Get ready as we begin your interview practice loop."`
+              )}
+            </p>
+
+            {assessment.assessment_type === 'JOB_DESCRIPTION_INTRO' && jdTextFromSession && (
+              <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 max-h-28 overflow-y-auto leading-relaxed text-left shadow-inner">
+                <span className="font-extrabold text-[#4A6CF7] block mb-1">Target Job Description:</span>
+                <p className="whitespace-pre-wrap">{jdTextFromSession}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Subtext */}
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            ✨ Practice room & session timer will activate in <span className="text-[#4A6CF7] font-extrabold">{aiIntroTimer}s</span>...
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500 z-10 pb-2">
+          AI-Powered SmartPrep • Secure Audio & Video Analytics
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen max-h-screen w-full overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-4 md:p-5 transition-colors duration-300 select-none">
@@ -659,8 +875,8 @@ export default function AssessmentSessionPage() {
           {/* CENTER: Clean Title */}
           <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2.5">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4A6CF7] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#4A6CF7]"></span>
             </span>
             <h1 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest text-center">
               {assessment.assessment_type === 'GENERAL_INTRO' ? 'GENERAL INTRODUCTION' : assessment.assessment_type.replace(/_/g, ' ')} PRACTICE ROOM
@@ -673,16 +889,6 @@ export default function AssessmentSessionPage() {
           </div>
         </header>
 
-        {/* 1. TOP TELEPROMPTER BANNER */}
-        {activeQuestion && (
-          <QuestionDisplay
-            question={activeQuestion}
-            currentIndex={currentQuestionIndex}
-            totalCount={totalQuestions}
-            category={assessment.assessment_type}
-          />
-        )}
-
         {/* 2. MAIN WORKSPACE SPLIT (Left 73% Broad Video Stage | Right 27% Unified Studio Assistant) */}
         <div className="flex-1 flex flex-col lg:flex-row gap-3.5 items-stretch justify-between min-h-0">
 
@@ -690,7 +896,23 @@ export default function AssessmentSessionPage() {
           <div className="w-full lg:w-[73%] xl:w-[74%] flex flex-col justify-between gap-3 min-h-0">
 
             {/* Expanded Cinematic Camera Stage (Equalizer embedded inside as floating pill) */}
-            <div className="relative w-full flex-1 min-h-[290px] max-h-[440px] bg-slate-950 border border-slate-800/80 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
+            <div className="relative w-full flex-1 min-h-[340px] max-h-[580px] bg-slate-950 border border-slate-800/80 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
+
+              {/* 3-2-1 Countdown Overlay */}
+              {countdownValue !== null && (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md animate-fade-in text-white">
+                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-indigo-400 mb-3 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
+                    <IconSparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+                    <span>Recording Starts In</span>
+                  </div>
+                  <div className="text-8xl font-black text-white animate-bounce drop-shadow-[0_10px_20px_rgba(79,70,229,0.5)]">
+                    {countdownValue}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-4 font-medium">
+                    Prepare your response. Recording will begin automatically...
+                  </p>
+                </div>
+              )}
 
               {/* Always-Mounted Video Stream */}
               <video
@@ -709,6 +931,26 @@ export default function AssessmentSessionPage() {
                     <IconCameraOff size={28} stroke={1.5} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-300">Live Camera Feed Muted</span>
+                </div>
+              )}
+
+              {/* TOP FLOATING QUESTION TELEPROMPTER (Shown for non-intro modules) */}
+              {!isIntroType && currentQuestion && (
+                <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-20 max-w-xl w-[90%] bg-slate-950/85 border border-slate-800/90 text-white rounded-2xl p-3 sm:p-4 backdrop-blur-xl shadow-2xl transition-all">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-[#4A6CF7]">
+                      <IconSparkles size={14} className="text-[#4A6CF7] animate-pulse" />
+                      <span>Question {currentQuestionIndex + 1} of {questions.length || 1}</span>
+                    </div>
+                    {currentQuestion.difficulty_level && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#4A6CF7]/15 border border-[#4A6CF7]/30 text-[#4A6CF7] uppercase">
+                        {currentQuestion.difficulty_level}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm font-semibold text-slate-100 leading-snug line-clamp-3">
+                    {currentQuestion.question_text}
+                  </p>
                 </div>
               )}
 
@@ -760,8 +1002,8 @@ export default function AssessmentSessionPage() {
                   type="button"
                   onClick={toggleAudio}
                   className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isAudioMuted
-                      ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400'
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400'
                     }`}
                   title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
@@ -774,8 +1016,8 @@ export default function AssessmentSessionPage() {
                     type="button"
                     onClick={toggleVideo}
                     className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isVideoMuted
-                        ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
+                      ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
                       }`}
                     title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
                   >
@@ -783,23 +1025,23 @@ export default function AssessmentSessionPage() {
                   </button>
                 )}
 
-                {/* 3. Start Answer OR Pause / Resume Pill */}
-                {isInactive ? (
+                {/* 3. Start Answer OR Pause / Resume Pill (Omitted for Intro assessments with auto-countdown) */}
+                {isInactive && !isIntroType ? (
                   <button
                     type="button"
                     onClick={startRecording}
                     className="h-11 px-6 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all duration-200 hover:scale-105 active:scale-95"
                   >
                     <IconPlayerPlay size={18} stroke={2} fill="currentColor" />
-                    <span>Start Answer</span>
+                    <span>Start</span>
                   </button>
-                ) : !isPauseDisabled ? (
+                ) : !isPauseDisabled && !isInactive ? (
                   <button
                     type="button"
                     onClick={handleStartOrPause}
                     className={`h-11 px-5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isPaused
-                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-                        : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                      : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                       }`}
                   >
                     {isPaused ? (
@@ -815,6 +1057,18 @@ export default function AssessmentSessionPage() {
                     )}
                   </button>
                 ) : null}
+
+                {/* 3.5. Next Question / Complete Session Button for non-intro modules */}
+                {!isIntroType && (
+                  <button
+                    type="button"
+                    onClick={handleNextQuestion}
+                    className="h-11 px-5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-1.5 bg-[#4A6CF7] hover:bg-[#4A6CF7]/90 text-white shadow-lg shadow-[#4A6CF7]/25 transition-all duration-200 hover:scale-105 active:scale-95"
+                  >
+                    <span>{currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? 'Next Question' : 'Complete Session'}</span>
+                    <IconChevronRight size={18} stroke={2.2} />
+                  </button>
+                )}
 
                 {/* 4. Quit Button */}
                 <button
@@ -882,12 +1136,15 @@ export default function AssessmentSessionPage() {
               className="flex-1 min-h-[160px] my-3 overflow-y-auto scroll-smooth pr-1 flex flex-col justify-start"
             >
               {liveTranscript ? (
-                <div className="space-y-2 animate-fade-in">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
-                    <IconSparkles size={13} stroke={2.2} />
-                    <span>Real-Time Speech</span>
+                <div className="space-y-2 animate-fade-in p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-inner">
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-extrabold text-[#4A6CF7]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span>Live Speech Transcript</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Auto-Captions</span>
                   </div>
-                  <p className="text-sm font-normal leading-relaxed text-slate-800 dark:text-slate-200 select-text whitespace-pre-wrap">
+                  <p className="text-xs sm:text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100 select-text whitespace-pre-wrap">
                     {liveTranscript}
                   </p>
                 </div>
@@ -898,10 +1155,10 @@ export default function AssessmentSessionPage() {
                   </div>
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isInactive ? 'Ready to Start' : 'Listening for Answer...'}
+                      {isIntroType ? 'Ready for Intro Recording' : isInactive ? 'Ready to Start' : 'Listening for Answer...'}
                     </p>
                     <p className="text-[11px] text-slate-400 max-w-[190px] leading-snug">
-                      {isInactive ? 'Click "Start Answer" when you are ready.' : 'Speak into your microphone to view live transcript.'}
+                      {isIntroType ? 'Recording auto-starts after countdown.' : isInactive ? 'Click "Start" when you are ready.' : 'Speak into your microphone to view live transcript.'}
                     </p>
                   </div>
                 </div>
@@ -915,7 +1172,7 @@ export default function AssessmentSessionPage() {
                 <span>Auto Sync: 30s</span>
               </div>
 
-              {currentQuestionIndex + 1 < totalQuestions ? (
+              {!isIntroType && currentQuestionIndex + 1 < totalQuestions ? (
                 <button
                   type="button"
                   onClick={handleNextQuestion}

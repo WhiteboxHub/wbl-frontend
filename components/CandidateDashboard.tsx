@@ -2277,17 +2277,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
 
-                            <button
-                                onClick={() => goToTab('ai-prep-coach')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'ai-prep-coach'
-                                    ? "bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400"
-                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                    }`}
-                            >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep-coach' ? "text-violet-600 dark:text-violet-400" : "text-gray-400"}`} />
-                                <span>AI Prep Coach</span>
-                                {activeTab === 'ai-prep-coach' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-500" />}
-                            </button>
+
 
                         </div>
                     </div>
@@ -2390,16 +2380,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         <Sparkles className="w-3.5 h-3.5" />
                         AI PrepTool
                     </button>
-                    <button
-                        onClick={() => goToTab('ai-prep-coach')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'ai-prep-coach'
-                            ? "bg-violet-600 text-white shadow-sm"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                            }`}
-                    >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        AI Prep Coach
-                    </button>
+
 
                 </div>
 
@@ -3399,26 +3380,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 <div className="flex-1 flex items-center justify-center mt-8">
                                                     {setupStatus.setup_complete ? (
                                                         <button
-                                                            onClick={async () => {
-                                                                const getAiPrepUrl = () => {
-                                                                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                    if (url) {
-                                                                        return url;
-                                                                    }
-
-                                                                    return "https://ai-prep.whitebox-learning.com";
-                                                                };
-                                                                const baseUrl = getAiPrepUrl();
-                                                                const token = localStorage.getItem("prep_token");
-
-                                                                if (token) {
-                                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                                } else {
-                                                                    window.open(baseUrl, '_blank');
-                                                                }
+                                                            onClick={() => {
+                                                                router.push('/aiprep');
                                                             }}
-                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer"
                                                         >
                                                             <PlayCircle className="w-4 h-4" />
                                                             Open AI PrepTool
