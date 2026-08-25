@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, ArrowRight, Sparkles, PlayCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { toast } from "sonner";
 import { CandidateLlmKeysPanel } from "../CandidateLlmKeysPanel";
@@ -9,6 +10,7 @@ import { apiFetch } from "../../lib/api";
 type SetupStep = "llm-key" | "done";
 
 export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId?: number, onFinishSetup?: () => void }) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState<SetupStep>("llm-key");
   const [isValidLlm, setIsValidLlm] = useState(false);
 
@@ -92,22 +94,10 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
               </p>
 
               <button
-                onClick={async () => {
-                  const getAiPrepUrl = () => {
-                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-                    if (url) return url;
-                    return "https://ai-prep.whitebox-learning.com";
-                  };
-                  const baseUrl = getAiPrepUrl();
-                  const token = localStorage.getItem("prep_token");
-
-                  if (token) {
-                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                  } else {
-                    window.open(baseUrl, '_blank');
-                  }
+                onClick={() => {
+                  router.push('/aiprep');
                 }}
-                className="w-full py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
               >
                 <PlayCircle className="w-4 h-4" /> Start Preparation
               </button>

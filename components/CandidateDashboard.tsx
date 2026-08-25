@@ -184,7 +184,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume' | 'ai-prep-coach';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -2276,6 +2276,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 <span>AI PrepTool</span>
                                 {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
+
+
+
                         </div>
                     </div>
 
@@ -2377,6 +2380,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         <Sparkles className="w-3.5 h-3.5" />
                         AI PrepTool
                     </button>
+
+
                 </div>
 
                 {/* Scrollable Content */}
@@ -2385,7 +2390,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
                     {/* ==================== TAB CONTENT ==================== */}
-                    <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
+                    <div className={`flex-1 overflow-hidden flex flex-col animate-fadeIn ${activeTab === 'ai-prep-coach' ? 'relative' : ''}`}>
                         {setupWizardOpen ? (
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
                                 <CandidateSetupWizard
@@ -3375,26 +3380,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 <div className="flex-1 flex items-center justify-center mt-8">
                                                     {setupStatus.setup_complete ? (
                                                         <button
-                                                            onClick={async () => {
-                                                                const getAiPrepUrl = () => {
-                                                                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                    if (url) {
-                                                                        return url;
-                                                                    }
-
-                                                                    return "https://ai-prep.whitebox-learning.com";
-                                                                };
-                                                                const baseUrl = getAiPrepUrl();
-                                                                const token = localStorage.getItem("prep_token");
-
-                                                                if (token) {
-                                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                                } else {
-                                                                    window.open(baseUrl, '_blank');
-                                                                }
+                                                            onClick={() => {
+                                                                router.push('/aiprep');
                                                             }}
-                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer"
                                                         >
                                                             <PlayCircle className="w-4 h-4" />
                                                             Open AI PrepTool
@@ -3430,6 +3419,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                     </div>
                                 )}
+
+                                {activeTab === 'ai-prep-coach' && (
+                                    <iframe
+                                        src="/aiprep?embed=true"
+                                        className="absolute inset-0 w-full h-full border-0"
+                                        style={{ display: 'block' }}
+                                        allow="camera; microphone"
+                                    />
+                                )}
+
 
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
