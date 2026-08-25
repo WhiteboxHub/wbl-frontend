@@ -205,7 +205,14 @@ export interface DashboardResponse {
 // ============================================================================
 
 function getAuthToken(): string | null {
-  return typeof window !== 'undefined' ? (localStorage.getItem('token') || localStorage.getItem('access_token')) : null;
+  if (typeof window === 'undefined') return null;
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('access_token') ||
+    document.cookie.split('; ').find(r => r.trim().startsWith('token='))?.split('=')[1] ||
+    document.cookie.split('; ').find(r => r.trim().startsWith('access_token='))?.split('=')[1] ||
+    null
+  );
 }
 
 async function request<T>(
