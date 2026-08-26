@@ -201,6 +201,7 @@ export default function AIPrepDashboard() {
       sessionStorage.setItem('aiprep_active_mode', mode);
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_consent_accepted');
+      sessionStorage.removeItem('aiprep_yolo_consent');
       if (targetType === 'JOB_DESCRIPTION_INTRO') {
         sessionStorage.setItem('aiprep_jd_text', jdText);
       }
@@ -524,7 +525,9 @@ export default function AIPrepDashboard() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Selected Format:</span>
                         <span className="text-xs font-extrabold text-[#4A6CF7]">
-                          {selectedIntroSubtype === 'JOB_DESCRIPTION_INTRO' ? 'Targeted Job Description Intro' : 'General Intro'}
+                          {(pendingType || selectedType) === 'GENERAL_INTRO'
+                            ? (selectedIntroSubtype === 'JOB_DESCRIPTION_INTRO' ? 'Targeted Job Description Intro' : 'General Intro')
+                            : (ASSESSMENT_CARDS_META.find(m => m.type === (pendingType || selectedType))?.title || (pendingType || selectedType)?.replace(/_/g, ' '))}
                         </span>
                       </div>
                       {pendingType === 'GENERAL_INTRO' && (
@@ -553,7 +556,7 @@ export default function AIPrepDashboard() {
                       {/* Mode 1: Video + Audio */}
                       <button
                         type="button"
-                        onClick={() => confirmLaunch('VIDEO_AUDIO', pendingType === 'GENERAL_INTRO' ? selectedIntroSubtype : pendingType!)}
+                        onClick={() => confirmLaunch('VIDEO_AUDIO', (pendingType || selectedType) === 'GENERAL_INTRO' ? selectedIntroSubtype : (pendingType || selectedType)!)}
                         className="group border border-slate-200 dark:border-slate-700 hover:border-indigo-500 rounded-2xl p-6 bg-white dark:bg-slate-800 cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 text-center"
                       >
                         <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
@@ -568,7 +571,7 @@ export default function AIPrepDashboard() {
                       {/* Mode 2: Audio Only */}
                       <button
                         type="button"
-                        onClick={() => confirmLaunch('AUDIO_ONLY', pendingType === 'GENERAL_INTRO' ? selectedIntroSubtype : pendingType!)}
+                        onClick={() => confirmLaunch('AUDIO_ONLY', (pendingType || selectedType) === 'GENERAL_INTRO' ? selectedIntroSubtype : (pendingType || selectedType)!)}
                         className="group border border-slate-200 dark:border-slate-700 hover:border-sky-500 rounded-2xl p-6 bg-white dark:bg-slate-800 cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 text-center"
                       >
                         <div className="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
