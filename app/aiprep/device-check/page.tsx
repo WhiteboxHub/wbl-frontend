@@ -184,9 +184,10 @@ export default function DeviceCheckPage() {
     }
   };
 
-  const handleConsentConfirm = async (videoConsented: boolean) => {
+  const handleConsentConfirm = async (videoConsented: boolean, yoloEnabled?: boolean) => {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('aiprep_consent_accepted', 'true');
+      sessionStorage.setItem('aiprep_yolo_consent', yoloEnabled ? 'true' : 'false');
     }
     setConsentAccepted(true);
     setShowConsent(false);

@@ -324,6 +324,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       cameraStreamRef.current = stream;
       setCameraStream(stream);
       setCameraOk(true);
+      if (typeof window !== 'undefined' && sessionStorage.getItem('aiprep_yolo_consent') !== 'true') {
+        setFaceVerified(true);
+      }
       loadDevices();
       setTimeout(() => {
         if (videoRef.current) videoRef.current.srcObject = stream;
@@ -592,7 +595,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       muted
                       className="w-full h-full object-cover -scale-x-100"
                     />
-                    {cameraStream && (
+                    {cameraStream && (typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_yolo_consent') === 'true' : false) && (
                       <YOLOAnalyzer
                         videoRef={videoRef}
                         enabled
@@ -602,20 +605,22 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         }
                       />
                     )}
-                    {/* Face status pill */}
-                    <div className="absolute bottom-3 left-3 z-20">
-                      {faceVerified ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-900/80 border border-emerald-600 text-emerald-300 backdrop-blur-md">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                          Face correctly framed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-amber-900/80 border border-amber-600 text-amber-300 backdrop-blur-md">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                          Align face in frame
-                        </span>
-                      )}
-                    </div>
+                    {/* Face status pill (Only shown if YOLO model is enabled) */}
+                    {(typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_yolo_consent') === 'true' : false) && (
+                      <div className="absolute bottom-3 left-3 z-20">
+                        {faceVerified ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-900/80 border border-emerald-600 text-emerald-300 backdrop-blur-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                            Face correctly framed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-amber-900/80 border border-amber-600 text-amber-300 backdrop-blur-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            Align face in frame
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-slate-400">

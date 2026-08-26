@@ -143,6 +143,10 @@ const mapAssessmentTypeToCategory = (type: AssessmentType): QuestionCategory => 
   }
 };
 
+
+
+
+
 export default function AssessmentSessionPage() {
   const router = useRouter();
   const params = useParams();
@@ -291,95 +295,48 @@ export default function AssessmentSessionPage() {
     }
   }, [stream, isIntroType, stagePhase, isInactive, startRecording]);
 
-  // Fetch Assessment metadata and questions dynamically from backend GET questions API
+  // Fetch Assessment metadata and questions dynamically strictly via Backend API
   useEffect(() => {
     if (!assessmentId) return;
 
     async function fetchAssessmentData() {
       try {
         setIsLoading(true);
-        const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
+        const resolvedType = queryType || 'TECHNICAL';
+        const resolvedMode = queryMode || 'VIDEO_AUDIO';
 
-        if (isMockMode) {
-          let candidateId = 7;
-          try {
-            const userResponse = await apiFetch("user_dashboard");
-            if (userResponse?.candidate_id) {
-              candidateId = userResponse.candidate_id;
-            }
-          } catch (profileErr) {
-            console.error("Failed to retrieve candidateId, falling back to 7", profileErr);
-          }
-
-          const resolvedType = queryType || 'TECHNICAL';
-          const resolvedMode = queryMode || 'VIDEO_AUDIO';
-
-          let loadedQuestions: Question[] = [];
-          try {
-            const category = mapAssessmentTypeToCategory(resolvedType);
-            const qBank = await aiprepApi.getQuestions(category);
-            if (qBank && qBank.length > 0) {
-              loadedQuestions = qBank.map((q, idx) => ({
-                id: q.id,
-                order_index: idx + 1,
-                question_text: q.question_text,
-                difficulty_level: q.difficulty_level,
-              }));
-            }
-          } catch (e) {
-            console.warn("Could not fetch question bank from backend API:", e);
-          }
-
-          const mockAssessment: Assessment = {
-            id: assessmentId,
-            candidate_id: candidateId,
-            assessment_type: resolvedType,
-            assessment_mode: resolvedMode,
-            status: 'IN_PROGRESS',
-            attempt_number: 1,
-            created_at: new Date().toISOString(),
-            questions: loadedQuestions
-          };
-          setAssessment(mockAssessment);
-          setTimeLeft(getTimeLimit(resolvedType));
-          setTimeout(() => initMediaFeed(resolvedMode), 100);
-          setIsLoading(false);
-          return;
-        }
-
+        // 1. Fetch Assessment record from Backend API
         const data = await aiprepApi.getAssessment(assessmentId);
+        const effectiveType = data.assessment_type || resolvedType;
 
-        // Fetch questions from backend API bank if session list is empty
-        if (!data.questions || data.questions.length === 0) {
-          try {
-            const category = mapAssessmentTypeToCategory(data.assessment_type);
-            const qBank = await aiprepApi.getQuestions(category);
-            if (qBank && qBank.length > 0) {
-              data.questions = qBank.map((q, idx) => ({
-                id: q.id,
-                order_index: idx + 1,
-                question_text: q.question_text,
-                difficulty_level: q.difficulty_level,
-              }));
-            } else {
-              data.questions = [];
-            }
-          } catch (qErr) {
-            console.error('Failed to load questions from backend question bank API:', qErr);
+        // 2. Fetch Questions strictly from Backend Question Bank API for category
+        const category = mapAssessmentTypeToCategory(effectiveType);
+        try {
+          const qBank = await aiprepApi.getQuestions(category);
+          if (qBank && qBank.length > 0) {
+            // Strictly filter qBank to ensure only questions matching the specific room category are assigned
+            const categoryQuestions = qBank.filter((q: any) => !q.category || q.category === category);
+            data.questions = categoryQuestions.map((q, idx) => ({
+              id: q.id,
+              order_index: idx + 1,
+              question_text: q.question_text,
+              difficulty_level: q.difficulty_level,
+            }));
+          } else {
+            // If backend has no questions for this category, leave as empty array
             data.questions = [];
           }
+        } catch (qErr) {
+          console.warn('Backend question bank query error:', qErr);
+          data.questions = [];
         }
 
         setAssessment(data);
-
-        // Initialize time limits based on type
-        const initialTime = getTimeLimit(data.assessment_type);
+        const initialTime = getTimeLimit(effectiveType);
         setTimeLeft(initialTime);
-
-        // Start device feed
-        setTimeout(() => initMediaFeed(data.assessment_mode), 100);
+        setTimeout(() => initMediaFeed(data.assessment_mode || resolvedMode), 100);
       } catch (err: any) {
-        console.warn('Error fetching assessment info, falling back to backend questions API:', err);
+        console.warn('Backend assessment fetch error, querying backend questions API directly:', err);
         let candidateId = 7;
         try {
           const userResponse = await apiFetch("user_dashboard");
@@ -390,13 +347,14 @@ export default function AssessmentSessionPage() {
 
         const resolvedType = queryType || 'TECHNICAL';
         const resolvedMode = queryMode || 'VIDEO_AUDIO';
+        const category = mapAssessmentTypeToCategory(resolvedType);
 
         let loadedQuestions: Question[] = [];
         try {
-          const category = mapAssessmentTypeToCategory(resolvedType);
           const qBank = await aiprepApi.getQuestions(category);
           if (qBank && qBank.length > 0) {
-            loadedQuestions = qBank.map((q, idx) => ({
+            const categoryQuestions = qBank.filter((q: any) => !q.category || q.category === category);
+            loadedQuestions = categoryQuestions.map((q, idx) => ({
               id: q.id,
               order_index: idx + 1,
               question_text: q.question_text,
@@ -650,6 +608,19 @@ export default function AssessmentSessionPage() {
     }
   };
 
+  // Auto-bind media stream to HTML <video> element whenever stream or videoRef mounts
+  useEffect(() => {
+    const activeStream = streamRef.current || stream;
+    if (activeStream && videoRef.current) {
+      if (videoRef.current.srcObject !== activeStream) {
+        videoRef.current.srcObject = activeStream;
+      }
+      videoRef.current.play().catch((err) => {
+        console.warn('Video auto-play handled:', err);
+      });
+    }
+  }, [stream, stagePhase, isLoading, isVideoMuted]);
+
   // Toggle Video (Camera) On/Off
   const toggleVideo = () => {
     const currentStream = streamRef.current || stream;
@@ -892,11 +863,37 @@ export default function AssessmentSessionPage() {
         {/* 2. MAIN WORKSPACE SPLIT (Left 73% Broad Video Stage | Right 27% Unified Studio Assistant) */}
         <div className="flex-1 flex flex-col lg:flex-row gap-3.5 items-stretch justify-between min-h-0">
 
-          {/* LEFT COLUMN (73% Width): Expanded Camera Stage + Controls (NO separate equalizer space) */}
-          <div className="w-full lg:w-[73%] xl:w-[74%] flex flex-col justify-between gap-3 min-h-0">
+          {/* LEFT COLUMN (73% Width): Question Display + Camera Stage + Controls */}
+          <div className="w-full lg:w-[73%] xl:w-[74%] flex flex-col justify-between gap-2.5 min-h-0">
 
-            {/* Expanded Cinematic Camera Stage (Equalizer embedded inside as floating pill) */}
-            <div className="relative w-full flex-1 min-h-[340px] max-h-[580px] bg-slate-950 border border-slate-800/80 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
+            {/* TOP QUESTION BANNER (White Card with Dark Mode support) */}
+            {!isIntroType && (
+              currentQuestion ? (
+                <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all shrink-0 animate-fade-in">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#4A6CF7]">
+                      <IconSparkles size={16} className="text-[#4A6CF7] animate-pulse" />
+                      <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
+                    </div>
+                    {currentQuestion.difficulty_level && (
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20 border border-[#4A6CF7]/30 dark:border-[#4A6CF7]/40 text-[#4A6CF7] dark:text-blue-300 uppercase">
+                        {currentQuestion.difficulty_level}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-snug">
+                    {currentQuestion.question_text}
+                  </p>
+                </div>
+              ) : (
+                <div className="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/90 text-slate-500 dark:text-slate-400 rounded-2xl p-3.5 text-center text-xs font-semibold shadow-md shrink-0 animate-fade-in">
+                  No questions found.
+                </div>
+              )
+            )}
+
+            {/* Slightly Reduced Camera Stage (to fit seamlessly below top question card) */}
+            <div className="relative w-full flex-1 min-h-[260px] max-h-[460px] bg-slate-950 border border-slate-800/80 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
 
               {/* 3-2-1 Countdown Overlay */}
               {countdownValue !== null && (
@@ -916,7 +913,14 @@ export default function AssessmentSessionPage() {
 
               {/* Always-Mounted Video Stream */}
               <video
-                ref={videoRef}
+                ref={(el) => {
+                  videoRef.current = el;
+                  const activeStream = streamRef.current || stream;
+                  if (el && activeStream && el.srcObject !== activeStream) {
+                    el.srcObject = activeStream;
+                    el.play().catch(() => {});
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted
@@ -931,26 +935,6 @@ export default function AssessmentSessionPage() {
                     <IconCameraOff size={28} stroke={1.5} />
                   </div>
                   <span className="text-xs sm:text-sm font-semibold text-slate-300">Live Camera Feed Muted</span>
-                </div>
-              )}
-
-              {/* TOP FLOATING QUESTION TELEPROMPTER (Shown for non-intro modules) */}
-              {!isIntroType && currentQuestion && (
-                <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-20 max-w-xl w-[90%] bg-slate-950/85 border border-slate-800/90 text-white rounded-2xl p-3 sm:p-4 backdrop-blur-xl shadow-2xl transition-all">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-[#4A6CF7]">
-                      <IconSparkles size={14} className="text-[#4A6CF7] animate-pulse" />
-                      <span>Question {currentQuestionIndex + 1} of {questions.length || 1}</span>
-                    </div>
-                    {currentQuestion.difficulty_level && (
-                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#4A6CF7]/15 border border-[#4A6CF7]/30 text-[#4A6CF7] uppercase">
-                        {currentQuestion.difficulty_level}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs sm:text-sm font-semibold text-slate-100 leading-snug line-clamp-3">
-                    {currentQuestion.question_text}
-                  </p>
                 </div>
               )}
 
@@ -983,8 +967,8 @@ export default function AssessmentSessionPage() {
                 )}
               </div>
 
-              {/* YOLO Face Proctoring Analyzer */}
-              {assessment.assessment_mode === 'VIDEO_AUDIO' && (
+              {/* YOLO Face Proctoring Analyzer (Only runs if user checked the YOLO option in Consent modal) */}
+              {assessment.assessment_mode === 'VIDEO_AUDIO' && (typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_yolo_consent') === 'true' : true) && (
                 <YOLOAnalyzer
                   videoRef={videoRef}
                   enabled={!isPaused && !isVideoMuted && Boolean(stream)}
@@ -1058,8 +1042,8 @@ export default function AssessmentSessionPage() {
                   </button>
                 ) : null}
 
-                {/* 3.5. Next Question / Complete Session Button for non-intro modules */}
-                {!isIntroType && (
+                {/* 3.5. Next Question / Complete Session Button (Only shown while recording or paused, NOT before start) */}
+                {!isIntroType && !isInactive && (
                   <button
                     type="button"
                     onClick={handleNextQuestion}

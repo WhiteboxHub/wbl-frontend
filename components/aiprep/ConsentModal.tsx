@@ -17,7 +17,7 @@ import {
 interface ConsentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (cameraEnabled: boolean) => void;
+  onConfirm: (cameraEnabled: boolean, yoloEnabled?: boolean) => void;
   isSubmitting?: boolean;
   audioOnly?: boolean;
 }
@@ -54,6 +54,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   const [revealed, setRevealed] = useState(false);
   const [cameraConsent, setCameraConsent] = useState(false);
   const [micConsent, setMicConsent] = useState(false);
+  const [yoloConsent, setYoloConsent] = useState(false);
   const [analyticsConsent, setAnalyticsConsent] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [timeStr, setTimeStr] = useState('');
@@ -68,6 +69,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   const cleanup = useCallback(() => {
     setCameraConsent(false);
     setMicConsent(false);
+    setYoloConsent(false);
     setAnalyticsConsent(false);
     setTermsAccepted(false);
     setRevealed(false);
@@ -80,8 +82,12 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   }, [isOpen]);
 
   const handleConfirm = (forceAudioOnly?: boolean) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aiprep_yolo_consent', yoloConsent ? 'true' : 'false');
+    }
+    const finalCam = (audioOnly || forceAudioOnly) ? false : cameraConsent;
     cleanup();
-    onConfirm((audioOnly || forceAudioOnly) ? false : cameraConsent);
+    onConfirm(finalCam, yoloConsent);
   };
 
   const handleClose = () => {
@@ -216,6 +222,25 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Consent to Camera</span>
                         </div>
                         <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Required for video mode (analyzes face stability).</p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {/* YOLO AI Vision Model Option */}
+                {!audioOnly && (
+                  <div className={`p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
+                    ${yoloConsent ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800' : 'bg-white dark:bg-slate-900'}`}
+                  >
+                    <label htmlFor="cb-yolo" className="flex items-start gap-2.5 cursor-pointer select-none">
+                      <CustomCheckbox id="cb-yolo" checked={yoloConsent} onChange={setYoloConsent} disabled={isSubmitting} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${yoloConsent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">AI Vision &amp; YOLO Proctoring Model</span>
+                          <span className="text-[8px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Optional Check</span>
+                        </div>
+                        <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Check if you want real-time YOLO pose &amp; eye tracking during practice; leave unchecked to disable.</p>
                       </div>
                     </label>
                   </div>
