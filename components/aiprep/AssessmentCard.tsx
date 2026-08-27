@@ -82,7 +82,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
             {/* Lock Badge */}
             {isLocked ? (
               <span className="flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-600 shrink-0">
-                <Lock className="w-3.5 h-3.5" /> Locked
+                <Lock className="w-3.5 h-3.6" /> Locked
               </span>
             ) : requiresJd ? (
               <span className="flex items-center gap-1 text-xs font-bold text-amber-750 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 shrink-0">
