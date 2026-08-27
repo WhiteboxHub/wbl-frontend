@@ -452,7 +452,7 @@ export const aiprepApi = {
     if (!isClient) return () => { };
 
     const token = getAuthToken();
-    const basePath = `${API_BASE}/api/ai-prep/assessments/${assessmentId}/processing-status`;
+    const basePath = `${API_BASE.replace(/\/$/, '')}/ai-prep/assessments/${assessmentId}/processing-status`;
     const url = token ? `${basePath}?token=${encodeURIComponent(token)}` : basePath;
 
     const eventSource = new EventSource(url, { withCredentials: true });
