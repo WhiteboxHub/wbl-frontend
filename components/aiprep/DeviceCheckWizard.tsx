@@ -790,9 +790,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   </h3>
                   <button
                     onClick={runDiagnostics}
-                    className="px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors flex items-center gap-1 active:scale-95"
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-[10px] font-extrabold shadow-lg shadow-indigo-500/25 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                   >
-                    <Zap className="w-3 h-3" /> Re-scan Devices
+                    <Zap className="w-3.5 h-3.5" /> Re-scan Devices
                   </button>
                 </div>
 

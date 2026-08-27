@@ -250,7 +250,7 @@ export default function AIPrepDashboard() {
   return (
     <div className={`${isEmbedded
       ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-4 pt-3 pb-4 transition-colors duration-200'
-      : 'min-h-screen bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 py-12 px-6 md:px-12 transition-colors duration-200'
+      : 'min-h-screen bg-[#f8fafc] dark:bg-slate-900 text-slate-800 dark:text-slate-100 py-6 sm:py-8 px-4 sm:px-6 md:px-10 transition-colors duration-200'
       }`}>
       {/* Top Banner decoration */}
       {!isEmbedded && (
@@ -260,13 +260,13 @@ export default function AIPrepDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         {!isEmbedded && (
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 sm:mb-8">
             <div>
               <div className="flex items-center gap-2 text-[#4A6CF7] text-sm font-semibold tracking-wider uppercase mb-2">
                 <Sparkles className="w-4 h-4 text-[#4A6CF7] animate-pulse" />
                 <span>Self-Improvement Platform</span>
               </div>
-              <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
                 AIPrep Interview Practice
               </h1>
               <p className="text-slate-550 dark:text-slate-400 text-sm mt-2 max-w-xl leading-relaxed">
@@ -292,13 +292,13 @@ export default function AIPrepDashboard() {
         )}
 
         {/* Assessment Modules Grid */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
             <BookOpen className="w-4 h-4 text-[#4A6CF7]" />
             <span>Select Practice Loop</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {/* 1. Single Combined General & Job Description Intro Card */}
             {renderCard('GENERAL_INTRO')}
 
