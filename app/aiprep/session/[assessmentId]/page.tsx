@@ -675,9 +675,10 @@ export default function AssessmentSessionPage() {
         return;
       }
 
-      await stopRecording();
+      const finalCount = await stopRecording();
       await waitForAllUploads();
-      await aiprepApi.assembleMedia(assessment.id, chunkCount);
+      const totalSlices = Math.max(1, finalCount || 0);
+      await aiprepApi.assembleMedia(assessment.id, totalSlices);
       await aiprepApi.updateAssessmentStatus(assessment.id, 'COMPLETED');
       stopCameraFeed();
       stopSpeechRecognition();
