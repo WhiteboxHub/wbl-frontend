@@ -39,6 +39,7 @@ import {
   IconMessage2,
   IconInfoCircle,
   IconVolume,
+  IconVolumeOff,
   IconCameraOff,
   IconWaveSine,
   IconDeviceLaptop,
@@ -252,7 +253,85 @@ export default function AssessmentSessionPage() {
 
   // Stage Phase: 'AI_INTRO' (Screen with AI Interviewer speaking) -> 'PRACTICE_ROOM' (Camera stage & timer)
   const [stagePhase, setStagePhase] = useState<'AI_INTRO' | 'PRACTICE_ROOM'>('AI_INTRO');
-  const [aiIntroTimer, setAiIntroTimer] = useState<number>(6);
+  const [aiIntroTimer, setAiIntroTimer] = useState<number>(4);
+
+  // Web Speech Synthesis (AI Voice) State & Helpers
+  const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const [isSpeechMuted, setIsSpeechMuted] = useState<boolean>(false);
+  const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const stopAiSpeech = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) { }
+    }
+    setIsAiSpeaking(false);
+  };
+
+  const getIntroPromptText = (type?: AssessmentType) => {
+    const t = type || assessment?.assessment_type;
+    if (t === 'JOB_DESCRIPTION_INTRO') {
+      return "Hello, and welcome to your Targeted Job Description Practice. Whenever you're ready, please introduce yourself in relation to this position and explain why your experience aligns with the target role.";
+    }
+    if (t === 'GENERAL_INTRO') {
+      return "Hello, and welcome to your Introduction Practice. Whenever you're ready, please introduce yourself — sharing your educational background, core technical skills, key projects, and professional goals.";
+    }
+    return `Hello, and welcome to your ${t ? t.replace(/_/g, ' ') : 'interview'} session. Get ready as we begin your interview practice loop.`;
+  };
+
+  const speakAiText = (text: string, onComplete?: () => void) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeechMuted) {
+      if (onComplete) onComplete();
+      return;
+    }
+
+    stopAiSpeech();
+
+    try {
+      const cleanText = text.replace(/^"|"$/g, '').trim();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      speechUtteranceRef.current = utterance;
+
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(
+        (v) => (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Zira') || v.name.includes('Daniel')) && v.lang.startsWith('en')
+      ) || voices.find((v) => v.lang.startsWith('en')) || null;
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => setIsAiSpeaking(true);
+      utterance.onend = () => {
+        setIsAiSpeaking(false);
+        if (onComplete) onComplete();
+      };
+      utterance.onerror = () => {
+        setIsAiSpeaking(false);
+        if (onComplete) onComplete();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('Speech synthesis error:', err);
+      setIsAiSpeaking(false);
+      if (onComplete) onComplete();
+    }
+  };
+
+  const toggleAiSpeechMute = () => {
+    if (isAiSpeaking) {
+      stopAiSpeech();
+      setIsSpeechMuted(true);
+    } else {
+      setIsSpeechMuted(false);
+      speakAiText(getIntroPromptText());
+    }
+  };
 
   // 3-2-1 Countdown state & auto-recording trigger
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
@@ -260,21 +339,56 @@ export default function AssessmentSessionPage() {
 
   const isIntroType = assessment?.assessment_type === 'GENERAL_INTRO' || assessment?.assessment_type === 'JOB_DESCRIPTION_INTRO';
 
+  const handleSkipIntro = () => {
+    stopAiSpeech();
+    setStagePhase('PRACTICE_ROOM');
+  };
+
   useEffect(() => {
     if (stagePhase === 'AI_INTRO' && !isLoading && assessment) {
+      const promptText = getIntroPromptText(assessment.assessment_type);
+
+      // Auto-trigger full AI voice reading on mount
+      speakAiText(promptText, () => {
+        // Once speech finishes completely, give 1.5s pause then transition smoothly
+        setTimeout(() => {
+          stopAiSpeech();
+          setStagePhase('PRACTICE_ROOM');
+        }, 1500);
+      });
+
+      // Synchronized countdown timer for visual feedback
       const timer = setInterval(() => {
         setAiIntroTimer((prev) => {
           if (prev <= 1) {
-            clearInterval(timer);
-            setStagePhase('PRACTICE_ROOM');
+            // Only transition if speech is not actively speaking
+            if (typeof window !== 'undefined' && window.speechSynthesis && !window.speechSynthesis.speaking) {
+              clearInterval(timer);
+              stopAiSpeech();
+              setStagePhase('PRACTICE_ROOM');
+              return 0;
+            }
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-      return () => clearInterval(timer);
+
+      return () => {
+        clearInterval(timer);
+        stopAiSpeech();
+      };
     }
   }, [stagePhase, isLoading, assessment]);
+
+  // Auto-read question text using AI voice when currentQuestionIndex changes in PRACTICE_ROOM
+  useEffect(() => {
+    const qList = assessment?.questions || [];
+    if (stagePhase === 'PRACTICE_ROOM' && !isIntroType && qList[currentQuestionIndex]) {
+      const qText = qList[currentQuestionIndex].question_text;
+      speakAiText(qText);
+    }
+  }, [currentQuestionIndex, stagePhase, isIntroType, assessment]);
 
   useEffect(() => {
     if (stream && isIntroType && stagePhase === 'PRACTICE_ROOM' && !hasRunCountdownRef.current && isInactive) {
@@ -833,7 +947,7 @@ export default function AssessmentSessionPage() {
 
           {/* AI Avatar Icon - Minimalist Clean Icon Display */}
           <div className="flex flex-col items-center">
-            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-sm">
+            <div className="relative w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-sm">
               <svg className="w-9 h-9 text-[#4A6CF7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
                 <rect x="4" y="8" width="16" height="12" rx="4" />
@@ -841,19 +955,36 @@ export default function AssessmentSessionPage() {
                 <circle cx="15" cy="13" r="1.5" fill="currentColor" />
                 <path d="M9 17h6" />
               </svg>
+              {isAiSpeaking && (
+                <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4A6CF7] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-[#4A6CF7]"></span>
+                </span>
+              )}
             </div>
 
             {/* AI Name & Soundwave Equalizer Bars */}
             <div className="mt-4 flex items-center gap-2">
               <span className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">AI Interviewer</span>
               <div className="flex items-end gap-0.5 h-4 px-2 py-0.5 rounded-full bg-[#4A6CF7]/10 border border-[#4A6CF7]/20">
-                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_100ms] h-2.5" />
-                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_300ms] h-4" />
-                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_200ms] h-3" />
-                <span className="w-1 bg-[#4A6CF7] rounded-full animate-[bounce_1s_infinite_400ms] h-2" />
+                <span className={`w-1 bg-[#4A6CF7] rounded-full h-2.5 ${isAiSpeaking ? 'animate-[bounce_1s_infinite_100ms]' : ''}`} />
+                <span className={`w-1 bg-[#4A6CF7] rounded-full h-4 ${isAiSpeaking ? 'animate-[bounce_1s_infinite_300ms]' : ''}`} />
+                <span className={`w-1 bg-[#4A6CF7] rounded-full h-3 ${isAiSpeaking ? 'animate-[bounce_1s_infinite_200ms]' : ''}`} />
+                <span className={`w-1 bg-[#4A6CF7] rounded-full h-2 ${isAiSpeaking ? 'animate-[bounce_1s_infinite_400ms]' : ''}`} />
               </div>
+
+              {/* Interactive AI Voice Play / Mute Button */}
+              <button
+                onClick={toggleAiSpeechMute}
+                title={isAiSpeaking ? 'Mute AI Voice' : 'Replay AI Voice'}
+                className="ml-1 p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#4A6CF7] transition-all"
+              >
+                {isSpeechMuted ? <IconVolumeOff size={16} /> : <IconVolume size={16} />}
+              </button>
             </div>
-            <span className="text-xs text-[#4A6CF7] font-semibold mt-0.5">is speaking…</span>
+            <span className="text-xs text-[#4A6CF7] font-semibold mt-0.5">
+              {isAiSpeaking ? 'AI Voice speaking…' : isSpeechMuted ? 'Voice Muted (Click speaker to hear)' : 'Introduction Practice Room'}
+            </span>
           </div>
 
           {/* Prompt Speech Card */}
@@ -886,10 +1017,20 @@ export default function AssessmentSessionPage() {
             )}
           </div>
 
-          {/* Subtext */}
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            ✨ Practice room & session timer will activate in <span className="text-[#4A6CF7] font-extrabold">{aiIntroTimer}s</span>...
-          </p>
+          {/* Subtext & Skip Button */}
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              ✨ Practice room & session timer will activate in <span className="text-[#4A6CF7] font-extrabold">{aiIntroTimer}s</span>...
+            </p>
+
+            <button
+              onClick={handleSkipIntro}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+            >
+              <span>Skip Intro & Start Practice</span>
+              <IconChevronRight size={14} stroke={2.5} />
+            </button>
+          </div>
         </div>
 
         {/* Footer */}
@@ -948,11 +1089,23 @@ export default function AssessmentSessionPage() {
                       <IconSparkles size={16} className="text-[#4A6CF7] animate-pulse" />
                       <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
                     </div>
-                    {currentQuestion.difficulty_level && (
-                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20 border border-[#4A6CF7]/30 dark:border-[#4A6CF7]/40 text-[#4A6CF7] dark:text-blue-300 uppercase">
-                        {currentQuestion.difficulty_level}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Speaker / Replay Question Voice Button */}
+                      <button
+                        onClick={() => speakAiText(currentQuestion.question_text)}
+                        title={isAiSpeaking ? 'Mute AI Voice' : 'Replay Question AI Voice'}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#4A6CF7]/10 hover:bg-[#4A6CF7]/20 text-[#4A6CF7] transition-all text-xs font-semibold"
+                      >
+                        {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
+                        <span className="text-[11px]">AI Voice</span>
+                      </button>
+
+                      {currentQuestion.difficulty_level && (
+                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20 border border-[#4A6CF7]/30 dark:border-[#4A6CF7]/40 text-[#4A6CF7] dark:text-blue-300 uppercase">
+                          {currentQuestion.difficulty_level}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-snug">
                     {currentQuestion.question_text}
