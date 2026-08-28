@@ -198,6 +198,7 @@ export default function AssessmentSessionPage() {
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const [speechSupported, setSpeechSupported] = useState<boolean>(true);
   const recognitionRef = useRef<any>(null);
+  const autoStartRecordingRef = useRef<boolean>(false);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Exit modal state
@@ -334,6 +335,29 @@ export default function AssessmentSessionPage() {
         setAssessment(data);
         const initialTime = getTimeLimit(effectiveType);
         setTimeLeft(initialTime);
+
+        // Recover state if available
+        const savedStateStr = sessionStorage.getItem(`aiprep_session_state_${assessmentId}`);
+        if (savedStateStr) {
+          try {
+            const savedState = JSON.parse(savedStateStr);
+            if (typeof savedState.currentQuestionIndex === 'number') {
+              setCurrentQuestionIndex(savedState.currentQuestionIndex);
+            }
+            if (typeof savedState.timeLeft === 'number') {
+              setTimeLeft(savedState.timeLeft);
+            }
+            if (savedState.stagePhase) {
+              setStagePhase(savedState.stagePhase);
+            }
+            if (savedState.hasStartedRecording) {
+              autoStartRecordingRef.current = true;
+            }
+          } catch (e) {
+            console.warn('Failed to parse saved session state:', e);
+          }
+        }
+
         setTimeout(() => initMediaFeed(data.assessment_mode || resolvedMode), 100);
       } catch (err: any) {
         console.warn('Backend assessment fetch error, querying backend questions API directly:', err);
@@ -375,6 +399,29 @@ export default function AssessmentSessionPage() {
         };
         setAssessment(mockAssessment);
         setTimeLeft(getTimeLimit(resolvedType));
+
+        // Recover state if available
+        const savedStateStr = sessionStorage.getItem(`aiprep_session_state_${assessmentId}`);
+        if (savedStateStr) {
+          try {
+            const savedState = JSON.parse(savedStateStr);
+            if (typeof savedState.currentQuestionIndex === 'number') {
+              setCurrentQuestionIndex(savedState.currentQuestionIndex);
+            }
+            if (typeof savedState.timeLeft === 'number') {
+              setTimeLeft(savedState.timeLeft);
+            }
+            if (savedState.stagePhase) {
+              setStagePhase(savedState.stagePhase);
+            }
+            if (savedState.hasStartedRecording) {
+              autoStartRecordingRef.current = true;
+            }
+          } catch (e) {
+            console.warn('Failed to parse saved session state:', e);
+          }
+        }
+
         setTimeout(() => initMediaFeed(resolvedMode), 100);
       } finally {
         setIsLoading(false);
@@ -388,6 +435,28 @@ export default function AssessmentSessionPage() {
       stopSpeechRecognition();
     };
   }, [assessmentId]);
+
+  // Save session state to survive page refresh
+  useEffect(() => {
+    if (!assessmentId || !assessment || isLoading) return;
+
+    const state = {
+      currentQuestionIndex,
+      stagePhase,
+      timeLeft,
+      hasStartedRecording: !isInactive,
+    };
+    sessionStorage.setItem(`aiprep_session_state_${assessmentId}`, JSON.stringify(state));
+  }, [assessmentId, assessment, isLoading, currentQuestionIndex, stagePhase, timeLeft, isInactive]);
+
+  // Auto-resume recording if recovered from refresh
+  useEffect(() => {
+    if (stream && autoStartRecordingRef.current && isInactive) {
+      autoStartRecordingRef.current = false;
+      hasRunCountdownRef.current = true;
+      startRecording();
+    }
+  }, [stream, isInactive, startRecording]);
 
   // Live Speech Recognition + Audio Activity Transcriber Fallback
   const accumulatedTranscriptRef = useRef<string>('');
@@ -663,6 +732,9 @@ export default function AssessmentSessionPage() {
   const handleEndSession = async () => {
     if (!assessment) return;
     setIsEnding(true);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`aiprep_session_state_${assessment.id}`);
+    }
 
     try {
       const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
@@ -1209,6 +1281,9 @@ export default function AssessmentSessionPage() {
                   stopCameraFeed();
                   stopTimer();
                   stopSpeechRecognition();
+                  if (assessmentId) {
+                    sessionStorage.removeItem(`aiprep_session_state_${assessmentId}`);
+                  }
                   router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
                 }}
                 className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-rose-600/30 transition-colors"

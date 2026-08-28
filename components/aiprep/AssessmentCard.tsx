@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
-import { Clock, Play, Pause, AlertCircle, FileText, Video, Mic, AlertTriangle, Sparkles } from 'lucide-react';
+import { Clock, Play, Pause, AlertCircle, FileText, Video, Mic, AlertTriangle, Sparkles, Lock } from 'lucide-react';
 
 export interface AssessmentMetadata {
   type: AssessmentType;
@@ -54,7 +54,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
 
   return (
     <div
-      className={`relative group overflow-hidden rounded-2xl border bg-white dark:bg-slate-800 p-6 transition-all duration-300 ${isLocked
+      className={`relative group overflow-hidden rounded-2xl border bg-white dark:bg-slate-800 p-4 sm:p-5 transition-[border-color,transform,box-shadow] duration-200 ${isLocked
         ? 'border-slate-200 dark:border-slate-700 opacity-80'
         : isSelected
           ? 'border-[#4A6CF7] ring-2 ring-[#4A6CF7]/20 shadow-md shadow-[#4A6CF7]/15 hover:-translate-y-1'
@@ -75,14 +75,14 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
         <div>
           {/* Header Row */}
           <div className="flex items-start justify-between mb-3 gap-2">
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white transition-colors duration-200 leading-tight">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-slate-900 dark:group-hover:text-white transition-colors duration-200 leading-tight">
               {title}
             </h3>
 
             {/* Lock Badge */}
             {isLocked ? (
               <span className="flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-600 shrink-0">
-                🔒 Locked
+                <Lock className="w-3.5 h-3.6" /> Locked
               </span>
             ) : requiresJd ? (
               <span className="flex items-center gap-1 text-xs font-bold text-amber-750 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 shrink-0">
@@ -104,7 +104,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
           </div>
 
           {/* Description */}
-          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-3 group-hover:text-slate-600 dark:group-hover:text-slate-350 transition-colors duration-200 leading-relaxed">
+          <p className="text-slate-550 dark:text-slate-400 text-xs sm:text-sm mb-4 line-clamp-3 group-hover:text-slate-600 dark:group-hover:text-slate-350 transition-colors duration-200 leading-relaxed">
             {description}
           </p>
         </div>
@@ -112,7 +112,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
         {/* Telemetry / Meta Info (Hidden for General & JD Intro cards) */}
         <div>
           {type !== 'GENERAL_INTRO' && type !== 'JOB_DESCRIPTION_INTRO' && (
-            <div className="grid grid-cols-2 gap-4 mb-6 border-t border-slate-100 dark:border-slate-700 pt-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <div className="grid grid-cols-2 gap-3 mb-4 border-t border-slate-100 dark:border-slate-700 pt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#4A6CF7]" />
                 <span>{timeLimit}</span>
@@ -136,7 +136,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
           )}
 
           {isLocked && (
-            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-[11px] font-semibold px-3 py-2 rounded-xl mb-3">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-[11px] font-semibold px-3 py-2 rounded-xl mb-2">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
               Complete General Intro & Targeted JD Intro to unlock.
             </div>
@@ -144,7 +144,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
 
           {/* JD missing warning */}
           {!isLocked && isJdMissing && (
-            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-3 py-2 rounded-lg mb-3">
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-semibold px-3 py-2 rounded-lg mb-2">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               Paste a Job Description in the sidebar to unlock this module.
             </div>
@@ -155,7 +155,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
             onClick={() => !isDisabled && onLaunch(type)}
             disabled={isDisabled}
             title={isLocked ? 'Complete both General and Targeted JD Intro to unlock' : isJdMissing ? 'Paste a Job Description first to unlock this module' : undefined}
-            className={`w-full relative flex items-center justify-center gap-2 rounded-xl font-semibold py-3 px-4 transition-all duration-200 active:scale-[0.98] ${isDisabled
+            className={`w-full relative flex items-center justify-center gap-2 rounded-xl font-semibold py-2.5 px-4 transition-all duration-200 active:scale-[0.98] ${isDisabled
               ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
               : 'bg-[#4A6CF7] hover:bg-[#4A6CF7]/90 text-white shadow-lg shadow-[#4A6CF7]/20 hover:shadow-[#4A6CF7]/30 cursor-pointer'
               }`}
