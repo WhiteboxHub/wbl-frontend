@@ -115,70 +115,46 @@ export default function DeviceCheckPage() {
       setIsSaving(true);
       setErrorMsg(null);
 
-      const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
-      let newId: number;
-
-      if (isMockMode) {
-        newId = Math.floor(Math.random() * 1000) + 200;
-        setAssessmentMode(videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
-      } else {
-        let candidateId = 7;
-        let hasRealCandidate = false;
-        try {
-          const userResponse = await apiFetch("user_dashboard");
-          if (userResponse?.candidate_id) {
-            candidateId = userResponse.candidate_id;
-            hasRealCandidate = true;
-          }
-        } catch (profileErr) {
-          console.error("Failed to retrieve candidateId, falling back to default.", profileErr);
+      let candidateId: number | undefined = undefined;
+      try {
+        const userResponse = await apiFetch("user_dashboard");
+        if (userResponse?.candidate_id) {
+          candidateId = userResponse.candidate_id;
         }
-
-        // Record consent if in video mode
-        if (effectiveMode === 'VIDEO_AUDIO') {
-          await aiprepApi.recordConsent({
-            candidate_id: hasRealCandidate ? candidateId : undefined,
-            consent_type: 'VIDEO_ANALYTICS',
-            consented: videoConsented,
-          });
-        }
-
-        // Get JD text from sessionStorage if needed
-        const jdText = sessionStorage.getItem('aiprep_jd_text') || null;
-
-        const assessment = await aiprepApi.createAssessment({
-          assessment_type: effectiveType!,
-          assessment_mode: videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
-          candidate_id: hasRealCandidate ? candidateId : undefined,
-          job_description_text: effectiveType === 'JOB_DESCRIPTION_INTRO' ? jdText : null,
-        });
-        newId = assessment.id;
-        setAssessmentMode(assessment.assessment_mode);
+      } catch (profileErr) {
+        console.error("Failed to retrieve candidateId:", profileErr);
       }
 
-      // Update state and replace URL in-place for session consistency
+      // Record consent if in video mode
+      if (effectiveMode === 'VIDEO_AUDIO') {
+        await aiprepApi.recordConsent({
+          candidate_id: candidateId,
+          consent_type: 'VIDEO_ANALYTICS',
+          consented: videoConsented,
+        });
+      }
+
+      // Get JD text from sessionStorage if needed
+      const jdText = sessionStorage.getItem('aiprep_jd_text') || null;
+
+      const assessment = await aiprepApi.createAssessment({
+        assessment_type: effectiveType!,
+        assessment_mode: videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+        candidate_id: candidateId,
+        job_description_text: effectiveType === 'JOB_DESCRIPTION_INTRO' ? jdText : null,
+      });
+      const newId = assessment.id;
+      setAssessmentMode(assessment.assessment_mode);
+
       setActiveAssessmentId(newId);
-      const searchParts = [];
-      searchParts.push(`assessmentId=${newId}`);
-      if (effectiveType) searchParts.push(`type=${effectiveType}`);
-      if (effectiveMode) searchParts.push(`mode=${effectiveMode}`);
-      if (isMockMode) searchParts.push('mock=true');
-      if (isEmbedded) searchParts.push('embed=true');
-      const searchStr = `?${searchParts.join('&')}`;
-      router.replace(`/aiprep/device-check${searchStr}`);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('aiprep_active_id', String(newId));
+      }
+      const cleanUrl = isEmbedded ? '/aiprep/device-check?embed=true' : '/aiprep/device-check';
+      router.replace(cleanUrl);
     } catch (err: any) {
-      console.warn('Backend session creation failed, falling back to mock mode:', err);
-      const mockId = Math.floor(Math.random() * 1000) + 200;
-      setAssessmentMode(videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
-      setActiveAssessmentId(mockId);
-      const searchParts = [];
-      searchParts.push(`assessmentId=${mockId}`);
-      if (effectiveType) searchParts.push(`type=${effectiveType}`);
-      if (effectiveMode) searchParts.push(`mode=${effectiveMode}`);
-      searchParts.push('mock=true');
-      if (isEmbedded) searchParts.push('embed=true');
-      const searchStr = `?${searchParts.join('&')}`;
-      router.replace(`/aiprep/device-check${searchStr}`);
+      console.error('Backend session creation failed:', err);
+      setErrorMsg(err.message || 'Failed to create assessment session. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -211,21 +187,6 @@ export default function DeviceCheckPage() {
       setIsSaving(true);
       setErrorMsg(null);
 
-      const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
-
-      if (isMockMode) {
-        setTimeout(() => {
-          const searchParts = [];
-          if (effectiveType) searchParts.push(`type=${effectiveType}`);
-          if (assessmentMode) searchParts.push(`mode=${assessmentMode}`);
-          searchParts.push('mock=true');
-          if (isEmbedded) searchParts.push('embed=true');
-          const searchStr = searchParts.length > 0 ? `?${searchParts.join('&')}` : '';
-          router.push(`/aiprep/session/${activeAssessmentId}${searchStr}`);
-        }, 800);
-        return;
-      }
-
       // 1. Save hardware verification results to backend
       const hwResponse = await aiprepApi.saveHardwareCheck({
         assessment_id: activeAssessmentId,
@@ -248,22 +209,12 @@ export default function DeviceCheckPage() {
         throw new Error('Failed to start assessment session. Please retry.');
       }
 
-      // 3. Successful verification -> Route directly to active practice room
-      const searchParts = [];
-      if (effectiveType) searchParts.push(`type=${effectiveType}`);
-      if (assessmentMode) searchParts.push(`mode=${assessmentMode}`);
-      if (isEmbedded) searchParts.push('embed=true');
-      const searchStr = searchParts.length > 0 ? `?${searchParts.join('&')}` : '';
-      router.push(`/aiprep/session/${activeAssessmentId}${searchStr}`);
+      // 3. Successful verification -> Route directly to active practice room via clean dynamic route path
+      const targetSessionUrl = isEmbedded ? `/aiprep/session/${activeAssessmentId}?embed=true` : `/aiprep/session/${activeAssessmentId}`;
+      router.push(targetSessionUrl);
     } catch (err: any) {
-      console.warn('[Device Check Save Error] Backend failed. Falling back to mock session room:', err);
-      const searchParts = [];
-      if (effectiveType) searchParts.push(`type=${effectiveType}`);
-      if (assessmentMode) searchParts.push(`mode=${assessmentMode}`);
-      searchParts.push('mock=true');
-      if (isEmbedded) searchParts.push('embed=true');
-      const searchStr = searchParts.length > 0 ? `?${searchParts.join('&')}` : '';
-      router.push(`/aiprep/session/${activeAssessmentId}${searchStr}`);
+      console.error('[Device Check Save Error] Backend failed:', err);
+      setErrorMsg(err.message || 'Failed to complete device verification. Please try again.');
     }
   };
 
@@ -353,7 +304,7 @@ export default function DeviceCheckPage() {
         onClose={handleCancel}
         onConfirm={handleConsentConfirm}
         isSubmitting={isSaving}
-        audioOnly={queryMode === 'AUDIO_ONLY'}
+        audioOnly={effectiveMode === 'AUDIO_ONLY'}
       />
     </div>
   );

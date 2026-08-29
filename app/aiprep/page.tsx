@@ -14,67 +14,21 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { aiprepApi, Assessment, AssessmentType, QuestionCategory } from '@/lib/aiprep-api';
+import { aiprepApi, Assessment, AssessmentType, QuestionCategory, buildAssessmentCardMetadata } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { AssessmentCard, AssessmentMetadata } from '@/components/aiprep/AssessmentCard';
 import { Video, Mic, History, Sparkles, BookOpen, AlertTriangle, FileText, X, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 
-const ASSESSMENT_CARDS_META: AssessmentMetadata[] = [
-  {
-    type: 'GENERAL_INTRO',
-    title: 'General & Job Description Intro',
-    description: 'Introductory dialogue covering your professional background or tailored dynamically to a target Job Description.',
-    timeLimit: '90s per question',
-    questionCount: '3-5 Questions',
-    pauseAllowed: false,
-    requiresJd: false,
-  },
-  {
-    type: 'RECRUITER',
-    title: 'Recruiter Phone Screen',
-    description: 'Simulates a standard recruiter phone screen covering experience overview, compensation expectations, notice period, and logs.',
-    timeLimit: '2m per question',
-    questionCount: '5-7 Questions',
-    pauseAllowed: true,
-    requiresJd: false,
-  },
-  {
-    type: 'HIRING_MANAGER',
-    title: 'Hiring Manager Conversation',
-    description: 'Deeper technical alignment screen exploring system design ownership, past projects, conflict resolution, and leadership dynamics.',
-    timeLimit: '3m per question',
-    questionCount: '6-8 Questions',
-    pauseAllowed: true,
-    requiresJd: false,
-  },
-  {
-    type: 'TECHNICAL',
-    title: 'Technical Theory & Coding',
-    description: 'Deep-dive into core AI Engineering topics: LLMs, transformers, RAG architecture, MLOps, vector DBs, and fine-tuning details.',
-    timeLimit: '4m per question',
-    questionCount: '6-10 Questions',
-    pauseAllowed: true,
-    requiresJd: false,
-  },
-  {
-    type: 'SYSTEM_DESIGN',
-    title: 'AI System Design',
-    description: 'Solve production AI scale challenges. Deconstruct business problems, design pipelines, choose models, and reason about trade-offs.',
-    timeLimit: '5m min response',
-    questionCount: '3-5 Scenarios',
-    pauseAllowed: true,
-    requiresJd: false,
-  },
-  {
-    type: 'HR',
-    title: 'HR & Behavioral Screen',
-    description: 'Classic situational and cultural fit loops using the STAR format (Situation, Task, Action, Result) to evaluate work dynamics.',
-    timeLimit: '3m per question',
-    questionCount: '5-7 Questions',
-    pauseAllowed: true,
-    requiresJd: false,
-  },
+const ASSESSMENT_CARD_TYPES: AssessmentType[] = [
+  'GENERAL_INTRO',
+  'RECRUITER',
+  'HIRING_MANAGER',
+  'TECHNICAL',
+  'SYSTEM_DESIGN',
+  'HR',
 ];
+
+const ASSESSMENT_CARDS_META: AssessmentMetadata[] = ASSESSMENT_CARD_TYPES.map((t) => buildAssessmentCardMetadata(t));
 
 const mapAssessmentTypeToCategory = (type: AssessmentType): QuestionCategory => {
   switch (type) {
@@ -151,12 +105,16 @@ export default function AIPrepDashboard() {
       try {
         setIsLoadingHistory(true);
         const userResponse = await apiFetch("user_dashboard");
-        const candidateId = userResponse?.candidate_id || 7;
+        const candidateId = userResponse?.candidate_id;
         setIsAuthenticated(true);
 
-        const listData = await aiprepApi.listAssessments(candidateId, 50);
-        if (listData?.items && listData.items.length > 0) {
-          setHistory(listData.items);
+        if (candidateId) {
+          const listData = await aiprepApi.listAssessments(candidateId, 50);
+          if (listData?.items && listData.items.length > 0) {
+            setHistory(listData.items);
+          } else {
+            setHistory([]);
+          }
         } else {
           setHistory([]);
         }
@@ -207,11 +165,7 @@ export default function AIPrepDashboard() {
       }
     }
 
-    const isMock = typeof window !== 'undefined' && window.location.search.includes('mock=true');
-    const mockQuery = isMock ? '&mock=true' : '';
-    const embedQuery = isEmbedded ? '&embed=true' : '';
-
-    const targetUrl = `/aiprep/device-check?type=${targetType}&mode=${mode}${mockQuery}${embedQuery}`;
+    const targetUrl = isEmbedded ? '/aiprep/device-check?embed=true' : '/aiprep/device-check';
 
     router.push(targetUrl);
     setPendingType(null);

@@ -104,8 +104,8 @@ export const ChunkedUploader: React.FC<ChunkedUploaderProps> = memo(({
           {hasErrors
             ? 'Upload issue'
             : totalUploaded === totalChunks
-            ? 'All media secured'
-            : `Saving answer: ${percentComplete}%`}
+              ? 'All media secured'
+              : `Saving answer: ${percentComplete}%`}
         </span>
       </div>
     );
@@ -133,13 +133,12 @@ export const ChunkedUploader: React.FC<ChunkedUploaderProps> = memo(({
           aria-valuenow={percentComplete}
           aria-valuemin={0}
           aria-valuemax={100}
-          className={`h-full transition-all duration-300 ease-out rounded-full ${
-            hasErrors
+          className={`h-full transition-all duration-300 ease-out rounded-full ${hasErrors
               ? 'bg-rose-500'
               : percentComplete === 100
-              ? 'bg-emerald-500'
-              : 'bg-primary'
-          }`}
+                ? 'bg-emerald-500'
+                : 'bg-primary'
+            }`}
           style={{ width: `${percentComplete}%` }}
         />
       </div>

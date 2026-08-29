@@ -154,6 +154,14 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = memo(({
     async function loadYoloPose() {
       try {
         if (typeof window === 'undefined') return;
+
+        // Pre-flight check: Verify if local ONNX model file is available on server
+        const checkRes = await fetch(YOLO_POSE_MODEL_URL, { method: 'HEAD' }).catch(() => null);
+        if (!checkRes || !checkRes.ok || checkRes.headers.get('content-type')?.includes('text/html')) {
+          console.log('[YOLOv8 Pose] Local model file not found. Using MediaPipe high-precision posture analyzer.');
+          return;
+        }
+
         // Dynamically load ONNX Runtime Web from CDN if not bundled
         if (!(window as any).ort) {
           const script = document.createElement('script');
@@ -181,7 +189,7 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = memo(({
         }
       } catch (err) {
         // Fallback: Posture heuristics will execute smoothly if ONNX model file is not present locally
-        console.log('[YOLOv8 Pose] Using high-precision posture analyzer fallback.');
+        console.log('[YOLOv8 Pose] Using MediaPipe high-precision posture analyzer.');
       }
     }
 
@@ -313,9 +321,9 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = memo(({
             let currentSittingPosition = 'CENTERED';
 
             if (hasMultiple) {
-              currentSittingPosition = 'MULTIPLE_FACES';
+              currentSittingPosition = 'MULTIPLE_PERSONS_DETECTED';
               currentStability = 0;
-              currentMessage = '⚠️ Multiple Faces Detected! Only candidate allowed.';
+              currentMessage = '⚠️ MULTIPLE PERSONS DETECTED! Only candidate allowed in frame.';
               setPostureLabel('MULTIPLE_FACES');
             } else if (centerY > 0.70) {
               currentSittingPosition = 'SLOUCHING';
@@ -348,14 +356,14 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = memo(({
               currentMessage = 'Looking up - Please look straight';
               setPostureLabel('UPRIGHT');
             } else if (isLookingDown) {
-              currentSittingPosition = 'LOOKING_DOWN';
-              currentStability = 70;
-              currentMessage = 'Looking down - Please look straight';
+              currentSittingPosition = 'PHONE_OR_DOWNWARD_GAZE';
+              currentStability = 40;
+              currentMessage = '⚠️ Phone / Downward Gaze Detected! Please look straight at screen';
               setPostureLabel('UPRIGHT');
             } else if (isLookingAway) {
-              currentSittingPosition = 'LOOKING_AWAY';
-              currentStability = 65;
-              currentMessage = 'Please look straight at screen';
+              currentSittingPosition = 'LOOKING_AWAY_OR_DEVICE';
+              currentStability = 45;
+              currentMessage = '⚠️ External Device / Side Gaze Detected! Please focus on screen';
               setPostureLabel('UPRIGHT');
             } else {
               setPostureLabel('UPRIGHT');
@@ -452,8 +460,7 @@ export const YOLOAnalyzer: React.FC<YOLOAnalyzerProps> = memo(({
       if (totalFrames.current === 0) return;
       const visiblePct = Math.round((faceVisibleFrames.current / totalFrames.current) * 100);
 
-      const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
-      if (isMockMode) return;
+      if (!assessmentId) return;
 
       await aiprepApi.saveVisionTelemetry({
         assessment_id: assessmentId,

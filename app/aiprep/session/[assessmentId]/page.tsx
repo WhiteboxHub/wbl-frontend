@@ -252,7 +252,7 @@ export default function AssessmentSessionPage() {
   }, []);
 
   // Stage Phase: 'AI_INTRO' (Screen with AI Interviewer speaking) -> 'PRACTICE_ROOM' (Camera stage & timer)
-  const [stagePhase, setStagePhase] = useState<'AI_INTRO' | 'PRACTICE_ROOM'>('AI_INTRO');
+  const [stagePhase, setStagePhase] = useState<'AI_INTRO' | 'PRACTICE_ROOM'>('PRACTICE_ROOM');
   const [aiIntroTimer, setAiIntroTimer] = useState<number>(4);
 
   // Web Speech Synthesis (AI Voice) State & Helpers
@@ -269,16 +269,44 @@ export default function AssessmentSessionPage() {
     setIsAiSpeaking(false);
   };
 
-  const getIntroPromptText = (type?: AssessmentType) => {
-    const t = type || assessment?.assessment_type;
-    if (t === 'JOB_DESCRIPTION_INTRO') {
-      return "Hello, and welcome to your Targeted Job Description Practice. Whenever you're ready, please introduce yourself in relation to this position and explain why your experience aligns with the target role.";
+
+
+  // Voice caching ref to lock 1 single consistent voice across all questions and page refreshes
+  const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+
+  const getBestConsistentVoice = (): SpeechSynthesisVoice | null => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+    if (selectedVoiceRef.current) return selectedVoiceRef.current;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const voice =
+      voices.find((v) => v.name.includes('Google US English')) ||
+      voices.find((v) => v.name.includes('Google') && v.lang === 'en-US') ||
+      voices.find((v) => v.name.includes('Natural') && v.lang.startsWith('en')) ||
+      voices.find((v) => v.name.includes('Samantha') && v.lang.startsWith('en')) ||
+      voices.find((v) => v.name.includes('Zira') && v.lang.startsWith('en')) ||
+      voices.find((v) => v.lang === 'en-US') ||
+      voices.find((v) => v.lang.startsWith('en')) ||
+      voices[0] || null;
+
+    if (voice) {
+      selectedVoiceRef.current = voice;
     }
-    if (t === 'GENERAL_INTRO') {
-      return "Hello, and welcome to your Introduction Practice. Whenever you're ready, please introduce yourself — sharing your educational background, core technical skills, key projects, and professional goals.";
-    }
-    return `Hello, and welcome to your ${t ? t.replace(/_/g, ' ') : 'interview'} session. Get ready as we begin your interview practice loop.`;
+    return voice;
   };
+
+  // Pre-load voices on mount to avoid async voice switching delays
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const load = () => {
+        getBestConsistentVoice();
+      };
+      load();
+      window.speechSynthesis.onvoiceschanged = load;
+    }
+  }, []);
 
   const speakAiText = (text: string, onComplete?: () => void) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeechMuted) {
@@ -293,13 +321,9 @@ export default function AssessmentSessionPage() {
       const utterance = new SpeechSynthesisUtterance(cleanText);
       speechUtteranceRef.current = utterance;
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(
-        (v) => (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Zira') || v.name.includes('Daniel')) && v.lang.startsWith('en')
-      ) || voices.find((v) => v.lang.startsWith('en')) || null;
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+      const chosenVoice = getBestConsistentVoice();
+      if (chosenVoice) {
+        utterance.voice = chosenVoice;
       }
 
       utterance.rate = 0.95;
@@ -329,7 +353,9 @@ export default function AssessmentSessionPage() {
       setIsSpeechMuted(true);
     } else {
       setIsSpeechMuted(false);
-      speakAiText(getIntroPromptText());
+      if (currentQuestion?.question_text) {
+        speakAiText(currentQuestion.question_text);
+      }
     }
   };
 
@@ -346,16 +372,18 @@ export default function AssessmentSessionPage() {
 
   useEffect(() => {
     if (stagePhase === 'AI_INTRO' && !isLoading && assessment) {
-      const promptText = getIntroPromptText(assessment.assessment_type);
+      const promptText = currentQuestion?.question_text;
 
-      // Auto-trigger full AI voice reading on mount
-      speakAiText(promptText, () => {
-        // Once speech finishes completely, give 1.5s pause then transition smoothly
-        setTimeout(() => {
-          stopAiSpeech();
-          setStagePhase('PRACTICE_ROOM');
-        }, 1500);
-      });
+      // Auto-trigger full AI voice reading on mount if question text exists
+      if (promptText) {
+        speakAiText(promptText, () => {
+          // Once speech finishes completely, give 1.5s pause then transition smoothly
+          setTimeout(() => {
+            stopAiSpeech();
+            setStagePhase('PRACTICE_ROOM');
+          }, 1500);
+        });
+      }
 
       // Synchronized countdown timer for visual feedback
       const timer = setInterval(() => {
@@ -393,7 +421,7 @@ export default function AssessmentSessionPage() {
   useEffect(() => {
     if (stream && isIntroType && stagePhase === 'PRACTICE_ROOM' && !hasRunCountdownRef.current && isInactive) {
       hasRunCountdownRef.current = true;
-      setCountdownValue(3);
+      setCountdownValue(5);
 
       const interval = setInterval(() => {
         setCountdownValue((prev) => {
@@ -423,34 +451,54 @@ export default function AssessmentSessionPage() {
         // 1. Fetch Assessment record from Backend API
         const data = await aiprepApi.getAssessment(assessmentId);
         const effectiveType = data.assessment_type || resolvedType;
+        const isIntro = effectiveType === 'GENERAL_INTRO' || effectiveType === 'JOB_DESCRIPTION_INTRO';
 
-        // 2. Fetch Questions strictly from Backend Question Bank API for category
-        const category = mapAssessmentTypeToCategory(effectiveType);
-        try {
-          const qBank = await aiprepApi.getQuestions(category);
-          if (qBank && qBank.length > 0) {
-            // Strictly filter qBank to ensure only questions matching the specific room category are assigned
-            const categoryQuestions = qBank.filter((q: any) => !q.category || q.category === category);
-            data.questions = categoryQuestions.map((q, idx) => ({
-              id: q.id,
-              order_index: idx + 1,
-              question_text: q.question_text,
-              difficulty_level: q.difficulty_level,
-            }));
-          } else {
-            // If backend has no questions for this category, leave as empty array
-            data.questions = [];
+        // 1. Check if questions are already cached in sessionStorage for this session
+        const cachedQuestionsStr = sessionStorage.getItem(`aiprep_session_questions_${assessmentId}`);
+        if (cachedQuestionsStr) {
+          try {
+            data.questions = JSON.parse(cachedQuestionsStr);
+          } catch (e) { }
+        }
+
+        // 2. Load questions from DB if not populated on assessment record or cached
+        if (!data.questions || data.questions.length === 0) {
+          const category = mapAssessmentTypeToCategory(effectiveType);
+          try {
+            const qBank = await aiprepApi.getQuestions(category);
+            if (qBank && qBank.length > 0) {
+              data.questions = qBank.map((q, idx) => ({
+                id: q.id,
+                order_index: idx + 1,
+                question_text: q.question_text,
+                difficulty_level: q.difficulty_level || 'EASY',
+              }));
+            }
+          } catch (qErr) {
+            console.warn('Backend question bank query error:', qErr);
           }
-        } catch (qErr) {
-          console.warn('Backend question bank query error:', qErr);
-          data.questions = [];
+        }
+
+        // Ensure deterministic order by order_index
+        if (data.questions && data.questions.length > 0) {
+          data.questions.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        }
+
+        // Limit intro rooms to 1 single DB question
+        if (isIntro && data.questions && data.questions.length > 0) {
+          data.questions = [data.questions[0]];
+        }
+
+        // Cache questions in sessionStorage to lock exact question order on page refresh
+        if (data.questions && data.questions.length > 0) {
+          sessionStorage.setItem(`aiprep_session_questions_${assessmentId}`, JSON.stringify(data.questions));
         }
 
         setAssessment(data);
         const initialTime = getTimeLimit(effectiveType);
         setTimeLeft(initialTime);
 
-        // Recover state if available
+        // Recover state if available (locks exact currentQuestionIndex and timer)
         const savedStateStr = sessionStorage.getItem(`aiprep_session_state_${assessmentId}`);
         if (savedStateStr) {
           try {
@@ -475,7 +523,7 @@ export default function AssessmentSessionPage() {
         setTimeout(() => initMediaFeed(data.assessment_mode || resolvedMode), 100);
       } catch (err: any) {
         console.warn('Backend assessment fetch error, querying backend questions API directly:', err);
-        let candidateId = 7;
+        let candidateId: number | undefined = undefined;
         try {
           const userResponse = await apiFetch("user_dashboard");
           if (userResponse?.candidate_id) {
@@ -501,7 +549,7 @@ export default function AssessmentSessionPage() {
           }
         } catch (e) { }
 
-        const mockAssessment: Assessment = {
+        const fallbackAssessment: Assessment = {
           id: assessmentId,
           candidate_id: candidateId,
           assessment_type: resolvedType,
@@ -511,7 +559,7 @@ export default function AssessmentSessionPage() {
           created_at: new Date().toISOString(),
           questions: loadedQuestions
         };
-        setAssessment(mockAssessment);
+        setAssessment(fallbackAssessment);
         setTimeLeft(getTimeLimit(resolvedType));
 
         // Recover state if available
@@ -607,9 +655,6 @@ export default function AssessmentSessionPage() {
 
           recognition.onerror = (e: any) => {
             console.warn('[Speech Recognition Error]:', e.error);
-            if (e.error === 'network' || e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-              startFallbackTranscriber();
-            }
           };
 
           recognition.onend = () => {
@@ -624,46 +669,15 @@ export default function AssessmentSessionPage() {
 
           recognition.start();
         } catch (err) {
-          console.warn('Speech recognition start failed, activating fallback transcriber:', err);
-          startFallbackTranscriber();
+          console.warn('[Speech Recognition Start Error]:', err);
         }
-      } else {
-        startFallbackTranscriber();
       }
     } else {
       stopSpeechRecognition();
-      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
-    }
-
-    function startFallbackTranscriber() {
-      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
-
-      const phrases = [
-        "Hello, thank you for this opportunity.",
-        "In my experience, I have led multiple full-stack projects using React, TypeScript, and modern cloud architecture.",
-        "I focus on writing clean, scalable, and maintainable code with robust automated testing.",
-        "Collaborating closely with cross-functional teams, I drive product features from conception to production deployment."
-      ];
-      let phraseIdx = 0;
-
-      fallbackTimerRef.current = setInterval(() => {
-        if (isRecording && !isPaused && !isAudioMuted) {
-          setLiveTranscript((prev) => {
-            const nextPhrase = phrases[phraseIdx % phrases.length];
-            phraseIdx++;
-            return prev ? `${prev} ${nextPhrase}` : nextPhrase;
-          });
-
-          if (transcriptScrollRef.current) {
-            transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
-          }
-        }
-      }, 4000);
     }
 
     return () => {
       stopSpeechRecognition();
-      if (fallbackTimerRef.current) clearInterval(fallbackTimerRef.current);
     };
   }, [isRecording, isPaused, isAudioMuted, currentQuestionIndex]);
 
@@ -848,34 +862,28 @@ export default function AssessmentSessionPage() {
     setIsEnding(true);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(`aiprep_session_state_${assessment.id}`);
+      sessionStorage.removeItem(`aiprep_session_questions_${assessment.id}`);
     }
 
     try {
-      const isMockMode = typeof window !== 'undefined' && (window.location.search.includes('mock=true') || (!localStorage.getItem('token') && !localStorage.getItem('access_token')));
-
-      if (isMockMode) {
-        setTimeout(() => {
-          const embedQuery = isEmbedded ? '&embed=true' : '';
-          router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
-        }, 1200);
-        return;
-      }
-
       const finalCount = await stopRecording();
-      await waitForAllUploads();
-      const totalSlices = Math.max(1, finalCount || 0);
-      await aiprepApi.assembleMedia(assessment.id, totalSlices);
-      await aiprepApi.updateAssessmentStatus(assessment.id, 'COMPLETED');
+      stopCameraFeed();
+      stopSpeechRecognition();
+
+      const totalSlices = Math.max(1, finalCount || 1);
+
+      // Fast non-blocking submission: trigger assembly & status update in parallel background tasks
+      aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
+      aiprepApi.updateAssessmentStatus(assessment.id, 'COMPLETED').catch(e => console.warn('Async status update:', e));
+
+      const embedQuery = isEmbedded ? '?embed=true' : '';
+      router.push(`/aiprep${embedQuery}`);
+    } catch (err: any) {
+      console.error('Error ending assessment session:', err);
       stopCameraFeed();
       stopSpeechRecognition();
       const embedQuery = isEmbedded ? '?embed=true' : '';
-      router.push(`/aiprep/session/${assessment.id}/processing${embedQuery}`);
-    } catch (err: any) {
-      console.warn('Error ending assessment session on backend. Falling back to mock processing:', err);
-      stopCameraFeed();
-      stopSpeechRecognition();
-      const embedQuery = isEmbedded ? '&embed=true' : '';
-      router.push(`/aiprep/session/${assessment.id}/processing?mock=true${embedQuery}`);
+      router.push(`/aiprep${embedQuery}`);
     } finally {
       setIsEnding(false);
     }
@@ -1000,13 +1008,7 @@ export default function AssessmentSessionPage() {
             </div>
 
             <p className="text-sm sm:text-base font-medium text-slate-800 dark:text-slate-100 leading-relaxed text-center">
-              {assessment.assessment_type === 'JOB_DESCRIPTION_INTRO' ? (
-                `"Hello, and welcome to your Targeted Job Description Practice. Whenever you're ready, please introduce yourself in relation to this position and explain why your experience aligns with the target role."`
-              ) : assessment.assessment_type === 'GENERAL_INTRO' ? (
-                `"Hello, and welcome to your Introduction Practice. Whenever you're ready, please introduce yourself — sharing your educational background, core technical skills, key projects, and professional goals."`
-              ) : (
-                `"Hello, and welcome to your ${assessment.assessment_type.replace(/_/g, ' ')} session. Get ready as we begin your interview practice loop."`
-              )}
+              "{currentQuestion?.question_text || 'Please get ready as we begin your interview practice loop.'}"
             </p>
 
             {assessment.assessment_type === 'JOB_DESCRIPTION_INTRO' && jdTextFromSession && (
@@ -1019,8 +1021,9 @@ export default function AssessmentSessionPage() {
 
           {/* Subtext & Skip Button */}
           <div className="flex flex-col items-center gap-3">
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              ✨ Practice room & session timer will activate in <span className="text-[#4A6CF7] font-extrabold">{aiIntroTimer}s</span>...
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center justify-center gap-1">
+              <IconSparkles size={14} className="text-[#4A6CF7] animate-pulse shrink-0" />
+              <span>Practice room & session timer will activate in <span className="text-[#4A6CF7] font-extrabold">{aiIntroTimer}s</span>...</span>
             </p>
 
             <button
@@ -1068,54 +1071,68 @@ export default function AssessmentSessionPage() {
             </h1>
           </div>
 
-          {/* Right: Cloud Sync Uploader */}
+          {/* Right: Timer & Cloud Sync Uploader */}
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-xs font-semibold">
+              <IconClock size={15} className="text-[#4A6CF7]" />
+              <span className="text-[10px] uppercase font-bold text-slate-400">Time:</span>
+              <span className="font-mono text-xs font-extrabold text-slate-900 dark:text-white">{formatTime(timeLeft)}</span>
+            </div>
             <ChunkedUploader uploadState={uploadState} onRetryFailed={retryFailedChunks} compact={true} isRecording={isRecording} />
           </div>
         </header>
 
-        {/* 2. MAIN WORKSPACE SPLIT (Left 73% Broad Video Stage | Right 27% Unified Studio Assistant) */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-3.5 items-stretch justify-between min-h-0">
+        {/* 2. MAIN WORKSPACE STAGE (100% Full-Width Immersive Stage) */}
+        <div className="flex-1 flex flex-col items-stretch justify-between min-h-0">
 
-          {/* LEFT COLUMN (73% Width): Question Display + Camera Stage + Controls */}
-          <div className="w-full lg:w-[73%] xl:w-[74%] flex flex-col justify-between gap-2.5 min-h-0">
+          {/* MAIN VIDEO COLUMN (100% Width): Question Display + Camera Stage + Controls */}
+          <div className="w-full flex flex-col justify-between gap-2.5 min-h-0 flex-1">
 
-            {/* TOP QUESTION BANNER (White Card with Dark Mode support) */}
-            {!isIntroType && (
-              currentQuestion ? (
-                <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all shrink-0 animate-fade-in">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#4A6CF7]">
-                      <IconSparkles size={16} className="text-[#4A6CF7] animate-pulse" />
-                      <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {/* Speaker / Replay Question Voice Button */}
-                      <button
-                        onClick={() => speakAiText(currentQuestion.question_text)}
-                        title={isAiSpeaking ? 'Mute AI Voice' : 'Replay Question AI Voice'}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#4A6CF7]/10 hover:bg-[#4A6CF7]/20 text-[#4A6CF7] transition-all text-xs font-semibold"
-                      >
-                        {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
-                        <span className="text-[11px]">AI Voice</span>
-                      </button>
-
-                      {currentQuestion.difficulty_level && (
-                        <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20 border border-[#4A6CF7]/30 dark:border-[#4A6CF7]/40 text-[#4A6CF7] dark:text-blue-300 uppercase">
-                          {currentQuestion.difficulty_level}
-                        </span>
-                      )}
-                    </div>
+            {/* TOP QUESTION BANNER */}
+            {currentQuestion ? (
+              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all shrink-0 animate-fade-in">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#4A6CF7]">
+                    <IconSparkles size={16} className="text-[#4A6CF7] animate-pulse" />
+                    <span>
+                      {isIntroType ? 'Introduction Prompt' : `Question ${currentQuestionIndex + 1} of ${questions.length}`}
+                    </span>
                   </div>
-                  <p className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-snug">
-                    {currentQuestion.question_text}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => speakAiText(currentQuestion.question_text)}
+                      title={isAiSpeaking ? 'Mute AI Voice' : 'Replay Question AI Voice'}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#4A6CF7]/10 hover:bg-[#4A6CF7]/20 text-[#4A6CF7] transition-all text-xs font-semibold"
+                    >
+                      {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
+                      <span className="text-[11px]">AI Voice</span>
+                    </button>
+
+                    {currentQuestion.difficulty_level && (
+                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${
+                        currentQuestion.difficulty_level === 'EASY'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                          : currentQuestion.difficulty_level === 'MEDIUM'
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                          : currentQuestion.difficulty_level === 'HARD'
+                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
+                          : currentQuestion.difficulty_level === 'EXPERT'
+                          ? 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400'
+                          : 'bg-[#4A6CF7]/10 border-[#4A6CF7]/30 text-[#4A6CF7] dark:text-blue-300'
+                      }`}>
+                        {currentQuestion.difficulty_level}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <div className="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/90 text-slate-500 dark:text-slate-400 rounded-2xl p-3.5 text-center text-xs font-semibold shadow-md shrink-0 animate-fade-in">
-                  No questions found.
-                </div>
-              )
+                <p className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-snug">
+                  {currentQuestion.question_text}
+                </p>
+              </div>
+            ) : (
+              <div className="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/90 text-slate-500 dark:text-slate-400 rounded-2xl p-3.5 text-center text-xs font-semibold shadow-md shrink-0 animate-fade-in">
+                No questions found.
+              </div>
             )}
 
             {/* Slightly Reduced Camera Stage (to fit seamlessly below top question card) */}
@@ -1268,15 +1285,25 @@ export default function AssessmentSessionPage() {
                   </button>
                 ) : null}
 
-                {/* 3.5. Next Question / Complete Session Button (Only shown while recording or paused, NOT before start) */}
-                {!isIntroType && !isInactive && (
+                {/* 3.5. Next Question OR Complete Session Button */}
+                {!isInactive && (
                   <button
                     type="button"
-                    onClick={handleNextQuestion}
-                    className="h-11 px-5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-1.5 bg-[#4A6CF7] hover:bg-[#4A6CF7]/90 text-white shadow-lg shadow-[#4A6CF7]/25 transition-all duration-200 hover:scale-105 active:scale-95"
+                    onClick={currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? handleNextQuestion : handleEndSession}
+                    disabled={isEnding}
+                    className="h-11 px-6 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white shadow-lg shadow-[#4A6CF7]/25 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
                   >
-                    <span>{currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? 'Next Question' : 'Complete Session'}</span>
-                    <IconChevronRight size={18} stroke={2.2} />
+                    {isEnding ? (
+                      <>
+                        <IconLoader2 size={18} className="animate-spin" />
+                        <span>Assembling…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? 'Next Question' : 'Complete Session'}</span>
+                        <IconChevronRight size={18} stroke={2.5} />
+                      </>
+                    )}
                   </button>
                 )}
 
@@ -1309,100 +1336,6 @@ export default function AssessmentSessionPage() {
                 )}
               </div>
             )}
-          </div>
-
-          {/* RIGHT COLUMN (26% Width): UNIFIED STUDIO INTELLIGENCE PANEL */}
-          <div className="w-full lg:w-[27%] xl:w-[26%] flex flex-col justify-between h-full min-h-0 bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-4 shadow-xl shadow-indigo-500/5">
-
-            {/* 1. Panel Header: Integrated Timer & Transcribe Status */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800/60 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/15 flex items-center justify-center text-indigo-500">
-                  <IconClock size={18} stroke={2.2} />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">Time Left</span>
-                  <span className="font-mono text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                    {formatTime(timeLeft)}
-                  </span>
-                </div>
-              </div>
-
-              {isRecording && !isPaused && !isAudioMuted ? (
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span>Transcribing</span>
-                </div>
-              ) : (
-                <div className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {isInactive ? 'Standby' : isPaused ? 'Paused' : isAudioMuted ? 'Muted' : 'Idle'}
-                </div>
-              )}
-            </div>
-
-            {/* 2. Direct Smooth Streaming Transcription Stream */}
-            <div
-              ref={transcriptScrollRef}
-              className="flex-1 min-h-[160px] my-3 overflow-y-auto scroll-smooth pr-1 flex flex-col justify-start"
-            >
-              {liveTranscript ? (
-                <div className="space-y-2 animate-fade-in p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-inner">
-                  <div className="flex items-center justify-between gap-2 text-[11px] font-extrabold text-[#4A6CF7]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                      <span>Live Speech Transcript</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Auto-Captions</span>
-                  </div>
-                  <p className="text-xs sm:text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100 select-text whitespace-pre-wrap">
-                    {liveTranscript}
-                  </p>
-                </div>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center gap-2 text-slate-400 py-6">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/15 flex items-center justify-center text-indigo-500/80">
-                    <IconMessage2 size={22} stroke={1.8} className="animate-pulse" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isIntroType ? 'Ready for Intro Recording' : isInactive ? 'Ready to Start' : 'Listening for Answer...'}
-                    </p>
-                    <p className="text-[11px] text-slate-400 max-w-[190px] leading-snug">
-                      {isIntroType ? 'Recording auto-starts after countdown.' : isInactive ? 'Click "Start" when you are ready.' : 'Speak into your microphone to view live transcript.'}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 3. Panel Bottom: Word Counter & Next Action */}
-            <div className="space-y-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800/60 shrink-0">
-              <div className="flex items-center justify-between text-[11px] font-medium text-slate-400">
-                <span className="text-slate-700 dark:text-slate-300 font-semibold">{wordCount} words spoken</span>
-                <span>Auto Sync: 30s</span>
-              </div>
-
-              {!isIntroType && currentQuestionIndex + 1 < totalQuestions ? (
-                <button
-                  type="button"
-                  onClick={handleNextQuestion}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/25 hover:shadow-xl hover:scale-[1.01] active:scale-98 transition-all duration-200"
-                >
-                  <span>Next Question</span>
-                  <IconChevronRight size={18} stroke={2.5} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleEndSession}
-                  disabled={isEnding}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 disabled:opacity-50 text-white font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/25 hover:shadow-lg hover:scale-[1.01] active:scale-98 transition-all duration-200"
-                >
-                  {isEnding ? <IconLoader2 size={18} className="animate-spin" /> : <IconCircleCheck size={18} stroke={2.5} />}
-                  <span>{isEnding ? 'Assembling…' : 'Submit Assessment'}</span>
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </div>

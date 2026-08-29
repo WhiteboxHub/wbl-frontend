@@ -95,13 +95,18 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
     onClose();
   };
 
-  const canProceed = (audioOnly ? micConsent : (cameraConsent || micConsent)) && termsAccepted;
+  const isVideoMode = !audioOnly;
+  const isCameraMissing = isVideoMode && !cameraConsent;
+  const isMicMissing = !micConsent;
+  const isTermsMissing = !termsAccepted;
+
+  const canProceed = !isTermsMissing && !isMicMissing && (!isVideoMode || cameraConsent);
 
   const ctaLabel = () => {
     if (isSubmitting) return 'Starting…';
-    if (!termsAccepted) return 'Accept Terms first';
-    if (audioOnly && !micConsent) return 'Select microphone';
-    if (!audioOnly && !cameraConsent && !micConsent) return 'Select a device';
+    if (isTermsMissing) return 'Accept Terms first';
+    if (isCameraMissing) return 'Consent to Camera required';
+    if (isMicMissing) return 'Consent to Microphone required';
     return 'Start device check';
   };
 
@@ -220,8 +225,9 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Video className={`w-3.5 h-3.5 shrink-0 ${cameraConsent ? 'text-[#4A6CF7]' : 'text-slate-400'}`} />
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Consent to Camera</span>
+                          <span className="text-[8px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Required</span>
                         </div>
-                        <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Required for video mode (analyzes face stability).</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Required for Video + Audio mode (analyzes webcam feed).</p>
                       </div>
                     </label>
                   </div>
@@ -296,15 +302,15 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
             </div>
 
             {/* Action Warnings */}
-            {(!termsAccepted || (audioOnly ? !micConsent : (!cameraConsent && !micConsent))) && (
+            {(!termsAccepted || (audioOnly ? !micConsent : (!cameraConsent || !micConsent))) && (
               <div className="mt-4 p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-bold">Required Actions Missing:</p>
+                  <p className="font-bold">Required Consents Missing:</p>
                   <ul className="list-disc pl-4 mt-1 space-y-0.5 font-medium">
                     {!termsAccepted && <li>Accept the Terms &amp; Policies</li>}
-                    {audioOnly && !micConsent && <li>Provide consent for Microphone usage</li>}
-                    {!audioOnly && !cameraConsent && !micConsent && <li>Provide consent for Camera or Microphone usage</li>}
+                    {!audioOnly && !cameraConsent && <li>Provide consent for Camera usage</li>}
+                    {!micConsent && <li>Provide consent for Microphone usage</li>}
                   </ul>
                 </div>
               </div>
