@@ -70,11 +70,7 @@ export default function ProcessingPage() {
   } = useProcessingStatus({
     assessmentId: isNaN(assessmentId) || !assessmentId ? null : assessmentId,
     onCompleted: () => {
-      setTimeout(() => {
-        const isMock = typeof window !== 'undefined' && window.location.search.includes('mock=true');
-        const queryStr = `${isMock ? '?mock=true' : ''}${isEmbedded ? (isMock ? '&embed=true' : '?embed=true') : ''}`;
-        router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
-      }, 1200);
+      router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
     },
   });
 
@@ -218,8 +214,6 @@ export default function ProcessingPage() {
             <button
               type="button"
               onClick={() => {
-                const isMock = typeof window !== 'undefined' && window.location.search.includes('mock=true');
-                const queryStr = `${isMock ? '?mock=true' : ''}${isEmbedded ? (isMock ? '&embed=true' : '?embed=true') : ''}`;
                 router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
               }}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primarylight text-white font-semibold rounded-xl shadow-lg transition-all transform active:scale-95 text-sm"

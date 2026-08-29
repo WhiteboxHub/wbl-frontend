@@ -472,3 +472,63 @@ export const aiprepApi = {
     return () => eventSource.close();
   }
 };
+
+export interface AssessmentCardMeta {
+  type: AssessmentType;
+  title: string;
+  description: string;
+  timeLimit: string;
+  questionCount: string;
+  pauseAllowed: boolean;
+  requiresJd: boolean;
+}
+
+export function buildAssessmentCardMetadata(
+  type: AssessmentType,
+  dbQuestionCount?: number
+): AssessmentCardMeta {
+  const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
+  const requiresJd = type === 'JOB_DESCRIPTION_INTRO';
+
+  const titleMap: Record<AssessmentType, string> = {
+    GENERAL_INTRO: 'General & Job Description Intro',
+    JOB_DESCRIPTION_INTRO: 'General & Job Description Intro',
+    RECRUITER: 'Recruiter Phone Screen',
+    HIRING_MANAGER: 'Hiring Manager Conversation',
+    TECHNICAL: 'Technical Theory & Coding',
+    SYSTEM_DESIGN: 'AI System Design',
+    HR: 'HR & Behavioral Screen',
+  };
+
+  const descMap: Record<AssessmentType, string> = {
+    GENERAL_INTRO: 'Introductory dialogue covering your professional background or tailored dynamically to a target Job Description.',
+    JOB_DESCRIPTION_INTRO: 'Introductory dialogue tailored dynamically to a target Job Description.',
+    RECRUITER: 'Simulates a standard recruiter phone screen covering experience overview, compensation expectations, and notice period.',
+    HIRING_MANAGER: 'Deeper technical alignment screen exploring system design ownership, past projects, and leadership dynamics.',
+    TECHNICAL: 'Deep-dive into core AI Engineering topics: LLMs, transformers, RAG architecture, MLOps, and vector DBs.',
+    SYSTEM_DESIGN: 'Solve production AI scale challenges. Deconstruct business problems, design pipelines, and choose models.',
+    HR: 'Classic situational and cultural fit loops using the STAR format to evaluate work dynamics.',
+  };
+
+  const timeMap: Record<AssessmentType, string> = {
+    GENERAL_INTRO: '90s per question',
+    JOB_DESCRIPTION_INTRO: '90s per question',
+    RECRUITER: '2m per question',
+    HIRING_MANAGER: '3m per question',
+    TECHNICAL: '4m per question',
+    SYSTEM_DESIGN: '5m min response',
+    HR: '3m per question',
+  };
+
+  const qCountText = dbQuestionCount ? `${dbQuestionCount} Questions` : '3-5 Questions';
+
+  return {
+    type,
+    title: titleMap[type] || type,
+    description: descMap[type] || '',
+    timeLimit: timeMap[type] || '90s per question',
+    questionCount: qCountText,
+    pauseAllowed: !isNoPause,
+    requiresJd,
+  };
+}

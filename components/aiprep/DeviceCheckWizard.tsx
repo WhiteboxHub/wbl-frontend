@@ -34,6 +34,7 @@ import {
   UserCheck,
   VolumeX,
   Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { YOLOAnalyzer } from './YOLOAnalyzer';
 
@@ -746,9 +747,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     <button
                       onClick={playTestTone}
                       disabled={isPlayingTone}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[11px] font-bold text-indigo-700 dark:text-indigo-300 transition-all shrink-0 active:scale-95 disabled:opacity-75"
+                      className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[11px] font-bold transition-all shrink-0 active:scale-95 disabled:opacity-75 ${
+                        !speakerTested
+                          ? 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                          : 'bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+                      }`}
                     >
-                      <Volume2 className={`w-3.5 h-3.5 ${isPlayingTone ? 'animate-bounce text-indigo-600 dark:text-indigo-400' : ''}`} />
+                      {!speakerTested ? (
+                        <AlertTriangle className={`w-3.5 h-3.5 ${isPlayingTone ? 'animate-bounce text-amber-600 dark:text-amber-400' : ''}`} />
+                      ) : (
+                        <Volume2 className={`w-3.5 h-3.5 ${isPlayingTone ? 'animate-bounce text-indigo-600 dark:text-indigo-400' : ''}`} />
+                      )}
                       <span>{isPlayingTone ? 'Playing...' : 'Test'}</span>
                     </button>
                   </div>
