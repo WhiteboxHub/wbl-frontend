@@ -137,10 +137,12 @@ export function useChunkUploadQueue({
   const isProcessingRef = useRef<boolean>(false);
   const queueRef = useRef<ChunkQueueItem[]>(state.queue);
   const onErrorRef = useRef(onError);
+  const assessmentIdRef = useRef(assessmentId);
 
   useEffect(() => {
     queueRef.current = state.queue;
     onErrorRef.current = onError;
+    assessmentIdRef.current = assessmentId;
   });
 
   const processNextChunk = useCallback(async () => {
@@ -158,7 +160,8 @@ export function useChunkUploadQueue({
     dispatch({ type: 'SET_STATUS', chunkNumber, status: 'uploading' });
 
     try {
-      await aiprepApi.uploadChunk(assessmentId, chunkNumber, blob);
+      const targetAssessmentId = assessmentIdRef.current || assessmentId;
+      await aiprepApi.uploadChunk(targetAssessmentId, chunkNumber, blob);
       dispatch({ type: 'SET_STATUS', chunkNumber, status: 'uploaded' });
     } catch (err: any) {
       const errorMessage = err?.message || 'Chunk upload failed';
@@ -180,9 +183,12 @@ export function useChunkUploadQueue({
       }
     } finally {
       isProcessingRef.current = false;
-      setTimeout(() => {
-        processNextChunk();
-      }, 50);
+      const hasQueued = queueRef.current.some(item => item.status === 'queued');
+      if (hasQueued) {
+        setTimeout(() => {
+          processNextChunk();
+        }, 100);
+      }
     }
   }, [assessmentId, maxRetries]);
 
