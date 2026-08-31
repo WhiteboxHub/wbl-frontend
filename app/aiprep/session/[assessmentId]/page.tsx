@@ -1,24 +1,17 @@
 /**
- * Active Assessment Session Room Page
+ * Active Assessment Practice Session Room Page
  * 
  * Target Workspace: wbl-frontend
  * Route: /aiprep/session/[assessmentId]
- * Primary Developer: Narasimha (FE1)
- * 
- * Space-Optimized Studio Layout:
- * - Audio Equalizer embedded as an in-video floating glass pill overlay (ZERO separate vertical space)
- * - Expanded Cinema-Grade Camera Stage with Max Screen Coverage
- * - Unified AI Studio Intelligence Panel on Right
- * - Floating Circular Meeting Dock
+ 
  */
 
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { aiprepApi, Assessment, Question, AssessmentType, AssessmentMode, NO_PAUSE_ASSESSMENT_TYPES, QuestionCategory } from '@/lib/aiprep-api';
+import { aiprepApi, Assessment, Question, AssessmentType, AssessmentMode, NO_PAUSE_ASSESSMENT_TYPES } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
-import { QuestionDisplay } from '@/components/aiprep/QuestionDisplay';
 import { YOLOAnalyzer } from '@/components/aiprep/YOLOAnalyzer';
 import { ChunkedUploader } from '@/components/aiprep/ChunkedUploader';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
@@ -129,24 +122,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
   );
 });
 
-const mapAssessmentTypeToCategory = (type: AssessmentType): QuestionCategory => {
-  switch (type) {
-    case 'TECHNICAL': return 'TECHNICAL';
-    case 'SYSTEM_DESIGN': return 'SYSTEM_DESIGN';
-    case 'RECRUITER': return 'RECRUITER';
-    case 'HIRING_MANAGER': return 'HIRING_MANAGER';
-    case 'GENERAL_INTRO':
-    case 'JOB_DESCRIPTION_INTRO':
-      return 'GENERAL';
-    case 'HR':
-    default:
-      return 'BEHAVIORAL';
-  }
-};
-
-
-
-
+EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
 export default function AssessmentSessionPage() {
   const router = useRouter();
@@ -166,6 +142,9 @@ export default function AssessmentSessionPage() {
   const [timeLeft, setTimeLeft] = useState<number>(90);
   const [isEnding, setIsEnding] = useState<boolean>(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [audioVolume, setAudioVolume] = useState<number>(0);
+
+
 
   // Route Security Guard: Ensure candidate is logged in using existing apiFetch helper
   useEffect(() => {
@@ -242,14 +221,92 @@ export default function AssessmentSessionPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Pasted JD text state for JOB_DESCRIPTION_INTRO
-  const [jdTextFromSession, setJdTextFromSession] = useState<string>('');
+  // Vision telemetry metrics ref
+  const visionMetricsRef = useRef<{
+    face_visible_pct: number;
+    head_nods_count: number;
+    frame_stability_score: number;
+    sitting_position?: string;
+  } | null>(null);
+
+  // YOLO consent status fetched from the backend API hardware check record
+  const [yoloEnabled, setYoloEnabled] = useState<boolean>(false);
+
+  // Periodically send vision telemetry to the backend (every 15 seconds)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const text = sessionStorage.getItem('aiprep_jd_text') || '';
-      setJdTextFromSession(text);
+    if (!isRecording || isPaused || !assessmentId || !yoloEnabled || assessment?.assessment_mode !== 'VIDEO_AUDIO') {
+      return;
     }
-  }, []);
+
+    const interval = setInterval(async () => {
+      if (visionMetricsRef.current) {
+        try {
+          await aiprepApi.saveVisionTelemetry({
+            assessment_id: assessmentId,
+            ...visionMetricsRef.current,
+          });
+          console.log('[Vision Telemetry] Periodically saved vision proctoring analytics to backend.');
+        } catch (err) {
+          console.warn('[Vision Telemetry] Periodic save failed:', err);
+        }
+      }
+    }, 15000); // every 15 seconds
+
+    return () => clearInterval(interval);
+  }, [isRecording, isPaused, assessmentId, yoloEnabled, assessment]);
+
+  // Audio level visualizer analyzer
+  useEffect(() => {
+    if (!stream || isAudioMuted || isPaused || isInactive) {
+      setAudioVolume(0);
+      return;
+    }
+
+    let audioContext: AudioContext | null = null;
+    let analyser: AnalyserNode | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let animationFrameId: number | null = null;
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        audioContext = new AudioContextClass();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 32;
+        source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const checkVolume = () => {
+          if (!analyser) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / bufferLength;
+          // Scale average volume (typically 0-100) to 0-15 bars
+          const barsToFill = Math.min(15, Math.round((average / 45) * 15));
+          setAudioVolume(barsToFill);
+          animationFrameId = requestAnimationFrame(checkVolume);
+        };
+
+        animationFrameId = requestAnimationFrame(checkVolume);
+      }
+    } catch (e) {
+      console.warn('Audio level analyzer error:', e);
+    }
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (source) source.disconnect();
+      if (audioContext) {
+        try { audioContext.close(); } catch (e) { }
+      }
+    };
+  }, [stream, isAudioMuted, isPaused, isInactive]);
 
   // Stage Phase: 'AI_INTRO' (Screen with AI Interviewer speaking) -> 'PRACTICE_ROOM' (Camera stage & timer)
   const [stagePhase, setStagePhase] = useState<'AI_INTRO' | 'PRACTICE_ROOM'>('PRACTICE_ROOM');
@@ -268,8 +325,6 @@ export default function AssessmentSessionPage() {
     }
     setIsAiSpeaking(false);
   };
-
-
 
   // Voice caching ref to lock 1 single consistent voice across all questions and page refreshes
   const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
@@ -364,6 +419,8 @@ export default function AssessmentSessionPage() {
   const hasRunCountdownRef = useRef<boolean>(false);
 
   const isIntroType = assessment?.assessment_type === 'GENERAL_INTRO' || assessment?.assessment_type === 'JOB_DESCRIPTION_INTRO';
+  const isPauseDisabled = assessment ? NO_PAUSE_ASSESSMENT_TYPES.includes(assessment.assessment_type) : false;
+  const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
 
   const handleSkipIntro = () => {
     stopAiSpeech();
@@ -453,30 +510,40 @@ export default function AssessmentSessionPage() {
         const effectiveType = data.assessment_type || resolvedType;
         const isIntro = effectiveType === 'GENERAL_INTRO' || effectiveType === 'JOB_DESCRIPTION_INTRO';
 
-        // 1. Check if questions are already cached in sessionStorage for this session
-        const cachedQuestionsStr = sessionStorage.getItem(`aiprep_session_questions_${assessmentId}`);
-        if (cachedQuestionsStr) {
-          try {
-            data.questions = JSON.parse(cachedQuestionsStr);
-          } catch (e) { }
+        // Fetch hardware check status from Backend to obtain YOLO consent status
+        // Then cross-verify with consent record from backend — never use sessionStorage as source of truth
+        let yoloConsentFromHardware = false;
+        try {
+          const hwCheck = await aiprepApi.getHardwareCheck(assessmentId);
+          yoloConsentFromHardware = !!hwCheck.yolo_model_enabled;
+        } catch (hwErr) {
+          console.warn('[Session] Failed to load hardware check, will verify consent via consents API:', hwErr);
         }
 
-        // 2. Load questions from DB if not populated on assessment record or cached
-        if (!data.questions || data.questions.length === 0) {
-          const category = mapAssessmentTypeToCategory(effectiveType);
-          try {
-            const qBank = await aiprepApi.getQuestions(category);
-            if (qBank && qBank.length > 0) {
-              data.questions = qBank.map((q, idx) => ({
-                id: q.id,
-                order_index: idx + 1,
-                question_text: q.question_text,
-                difficulty_level: q.difficulty_level || 'EASY',
-              }));
-            }
-          } catch (qErr) {
-            console.warn('Backend question bank query error:', qErr);
+        // Verify VIDEO_ANALYTICS consent directly from backend database
+        let yoloConsentVerified = false;
+        try {
+          const candidateId = data.candidate_id;
+          if (candidateId) {
+            const consents = await aiprepApi.getConsents(candidateId);
+            const videoConsent = consents.find(
+              (c) => c.consent_type === 'VIDEO_ANALYTICS' && c.consented && !c.revoked_at
+            );
+            yoloConsentVerified = !!videoConsent;
           }
+        } catch (consentErr) {
+          console.warn('[Session] Could not verify consent from backend, falling back to hardware check value:', consentErr);
+          yoloConsentVerified = yoloConsentFromHardware;
+        }
+
+        // YOLO is enabled only when BOTH hardware check flag AND explicit backend consent are active
+        setYoloEnabled(yoloConsentVerified);
+
+        // 2. Validate questions — they must come from the assessment record only.
+        // Questions are assigned by the backend during createAssessment().
+        // Do NOT fall back to getQuestions() as that returns unrelated bank questions.
+        if (!data.questions || data.questions.length === 0) {
+          throw new Error('This assessment has no questions assigned. Please go back and start a new session.');
         }
 
         // Ensure deterministic order by order_index
@@ -487,11 +554,6 @@ export default function AssessmentSessionPage() {
         // Limit intro rooms to 1 single DB question
         if (isIntro && data.questions && data.questions.length > 0) {
           data.questions = [data.questions[0]];
-        }
-
-        // Cache questions in sessionStorage to lock exact question order on page refresh
-        if (data.questions && data.questions.length > 0) {
-          sessionStorage.setItem(`aiprep_session_questions_${assessmentId}`, JSON.stringify(data.questions));
         }
 
         setAssessment(data);
@@ -522,69 +584,8 @@ export default function AssessmentSessionPage() {
 
         setTimeout(() => initMediaFeed(data.assessment_mode || resolvedMode), 100);
       } catch (err: any) {
-        console.warn('Backend assessment fetch error, querying backend questions API directly:', err);
-        let candidateId: number | undefined = undefined;
-        try {
-          const userResponse = await apiFetch("user_dashboard");
-          if (userResponse?.candidate_id) {
-            candidateId = userResponse.candidate_id;
-          }
-        } catch { }
-
-        const resolvedType = queryType || 'TECHNICAL';
-        const resolvedMode = queryMode || 'VIDEO_AUDIO';
-        const category = mapAssessmentTypeToCategory(resolvedType);
-
-        let loadedQuestions: Question[] = [];
-        try {
-          const qBank = await aiprepApi.getQuestions(category);
-          if (qBank && qBank.length > 0) {
-            const categoryQuestions = qBank.filter((q: any) => !q.category || q.category === category);
-            loadedQuestions = categoryQuestions.map((q, idx) => ({
-              id: q.id,
-              order_index: idx + 1,
-              question_text: q.question_text,
-              difficulty_level: q.difficulty_level,
-            }));
-          }
-        } catch (e) { }
-
-        const fallbackAssessment: Assessment = {
-          id: assessmentId,
-          candidate_id: candidateId,
-          assessment_type: resolvedType,
-          assessment_mode: resolvedMode,
-          status: 'IN_PROGRESS',
-          attempt_number: 1,
-          created_at: new Date().toISOString(),
-          questions: loadedQuestions
-        };
-        setAssessment(fallbackAssessment);
-        setTimeLeft(getTimeLimit(resolvedType));
-
-        // Recover state if available
-        const savedStateStr = sessionStorage.getItem(`aiprep_session_state_${assessmentId}`);
-        if (savedStateStr) {
-          try {
-            const savedState = JSON.parse(savedStateStr);
-            if (typeof savedState.currentQuestionIndex === 'number') {
-              setCurrentQuestionIndex(savedState.currentQuestionIndex);
-            }
-            if (typeof savedState.timeLeft === 'number') {
-              setTimeLeft(savedState.timeLeft);
-            }
-            if (savedState.stagePhase) {
-              setStagePhase(savedState.stagePhase);
-            }
-            if (savedState.hasStartedRecording) {
-              autoStartRecordingRef.current = true;
-            }
-          } catch (e) {
-            console.warn('Failed to parse saved session state:', e);
-          }
-        }
-
-        setTimeout(() => initMediaFeed(resolvedMode), 100);
+        console.error('[Session] Failed to load assessment:', err);
+        setErrorMsg(err.message || 'Failed to load assessment. Please go back and start a new session.');
       } finally {
         setIsLoading(false);
       }
@@ -872,6 +873,14 @@ export default function AssessmentSessionPage() {
 
       const totalSlices = Math.max(1, finalCount || 1);
 
+      // Save final vision telemetry if available
+      if (visionMetricsRef.current) {
+        aiprepApi.saveVisionTelemetry({
+          assessment_id: assessment.id,
+          ...visionMetricsRef.current,
+        }).catch(e => console.warn('Final vision telemetry save failed:', e));
+      }
+
       // Fast non-blocking submission: trigger assembly & status update in parallel background tasks
       aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
       aiprepApi.updateAssessmentStatus(assessment.id, 'COMPLETED').catch(e => console.warn('Async status update:', e));
@@ -942,10 +951,6 @@ export default function AssessmentSessionPage() {
     );
   }
 
-  const isPauseDisabled = NO_PAUSE_ASSESSMENT_TYPES.includes(assessment.assessment_type);
-  const activeQuestion = questions[currentQuestionIndex] || null;
-  const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
-
   if (stagePhase === 'AI_INTRO') {
     return (
       <div className="h-screen w-screen bg-[#f8fafc] dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-between p-6 select-none overflow-hidden relative transition-colors duration-300">
@@ -1011,10 +1016,10 @@ export default function AssessmentSessionPage() {
               "{currentQuestion?.question_text || 'Please get ready as we begin your interview practice loop.'}"
             </p>
 
-            {assessment.assessment_type === 'JOB_DESCRIPTION_INTRO' && jdTextFromSession && (
+            {assessment.assessment_type === 'JOB_DESCRIPTION_INTRO' && assessment.job_description_text && (
               <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 max-h-28 overflow-y-auto leading-relaxed text-left shadow-inner">
                 <span className="font-extrabold text-[#4A6CF7] block mb-1">Target Job Description:</span>
-                <p className="whitespace-pre-wrap">{jdTextFromSession}</p>
+                <p className="whitespace-pre-wrap">{assessment.job_description_text}</p>
               </div>
             )}
           </div>
@@ -1030,339 +1035,447 @@ export default function AssessmentSessionPage() {
               onClick={handleSkipIntro}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
             >
-              <span>Skip Intro & Start Practice</span>
-              <IconChevronRight size={14} stroke={2.5} />
+              Skip Intro
             </button>
           </div>
         </div>
 
         {/* Footer */}
         <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500 z-10 pb-2">
-          AI-Powered SmartPrep • Secure Audio & Video Analytics
+          AI-Powered SmartPrep • Secure Audio &amp; Video Analytics
         </div>
       </div>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  PRACTICE ROOM — 2-column layout (camera left | question panel right)
+  // ═══════════════════════════════════════════════════════════════════════
   return (
-    <div className="h-screen max-h-screen w-full overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-4 md:p-5 transition-colors duration-300 select-none">
+    <div className="h-screen w-full overflow-hidden bg-[#f8fafc] dark:bg-[#090d16] flex flex-col select-none text-slate-800 dark:text-slate-100">
 
-      <div className="max-w-[1650px] w-full h-full mx-auto flex flex-col justify-between gap-3">
-
-        {/* TOP HEADER: Centered Title + Cloud Sync & Theme Toggler */}
-        <header className="relative w-full flex items-center justify-between pb-0.5 shrink-0">
-
-          {/* Left: Mode Chip */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold">
-              <IconDeviceLaptop size={14} stroke={2} />
-              <span>Practice Mode</span>
-            </div>
-          </div>
-
-          {/* CENTER: Clean Title */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4A6CF7] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#4A6CF7]"></span>
+      {/* ─── TOP HEADER ─── */}
+      <header className="w-full flex items-center justify-between px-6 py-3.5 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 shrink-0 z-10">
+        {/* Left: Title + live status */}
+        <div className="flex flex-col">
+          <h1 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">Assessment Room</h1>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            <h1 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest text-center">
-              {assessment.assessment_type === 'GENERAL_INTRO' ? 'GENERAL INTRODUCTION' : assessment.assessment_type.replace(/_/g, ' ')} PRACTICE ROOM
-            </h1>
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Session in Progress</span>
           </div>
+        </div>
 
-          {/* Right: Timer & Cloud Sync Uploader */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-xs font-semibold">
-              <IconClock size={15} className="text-[#4A6CF7]" />
-              <span className="text-[10px] uppercase font-bold text-slate-400">Time:</span>
-              <span className="font-mono text-xs font-extrabold text-slate-900 dark:text-white">{formatTime(timeLeft)}</span>
+        {/* Center: Timer */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none">
+          <div className="text-xl font-bold font-mono tracking-widest text-slate-900 dark:text-white">
+            {formatTime(timeLeft)}
+          </div>
+          <div className="w-48 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-indigo-600 rounded-full transition-all duration-1000"
+              style={{ width: `${Math.max(0, (timeLeft / getTimeLimit(assessment.assessment_type)) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Time Remaining</span>
+        </div>
+
+        {/* Right: Status chips + End Session */}
+        <div className="flex items-center gap-2.5">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${isAudioMuted ? 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400' : 'bg-[#eef2ff] border-[#e0e7ff] text-[#4f46e5] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'}`}>
+            {isAudioMuted ? <IconMicrophoneOff size={14} stroke={2.5} /> : <IconMicrophone size={14} stroke={2.5} />}
+            <span>{isAudioMuted ? 'Mic Off' : 'Mic On'}</span>
+          </div>
+          {assessment.assessment_mode === 'VIDEO_AUDIO' && (
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${isVideoMuted ? 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-900/20 dark:border-rose-800 dark:text-rose-400' : 'bg-[#ecfdf5] border-[#d1fae5] text-[#059669] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'}`}>
+              {isVideoMuted ? <IconVideoOff size={14} stroke={2.5} /> : <IconVideo size={14} stroke={2.5} />}
+              <span>{isVideoMuted ? 'Cam Off' : 'Cam On'}</span>
             </div>
-            <ChunkedUploader uploadState={uploadState} onRetryFailed={retryFailedChunks} compact={true} isRecording={isRecording} />
+          )}
+          <button
+            type="button"
+            onClick={() => setShowExitModal(true)}
+            className="px-4 py-1.5 rounded-xl border border-rose-500 text-rose-600 hover:bg-rose-600 hover:text-white font-bold text-xs transition-all cursor-pointer bg-white dark:bg-slate-900"
+          >
+            End Session
+          </button>
+        </div>
+      </header>
+
+      {/* ─── INFO BAR (Assessment Type, Session, Questions, Marks) ─── */}
+      <div className="w-full bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between shrink-0 z-10">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600">
+              <IconDeviceLaptop size={16} stroke={2} />
+            </div>
+            <div>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Assessment Type</p>
+              <p className="text-xs font-extrabold text-slate-800 dark:text-white">
+                {assessment.assessment_type === 'GENERAL_INTRO' ? 'General Introduction' : assessment.assessment_type.replace(/_/g, ' ')} Interview
+              </p>
+            </div>
           </div>
-        </header>
 
-        {/* 2. MAIN WORKSPACE STAGE (100% Full-Width Immersive Stage) */}
-        <div className="flex-1 flex flex-col items-stretch justify-between min-h-0">
+          <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
+          <div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Total Questions</p>
+            <p className="text-xs font-extrabold text-slate-800 dark:text-white">{questions.length}</p>
+          </div>
 
-          {/* MAIN VIDEO COLUMN (100% Width): Question Display + Camera Stage + Controls */}
-          <div className="w-full flex flex-col justify-between gap-2.5 min-h-0 flex-1">
+        </div>
 
-            {/* TOP QUESTION BANNER */}
-            {currentQuestion ? (
-              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all shrink-0 animate-fade-in">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#4A6CF7]">
-                    <IconSparkles size={16} className="text-[#4A6CF7] animate-pulse" />
-                    <span>
-                      {isIntroType ? 'Introduction Prompt' : `Question ${currentQuestionIndex + 1} of ${questions.length}`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => speakAiText(currentQuestion.question_text)}
-                      title={isAiSpeaking ? 'Mute AI Voice' : 'Replay Question AI Voice'}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#4A6CF7]/10 hover:bg-[#4A6CF7]/20 text-[#4A6CF7] transition-all text-xs font-semibold"
-                    >
-                      {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
-                      <span className="text-[11px]">AI Voice</span>
-                    </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-400 animate-pulse' : isRecording ? 'bg-rose-500 animate-ping' : 'bg-slate-400'}`} />
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+              {isPaused ? 'PAUSED' : isRecording ? 'RECORDING' : 'STANDBY'}
+            </span>
+          </div>
+        </div>
+      </div>
 
-                    {currentQuestion.difficulty_level && (
-                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${
-                        currentQuestion.difficulty_level === 'EASY'
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                          : currentQuestion.difficulty_level === 'MEDIUM'
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
-                          : currentQuestion.difficulty_level === 'HARD'
-                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
-                          : currentQuestion.difficulty_level === 'EXPERT'
-                          ? 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400'
-                          : 'bg-[#4A6CF7]/10 border-[#4A6CF7]/30 text-[#4A6CF7] dark:text-blue-300'
-                      }`}>
-                        {currentQuestion.difficulty_level}
-                      </span>
-                    )}
-                  </div>
+      {/* ─── MAIN BODY: Two Columns ─── */}
+      <div className="flex-1 flex min-h-0 overflow-hidden bg-slate-50 dark:bg-[#090d16] p-6 gap-6">
+
+        {/* ── LEFT COLUMN: Camera & Controls ── */}
+        <div className="flex-1 flex flex-col gap-4 min-h-0 min-w-0">
+          {/* Camera Stage Container */}
+          <div className="relative flex-1 min-h-0 bg-slate-950 rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+
+            {/* 3-2-1 Countdown Overlay */}
+            {countdownValue !== null && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md text-white">
+                <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-indigo-400 mb-3 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
+                  <IconSparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+                  <span>Recording Starts In</span>
                 </div>
-                <p className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-snug">
-                  {currentQuestion.question_text}
-                </p>
-              </div>
-            ) : (
-              <div className="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/90 text-slate-500 dark:text-slate-400 rounded-2xl p-3.5 text-center text-xs font-semibold shadow-md shrink-0 animate-fade-in">
-                No questions found.
+                <div className="text-8xl font-black text-white animate-bounce drop-shadow-[0_10px_20px_rgba(79,70,229,0.5)]">{countdownValue}</div>
+                <p className="text-xs text-slate-400 mt-4 font-medium">Prepare your response. Recording will begin automatically...</p>
               </div>
             )}
 
-            {/* Slightly Reduced Camera Stage (to fit seamlessly below top question card) */}
-            <div className="relative w-full flex-1 min-h-[260px] max-h-[460px] bg-slate-950 border border-slate-800/80 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
 
-              {/* 3-2-1 Countdown Overlay */}
-              {countdownValue !== null && (
-                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md animate-fade-in text-white">
-                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-indigo-400 mb-3 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
-                    <IconSparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
-                    <span>Recording Starts In</span>
-                  </div>
-                  <div className="text-8xl font-black text-white animate-bounce drop-shadow-[0_10px_20px_rgba(79,70,229,0.5)]">
-                    {countdownValue}
-                  </div>
-                  <p className="text-xs text-slate-400 mt-4 font-medium">
-                    Prepare your response. Recording will begin automatically...
-                  </p>
+
+            {/* Video Feed */}
+            <video
+              ref={(el) => {
+                videoRef.current = el;
+                const activeStream = streamRef.current || stream;
+                if (el && activeStream && el.srcObject !== activeStream) {
+                  el.srcObject = activeStream;
+                  el.play().catch(() => { });
+                }
+              }}
+              autoPlay playsInline muted
+              className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${assessment.assessment_mode === 'VIDEO_AUDIO' && !isVideoMuted ? 'opacity-100' : 'opacity-0'}`}
+            />
+
+            {/* Camera off placeholder */}
+            {(assessment.assessment_mode === 'AUDIO_ONLY' || isVideoMuted) && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400 bg-slate-950 z-10">
+                <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-inner">
+                  <IconCameraOff size={32} stroke={1.5} />
                 </div>
-              )}
+                <span className="text-sm font-semibold text-slate-300">Camera Muted</span>
+              </div>
+            )}
 
-              {/* Always-Mounted Video Stream */}
-              <video
-                ref={(el) => {
-                  videoRef.current = el;
-                  const activeStream = streamRef.current || stream;
-                  if (el && activeStream && el.srcObject !== activeStream) {
-                    el.srcObject = activeStream;
-                    el.play().catch(() => {});
+            {/* TOP-LEFT Flashing Recording Status Badge */}
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-950/70 border border-white/10 text-xs font-bold text-white px-3.5 py-1.5 rounded-full backdrop-blur-md">
+              <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-400' : isRecording ? 'bg-rose-500 animate-pulse' : 'bg-slate-400'}`} />
+              <span className="tracking-wide">{isRecording ? '● Recording' : 'Standby'}</span>
+            </div>
+
+            {/* TOP-RIGHT Fullscreen Button */}
+            <div className="absolute top-4 right-4 z-20">
+              <button
+                onClick={() => {
+                  if (videoRef.current) {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      videoRef.current.requestFullscreen().catch(() => { });
+                    }
                   }
                 }}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${assessment.assessment_mode === 'VIDEO_AUDIO' && !isVideoMuted ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                  }`}
-              />
+                className="bg-slate-950/60 border border-white/10 text-xs font-bold text-white px-3 py-1.5 rounded-lg backdrop-blur-md flex items-center gap-1 hover:bg-slate-900"
+              >
+                <span>Fullscreen</span>
+              </button>
+            </div>
 
-              {/* Camera Disabled Placeholder */}
-              {(assessment.assessment_mode === 'AUDIO_ONLY' || isVideoMuted) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 text-slate-400 bg-slate-950">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-inner">
-                    <IconCameraOff size={28} stroke={1.5} />
-                  </div>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-300">Live Camera Feed Muted</span>
+            {/* Audio Waveform bottom-left inside video */}
+            <div className="absolute bottom-16 left-4 z-20">
+              <EmbeddedAudioWaveform stream={stream} isMuted={isAudioMuted || isPaused || isInactive} />
+            </div>
+
+            {/* BOTTOM HUD Overlay Bar */}
+            <div className="absolute bottom-0 inset-x-0 z-25 bg-slate-950/80 backdrop-blur-md border-t border-white/5 py-3 px-6 flex items-center justify-between text-white font-semibold text-xs">
+              {/* HUD: Audio Level */}
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Audio Level</span>
+                <div className="flex items-end gap-[2px] h-3.5">
+                  {Array.from({ length: 15 }).map((_, i) => {
+                    const isActive = i < audioVolume;
+                    return (
+                      <span
+                        key={i}
+                        className={`w-1 rounded-sm transition-all duration-75 ${isActive
+                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                            : 'bg-slate-800'
+                          }`}
+                        style={{
+                          height: isActive
+                            ? `${Math.max(4, Math.min(14, (i + 1) * 1.0))}px`
+                            : '4px'
+                        }}
+                      />
+                    );
+                  })}
                 </div>
-              )}
+              </div>
 
-              {/* TOP-LEFT Live Recording Status Dot */}
-              <div className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 text-xs font-semibold px-3.5 py-1.5 rounded-full backdrop-blur-xl shadow-lg">
-                <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-400 animate-pulse' : isRecording ? 'bg-rose-500 animate-ping' : 'bg-slate-400'
-                  }`} />
-                <span className={isPaused ? 'text-amber-300' : isRecording ? 'text-rose-400' : 'text-slate-300'}>
-                  {isPaused ? 'PAUSED' : isRecording ? 'RECORDING' : 'STANDBY'}
+              {/* HUD: Video Quality */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Video Quality</span>
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-bold text-white">{assessment.assessment_mode === 'AUDIO_ONLY' ? 'N/A' : 'Good'}</span>
+                </div>
+              </div>
+
+              {/* HUD: Network */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Network</span>
+                <div className="flex items-center gap-1">
+                  <IconWaveSine size={12} className="text-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-bold text-white">Stable</span>
+                </div>
+              </div>
+
+              {/* HUD: AI Monitor */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">AI Monitor</span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${yoloEnabled && isRecording ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`} />
+                  <span className="text-[11px] font-bold text-white">{yoloEnabled && assessment.assessment_mode === 'VIDEO_AUDIO' ? 'Active' : 'Off'}</span>
+                </div>
+              </div>
+            </div>
+
+            {assessment.assessment_mode === 'VIDEO_AUDIO' && yoloEnabled && (
+              <YOLOAnalyzer
+                videoRef={videoRef}
+                enabled={!isPaused && !isVideoMuted && Boolean(stream)}
+                assessmentId={assessment.id}
+                onMetricsUpdate={(m) => {
+                  visionMetricsRef.current = {
+                    face_visible_pct: m.face_visible_pct,
+                    head_nods_count: m.head_nods_count,
+                    frame_stability_score: m.frame_stability_score,
+                    sitting_position: m.sitting_position,
+                  };
+                }}
+              />
+            )}
+          </div>
+
+          {/* Bottom Toolbar: Controls (Mute, Stop Cam, End Session/Pause) */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={toggleAudio}
+              className={`flex-1 py-3.5 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${isAudioMuted
+                  ? 'bg-[#ffe4e6] border-rose-200 text-rose-600 dark:bg-rose-950 dark:border-rose-900 dark:text-rose-400'
+                  : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800'
+                }`}
+            >
+              {isAudioMuted ? <IconMicrophoneOff size={18} /> : <IconMicrophone size={18} />}
+              <span>Mute</span>
+            </button>
+
+            {assessment.assessment_mode === 'VIDEO_AUDIO' && (
+              <button
+                type="button"
+                onClick={toggleVideo}
+                className={`flex-1 py-3.5 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${isVideoMuted
+                    ? 'bg-[#ffe4e6] border-rose-200 text-rose-600 dark:bg-rose-955 dark:border-rose-900 dark:text-rose-400'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+              >
+                {isVideoMuted ? <IconVideoOff size={18} /> : <IconVideo size={18} />}
+                <span>Stop Video</span>
+              </button>
+            )}
+
+            {isInactive && (
+              <button
+                type="button"
+                onClick={startRecording}
+                className="w-44 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer shrink-0"
+              >
+                <IconPlayerPlay size={18} fill="currentColor" />
+                <span>Start Recording</span>
+              </button>
+            )}
+
+            {!isPauseDisabled && !isInactive && (
+              <button
+                type="button"
+                onClick={handleStartOrPause}
+                className={`flex-1 py-3.5 rounded-2xl border font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${isPaused
+                    ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-800 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+              >
+                {isPaused ? <IconPlayerPlay size={18} /> : <IconPlayerPause size={18} />}
+                <span>{isPaused ? 'Resume' : 'Pause'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowExitModal(true)}
+              className="px-6 py-3.5 rounded-2xl border border-rose-500 text-rose-600 hover:bg-rose-600 hover:text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer bg-white dark:bg-slate-900"
+            >
+              <IconLogout size={18} />
+              <span>End Session</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── RIGHT COLUMN: Question Panel ── */}
+        <div className="w-[380px] xl:w-[420px] shrink-0 flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+
+          {/* Card Header: Title */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
+            <span className="text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
+              Assessment Page
+            </span>
+            <span className="text-xs font-bold text-indigo-600 bg-indigo-500/10 px-2.5 py-1 rounded-full">
+              Question {currentQuestionIndex + 1} of {questions.length}
+            </span>
+          </div>
+
+          {/* Card Content (Scrollable) */}
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 min-h-0">
+
+            {/* AI Voice Trigger Row */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Question Prompt
+              </span>
+              <button
+                onClick={() => currentQuestion && speakAiText(currentQuestion.question_text)}
+                className="flex items-center gap-1 text-xs text-[#4A6CF7] hover:text-[#3b5bd9] font-bold"
+              >
+                {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
+                <span>AI Voice</span>
+              </button>
+            </div>
+
+            {/* Question Text */}
+            <p className="text-base font-bold text-slate-800 dark:text-slate-100 leading-relaxed bg-slate-50/50 dark:bg-slate-850/50 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl">
+              {currentQuestion?.question_text || 'No question prompt loaded.'}
+            </p>
+
+
+
+            {/* ── TRACKING - TIME ── */}
+            <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Tracking - Time
                 </span>
-                <span className="font-mono text-xs text-slate-400 ml-1">({formatTime(elapsedSeconds)})</span>
+                <span className="text-xs font-extrabold font-mono text-slate-950 dark:text-white">
+                  {formatTime(timeLeft)}
+                </span>
               </div>
-
-              {/* BOTTOM-LEFT: Embedded In-Video Audio Equalizer (Zero separate height occupied) */}
-              <div className="absolute bottom-3 left-3 z-20">
-                <EmbeddedAudioWaveform stream={stream} isMuted={isAudioMuted || isPaused || isInactive} />
-              </div>
-
-              {/* BOTTOM-RIGHT Chunk Sync Badge */}
-              <div className="absolute bottom-3 right-3 z-20 font-mono text-xs text-slate-300 bg-slate-950/80 border border-slate-800/80 px-3 py-1.5 rounded-xl backdrop-blur-xl shadow-lg">
-                {uploadState.isUploading ? (
-                  <span className="flex items-center gap-1.5 text-indigo-300 font-medium">
-                    <IconLoader2 size={14} className="animate-spin text-indigo-400" />
-                    Chunk {uploadState.queue.length} uploading…
-                  </span>
-                ) : uploadState.totalUploaded > 0 ? (
-                  <span className="text-emerald-400 font-medium">Chunk {uploadState.totalUploaded} synced</span>
-                ) : (
-                  <span className="text-slate-400">Sync: 30s</span>
-                )}
-              </div>
-
-              {/* YOLO Face Proctoring Analyzer (Only runs if user checked the YOLO option in Consent modal) */}
-              {assessment.assessment_mode === 'VIDEO_AUDIO' && (typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_yolo_consent') === 'true' : true) && (
-                <YOLOAnalyzer
-                  videoRef={videoRef}
-                  enabled={!isPaused && !isVideoMuted && Boolean(stream)}
-                  assessmentId={assessment.id}
+              <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${
+                    timeLeft > getTimeLimit(assessment.assessment_type) * 0.5 ? 'bg-indigo-600' :
+                    timeLeft > getTimeLimit(assessment.assessment_type) * 0.25 ? 'bg-amber-500' : 'bg-rose-500'
+                  }`}
+                  style={{ width: `${Math.max(0, (timeLeft / getTimeLimit(assessment.assessment_type)) * 100)}%` }}
                 />
-              )}
-            </div>
-
-            {/* 2026 FLOATING GLASS MEETING TOOLBAR */}
-            <div className="w-full flex items-center justify-center shrink-0">
-              <div className="flex items-center justify-center gap-3 px-5 py-2 rounded-full bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-indigo-500/5">
-
-                {/* 1. Mute Mic */}
-                <button
-                  type="button"
-                  onClick={toggleAudio}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isAudioMuted
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400'
-                    }`}
-                  title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-                >
-                  {isAudioMuted ? <IconMicrophoneOff size={20} stroke={2} /> : <IconMicrophone size={20} stroke={2} />}
-                </button>
-
-                {/* 2. Stop Camera */}
-                {assessment.assessment_mode === 'VIDEO_AUDIO' && (
-                  <button
-                    type="button"
-                    onClick={toggleVideo}
-                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isVideoMuted
-                      ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
-                      }`}
-                    title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
-                  >
-                    {isVideoMuted ? <IconVideoOff size={20} stroke={2} /> : <IconVideo size={20} stroke={2} />}
-                  </button>
-                )}
-
-                {/* 3. Start Answer OR Pause / Resume Pill (Omitted for Intro assessments with auto-countdown) */}
-                {isInactive && !isIntroType ? (
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    className="h-11 px-6 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all duration-200 hover:scale-105 active:scale-95"
-                  >
-                    <IconPlayerPlay size={18} stroke={2} fill="currentColor" />
-                    <span>Start</span>
-                  </button>
-                ) : !isPauseDisabled && !isInactive ? (
-                  <button
-                    type="button"
-                    onClick={handleStartOrPause}
-                    className={`h-11 px-5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isPaused
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-                      : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                      }`}
-                  >
-                    {isPaused ? (
-                      <>
-                        <IconPlayerPlay size={18} stroke={2} fill="currentColor" />
-                        <span>Resume</span>
-                      </>
-                    ) : (
-                      <>
-                        <IconPlayerPause size={18} stroke={2} />
-                        <span>Pause</span>
-                      </>
-                    )}
-                  </button>
-                ) : null}
-
-                {/* 3.5. Next Question OR Complete Session Button */}
-                {!isInactive && (
-                  <button
-                    type="button"
-                    onClick={currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? handleNextQuestion : handleEndSession}
-                    disabled={isEnding}
-                    className="h-11 px-6 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white shadow-lg shadow-[#4A6CF7]/25 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                  >
-                    {isEnding ? (
-                      <>
-                        <IconLoader2 size={18} className="animate-spin" />
-                        <span>Assembling…</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? 'Next Question' : 'Complete Session'}</span>
-                        <IconChevronRight size={18} stroke={2.5} />
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* 4. Quit Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowExitModal(true)}
-                  className="w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-500/20 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md"
-                  title="Quit Assessment"
-                >
-                  <IconLogout size={20} stroke={2} />
-                </button>
+              </div>
+              <div className="flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                <span>Min Limit: 3:00</span>
+                <span>Max Limit: {formatTime(getTimeLimit(assessment.assessment_type))}</span>
               </div>
             </div>
 
-            {/* Hardware Warnings (if muted) */}
-            {(isAudioMuted || isVideoMuted) && (
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 shrink-0">
-                {isAudioMuted && (
-                  <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-3 py-1 rounded-xl border border-rose-500/20 text-xs font-medium backdrop-blur-md">
-                    <IconInfoCircle size={15} stroke={2} className="shrink-0 text-rose-500" />
-                    <span>Microphone muted — Click mic icon above to un-mute.</span>
-                  </div>
-                )}
-                {isVideoMuted && (
-                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-500/20 text-xs font-medium backdrop-blur-md">
-                    <IconInfoCircle size={15} stroke={2} className="shrink-0 text-amber-500" />
-                    <span>Camera off — Click video icon above to turn on.</span>
-                  </div>
-                )}
+            {/* Live Transcript */}
+            {liveTranscript && (
+              <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <IconMessage2 size={12} className="text-[#4A6CF7]" />
+                    <span>Live Transcript</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">{wordCount} words</span>
+                </div>
+                <div ref={transcriptScrollRef} className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-h-20 overflow-y-auto font-medium">
+                  {liveTranscript}
+                </div>
               </div>
             )}
+
+            <div className="flex-1 min-h-0" />
+
+            {/* ── SKIP / SUBMIT BUTTONS ── */}
+            <div className="flex items-center gap-3 mt-auto pt-2">
+              {!isInactive && currentQuestionIndex < (questions.length - 1) && (
+                <button
+                  type="button"
+                  onClick={handleNextQuestion}
+                  className="flex-1 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer bg-white dark:bg-slate-900 shadow-sm"
+                >
+                  Skip Question
+                </button>
+              )}
+
+              {!isInactive && (
+                <button
+                  type="button"
+                  onClick={currentQuestionIndex < (questions.length - 1) ? handleNextQuestion : handleEndSession}
+                  disabled={isEnding}
+                  className="flex-1 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {isEnding ? (
+                    <>
+                      <IconLoader2 size={16} className="animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{currentQuestionIndex < (questions.length - 1) ? 'Submit' : 'Complete'}</span>
+                      <IconChevronRight size={16} stroke={2.5} />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
 
       {/* Exit Confirmation Modal */}
       {showExitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="w-full max-w-sm bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-500">
-              <IconAlertTriangle size={26} stroke={2} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Quit Assessment?</h3>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Are you sure you want to leave this session? Your current progress and recorded slices will be discarded.
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4">
+          <div className="bg-white dark:bg-[#0f172a] p-8 rounded-3xl max-w-sm w-full shadow-2xl border border-slate-100 dark:border-slate-800/80">
+            <h3 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">Quit Assessment?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mb-6 leading-relaxed">
+              Are you sure you want to end this practice session? Your progress will be uploaded as-is.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowExitModal(false)} className="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs sm:text-sm">Cancel</button>
               <button
-                type="button"
-                onClick={() => setShowExitModal(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs sm:text-sm transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
                 onClick={() => {
                   stopCameraFeed();
                   stopTimer();
@@ -1372,7 +1485,7 @@ export default function AssessmentSessionPage() {
                   }
                   router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
                 }}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm shadow-md shadow-rose-600/30 transition-colors"
+                className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-rose-600/30"
               >
                 Yes, Quit
               </button>

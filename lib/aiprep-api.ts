@@ -123,6 +123,16 @@ export interface HardwareCheckResponse {
   tested_at: string;
 }
 
+export interface VisionTelemetry {
+  id: number;
+  assessment_id: number;
+  face_visible_pct: number;
+  head_nods_count: number;
+  frame_stability_score: number;
+  snapshots_json?: any[] | null;
+  created_at: string;
+}
+
 export interface ConsentRequest {
   candidate_id?: number;
   consent_type: 'VIDEO_ANALYTICS' | 'DATA_RETENTION' | 'TERMS_OF_SERVICE';
@@ -338,6 +348,17 @@ export const aiprepApi = {
   },
 
   /**
+   * Fetches all consent records for a candidate from the backend.
+   * GET /api/ai-prep/consents/{candidate_id}
+   */
+  async getConsents(candidateId: number, signal?: AbortSignal): Promise<ConsentResponse[]> {
+    return request<ConsentResponse[]>(`/api/ai-prep/consents/${candidateId}`, {
+      method: 'GET',
+      signal,
+    });
+  },
+
+  /**
    * Fetches questions from the Question Bank.
    * GET /api/ai-prep/questions
    */
@@ -366,6 +387,7 @@ export const aiprepApi = {
     head_nods_count: number;
     frame_stability_score: number;
     sitting_position?: string;
+    snapshots_json?: any;
   }, signal?: AbortSignal): Promise<any> {
     return request<any>('/api/ai-prep/vision-telemetry', {
       method: 'POST',

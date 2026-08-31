@@ -1,12 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  ShieldCheck,
-  Video,
-  Mic,
+import { ShieldCheck,Video, Mic,
   MicOff,
-  Activity,
   Lock,
   Loader2,
   Check,
@@ -20,6 +16,15 @@ interface ConsentModalProps {
   onConfirm: (cameraEnabled: boolean, yoloEnabled?: boolean) => void;
   isSubmitting?: boolean;
   audioOnly?: boolean;
+
+  // Inline mode support
+  inline?: boolean;
+  consentCamera?: boolean;
+  setConsentCamera?: (v: boolean) => void;
+  consentMic?: boolean;
+  setConsentMic?: (v: boolean) => void;
+  consentYolo?: boolean;
+  setConsentYolo?: (v: boolean) => void;
 }
 
 /* ── Custom Checkbox ─────────────────────────────────────────────────── */
@@ -35,12 +40,12 @@ const CustomCheckbox = ({
     aria-checked={checked}
     disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`relative w-5 h-5 rounded border-2 flex items-center justify-center
-      transition-all duration-200 shrink-0 outline-none active:scale-95
+    className={`relative w-5 h-5 rounded-md border-2 flex items-center justify-center
+      transition-all duration-150 shrink-0 outline-none active:scale-95 shadow-sm
       ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
       ${checked
-        ? 'bg-slate-900 border-slate-900 dark:bg-white dark:border-white text-white dark:text-slate-900'
-        : 'bg-white dark:bg-slate-900 border-slate-900 dark:border-slate-400 hover:border-[#4A6CF7]'
+        ? 'bg-indigo-600 border-indigo-600 text-white shadow-indigo-500/20'
+        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-indigo-500'
       }`}
   >
     {checked && <Check className="w-3.5 h-3.5 stroke-[3.5]" />}
@@ -50,13 +55,15 @@ const CustomCheckbox = ({
 /* ═══════════════════════════════════════════════════════════════════ */
 export const ConsentModal: React.FC<ConsentModalProps> = ({
   isOpen, onClose, onConfirm, isSubmitting = false, audioOnly = false,
+  inline = false,
+  consentCamera = false, setConsentCamera,
+  consentMic = false, setConsentMic,
+  consentYolo = false, setConsentYolo,
 }) => {
   const [revealed, setRevealed] = useState(false);
   const [cameraConsent, setCameraConsent] = useState(false);
   const [micConsent, setMicConsent] = useState(false);
   const [yoloConsent, setYoloConsent] = useState(false);
-  const [analyticsConsent, setAnalyticsConsent] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [timeStr, setTimeStr] = useState('');
 
   useEffect(() => {
@@ -70,8 +77,6 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
     setCameraConsent(false);
     setMicConsent(false);
     setYoloConsent(false);
-    setAnalyticsConsent(false);
-    setTermsAccepted(false);
     setRevealed(false);
   }, []);
 
@@ -96,56 +101,160 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
   };
 
   const isVideoMode = !audioOnly;
-  const isCameraMissing = isVideoMode && !cameraConsent;
-  const isMicMissing = !micConsent;
-  const isTermsMissing = !termsAccepted;
+  const isCameraMissing = isVideoMode && (inline ? !consentCamera : !cameraConsent);
+  const isMicMissing = inline ? !consentMic : !micConsent;
 
-  const canProceed = !isTermsMissing && !isMicMissing && (!isVideoMode || cameraConsent);
+  const canProceed = !isMicMissing && (!isVideoMode || (inline ? !!consentCamera : cameraConsent));
 
   const ctaLabel = () => {
     if (isSubmitting) return 'Starting…';
-    if (isTermsMissing) return 'Accept Terms first';
     if (isCameraMissing) return 'Consent to Camera required';
     if (isMicMissing) return 'Consent to Microphone required';
     return 'Start device check';
   };
 
+  if (inline) {
+    return (
+      <div className="max-w-2xl mx-auto w-full space-y-5 animate-in fade-in duration-200">
+        <div>
+          <h3 className="text-sm font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#4A6CF7]" /> Privacy & Permissions Consent
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">Toggle the modules you consent to use during the interview session.</p>
+        </div>
+
+        <div className="space-y-2.5">
+          {/* Camera Consent */}
+          {!audioOnly && setConsentCamera && (
+            <div className={`p-4 rounded-xl border transition-all duration-200 ${
+              consentCamera
+                ? 'bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-300 dark:border-indigo-700'
+                : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+            }`}>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <CustomCheckbox
+                  id="cb-cam"
+                  checked={consentCamera}
+                  onChange={setConsentCamera}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Video className={`w-4 h-4 ${consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Consent to Camera</span>
+                    <span className="text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider">Required for Video</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* YOLO AI Vision Model Option */}
+          {!audioOnly && consentCamera && setConsentYolo && (
+            <div className={`p-4 rounded-xl border transition-all duration-200 ${
+              consentYolo
+                ? 'bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-300 dark:border-indigo-700'
+                : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+            }`}>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <CustomCheckbox
+                  id="cb-yolo"
+                  checked={consentYolo}
+                  onChange={setConsentYolo}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className={`w-4 h-4 ${consentYolo ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">AI Vision &amp; YOLO Model</span>
+                    <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider">Optional</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* Mic Consent */}
+          {setConsentMic && (
+            <div className={`p-4 rounded-xl border transition-all duration-200 ${
+              consentMic
+                ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-700'
+                : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800'
+            }`}>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <CustomCheckbox
+                  id="cb-mic"
+                  checked={consentMic}
+                  onChange={setConsentMic}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Mic className={`w-4 h-4 ${consentMic ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">Consent to Microphone</span>
+                    <span className="text-[9px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider">Required</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Missing consent warning */}
+        {isCameraMissing && (
+          <div className="p-3 rounded-xl border border-amber-300/40 bg-amber-50/50 dark:bg-amber-950/20 flex items-center gap-2.5 animate-in fade-in duration-200">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+              Camera consent is required for Video mode. Please check the box above or go back to select Audio Only.
+            </span>
+          </div>
+        )}
+        {isMicMissing && (
+          <div className="p-3 rounded-xl border border-amber-300/40 bg-amber-50/50 dark:bg-amber-950/20 flex items-center gap-2.5 animate-in fade-in duration-200">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+              Microphone consent is required to proceed. Please check the box above.
+            </span>
+          </div>
+        )}
+
+
+      </div>
+    );
+  }
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      {/* Dark overlay backdrop for focus */}
-      <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300" onClick={handleClose} />
+      {/* Soft Neutral Gray Overlay Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/80 dark:bg-slate-950/90 backdrop-blur-md transition-opacity duration-300" onClick={handleClose} />
 
       {/* Real-time split layout (Left: Stepper panel, Right: Controls) */}
       <div
         className={`relative z-10 w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800
-          transition-all duration-300 ease-out flex flex-col overflow-hidden my-auto
+          transition-all duration-300 ease-out flex flex-col overflow-hidden max-h-[90vh] my-auto
           ${revealed ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}
       >
 
         {/* Top Info Bar */}
-        <div className="px-6 py-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+        <div className="px-6 py-2.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <div className="flex items-center gap-2">
-
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Session Setup Wizard</span>
           </div>
         </div>
 
         {/* 2-Column Split Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-0 overflow-y-auto">
 
           {/* LEFT: Onboarding flow timeline & Info cards (3/5) */}
-          <div className="col-span-1 lg:col-span-3 p-8 bg-slate-50 dark:bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[350px]">
+          <div className="col-span-1 lg:col-span-3 p-5 sm:p-6 bg-slate-50 dark:bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between">
 
-            <div className="space-y-6">
+            <div className="space-y-3.5">
               <div>
-                <p className="text-[10px] font-bold text-[#4A6CF7] uppercase tracking-wider mb-1">Onboarding Checklist</p>
+                <p className="text-[10px] font-bold text-[#4A6CF7] uppercase tracking-wider mb-0.5">Onboarding Checklist</p>
                 <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Steps to join your practice loop</h4>
               </div>
 
               {/* Steps timeline */}
-              <div className="space-y-4 relative pl-3">
+              <div className="space-y-3 relative pl-3">
                 {/* Stepper vertical line indicator */}
                 <div className="absolute left-4.5 top-2 bottom-2 w-0.5 bg-slate-200 dark:bg-slate-800" />
 
@@ -171,12 +280,12 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
                 ].map(({ step, title, desc, active }) => (
                   <div key={step} className="flex gap-4 relative z-10">
                     <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 border mt-0.5
-                      ${active ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700'}`}
+                      ${active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700'}`}
                     >
                       {step}
                     </div>
                     <div>
-                      <p className={`text-xs font-bold ${active ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-450'}`}>{title}</p>
+                      <p className={`text-xs font-bold ${active ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>{title}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{desc}</p>
                     </div>
                   </div>
@@ -184,42 +293,29 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
               </div>
             </div>
 
-            {/* Bottom local processing guarantee box */}
-            <div className="mt-6 flex flex-col gap-2">
-              <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-slate-400 shrink-0">
-                  <Lock className="w-4 h-4 text-[#4A6CF7]" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Localized Processing Guarantee</p>
-                  <p className="text-[10px] text-slate-400 leading-normal">
-                    We evaluate your feeds client-side using ONNX.js. No raw audio or video ever reaches our servers.
-                  </p>
-                </div>
-              </div>
-            </div>
+
 
           </div>
 
           {/* RIGHT: Consent Checkboxes & Actions (2/5) */}
-          <div className="col-span-1 lg:col-span-2 p-8 flex flex-col justify-between bg-white dark:bg-slate-900">
-            <div className="space-y-4">
+          <div className="col-span-1 lg:col-span-2 p-5 sm:p-6 flex flex-col justify-between bg-white dark:bg-slate-900 min-h-0 overflow-y-auto">
+            <div className="space-y-2">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">Select Practice Mode</h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-0.5 leading-normal">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
                   Toggle the modules you consent to use during the interview.
                 </p>
               </div>
 
               {/* Stack of checkboxes */}
-              <div className="space-y-2.5">
+              <div className="space-y-1.5">
 
                 {/* Camera Consent */}
                 {!audioOnly && (
-                  <div className={`p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
+                  <div className={`p-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
                     ${cameraConsent ? 'bg-slate-50/50 dark:bg-slate-800/40' : 'bg-white dark:bg-slate-900'}`}
                   >
-                    <label htmlFor="cb-cam" className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <label htmlFor="cb-cam" className="flex items-center gap-2.5 cursor-pointer select-none">
                       <CustomCheckbox id="cb-cam" checked={cameraConsent} onChange={setCameraConsent} disabled={isSubmitting} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -227,7 +323,6 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Consent to Camera</span>
                           <span className="text-[8px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Required</span>
                         </div>
-                        <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Required for Video + Audio mode (analyzes webcam feed).</p>
                       </div>
                     </label>
                   </div>
@@ -235,65 +330,34 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
 
                 {/* YOLO AI Vision Model Option */}
                 {!audioOnly && (
-                  <div className={`p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
+                  <div className={`p-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
                     ${yoloConsent ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800' : 'bg-white dark:bg-slate-900'}`}
                   >
-                    <label htmlFor="cb-yolo" className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <label htmlFor="cb-yolo" className="flex items-center gap-2.5 cursor-pointer select-none">
                       <CustomCheckbox id="cb-yolo" checked={yoloConsent} onChange={setYoloConsent} disabled={isSubmitting} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${yoloConsent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">AI Vision &amp; YOLO Proctoring Model</span>
-                          <span className="text-[8px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Optional Check</span>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">AI Vision &amp; YOLO Model</span>
+                          <span className="text-[8px] font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Optional</span>
                         </div>
-                        <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Check if you want real-time YOLO pose &amp; eye tracking during practice; leave unchecked to disable.</p>
                       </div>
                     </label>
                   </div>
                 )}
 
                 {/* Mic Consent */}
-                <div className={`p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
+                <div className={`p-2 px-3 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
                   ${micConsent ? 'bg-slate-50/50 dark:bg-slate-800/40' : 'bg-white dark:bg-slate-900'}`}
                 >
-                  <label htmlFor="cb-mic" className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <label htmlFor="cb-mic" className="flex items-center gap-2.5 cursor-pointer select-none">
                     <CustomCheckbox id="cb-mic" checked={micConsent} onChange={setMicConsent} disabled={isSubmitting} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Mic className={`w-3.5 h-3.5 shrink-0 ${micConsent ? 'text-[#4A6CF7]' : 'text-slate-400'}`} />
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Consent to Microphone</span>
+                        <span className="text-[8px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Required</span>
                       </div>
-                      <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">Required to record and score spoken answers.</p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Analytics Consent */}
-                <div className={`p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200
-                  ${analyticsConsent ? 'bg-slate-50/50 dark:bg-slate-800/40' : 'bg-white dark:bg-slate-900'}`}
-                >
-                  <label htmlFor="cb-analytics" className="flex items-start gap-2.5 cursor-pointer select-none">
-                    <CustomCheckbox id="cb-analytics" checked={analyticsConsent} onChange={setAnalyticsConsent} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Activity className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Share Performance logs</span>
-                        <span className="text-[8px] font-bold text-sky-600 bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Optional</span>
-                      </div>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Terms Consent */}
-                <div className={`p-3.5 rounded-xl border transition-all duration-200
-                  ${termsAccepted ? 'border-emerald-500/30 dark:border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-500/10' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}
-                >
-                  <label htmlFor="cb-terms" className="flex items-start gap-2.5 cursor-pointer select-none">
-                    <CustomCheckbox id="cb-terms" checked={termsAccepted} onChange={setTermsAccepted} />
-                    <div className="flex-1">
-                      <p className="text-xs text-slate-800 dark:text-slate-200 leading-normal">
-                        Accept <a href="#" className="font-bold text-[#4A6CF7] hover:underline">Terms</a> &amp; <a href="#" className="font-bold text-[#4A6CF7] hover:underline">Policies</a>
-                      </p>
                     </div>
                   </label>
                 </div>
@@ -301,30 +365,25 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
               </div>
             </div>
 
-            {/* Action Warnings */}
-            {(!termsAccepted || (audioOnly ? !micConsent : (!cameraConsent || !micConsent))) && (
-              <div className="mt-4 p-3.5 rounded-xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] leading-relaxed flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-bold">Required Consents Missing:</p>
-                  <ul className="list-disc pl-4 mt-1 space-y-0.5 font-medium">
-                    {!termsAccepted && <li>Accept the Terms &amp; Policies</li>}
-                    {!audioOnly && !cameraConsent && <li>Provide consent for Camera usage</li>}
-                    {!micConsent && <li>Provide consent for Microphone usage</li>}
-                  </ul>
-                </div>
+            {/* Compact Action Warnings */}
+            {(audioOnly ? !micConsent : (!cameraConsent || !micConsent)) && (
+              <div className="my-2 p-2 px-2.5 rounded-lg border border-amber-500/20 bg-amber-50/5 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-[11px] flex items-center gap-2 shrink-0 animate-in fade-in duration-200">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                <span className="font-semibold leading-tight">
+                  Missing required consents: {[!audioOnly && !cameraConsent && 'Camera', !micConsent && 'Microphone'].filter(Boolean).join(', ')}
+                </span>
               </div>
             )}
 
-            {/* CTAs */}
-            <div className="space-y-2.5 mt-4 pt-1">
+            {/* CTAs — Always anchored at bottom */}
+            <div className="space-y-1.5 shrink-0 mt-2 pt-1">
               <button
                 disabled={!canProceed || isSubmitting}
                 onClick={() => handleConfirm()}
-                className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs transition-all duration-200 active:scale-95
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all duration-200 active:scale-95
                   flex items-center justify-center gap-2
                   ${!canProceed || isSubmitting
-                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-450 dark:text-slate-500 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 cursor-not-allowed'
                     : 'bg-[#4A6CF7] text-white hover:bg-[#4A6CF7]/90 shadow-md shadow-[#4A6CF7]/15'
                   }`}
               >
@@ -336,16 +395,16 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
                 <button
                   disabled={isSubmitting}
                   onClick={() => handleConfirm(true)}
-                  className="w-full py-3 px-4 rounded-xl font-bold text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300
-                    hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white hover:border-slate-3.5 border-slate-250 dark:border-slate-750 transition-all duration-200 active:scale-95
+                  className="w-full py-2 px-4 rounded-xl font-bold text-xs border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300
+                    hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white transition-all duration-200 active:scale-95
                     disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
-                  <MicOff className="w-3.5 h-3.5 text-slate-450" />
+                  <MicOff className="w-3.5 h-3.5 text-slate-500" />
                   Continue Audio Only
                 </button>
               )}
 
-              <button onClick={handleClose} className="w-full text-center text-[14px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 font-medium transition-colors">
+              <button onClick={handleClose} className="w-full text-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium py-0.5 transition-colors">
                 Cancel &amp; return
               </button>
             </div>
