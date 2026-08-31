@@ -208,7 +208,7 @@ export default function AssessmentSessionPage() {
   // Hook 1: Upload Queue Manager
   const { state: uploadState, enqueueChunk, retryFailedChunks, waitForAllUploads } =
     useChunkUploadQueue({
-      assessmentId: assessmentId || 0,
+      assessmentId: assessment?.id || assessmentId || 0,
       onError: (err) => console.error(`Sync error: ${err.message}`),
     });
 
@@ -872,9 +872,8 @@ export default function AssessmentSessionPage() {
 
       const totalSlices = Math.max(1, finalCount || 1);
 
-      // Fast non-blocking submission: trigger assembly & status update in parallel background tasks
+      // Fast non-blocking submission: trigger assembly in background task
       aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
-      aiprepApi.updateAssessmentStatus(assessment.id, 'COMPLETED').catch(e => console.warn('Async status update:', e));
 
       const embedQuery = isEmbedded ? '?embed=true' : '';
       router.push(`/aiprep${embedQuery}`);
