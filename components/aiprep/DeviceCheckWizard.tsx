@@ -464,21 +464,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }, 400);
   }, [selectedAudioDevice, step]);
 
-  // Bind video srcObject when entering step 2
+  // Bind video srcObject when entering step 3 or when cameraStream updates
   useEffect(() => {
     if (step === 'DEVICE_CHECK') {
-      const stream = cameraStreamRef.current;
-      if (stream && stream.active) {
-        const t = setTimeout(() => {
-          if (videoRef.current && videoRef.current.srcObject !== stream) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(() => { });
-          }
-        }, 80);
-        return () => clearTimeout(t);
+      const activeStream = cameraStreamRef.current || cameraStream;
+      if (activeStream && activeStream.active) {
+        if (videoRef.current && videoRef.current.srcObject !== activeStream) {
+          videoRef.current.srcObject = activeStream;
+          videoRef.current.play().catch(() => {});
+        }
       }
     }
-  }, [step]);
+  }, [step, cameraStream, cameraOk]);
 
   const cleanup = () => {
     cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -488,7 +485,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     try { recognitionRef.current?.stop(); } catch (_) { }
   };
 
+  const lastLoadDevicesRef = useRef(0);
   const loadDevices = async () => {
+    const now = Date.now();
+    if (now - lastLoadDevicesRef.current < 500) return;
+    lastLoadDevicesRef.current = now;
     try {
       const all = await navigator.mediaDevices.enumerateDevices();
       const vid = all.filter((d) => d.kind === 'videoinput');
@@ -557,8 +558,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: deviceId
-          ? { deviceId: { exact: deviceId }, width: 640, height: 480 }
-          : { width: 640, height: 480 },
+          ? { deviceId: { exact: deviceId } }
+          : { width: { ideal: 640 }, height: { ideal: 480 } },
       });
       cameraStreamRef.current = stream;
       setCameraStream(stream);
@@ -567,9 +568,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setFaceVerified(true);
       }
       loadDevices();
-      setTimeout(() => {
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      }, 100);
+      if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (err: any) {
       console.error('Camera stream error:', err);
       setCameraOk(false);
@@ -615,43 +614,45 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       };
       draw();
 
-      // Speech recognition
-      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SR) {
-        try {
-          const rec = new SR();
-          rec.continuous = true;
-          rec.interimResults = true;
-          rec.lang = 'en-US';
+      // Speech recognition — initialized asynchronously in background to prevent blocking device check
+      setTimeout(() => {
+        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SR) {
+          try {
+            const rec = new SR();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
 
-          rec.onresult = (e: any) => {
-            let txt = '';
-            for (let i = 0; i < e.results.length; i++) {
-              txt += e.results[i][0].transcript;
-            }
-            if (txt.trim()) {
-              setTranscriptionText(txt.trim());
-            }
-          };
+            rec.onresult = (e: any) => {
+              let txt = '';
+              for (let i = 0; i < e.results.length; i++) {
+                txt += e.results[i][0].transcript;
+              }
+              if (txt.trim()) {
+                setTranscriptionText(txt.trim());
+              }
+            };
 
-          rec.onerror = (err: any) => {
-            console.warn('Speech recognition error:', err.error);
-          };
+            rec.onerror = (err: any) => {
+              console.warn('Speech recognition error:', err.error);
+            };
 
-          rec.onend = () => {
-            if (micStreamRef.current && micStreamRef.current.active) {
-              try {
-                rec.start();
-              } catch (_) { }
-            }
-          };
+            rec.onend = () => {
+              if (micStreamRef.current && micStreamRef.current.active) {
+                try {
+                  rec.start();
+                } catch (_) { }
+              }
+            };
 
-          rec.start();
-          recognitionRef.current = rec;
-        } catch (e) {
-          console.warn('SpeechRec start failed:', e);
+            rec.start();
+            recognitionRef.current = rec;
+          } catch (e) {
+            console.warn('SpeechRec start failed:', e);
+          }
         }
-      }
+      }, 150);
     } catch (err: any) {
       console.error('Microphone error:', err);
       setMicOk(false);
@@ -662,13 +663,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const checkBandwidth = async () => {
     setBandwidthChecking(true);
     try {
-      const t0 = Date.now();
-      const res = await fetch('/favicon.ico?cb=' + t0);
-      const blob = await res.blob();
-      const sec = (Date.now() - t0) / 1000;
-      setBandwidthKbps(sec > 0 ? Math.round((blob.size * 8) / 1000 / sec) : 1500);
+      if (typeof window !== 'undefined' && (navigator as any).connection?.downlink) {
+        const downlinkMb = (navigator as any).connection.downlink;
+        setBandwidthKbps(Math.round(downlinkMb * 1000));
+        setBandwidthChecking(false);
+        return;
+      }
+      const t0 = performance.now();
+      await fetch('/favicon.ico?cb=' + t0, { method: 'HEAD', cache: 'no-store' });
+      const dt = (performance.now() - t0) / 1000;
+      setBandwidthKbps(dt > 0 ? Math.min(25000, Math.max(800, Math.round(150 / dt))) : 3000);
     } catch {
-      setBandwidthKbps(1500);
+      setBandwidthKbps(2500);
     } finally {
       setBandwidthChecking(false);
     }
@@ -677,7 +683,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const playTestTone = async () => {
     try {
       setIsPlayingTone(true);
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx();
       if (ctx.state === 'suspended') await ctx.resume();
 
       [587, 880].forEach((freq, idx) => {
@@ -691,7 +698,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       });
 
       setSpeakerTested(true);
-      setTimeout(() => setIsPlayingTone(false), 600);
+      setSpeakerOk(true);
+      setTimeout(() => {
+        setIsPlayingTone(false);
+        ctx.close().catch(() => {});
+      }, 700);
     } catch {
       setIsPlayingTone(false);
     }
@@ -865,8 +876,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
       setHardwareError(null);
 
-      // If onPrepareConfirmation is provided, run backend writes before showing confirmation.
-      // This ensures the CONFIRMATION step can display server-verified data.
+
+      
       if (onPrepareConfirmation) {
         setIsConfirmingFromBackend(true);
         const results = {
@@ -1040,7 +1051,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     </div>
                   ) : cameraOk ? (
                     <>
-                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
+                      <video
+                        ref={(el) => {
+                          (videoRef as any).current = el;
+                          const activeStream = cameraStreamRef.current || cameraStream;
+                          if (el && activeStream && el.srcObject !== activeStream) {
+                            el.srcObject = activeStream;
+                            el.play().catch(() => {});
+                          }
+                        }}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover -scale-x-100"
+                      />
                       {cameraStream && videoAnalyticsEnabled && (
                         <YOLOAnalyzer
                           videoRef={videoRef}
@@ -1384,7 +1408,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               (step === 'CONSENT' && !consentCanProceed) ||
               (step === 'DEVICE_CHECK' && !allChecksPass)
             }
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:via-blue-500 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
           >
             {step === 'CONFIGURATION' ? 'Next: Privacy & Consent' : step === 'CONSENT' ? 'Next: Check & Testing' : step === 'DEVICE_CHECK' ? 'Next: Confirmation' : 'Start Assessment'}
             <ChevronRight className="w-4 h-4 stroke-[2.5]" />

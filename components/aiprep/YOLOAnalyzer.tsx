@@ -16,16 +16,16 @@ const YOLO_POSE_MODEL_URL = '/models/yolov8n-pose.onnx';
 
 // ── Configurable Types ────────────────────────────────────────────────────────
 export interface YOLOThresholds {
-  slouch: number;     // centerY > this → SLOUCHING          (default 0.65)
-  leanLeft: number;   // centerX < this → LEANING_LEFT        (default 0.20)
-  leanRight: number;  // centerX > this → LEANING_RIGHT       (default 0.80)
-  tooClose: number;   // faceArea > this → TOO_CLOSE          (default 0.32)
-  tooFar: number;     // faceArea < this → TOO_FAR            (default 0.035)
-  yawMin: number;     // yaw ratio < this → looking right     (default 0.45)
-  yawMax: number;     // yaw ratio > this → looking left      (default 2.2)
-  pitchUp: number;    // pitch ratio < this → looking up      (default 0.38)
-  pitchDown: number;  // pitch ratio > this → looking down    (default 1.45)
-  nodDelta: number;   // min centerY delta to count as nod    (default 0.015)
+  slouch: number;    
+  leanLeft: number;  
+  leanRight: number;  
+  tooClose: number;  
+  tooFar: number;    
+  yawMin: number;    
+  yawMax: number;    
+  pitchUp: number;    
+  pitchDown: number;  
+  nodDelta: number;  
 }
 
 export interface YOLOBoundingBoxPad {
@@ -82,31 +82,31 @@ type PostureEntry = {
 const POSTURE_RULES: PostureEntry[] = [
   { check: ({ hasMultiple }) => hasMultiple,
     position: 'MULTIPLE_PERSONS_DETECTED', stability: 0,  label: 'MULTIPLE_FACES',
-    message: '⚠️ MULTIPLE PERSONS DETECTED! Only candidate allowed in frame.' },
+    message: ' MULTIPLE PERSONS DETECTED! Only candidate allowed in frame.' },
   { check: ({ centerY, T }) => centerY > T.slouch,
     position: 'SLOUCHING',               stability: 50, label: 'SLOUCHING',
-    message: '⚠️ Slouching - Please sit up straight' },
+    message: ' Slouching - Please sit up straight' },
   { check: ({ centerX, T }) => centerX < T.leanLeft,
     position: 'LEANING_LEFT',            stability: 60, label: 'LEANING_LEFT',
-    message: '⚠️ Leaning left - Move body slightly right' },
+    message: ' Leaning left - Move body slightly right' },
   { check: ({ centerX, T }) => centerX > T.leanRight,
     position: 'LEANING_RIGHT',           stability: 60, label: 'LEANING_RIGHT',
-    message: '⚠️ Leaning right - Move body slightly left' },
+    message: ' Leaning right - Move body slightly left' },
   { check: ({ isTooClose }) => isTooClose,
     position: 'TOO_CLOSE',               stability: 60, label: 'TOO_CLOSE',
-    message: '⚠️ Too close to camera - Move back slightly' },
+    message: ' Too close to camera - Move back slightly' },
   { check: ({ isTooFar }) => isTooFar,
     position: 'TOO_FAR',                 stability: 60, label: 'TOO_FAR',
-    message: '⚠️ Too far - Move closer to camera' },
+    message: ' Too far - Move closer to camera' },
   { check: ({ isLookingUp }) => isLookingUp,
     position: 'LOOKING_UP',              stability: 70, label: 'UPRIGHT',
-    message: '⚠️ Looking up - Please look straight' },
+    message: ' Looking up - Please look straight' },
   { check: ({ isLookingDown }) => isLookingDown,
     position: 'PHONE_OR_DOWNWARD_GAZE',  stability: 40, label: 'UPRIGHT',
-    message: '⚠️ Phone / Downward Gaze Detected! Look straight at screen' },
+    message: ' Phone / Downward Gaze Detected! Look straight at screen' },
   { check: ({ isLookingAway }) => isLookingAway,
     position: 'LOOKING_AWAY_OR_DEVICE',  stability: 45, label: 'UPRIGHT',
-    message: '⚠️ Side Gaze Detected! Please focus on screen' },
+    message: ' Side Gaze Detected! Please focus on screen' },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────

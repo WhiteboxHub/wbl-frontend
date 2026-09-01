@@ -8,6 +8,8 @@
  * device checks, consent logs, chunked upload, and analytical reports.
  */
 
+import { apiFetch } from '@/lib/api';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 // ============================================================================
@@ -27,6 +29,148 @@ export const NO_PAUSE_ASSESSMENT_TYPES: ReadonlyArray<AssessmentType> = [
   'GENERAL_INTRO',
   'JOB_DESCRIPTION_INTRO',
 ];
+
+export interface AssessmentCardMeta {
+  type: AssessmentType;
+  title: string;
+  description: string;
+  timeLimit: string;
+  questionCount: string;
+  pauseAllowed: boolean;
+  requiresJd: boolean;
+}
+
+export const BACKEND_QUESTION_LIMITS: Record<AssessmentType, number> = {
+  GENERAL_INTRO: 5,
+  JOB_DESCRIPTION_INTRO: 5,
+  RECRUITER: 6,
+  HIRING_MANAGER: 7,
+  TECHNICAL: 8,
+  SYSTEM_DESIGN: 4,
+  HR: 6,
+};
+
+export function getDifficultySeconds(difficulty?: string): number {
+  switch (difficulty?.toUpperCase()) {
+    case 'EASY':
+      return 90;
+    case 'HARD':
+      return 180;
+    case 'EXPERT':
+      return 240;
+    case 'MEDIUM':
+    default:
+      return 120;
+  }
+}
+
+export function getDefaultTypeSeconds(type: AssessmentType): number {
+  switch (type) {
+    case 'GENERAL_INTRO':
+    case 'JOB_DESCRIPTION_INTRO':
+      return 90;
+    case 'RECRUITER':
+      return 120;
+    case 'HIRING_MANAGER':
+    case 'HR':
+      return 180;
+    case 'TECHNICAL':
+      return 240;
+    case 'SYSTEM_DESIGN':
+      return 300;
+    default:
+      return 180;
+  }
+}
+
+export function getTimeLimitSeconds(type: AssessmentType): number {
+  return getDefaultTypeSeconds(type);
+}
+
+export function formatDynamicTimeLimit(
+  type: AssessmentType,
+  dbQuestionCount?: number,
+  avgSecondsPerQuestion?: number
+): string {
+  const count = typeof dbQuestionCount === 'number' && dbQuestionCount > 0
+    ? dbQuestionCount
+    : (BACKEND_QUESTION_LIMITS[type] || 5);
+
+  const sec = avgSecondsPerQuestion || getDefaultTypeSeconds(type);
+  const minPerQuestion = sec / 60;
+  const perQuestionStr = minPerQuestion % 1 === 0
+    ? `${minPerQuestion}m / question`
+    : `${minPerQuestion.toFixed(1)}m / question`;
+
+  const totalMin = Math.round((count * sec) / 60);
+  return `${perQuestionStr} (~${totalMin}m total)`;
+}
+
+export function buildAssessmentCardMetadata(
+  type: AssessmentType,
+  dbQuestionCount?: number,
+  avgSecondsPerQuestion?: number
+): AssessmentCardMeta {
+  const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
+  const requiresJd = type === 'JOB_DESCRIPTION_INTRO';
+
+  const titleMap: Record<AssessmentType, string> = {
+    GENERAL_INTRO: 'General Intro',
+    JOB_DESCRIPTION_INTRO: 'Job Description Intro',
+    RECRUITER: 'Recruiter Phone Screen',
+    HIRING_MANAGER: 'Hiring Manager Conversation',
+    TECHNICAL: 'Technical Theory & Coding',
+    SYSTEM_DESIGN: 'AI System Design',
+    HR: 'HR & Behavioral Screen',
+  };
+
+  const descMap: Record<AssessmentType, string> = {
+    GENERAL_INTRO: 'Introductory dialogue covering your overall professional background and general experience.',
+    JOB_DESCRIPTION_INTRO: 'Introductory dialogue tailored dynamically to your target Job Description.',
+    RECRUITER: 'Simulates a standard recruiter phone screen covering experience overview, compensation expectations, and notice period.',
+    HIRING_MANAGER: 'Deeper technical alignment screen exploring system design ownership, past projects, and leadership dynamics.',
+    TECHNICAL: 'Deep-dive into core AI Engineering topics: LLMs, transformers, RAG architecture, MLOps, and vector DBs.',
+    SYSTEM_DESIGN: 'Solve production AI scale challenges. Deconstruct business problems, design pipelines, and choose models.',
+    HR: 'Classic situational and cultural fit loops using the STAR format to evaluate work dynamics.',
+  };
+
+  const count = typeof dbQuestionCount === 'number' && dbQuestionCount > 0
+    ? dbQuestionCount
+    : (BACKEND_QUESTION_LIMITS[type] || 5);
+
+  const dynamicTimeLimit = formatDynamicTimeLimit(type, count, avgSecondsPerQuestion);
+  const qCountText = `${count} Question${count === 1 ? '' : 's'}`;
+
+  return {
+    type,
+    title: titleMap[type] || type,
+    description: descMap[type] || '',
+    timeLimit: dynamicTimeLimit,
+    questionCount: qCountText,
+    pauseAllowed: !isNoPause,
+    requiresJd,
+  };
+}
+
+export type QuestionCategory =
+  | 'TECHNICAL'
+  | 'SYSTEM_DESIGN'
+  | 'RECRUITER'
+  | 'HIRING_MANAGER'
+  | 'BEHAVIORAL'
+  | 'GENERAL'
+  | string;
+
+export interface QuestionBankResponse {
+  id: number;
+  category: string;
+  sub_category?: string | null;
+  difficulty_level?: string | null;
+  question_text: string;
+  ideal_answer_rubric?: string | null;
+  relevant_skills_json?: any;
+  is_active?: boolean;
+}
 
 export type AssessmentMode = 'VIDEO_AUDIO' | 'AUDIO_ONLY';
 
@@ -135,29 +279,11 @@ export interface VisionTelemetry {
 
 export interface ConsentRequest {
   candidate_id?: number;
-  consent_type: 'VIDEO_ANALYTICS' | 'DATA_RETENTION' | 'TERMS_OF_SERVICE';
+  consent_type: 'VIDEO_ANALYTICS';
   consented: boolean;
 }
 
-export type QuestionCategory =
-  | 'TECHNICAL'
-  | 'SYSTEM_DESIGN'
-  | 'BEHAVIORAL'
-  | 'RECRUITER'
-  | 'HIRING_MANAGER'
-  | 'GENERAL';
 
-export interface QuestionBankResponse {
-  id: number;
-  category: QuestionCategory;
-  sub_category: string;
-  difficulty_level: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
-  question_text: string;
-  ideal_answer_rubric?: string | null;
-  relevant_skills_json?: string[] | null;
-  is_active: boolean;
-  created_at: string;
-}
 
 export interface ConsentResponse {
   id: number;
@@ -495,62 +621,72 @@ export const aiprepApi = {
   }
 };
 
-export interface AssessmentCardMeta {
-  type: AssessmentType;
-  title: string;
-  description: string;
-  timeLimit: string;
-  questionCount: string;
-  pauseAllowed: boolean;
-  requiresJd: boolean;
+/**
+ * Fetches the candidate's active decrypted LLM API key stored in My LLM Setup (/coderpad/me/llm-keys).
+ */
+export async function fetchCandidateOpenAiKey(): Promise<string> {
+  try {
+    // 1. Try explicit reveal endpoint /coderpad/me/openai-key-reveal
+    try {
+      const res = await apiFetch('coderpad/me/openai-key-reveal');
+      if (res && res.api_key && typeof res.api_key === 'string' && res.api_key.trim()) {
+        return res.api_key.trim();
+      }
+    } catch (e) {}
+
+    // 2. Query My LLM Setup key list (/coderpad/me/llm-keys)
+    const listRes: any = await apiFetch('coderpad/me/llm-keys');
+    if (Array.isArray(listRes) && listRes.length > 0) {
+      // Prefer default or active row
+      const targetRow = listRes.find((r: any) => r.is_default || r.validation_status === 'active') || listRes[0];
+      if (targetRow && targetRow.id) {
+        const revealRes: any = await apiFetch(`coderpad/me/llm-keys/${targetRow.id}/reveal`);
+        if (revealRes && revealRes.api_key && typeof revealRes.api_key === 'string' && revealRes.api_key.trim()) {
+          return revealRes.api_key.trim();
+        }
+      }
+    }
+    return '';
+  } catch (err) {
+    console.warn('[My LLM Setup Key Note]:', err);
+    return '';
+  }
 }
 
-export function buildAssessmentCardMetadata(
-  type: AssessmentType,
-  dbQuestionCount?: number
-): AssessmentCardMeta {
-  const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
-  const requiresJd = type === 'JOB_DESCRIPTION_INTRO';
+/**
+ * Transcribes audio blob using candidate's My LLM Setup API key (OpenAI Whisper).
+ */
+export async function transcribeAudioWithBackendLlmKey(audioBlob: Blob): Promise<string> {
+  try {
+    const apiKey = await fetchCandidateOpenAiKey();
+    const effectiveKey = apiKey || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    if (!effectiveKey || effectiveKey.trim() === '' || effectiveKey.includes('placeholder')) {
+      return '';
+    }
 
-  const titleMap: Record<AssessmentType, string> = {
-    GENERAL_INTRO: 'General & Job Description Intro',
-    JOB_DESCRIPTION_INTRO: 'General & Job Description Intro',
-    RECRUITER: 'Recruiter Phone Screen',
-    HIRING_MANAGER: 'Hiring Manager Conversation',
-    TECHNICAL: 'Technical Theory & Coding',
-    SYSTEM_DESIGN: 'AI System Design',
-    HR: 'HR & Behavioral Screen',
-  };
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio_chunk.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'en');
 
-  const descMap: Record<AssessmentType, string> = {
-    GENERAL_INTRO: 'Introductory dialogue covering your professional background or tailored dynamically to a target Job Description.',
-    JOB_DESCRIPTION_INTRO: 'Introductory dialogue tailored dynamically to a target Job Description.',
-    RECRUITER: 'Simulates a standard recruiter phone screen covering experience overview, compensation expectations, and notice period.',
-    HIRING_MANAGER: 'Deeper technical alignment screen exploring system design ownership, past projects, and leadership dynamics.',
-    TECHNICAL: 'Deep-dive into core AI Engineering topics: LLMs, transformers, RAG architecture, MLOps, and vector DBs.',
-    SYSTEM_DESIGN: 'Solve production AI scale challenges. Deconstruct business problems, design pipelines, and choose models.',
-    HR: 'Classic situational and cultural fit loops using the STAR format to evaluate work dynamics.',
-  };
+    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${effectiveKey}`,
+      },
+      body: formData,
+    });
 
-  const timeMap: Record<AssessmentType, string> = {
-    GENERAL_INTRO: '90s per question',
-    JOB_DESCRIPTION_INTRO: '90s per question',
-    RECRUITER: '2m per question',
-    HIRING_MANAGER: '3m per question',
-    TECHNICAL: '4m per question',
-    SYSTEM_DESIGN: '5m min response',
-    HR: '3m per question',
-  };
+    if (!res.ok) {
+      console.warn(`[Whisper STT] HTTP ${res.status}: ${res.statusText}`);
+      return '';
+    }
 
-  const qCountText = dbQuestionCount ? `${dbQuestionCount} Questions` : '3-5 Questions';
-
-  return {
-    type,
-    title: titleMap[type] || type,
-    description: descMap[type] || '',
-    timeLimit: timeMap[type] || '90s per question',
-    questionCount: qCountText,
-    pauseAllowed: !isNoPause,
-    requiresJd,
-  };
+    const data = await res.json();
+    return data.text || '';
+  } catch (err) {
+    console.warn('[Whisper STT Error]:', err);
+    return '';
+  }
 }
+

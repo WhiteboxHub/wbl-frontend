@@ -3381,7 +3381,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     {setupStatus.setup_complete ? (
                                                         <button
                                                             onClick={() => {
-                                                                router.push('/aiprep');
+                                                                goToTab('ai-prep-coach');
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer"
                                                         >
@@ -3421,12 +3421,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {activeTab === 'ai-prep-coach' && (
-                                    <iframe
-                                        src="/aiprep?embed=true"
-                                        className="absolute inset-0 w-full h-full border-0"
-                                        style={{ display: 'block' }}
-                                        allow="camera; microphone"
-                                    />
+                                    <div className="w-full h-full min-h-[calc(100vh-100px)] relative overflow-hidden bg-slate-50 dark:bg-gray-950 flex flex-col">
+                                        <iframe
+                                            src="/aiprep?embed=true"
+                                            className="w-full flex-1 border-0 min-h-[calc(100vh-100px)]"
+                                            style={{ display: 'block' }}
+                                            allow="camera; microphone"
+                                        />
+                                    </div>
                                 )}
 
 
