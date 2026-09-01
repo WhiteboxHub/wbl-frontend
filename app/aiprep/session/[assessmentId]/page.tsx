@@ -595,9 +595,14 @@ export default function AssessmentSessionPage() {
       stopCameraFeed();
       stopSpeechRecognition();
       const totalSlices = Math.max(1, finalCount || 1);
-      aiprepApi.assembleMedia(assessment.id, totalSlices).catch(() => {});
-      router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
-    } catch (err) {
+
+      // Fast non-blocking submission: trigger assembly in background task
+      aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
+
+      const embedQuery = isEmbedded ? '?embed=true' : '';
+      router.push(`/aiprep${embedQuery}`);
+    } catch (err: any) {
+      console.error('Error ending assessment session:', err);
       stopCameraFeed();
       stopSpeechRecognition();
       router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
