@@ -88,7 +88,11 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
 
   const handleConfirm = (forceAudioOnly?: boolean) => {
     if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aiprep_consent_agreed', 'true');
+      sessionStorage.setItem('aiprep_consent_timestamp', new Date().toISOString());
       sessionStorage.setItem('aiprep_yolo_consent', yoloConsent ? 'true' : 'false');
+      sessionStorage.setItem('aiprep_camera_consent', cameraConsent ? 'true' : 'false');
+      sessionStorage.setItem('aiprep_mic_consent', micConsent ? 'true' : 'false');
     }
     const finalCam = (audioOnly || forceAudioOnly) ? false : cameraConsent;
     cleanup();

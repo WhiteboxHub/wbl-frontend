@@ -2,7 +2,6 @@
  * AIPrep Main Page Route
  * 
  * Route: /aiprep
- * Primary Developer: Narasimha (FE1)
  * 
  * Redirects or renders the DeviceCheckWizard directly. The dashboard cards
  * will be placed here by Vishnu later.
@@ -30,11 +29,33 @@ export default function AIPrepPage() {
   useEffect(() => {
     setIsMounted(true);
     async function verifyAuth() {
+      // If running inside an iframe (candidate dashboard), always treat as authenticated.
+      // Never redirect — that would load the homepage INSIDE the iframe.
+      const isEmbedded = typeof window !== 'undefined' && (
+        window.self !== window.top || window.location.search.includes('embed=true')
+      );
+      if (isEmbedded) {
+        setIsAuthenticated(true);
+        return;
+      }
+
+      // Standalone route: verify via token or API
+      const token = typeof window !== 'undefined' && (
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("bearer_token")
+      );
+      if (token) {
+        setIsAuthenticated(true);
+        return;
+      }
+
       try {
         await apiFetch("user_dashboard");
         setIsAuthenticated(true);
       } catch (err) {
-        console.warn('[Security Guard]: Unauthenticated access. Redirecting to login.');
+        console.warn('[Security Guard]: Unauthenticated. Redirecting to login.');
         router.replace('/login');
       }
     }
@@ -53,7 +74,13 @@ export default function AIPrepPage() {
   const effectiveType = queryType || storedType || 'TECHNICAL';
   const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
 
-  const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(null);
+  const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('aiprep_active_id');
+      if (stored) return parseInt(stored, 10);
+    }
+    return null;
+  });
 
   // Phase 1 — called when transitioning from DEVICE_CHECK → CONFIRMATION
   const handlePrepareConfirmation = async (results: {
@@ -69,7 +96,6 @@ export default function AIPrepPage() {
     video_enabled: boolean;
     jd_text: string;
   }): Promise<number> => {
-    let targetId = activeAssessmentId;
     let candidateId: number | undefined = undefined;
     try {
       const userResponse = await apiFetch("user_dashboard");
@@ -78,37 +104,19 @@ export default function AIPrepPage() {
       console.error("Failed to retrieve candidate profile details:", err);
     }
 
-    if (!targetId) {
-      if (results.video_enabled) {
-        await aiprepApi.recordConsent({
-          candidate_id: candidateId,
-          consent_type: 'VIDEO_ANALYTICS',
-          consented: results.yolo_consent,
-        });
-      }
+    const assessment = await aiprepApi.createAssessment({
+      assessment_type: results.assessment_type as AssessmentType,
+      assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+      candidate_id: candidateId,
+      job_description_text: results.assessment_type === 'JOB_DESCRIPTION_INTRO' ? results.jd_text : null,
+    });
 
-      const assessment = await aiprepApi.createAssessment({
-        assessment_type: results.assessment_type as AssessmentType,
-        assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
-        candidate_id: candidateId,
-        job_description_text: results.assessment_type === 'JOB_DESCRIPTION_INTRO' ? results.jd_text : null,
-      });
-
-      if (!assessment || !assessment.id) {
-        throw new Error('Failed to initialize assessment session on server.');
-      }
-      targetId = assessment.id;
-      setActiveAssessmentId(targetId);
-      sessionStorage.setItem('aiprep_active_id', String(targetId));
-    } else {
-      if (results.video_enabled) {
-        await aiprepApi.recordConsent({
-          candidate_id: candidateId,
-          consent_type: 'VIDEO_ANALYTICS',
-          consented: results.yolo_consent,
-        });
-      }
+    if (!assessment || !assessment.id) {
+      throw new Error('Failed to initialize assessment session on server.');
     }
+    const targetId = assessment.id;
+    setActiveAssessmentId(targetId);
+    sessionStorage.setItem('aiprep_active_id', String(targetId));
 
     await aiprepApi.saveHardwareCheck({
       assessment_id: targetId,
@@ -157,8 +165,6 @@ export default function AIPrepPage() {
 
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_wizard_step');
-      sessionStorage.removeItem('aiprep_consent_accepted');
-      sessionStorage.removeItem('aiprep_yolo_consent');
 
       router.push(targetSessionUrl);
     } catch (err: any) {
@@ -169,7 +175,13 @@ export default function AIPrepPage() {
   };
 
   const handleCancel = () => {
-    router.push('/');
+    sessionStorage.removeItem('aiprep_wizard_step');
+    sessionStorage.removeItem('aiprep_active_type');
+    sessionStorage.removeItem('aiprep_active_mode');
+    sessionStorage.removeItem('aiprep_active_id');
+    // Always use Next.js router to avoid full-page reload inside the iframe
+    // which would cause the homepage layout to render inside the candidate dashboard
+    router.replace('/aiprep?embed=true');
   };
 
   if (!isMounted || isAuthenticated === null) {
@@ -181,14 +193,16 @@ export default function AIPrepPage() {
     );
   }
 
+  const isEmbedded = searchParams.get('embed') === 'true';
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200">
+    <div className={`w-full bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 ${isEmbedded ? 'h-screen max-h-screen overflow-hidden p-2 sm:p-3' : 'min-h-screen p-4 sm:p-5'}`}>
 
       {/* Decorative background glows */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
 
-      <div className="w-full flex-1 flex flex-col z-10 p-4 sm:p-5">
+      <div className="w-full flex-1 flex flex-col z-10 min-h-0 overflow-hidden">
         {errorMsg ? (
           <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
             <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />

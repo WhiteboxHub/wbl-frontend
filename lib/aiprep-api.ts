@@ -41,13 +41,13 @@ export interface AssessmentCardMeta {
 }
 
 export const BACKEND_QUESTION_LIMITS: Record<AssessmentType, number> = {
-  GENERAL_INTRO: 5,
-  JOB_DESCRIPTION_INTRO: 5,
-  RECRUITER: 6,
-  HIRING_MANAGER: 7,
-  TECHNICAL: 8,
-  SYSTEM_DESIGN: 4,
-  HR: 6,
+  GENERAL_INTRO: 0,
+  JOB_DESCRIPTION_INTRO: 0,
+  RECRUITER: 0,
+  HIRING_MANAGER: 0,
+  TECHNICAL: 0,
+  SYSTEM_DESIGN: 0,
+  HR: 0,
 };
 
 export function getDifficultySeconds(difficulty?: string): number {
@@ -92,9 +92,9 @@ export function formatDynamicTimeLimit(
   dbQuestionCount?: number,
   avgSecondsPerQuestion?: number
 ): string {
-  const count = typeof dbQuestionCount === 'number' && dbQuestionCount > 0
+  const count = typeof dbQuestionCount === 'number'
     ? dbQuestionCount
-    : (BACKEND_QUESTION_LIMITS[type] || 5);
+    : (BACKEND_QUESTION_LIMITS[type] ?? 0);
 
   const sec = avgSecondsPerQuestion || getDefaultTypeSeconds(type);
   const minPerQuestion = sec / 60;
@@ -134,9 +134,9 @@ export function buildAssessmentCardMetadata(
     HR: 'Classic situational and cultural fit loops using the STAR format to evaluate work dynamics.',
   };
 
-  const count = typeof dbQuestionCount === 'number' && dbQuestionCount > 0
+  const count = typeof dbQuestionCount === 'number'
     ? dbQuestionCount
-    : (BACKEND_QUESTION_LIMITS[type] || 5);
+    : (BACKEND_QUESTION_LIMITS[type] ?? 0);
 
   const dynamicTimeLimit = formatDynamicTimeLimit(type, count, avgSecondsPerQuestion);
   const qCountText = `${count} Question${count === 1 ? '' : 's'}`;
@@ -275,23 +275,6 @@ export interface VisionTelemetry {
   frame_stability_score: number;
   snapshots_json?: any[] | null;
   created_at: string;
-}
-
-export interface ConsentRequest {
-  candidate_id?: number;
-  consent_type: 'VIDEO_ANALYTICS';
-  consented: boolean;
-}
-
-
-
-export interface ConsentResponse {
-  id: number;
-  candidate_id?: number;
-  consent_type: string;
-  consented: boolean;
-  consented_at: string;
-  revoked_at?: string | null;
 }
 
 // ============================================================================
@@ -457,32 +440,7 @@ export const aiprepApi = {
     });
   },
 
-  /**
-   * Records candidate consent for analytics.
-   * POST /api/ai-prep/consents?candidate_id={candidate_id}
-   */
-  async recordConsent(data: ConsentRequest, signal?: AbortSignal): Promise<ConsentResponse> {
-    const candidateParam = data.candidate_id ? `?candidate_id=${data.candidate_id}` : '';
-    return request<ConsentResponse>(`/api/ai-prep/consents${candidateParam}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        consent_type: data.consent_type,
-        consented: data.consented,
-      }),
-      signal,
-    });
-  },
 
-  /**
-   * Fetches all consent records for a candidate from the backend.
-   * GET /api/ai-prep/consents/{candidate_id}
-   */
-  async getConsents(candidateId: number, signal?: AbortSignal): Promise<ConsentResponse[]> {
-    return request<ConsentResponse[]>(`/api/ai-prep/consents/${candidateId}`, {
-      method: 'GET',
-      signal,
-    });
-  },
 
   /**
    * Fetches questions from the Question Bank.
@@ -621,72 +579,4 @@ export const aiprepApi = {
   }
 };
 
-/**
- * Fetches the candidate's active decrypted LLM API key stored in My LLM Setup (/coderpad/me/llm-keys).
- */
-export async function fetchCandidateOpenAiKey(): Promise<string> {
-  try {
-    // 1. Try explicit reveal endpoint /coderpad/me/openai-key-reveal
-    try {
-      const res = await apiFetch('coderpad/me/openai-key-reveal');
-      if (res && res.api_key && typeof res.api_key === 'string' && res.api_key.trim()) {
-        return res.api_key.trim();
-      }
-    } catch (e) {}
-
-    // 2. Query My LLM Setup key list (/coderpad/me/llm-keys)
-    const listRes: any = await apiFetch('coderpad/me/llm-keys');
-    if (Array.isArray(listRes) && listRes.length > 0) {
-      // Prefer default or active row
-      const targetRow = listRes.find((r: any) => r.is_default || r.validation_status === 'active') || listRes[0];
-      if (targetRow && targetRow.id) {
-        const revealRes: any = await apiFetch(`coderpad/me/llm-keys/${targetRow.id}/reveal`);
-        if (revealRes && revealRes.api_key && typeof revealRes.api_key === 'string' && revealRes.api_key.trim()) {
-          return revealRes.api_key.trim();
-        }
-      }
-    }
-    return '';
-  } catch (err) {
-    console.warn('[My LLM Setup Key Note]:', err);
-    return '';
-  }
-}
-
-/**
- * Transcribes audio blob using candidate's My LLM Setup API key (OpenAI Whisper).
- */
-export async function transcribeAudioWithBackendLlmKey(audioBlob: Blob): Promise<string> {
-  try {
-    const apiKey = await fetchCandidateOpenAiKey();
-    const effectiveKey = apiKey || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    if (!effectiveKey || effectiveKey.trim() === '' || effectiveKey.includes('placeholder')) {
-      return '';
-    }
-
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio_chunk.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
-
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${effectiveKey}`,
-      },
-      body: formData,
-    });
-
-    if (!res.ok) {
-      console.warn(`[Whisper STT] HTTP ${res.status}: ${res.statusText}`);
-      return '';
-    }
-
-    const data = await res.json();
-    return data.text || '';
-  } catch (err) {
-    console.warn('[Whisper STT Error]:', err);
-    return '';
-  }
-}
 

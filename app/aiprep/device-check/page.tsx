@@ -102,7 +102,7 @@ export default function DeviceCheckPage() {
 
   /**
    * Phase 1 — called by wizard when transitioning from DEVICE_CHECK → CONFIRMATION.
-   * Creates the assessment, records consent, and saves hardware check results.
+   * Creates the assessment and saves hardware check results.
    * Returns the new assessmentId so the CONFIRMATION step can fetch backend data.
    */
   const handlePrepareConfirmation = async (results: {
@@ -128,14 +128,6 @@ export default function DeviceCheckPage() {
     }
 
     if (!targetId) {
-      // Record VIDEO_ANALYTICS consent if in video mode
-      if (results.video_enabled) {
-        await aiprepApi.recordConsent({
-          candidate_id: candidateId,
-          consent_type: 'VIDEO_ANALYTICS',
-          consented: results.yolo_consent,
-        });
-      }
       // Create assessment
       const assessment = await aiprepApi.createAssessment({
         assessment_type: results.assessment_type as AssessmentType,
@@ -146,14 +138,6 @@ export default function DeviceCheckPage() {
       targetId = assessment.id;
       setActiveAssessmentId(targetId);
       sessionStorage.setItem('aiprep_active_id', String(targetId));
-    } else {
-      if (results.video_enabled) {
-        await aiprepApi.recordConsent({
-          candidate_id: candidateId,
-          consent_type: 'VIDEO_ANALYTICS',
-          consented: results.yolo_consent,
-        });
-      }
     }
 
     // Save hardware check results
@@ -165,7 +149,7 @@ export default function DeviceCheckPage() {
       mic_permission: results.mic_permission,
       speaker_ok: results.speaker_ok,
       bandwidth_kbps: results.bandwidth_kbps,
-      yolo_model_enabled: results.yolo_consent,
+      yolo_model_enabled: results.camera_permission && results.yolo_consent,
     });
 
     if (!hwResponse || !hwResponse.id) {
@@ -186,7 +170,6 @@ export default function DeviceCheckPage() {
     mic_permission: boolean;
     speaker_ok: boolean;
     bandwidth_kbps: number;
-    yolo_consent: boolean;
     assessment_type: string;
     audio_enabled: boolean;
     video_enabled: boolean;

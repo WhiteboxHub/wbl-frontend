@@ -27,7 +27,7 @@ import {
   QuestionCategory,
   getTimeLimitSeconds,
   getDifficultySeconds,
-  transcribeAudioWithBackendLlmKey
+
 } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { YOLOAnalyzer } from '@/components/aiprep/YOLOAnalyzer';
@@ -247,14 +247,7 @@ export default function AssessmentSessionPage() {
       enqueueChunk(chunkBlob, chunkNumber);
 
       // Transcribe 30s audio slice using candidate's My LLM Setup API key
-      try {
-        const text = await transcribeAudioWithBackendLlmKey(chunkBlob);
-        if (text) {
-          setLiveTranscript(prev => (prev ? `${prev} ${text}` : text));
-        }
-      } catch (err) {
-        console.warn('My LLM Setup key STT transcription note:', err);
-      }
+     
     },
     onError: (err) => console.error(`[Recorder Error]: ${err.message}`),
   });
@@ -588,6 +581,11 @@ export default function AssessmentSessionPage() {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(`aiprep_session_state_${assessment.id}`);
       sessionStorage.removeItem(`aiprep_session_questions_${assessment.id}`);
+      sessionStorage.removeItem('aiprep_consent_agreed');
+      sessionStorage.removeItem('aiprep_consent_timestamp');
+      sessionStorage.removeItem('aiprep_yolo_consent');
+      sessionStorage.removeItem('aiprep_camera_consent');
+      sessionStorage.removeItem('aiprep_mic_consent');
     }
 
     try {

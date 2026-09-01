@@ -184,7 +184,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume' | 'ai-prep-coach';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume' | 'ai-prep';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -2390,7 +2390,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
                     {/* ==================== TAB CONTENT ==================== */}
-                    <div className={`flex-1 overflow-hidden flex flex-col animate-fadeIn ${activeTab === 'ai-prep-coach' ? 'relative' : ''}`}>
+                    <div className={`flex-1 overflow-hidden flex flex-col animate-fadeIn ${activeTab === 'ai-prep' ? 'relative' : ''}`}>
                         {setupWizardOpen ? (
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
                                 <CandidateSetupWizard
@@ -3381,7 +3381,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     {setupStatus.setup_complete ? (
                                                         <button
                                                             onClick={() => {
-                                                                goToTab('ai-prep-coach');
+                                                                goToTab('ai-prep');
                                                             }}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer"
                                                         >
@@ -3420,7 +3420,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'ai-prep-coach' && (
+                                {activeTab === 'ai-prep' && (
                                     <div className="w-full h-full min-h-[calc(100vh-100px)] relative overflow-hidden bg-slate-50 dark:bg-gray-950 flex flex-col">
                                         <iframe
                                             src="/aiprep?embed=true"
