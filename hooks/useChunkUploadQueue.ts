@@ -194,6 +194,7 @@ export function useChunkUploadQueue({
 
   const enqueueChunk = useCallback(
     (blob: Blob, chunkNumber: number) => {
+      if (!blob || blob.size < 1000) return;
       dispatch({ type: 'ENQUEUE', chunkNumber, blob });
       setTimeout(() => {
         processNextChunk();

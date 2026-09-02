@@ -112,7 +112,7 @@ export function useMediaRecorder({
       setChunkCount(0);
 
       recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data && event.data.size > 0) {
+        if (event.data && event.data.size >= 1000) {
           const currentIndex = chunkIndexRef.current;
           chunkIndexRef.current += 1;
           setChunkCount(chunkIndexRef.current);

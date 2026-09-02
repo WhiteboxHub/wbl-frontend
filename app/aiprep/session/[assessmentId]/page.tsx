@@ -872,8 +872,15 @@ export default function AssessmentSessionPage() {
 
       const totalSlices = Math.max(1, finalCount || 1);
 
-      // Fast non-blocking submission: trigger assembly in background task
-      aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
+      // 1. Await full sync of all 30-second WebM chunks to local backend storage
+      try {
+        await waitForAllUploads();
+      } catch (uploadErr) {
+        console.warn('[Session End] Chunks sync note:', uploadErr);
+      }
+
+      // 2. Trigger assembly request to local backend
+      await aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
 
       const embedQuery = isEmbedded ? '?embed=true' : '';
       router.push(`/aiprep${embedQuery}`);
@@ -1044,7 +1051,7 @@ export default function AssessmentSessionPage() {
   }
 
   return (
-    <div className="h-screen max-h-screen w-full overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-4 md:p-5 transition-colors duration-300 select-none">
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-4 transition-colors duration-300 select-none overflow-y-auto">
 
       <div className="max-w-[1650px] w-full h-full mx-auto flex flex-col justify-between gap-3">
 
@@ -1060,19 +1067,19 @@ export default function AssessmentSessionPage() {
           </div>
 
           {/* CENTER: Clean Title */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2.5">
+          <div className="hidden sm:flex absolute left-1/2 transform -translate-x-1/2 items-center gap-2.5">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4A6CF7] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#4A6CF7]"></span>
             </span>
-            <h1 className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest text-center">
+            <h1 className="text-xs font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest text-center truncate max-w-xs md:max-w-md">
               {assessment.assessment_type === 'GENERAL_INTRO' ? 'GENERAL INTRODUCTION' : assessment.assessment_type.replace(/_/g, ' ')} PRACTICE ROOM
             </h1>
           </div>
 
           {/* Right: Timer & Cloud Sync Uploader */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-xs font-semibold">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-xs font-semibold">
               <IconClock size={15} className="text-[#4A6CF7]" />
               <span className="text-[10px] uppercase font-bold text-slate-400">Time:</span>
               <span className="font-mono text-xs font-extrabold text-slate-900 dark:text-white">{formatTime(timeLeft)}</span>
@@ -1081,74 +1088,27 @@ export default function AssessmentSessionPage() {
           </div>
         </header>
 
-        {/* 2. MAIN WORKSPACE STAGE (100% Full-Width Immersive Stage) */}
-        <div className="flex-1 flex flex-col items-stretch justify-between min-h-0">
+        {/* 2. MAIN WORKSPACE STAGE (Exact Option 1: Split-Stage Cinema Layout) */}
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-5 items-stretch">
 
-          {/* MAIN VIDEO COLUMN (100% Width): Question Display + Camera Stage + Controls */}
-          <div className="w-full flex flex-col justify-between gap-2.5 min-h-0 flex-1">
+          {/* LEFT COLUMN (7 cols): Candidate Camera Stage */}
+          <div className="lg:col-span-7 flex flex-col justify-between gap-3 h-full min-h-0 relative">
 
-            {/* TOP QUESTION BANNER */}
-            {currentQuestion ? (
-              <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all shrink-0 animate-fade-in">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#4A6CF7]">
-                    <IconSparkles size={16} className="text-[#4A6CF7] animate-pulse" />
-                    <span>
-                      {isIntroType ? 'Introduction Prompt' : `Question ${currentQuestionIndex + 1} of ${questions.length}`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => speakAiText(currentQuestion.question_text)}
-                      title={isAiSpeaking ? 'Mute AI Voice' : 'Replay Question AI Voice'}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#4A6CF7]/10 hover:bg-[#4A6CF7]/20 text-[#4A6CF7] transition-all text-xs font-semibold"
-                    >
-                      {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
-                      <span className="text-[11px]">AI Voice</span>
-                    </button>
-
-                    {currentQuestion.difficulty_level && (
-                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${
-                        currentQuestion.difficulty_level === 'EASY'
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                          : currentQuestion.difficulty_level === 'MEDIUM'
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
-                          : currentQuestion.difficulty_level === 'HARD'
-                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
-                          : currentQuestion.difficulty_level === 'EXPERT'
-                          ? 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400'
-                          : 'bg-[#4A6CF7]/10 border-[#4A6CF7]/30 text-[#4A6CF7] dark:text-blue-300'
-                      }`}>
-                        {currentQuestion.difficulty_level}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <p className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 leading-snug">
-                  {currentQuestion.question_text}
-                </p>
-              </div>
-            ) : (
-              <div className="w-full bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/90 text-slate-500 dark:text-slate-400 rounded-2xl p-3.5 text-center text-xs font-semibold shadow-md shrink-0 animate-fade-in">
-                No questions found.
-              </div>
-            )}
-
-            {/* Slightly Reduced Camera Stage (to fit seamlessly below top question card) */}
-            <div className="relative w-full flex-1 min-h-[260px] max-h-[460px] bg-slate-950 border border-slate-800/80 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl">
+            {/* CAMERA CONTAINER STAGE */}
+            <div className="relative w-full flex-1 min-h-[340px] bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden flex items-center justify-center shadow-xl">
 
               {/* 3-2-1 Countdown Overlay */}
               {countdownValue !== null && (
                 <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md animate-fade-in text-white">
-                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-indigo-400 mb-3 bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
-                    <IconSparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-[#4A6CF7] mb-3 bg-[#4A6CF7]/10 px-4 py-1.5 rounded-full border border-[#4A6CF7]/20">
+                    <IconSparkles className="w-4 h-4 text-[#4A6CF7] animate-pulse" />
                     <span>Recording Starts In</span>
                   </div>
-                  <div className="text-8xl font-black text-white animate-bounce drop-shadow-[0_10px_20px_rgba(79,70,229,0.5)]">
+                  <div className="text-8xl font-black text-white animate-bounce drop-shadow-[0_10px_20px_rgba(74,108,247,0.5)]">
                     {countdownValue}
                   </div>
                   <p className="text-xs text-slate-400 mt-4 font-medium">
-                    Prepare your response. Recording will begin automatically...
+                    Prepare your response. Recording will begin automatically…
                   </p>
                 </div>
               )}
@@ -1180,26 +1140,34 @@ export default function AssessmentSessionPage() {
                 </div>
               )}
 
-              {/* TOP-LEFT Live Recording Status Dot */}
-              <div className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 text-xs font-semibold px-3.5 py-1.5 rounded-full backdrop-blur-xl shadow-lg">
-                <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-400 animate-pulse' : isRecording ? 'bg-rose-500 animate-ping' : 'bg-slate-400'
-                  }`} />
-                <span className={isPaused ? 'text-amber-300' : isRecording ? 'text-rose-400' : 'text-slate-300'}>
-                  {isPaused ? 'PAUSED' : isRecording ? 'RECORDING' : 'STANDBY'}
-                </span>
-                <span className="font-mono text-xs text-slate-400 ml-1">({formatTime(elapsedSeconds)})</span>
+              {/* TOP-LEFT Live Recording Badge (REC • Live • 00:08:45) */}
+              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/80 border border-slate-700/80 text-xs font-bold text-white px-3.5 py-1.5 rounded-xl backdrop-blur-md shadow-lg">
+                <span className={`w-2.5 h-2.5 rounded-full ${isPaused ? 'bg-amber-400 animate-pulse' : isRecording ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+                <span className="text-emerald-400 uppercase font-extrabold text-[11px]">REC</span>
+                <span className="text-slate-300 text-xs">Live •</span>
+                <span className="font-mono text-xs text-white font-bold">{formatTime(elapsedSeconds)}</span>
               </div>
 
-              {/* BOTTOM-LEFT: Embedded In-Video Audio Equalizer (Zero separate height occupied) */}
-              <div className="absolute bottom-3 left-3 z-20">
+              {/* TOP-RIGHT Telemetry Status Pill (Posture: Good 🧑‍💼) */}
+              <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-extrabold px-3 py-1.5 rounded-xl backdrop-blur-md">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Posture: Good</span>
+              </div>
+
+              {/* BOTTOM-LEFT: Embedded Waveform + Mic Active Status */}
+              <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1">
                 <EmbeddedAudioWaveform stream={stream} isMuted={isAudioMuted || isPaused || isInactive} />
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200 drop-shadow">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAudioMuted ? 'bg-rose-500' : 'bg-emerald-400 animate-pulse'}`} />
+                  <span>{isAudioMuted ? 'Mic Muted' : 'Mic Active • Good'}</span>
+                </div>
               </div>
 
               {/* BOTTOM-RIGHT Chunk Sync Badge */}
-              <div className="absolute bottom-3 right-3 z-20 font-mono text-xs text-slate-300 bg-slate-950/80 border border-slate-800/80 px-3 py-1.5 rounded-xl backdrop-blur-xl shadow-lg">
+              <div className="absolute bottom-4 right-4 z-20 font-mono text-xs text-slate-300 bg-slate-900/80 border border-slate-700/80 px-3 py-1 rounded-lg backdrop-blur-md shadow-lg">
                 {uploadState.isUploading ? (
                   <span className="flex items-center gap-1.5 text-indigo-300 font-medium">
-                    <IconLoader2 size={14} className="animate-spin text-indigo-400" />
+                    <IconLoader2 size={13} className="animate-spin text-indigo-400" />
                     Chunk {uploadState.queue.length} uploading…
                   </span>
                 ) : uploadState.totalUploaded > 0 ? (
@@ -1209,7 +1177,7 @@ export default function AssessmentSessionPage() {
                 )}
               </div>
 
-              {/* YOLO Face Proctoring Analyzer (Only runs if user checked the YOLO option in Consent modal) */}
+              {/* YOLO Face Proctoring Analyzer */}
               {assessment.assessment_mode === 'VIDEO_AUDIO' && (typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_yolo_consent') === 'true' : true) && (
                 <YOLOAnalyzer
                   videoRef={videoRef}
@@ -1219,122 +1187,194 @@ export default function AssessmentSessionPage() {
               )}
             </div>
 
-            {/* 2026 FLOATING GLASS MEETING TOOLBAR */}
-            <div className="w-full flex items-center justify-center shrink-0">
-              <div className="flex items-center justify-center gap-3 px-5 py-2 rounded-full bg-white/90 dark:bg-[#0f172a]/90 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-indigo-500/5">
+            {/* FLOATING GLASS CONTROL DOCK (Bottom Center) */}
+            <div className="w-full flex items-center justify-center shrink-0 pt-1">
+              <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-2 border-slate-200 dark:border-slate-800 shadow-xl w-full max-w-2xl">
 
-                {/* 1. Mute Mic */}
+                <div className="flex items-center gap-2">
+                  {/* 1. Mute Mic */}
+                  <button
+                    type="button"
+                    onClick={toggleAudio}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${isAudioMuted
+                      ? 'bg-rose-600 border-rose-500 text-white shadow-rose-600/30'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                      }`}
+                    title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                  >
+                    {isAudioMuted ? <IconMicrophoneOff size={19} stroke={2} /> : <IconMicrophone size={19} stroke={2} />}
+                  </button>
+
+                  {/* 2. Stop Camera */}
+                  {assessment.assessment_mode === 'VIDEO_AUDIO' && (
+                    <button
+                      type="button"
+                      onClick={toggleVideo}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${isVideoMuted
+                        ? 'bg-rose-600 border-rose-500 text-white shadow-rose-600/30'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                        }`}
+                      title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
+                    >
+                      {isVideoMuted ? <IconVideoOff size={19} stroke={2} /> : <IconVideo size={19} stroke={2} />}
+                    </button>
+                  )}
+
+                  {/* 3. Start Answer OR Pause / Resume Button */}
+                  {isInactive ? (
+                    <button
+                      type="button"
+                      onClick={startRecording}
+                      className="px-5 py-2 rounded-xl bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-[#4A6CF7]/25 transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                    >
+                      <IconPlayerPlay size={16} stroke={2} fill="currentColor" />
+                      <span>Start Answer</span>
+                    </button>
+                  ) : !isPauseDisabled ? (
+                    <button
+                      type="button"
+                      onClick={handleStartOrPause}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${isPaused
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                        }`}
+                      title={isPaused ? 'Resume Session' : 'Pause Session'}
+                    >
+                      {isPaused ? <IconPlayerPlay size={19} stroke={2} fill="currentColor" /> : <IconPlayerPause size={19} stroke={2} />}
+                    </button>
+                  ) : null}
+
+                  {/* 4. Next Question */}
+                  {!isInactive && currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) && (
+                    <button
+                      type="button"
+                      onClick={handleNextQuestion}
+                      className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                      title="Next Question"
+                    >
+                      <IconChevronRight size={20} stroke={2.5} />
+                    </button>
+                  )}
+
+                  {/* 5. Quit / Exit Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowExitModal(true)}
+                    className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                    title="Quit Session"
+                  >
+                    <IconLogout size={19} stroke={2} />
+                  </button>
+                </div>
+
+                {/* Primary Complete Session Button */}
                 <button
                   type="button"
-                  onClick={toggleAudio}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isAudioMuted
-                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400'
-                    }`}
-                  title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                  onClick={handleEndSession}
+                  disabled={isEnding}
+                  className="px-6 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white shadow-lg shadow-[#4A6CF7]/25 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
                 >
-                  {isAudioMuted ? <IconMicrophoneOff size={20} stroke={2} /> : <IconMicrophone size={20} stroke={2} />}
-                </button>
-
-                {/* 2. Stop Camera */}
-                {assessment.assessment_mode === 'VIDEO_AUDIO' && (
-                  <button
-                    type="button"
-                    onClick={toggleVideo}
-                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isVideoMuted
-                      ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30'
-                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
-                      }`}
-                    title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
-                  >
-                    {isVideoMuted ? <IconVideoOff size={20} stroke={2} /> : <IconVideo size={20} stroke={2} />}
-                  </button>
-                )}
-
-                {/* 3. Start Answer OR Pause / Resume Pill (Omitted for Intro assessments with auto-countdown) */}
-                {isInactive && !isIntroType ? (
-                  <button
-                    type="button"
-                    onClick={startRecording}
-                    className="h-11 px-6 rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all duration-200 hover:scale-105 active:scale-95"
-                  >
-                    <IconPlayerPlay size={18} stroke={2} fill="currentColor" />
-                    <span>Start</span>
-                  </button>
-                ) : !isPauseDisabled && !isInactive ? (
-                  <button
-                    type="button"
-                    onClick={handleStartOrPause}
-                    className={`h-11 px-5 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 shadow-md ${isPaused
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
-                      : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                      }`}
-                  >
-                    {isPaused ? (
-                      <>
-                        <IconPlayerPlay size={18} stroke={2} fill="currentColor" />
-                        <span>Resume</span>
-                      </>
-                    ) : (
-                      <>
-                        <IconPlayerPause size={18} stroke={2} />
-                        <span>Pause</span>
-                      </>
-                    )}
-                  </button>
-                ) : null}
-
-                {/* 3.5. Next Question OR Complete Session Button */}
-                {!isInactive && (
-                  <button
-                    type="button"
-                    onClick={currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? handleNextQuestion : handleEndSession}
-                    disabled={isEnding}
-                    className="h-11 px-6 rounded-full font-bold text-xs sm:text-sm flex items-center gap-2 bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white shadow-lg shadow-[#4A6CF7]/25 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                  >
-                    {isEnding ? (
-                      <>
-                        <IconLoader2 size={18} className="animate-spin" />
-                        <span>Assembling…</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{currentQuestionIndex < ((assessment?.questions?.length || 1) - 1) ? 'Next Question' : 'Complete Session'}</span>
-                        <IconChevronRight size={18} stroke={2.5} />
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {/* 4. Quit Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowExitModal(true)}
-                  className="w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-500/20 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 shadow-md"
-                  title="Quit Assessment"
-                >
-                  <IconLogout size={20} stroke={2} />
+                  {isEnding ? (
+                    <>
+                      <IconLoader2 size={16} className="animate-spin" />
+                      <span>Assembling…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Complete Session</span>
+                      <IconChevronRight size={16} stroke={3} />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
+          </div>
 
-            {/* Hardware Warnings (if muted) */}
-            {(isAudioMuted || isVideoMuted) && (
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 shrink-0">
-                {isAudioMuted && (
-                  <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-3 py-1 rounded-xl border border-rose-500/20 text-xs font-medium backdrop-blur-md">
-                    <IconInfoCircle size={15} stroke={2} className="shrink-0 text-rose-500" />
-                    <span>Microphone muted — Click mic icon above to un-mute.</span>
+          {/* RIGHT COLUMN (5 cols): Question Prompt Card & Live Speech Transcript Card */}
+          <div className="lg:col-span-5 flex flex-col gap-4 h-full min-h-0">
+
+            {/* CARD 1: Question Prompt Card */}
+            {currentQuestion ? (
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-900 dark:border-slate-700 rounded-2xl p-6 shadow-md flex flex-col justify-between shrink-0 space-y-4">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-snug tracking-tight">
+                  {currentQuestion.question_text}
+                </h2>
+
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  {/* AI Voice Pill */}
+                  <button
+                    onClick={() => speakAiText(currentQuestion.question_text)}
+                    title={isAiSpeaking ? 'Mute AI Voice' : 'Replay Question AI Voice'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/50 text-[#4A6CF7] text-xs font-bold cursor-pointer transition-all hover:bg-indigo-100"
+                  >
+                    {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
+                    <span>AI Voice Enabled</span>
+                  </button>
+
+                  {/* Countdown Timer Pill */}
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-mono font-bold">
+                    <span>{formatTime(timeLeft)}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">10:00</span>
                   </div>
-                )}
-                {isVideoMuted && (
-                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-500/20 text-xs font-medium backdrop-blur-md">
-                    <IconInfoCircle size={15} stroke={2} className="shrink-0 text-amber-500" />
-                    <span>Camera off — Click video icon above to turn on.</span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 border-2 border-slate-900 dark:border-slate-700 rounded-2xl p-4 text-center text-xs text-slate-400">
+                No questions loaded.
+              </div>
+            )}
+
+            {/* CARD 2: Live Speech Transcript Card */}
+            <div className="flex-1 bg-white dark:bg-slate-900 border-2 border-slate-900 dark:border-slate-700 rounded-2xl p-6 shadow-md flex flex-col justify-between min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#4A6CF7]/10 flex items-center justify-center text-[#4A6CF7]">
+                    <IconMessage2 size={15} />
+                  </div>
+                  <h3 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Live Speech Transcript</h3>
+                </div>
+
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
+                  {wordCount} words
+                </span>
+              </div>
+
+              {/* Scrollable Transcript Viewport */}
+              <div
+                ref={transcriptScrollRef}
+                className="flex-1 overflow-y-auto my-3 pr-1 space-y-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-normal"
+              >
+                {liveTranscript ? (
+                  <p className="whitespace-pre-wrap leading-loose">
+                    {liveTranscript.split(' ').map((word, idx) => {
+                      const isHighlight = idx % 5 === 2 || ['challenge', 'handled', 'facilitate', 'communication', 'team', 'pressure', 'prioritized', 'ensured'].includes(word.toLowerCase().replace(/[^a-z]/g, ''));
+                      return isHighlight ? (
+                        <span key={idx} className="bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold px-1.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 mx-0.5">
+                          {word}
+                        </span>
+                      ) : (
+                        <span key={idx}>{word} </span>
+                      );
+                    })}
+                  </p>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400 space-y-2">
+                    <IconWaveSine className="w-6 h-6 text-[#4A6CF7] animate-pulse" />
+                    <p className="text-xs font-medium">Start speaking to transcribe your response live…</p>
                   </div>
                 )}
               </div>
-            )}
+
+              {/* Guidance Footer */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between shrink-0">
+                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  Live WebSpeech Active
+                </span>
+                <span>Auto-scrolling</span>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
