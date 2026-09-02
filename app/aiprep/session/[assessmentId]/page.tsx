@@ -316,7 +316,8 @@ export default function AssessmentSessionPage() {
         if (!data.questions || data.questions.length === 0) {
           const category = mapAssessmentTypeToCategory(effectiveType);
           try {
-            const qBank = await aiprepApi.getQuestions(category);
+            const qBankRes: any = await aiprepApi.getQuestions(category);
+            const qBank: any[] = Array.isArray(qBankRes) ? qBankRes : (qBankRes?.items || []);
             if (qBank && qBank.length > 0) {
               data.questions = qBank.map((q, idx) => ({
                 id: q.id,
@@ -586,6 +587,8 @@ export default function AssessmentSessionPage() {
       sessionStorage.removeItem('aiprep_yolo_consent');
       sessionStorage.removeItem('aiprep_camera_consent');
       sessionStorage.removeItem('aiprep_mic_consent');
+      sessionStorage.removeItem('aiprep_active_id');
+      sessionStorage.removeItem('aiprep_wizard_step');
     }
 
     try {
@@ -597,13 +600,23 @@ export default function AssessmentSessionPage() {
       // Fast non-blocking submission: trigger assembly in background task
       aiprepApi.assembleMedia(assessment.id, totalSlices).catch(e => console.warn('Async assembleMedia:', e));
 
-      const embedQuery = isEmbedded ? '?embed=true' : '';
-      router.push(`/aiprep${embedQuery}`);
+      // Reset address bar URL so it lands on main AI Prep page, not confirmation
+      try {
+        if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+          if (window.parent.location.pathname.includes('user_dashboard')) {
+            window.parent.history.pushState({}, '', `${window.parent.location.origin}/user_dashboard/ai-prep/assessment-type`);
+          }
+        }
+      } catch (e) {}
+
+      const targetPath = isEmbedded ? '/user_dashboard/ai-prep' : '/aiprep';
+      router.push(targetPath);
     } catch (err: any) {
       console.error('Error ending assessment session:', err);
       stopCameraFeed();
       stopSpeechRecognition();
-      router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
+      const targetPath = isEmbedded ? '/user_dashboard/ai-prep' : '/aiprep';
+      router.push(targetPath);
     } finally {
       setIsEnding(false);
     }

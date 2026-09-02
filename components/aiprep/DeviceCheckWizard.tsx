@@ -255,14 +255,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
 
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current.close().catch(() => { });
       audioContextRef.current = null;
     }
 
     if (speechRecRef.current) {
       try {
         speechRecRef.current.stop();
-      } catch (e) {}
+      } catch (e) { }
       speechRecRef.current = null;
     }
   };
@@ -300,7 +300,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       if (window.parent && window.parent !== window) {
         initialFromUrl = parseStepFromPath(window.parent.location.pathname);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     if (!initialFromUrl) {
       initialFromUrl = parseStepFromPath(window.location.pathname);
@@ -316,7 +316,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         if (window.parent && window.parent !== window) {
           popStep = parseStepFromPath(window.parent.location.pathname);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       if (!popStep) {
         popStep = parseStepFromPath(window.location.pathname);
@@ -354,7 +354,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             window.parent.history.pushState({ step: nextStep }, '', targetParentUrl);
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // 2) Update current window address bar
       const currentPath = window.location.pathname;
@@ -407,7 +407,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         if (vDevs.length && !selectedVideoDevice) setSelectedVideoDevice(vDevs[0].deviceId);
         if (aDevs.length && !selectedAudioDevice) setSelectedAudioDevice(aDevs[0].deviceId);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Camera Stream Acquisition
     if (videoEnabled) {
@@ -472,7 +472,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           };
           rec.start();
           speechRecRef.current = rec;
-        } catch (e) {}
+        } catch (e) { }
       }
     } catch (err: any) {
       setMicOk(false);
@@ -703,123 +703,123 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             {/* ═══════════════ STEP 2: CONSENT (Session Storage Sync Only) ═══════════════ */}
             {step === 'CONSENT' && (
               <div className="w-full px-4 sm:px-6 py-3 space-y-5 animate-in fade-in duration-200">
-                  <div className="space-y-1">
-                    <h3 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-[#4A6CF7]" /> Privacy &amp; Permissions Consent
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Review and accept required device permissions and optional AI analytics before conducting hardware checks.
-                    </p>
+                <div className="space-y-1">
+                  <h3 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#4A6CF7]" /> Privacy &amp; Permissions Consent
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Review and accept required device permissions and optional AI analytics before conducting hardware checks.
+                  </p>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  {/* Mic Consent */}
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={consentMic}
+                        onChange={(e) => setConsentMic(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                      />
+                      <div className="flex-1 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Mic className={`w-4 h-4 ${consentMic ? 'text-indigo-600' : 'text-slate-400'}`} />
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">Microphone &amp; Audio Recording</span>
+                        </div>
+                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
+                          Required
+                        </span>
+                      </div>
+                    </label>
                   </div>
 
-                  <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    {/* Mic Consent */}
+                  {/* Camera Consent */}
+                  {videoEnabled && (
                     <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
                       <label className="flex items-center gap-3 cursor-pointer select-none">
                         <input
                           type="checkbox"
-                          checked={consentMic}
-                          onChange={(e) => setConsentMic(e.target.checked)}
+                          checked={consentCamera}
+                          onChange={(e) => setConsentCamera(e.target.checked)}
                           className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                         />
                         <div className="flex-1 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
-                            <Mic className={`w-4 h-4 ${consentMic ? 'text-indigo-600' : 'text-slate-400'}`} />
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">Microphone &amp; Audio Recording</span>
+                            <Video className={`w-4 h-4 ${consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">Webcam &amp; Video Recording</span>
                           </div>
                           <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                            Required
+                            Required for Video
                           </span>
                         </div>
                       </label>
                     </div>
+                  )}
 
-                    {/* Camera Consent */}
-                    {videoEnabled && (
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                        <label className="flex items-center gap-3 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={consentCamera}
-                            onChange={(e) => setConsentCamera(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                          />
-                          <div className="flex-1 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <Video className={`w-4 h-4 ${consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">Webcam &amp; Video Recording</span>
-                            </div>
-                            <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                              Required for Video
-                            </span>
+                  {/* YOLO Vision Consent */}
+                  {videoEnabled && (
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={videoAnalyticsEnabled && consentCamera}
+                          disabled={!consentCamera}
+                          onChange={(e) => setVideoAnalyticsEnabled(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer disabled:opacity-40"
+                        />
+                        <div className="flex-1 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className={`w-4 h-4 ${videoAnalyticsEnabled && consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">AI Posture &amp; Gaze Analytics (YOLO Vision)</span>
                           </div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* YOLO Vision Consent */}
-                    {videoEnabled && (
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                        <label className="flex items-center gap-3 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={videoAnalyticsEnabled && consentCamera}
-                            disabled={!consentCamera}
-                            onChange={(e) => setVideoAnalyticsEnabled(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer disabled:opacity-40"
-                          />
-                          <div className="flex-1 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <ShieldCheck className={`w-4 h-4 ${videoAnalyticsEnabled && consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">AI Posture &amp; Gaze Analytics (YOLO Vision)</span>
-                            </div>
-                            <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                              Optional
-                            </span>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Best Interview Practice Banner */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-indigo-600 text-sm">💡</span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Best Interview Practice</span>
-                      </div>
-                      <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                        Recommended
-                      </span>
+                          <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
+                            Optional
+                          </span>
+                        </div>
+                      </label>
                     </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium pl-6">
-                      Sit in a well-lit, quiet environment with a clear microphone input for optimal AI evaluation.
-                    </p>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between pt-3.5 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={handlePrevious}
-                      className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm cursor-pointer"
-                    >
-                      ← Back
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!consentMic || (videoEnabled && !consentCamera)}
-                      onClick={handleNext}
-                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                    >
-                      <span>Next: Device Check</span>
-                      <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                    </button>
-                  </div>
+                  )}
                 </div>
-              )}
+
+                {/* Best Interview Practice Banner */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-indigo-600 text-sm">💡</span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">Best Interview Practice</span>
+                    </div>
+                    <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium pl-6">
+                    Sit in a well-lit, quiet environment with a clear microphone input for optimal AI evaluation.
+                  </p>
+                </div>
+
+                {/* Action Buttons (Sticky for viewport fit) */}
+                <div className="sticky bottom-0 bg-white dark:bg-slate-900 z-10 pt-2.5 pb-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handlePrevious}
+                    className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm cursor-pointer"
+                  >
+                    ← Back
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!consentMic || (videoEnabled && !consentCamera)}
+                    onClick={handleNext}
+                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                  >
+                    <span>Next: Device Check</span>
+                    <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ═══════════════ STEP 3: DEVICE CHECK (Hardware Checks) ═══════════════ */}
             {step === 'DEVICE_CHECK' && (
@@ -848,7 +848,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               const activeStream = cameraStreamRef.current || cameraStream;
                               if (el && activeStream && el.srcObject !== activeStream) {
                                 el.srcObject = activeStream;
-                                el.play().catch(() => {});
+                                el.play().catch(() => { });
                               }
                             }}
                             autoPlay
@@ -906,12 +906,12 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   ? 'bg-emerald-500'
                                   : 'bg-emerald-100 dark:bg-emerald-950/20'
                                 : i < 20
-                                ? active
-                                  ? 'bg-amber-400'
-                                  : 'bg-amber-100 dark:bg-amber-950/20'
-                                : active
-                                ? 'bg-red-500'
-                                : 'bg-red-100 dark:bg-red-950/20';
+                                  ? active
+                                    ? 'bg-amber-400'
+                                    : 'bg-amber-100 dark:bg-amber-950/20'
+                                  : active
+                                    ? 'bg-red-500'
+                                    : 'bg-red-100 dark:bg-red-950/20';
                             return (
                               <div
                                 key={i}
@@ -1059,7 +1059,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 </div>
 
                 {/* Step 3 Action Buttons Spanning Full Width */}
-                <div className="flex justify-between items-center p-2.5 sm:p-3 mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+                <div className="sticky bottom-0 z-10 flex justify-between items-center p-2.5 sm:p-3 mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
                   <button
                     onClick={handlePrevious}
                     className="px-4 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all shadow-xs cursor-pointer"

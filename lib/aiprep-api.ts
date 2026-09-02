@@ -50,6 +50,32 @@ export const BACKEND_QUESTION_LIMITS: Record<AssessmentType, number> = {
   HR: 0,
 };
 
+export type QuestionCategory =
+  | 'TECHNICAL'
+  | 'SYSTEM_DESIGN'
+  | 'RECRUITER'
+  | 'HIRING_MANAGER'
+  | 'BEHAVIORAL'
+  | 'GENERAL'
+  | string;
+
+export interface QuestionBankResponse {
+  id: number;
+  category: string;
+  sub_category?: string | null;
+  difficulty_level?: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT' | string | null;
+  question_text: string;
+  ideal_answer_rubric?: string | null;
+  relevant_skills_json?: any;
+  is_active?: boolean;
+}
+
+export interface QuestionListResponse {
+  items: QuestionBankResponse[];
+  total: number;
+}
+
+
 export function getDifficultySeconds(difficulty?: string): number {
   switch (difficulty?.toUpperCase()) {
     case 'EASY':
@@ -68,16 +94,13 @@ export function getDefaultTypeSeconds(type: AssessmentType): number {
   switch (type) {
     case 'GENERAL_INTRO':
     case 'JOB_DESCRIPTION_INTRO':
-      return 90;
+      return 120;
     case 'RECRUITER':
       return 120;
     case 'HIRING_MANAGER':
-    case 'HR':
-      return 180;
     case 'TECHNICAL':
-      return 240;
     case 'SYSTEM_DESIGN':
-      return 300;
+    case 'HR':
     default:
       return 180;
   }
@@ -150,26 +173,6 @@ export function buildAssessmentCardMetadata(
     pauseAllowed: !isNoPause,
     requiresJd,
   };
-}
-
-export type QuestionCategory =
-  | 'TECHNICAL'
-  | 'SYSTEM_DESIGN'
-  | 'RECRUITER'
-  | 'HIRING_MANAGER'
-  | 'BEHAVIORAL'
-  | 'GENERAL'
-  | string;
-
-export interface QuestionBankResponse {
-  id: number;
-  category: string;
-  sub_category?: string | null;
-  difficulty_level?: string | null;
-  question_text: string;
-  ideal_answer_rubric?: string | null;
-  relevant_skills_json?: any;
-  is_active?: boolean;
 }
 
 export type AssessmentMode = 'VIDEO_AUDIO' | 'AUDIO_ONLY';
@@ -450,12 +453,12 @@ export const aiprepApi = {
     category?: QuestionCategory,
     limit?: number,
     signal?: AbortSignal
-  ): Promise<QuestionBankResponse[]> {
+  ): Promise<QuestionBankResponse[] | QuestionListResponse> {
     const params = new URLSearchParams();
     if (category) params.append('category', category);
     if (limit) params.append('limit', String(limit));
     const queryStr = params.toString() ? `?${params.toString()}` : '';
-    return request<QuestionBankResponse[]>(`/api/ai-prep/questions${queryStr}`, {
+    return request<QuestionBankResponse[] | QuestionListResponse>(`/api/ai-prep/questions${queryStr}`, {
       method: 'GET',
       signal,
     });

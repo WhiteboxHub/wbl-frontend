@@ -250,16 +250,17 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
           try {
             const cat = categoryMap[type] || type;
             // Fetch questions from backend DB API for exact category
-            const qList = await aiprepApi.getQuestions(cat as any);
-            if (qList && Array.isArray(qList)) {
-              // Set dynamic question count from actual DB rows count
-              counts[type] = qList.length;
-              if (qList.length > 0) {
-                const totalSec = qList.reduce((sum, q) => sum + getDifficultySeconds(q.difficulty_level || undefined), 0);
-                avgSecs[type] = Math.round(totalSec / qList.length);
-              }
-            } else {
-              counts[type] = 0;
+            const res: any = await aiprepApi.getQuestions(cat as any);
+            const qList: any[] = Array.isArray(res) ? res : (res?.items || []);
+            const totalCount = typeof res === 'object' && typeof res?.total === 'number'
+              ? res.total
+              : qList.length;
+
+            counts[type] = totalCount;
+
+            if (qList.length > 0) {
+              const totalSec = qList.reduce((sum, q) => sum + getDifficultySeconds(q.difficulty_level || undefined), 0);
+              avgSecs[type] = Math.round(totalSec / qList.length);
             }
           } catch (err) {
             console.warn(`[AssessmentConfig] Failed to fetch count for ${type}:`, err);
@@ -306,10 +307,10 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   const selectedIconConfig = getIconConfig((assessmentType as AssessmentType) || 'GENERAL_INTRO');
 
   return (
-    <div className="w-full px-4 sm:px-6 py-3 space-y-5 animate-in fade-in duration-200">
+    <div className="w-full px-3.5 sm:px-5 py-2 space-y-3.5 animate-in fade-in duration-200">
 
       {/* ── Dropdown Select Section ── */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <label className="block text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider">
           Select Assessment Type
         </label>
@@ -318,7 +319,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
           <select
             value={assessmentType}
             onChange={(e) => setAssessmentType(e.target.value as AssessmentType)}
-            className="w-full appearance-none text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-3 pl-4 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A6CF7]/30 focus:border-[#4A6CF7] transition-all cursor-pointer shadow-xs"
+            className="w-full appearance-none text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 pl-3.5 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A6CF7]/30 focus:border-[#4A6CF7] transition-all cursor-pointer shadow-xs"
           >
             {SUPPORTED_ASSESSMENT_TYPES.map((type) => {
               const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
@@ -334,16 +335,16 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
           </div>
         </div>
 
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
           Choose the evaluation scenario matching your target assessment stage. Each type evaluates specific dimensions.
         </p>
       </div>
 
       {/* ── Selected Type Details Row ── */}
-      <div className="p-4 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1.5">
+      <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-lg ${selectedIconConfig.gradient} flex items-center justify-center shrink-0`}>
+            <div className={`w-7 h-7 rounded-lg ${selectedIconConfig.gradient} flex items-center justify-center shrink-0`}>
               {selectedIconConfig.icon}
             </div>
             <div>
@@ -356,30 +357,30 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             </div>
           </div>
         </div>
-        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium pt-1 border-t border-slate-200 dark:border-slate-800">
+        <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-medium pt-1 border-t border-slate-200 dark:border-slate-800">
           {selectedMeta.description}
         </p>
       </div>
 
       {/* ── Option Rows (Preferences & Media Setup) ── */}
-      <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+      <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
         <h4 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-[#4A6CF7] dark:text-blue-400" />
           Session Options &amp; Media Setup
         </h4>
 
         {/* Row 1: Recording Mode */}
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
           <div>
             <span className="text-xs font-bold text-slate-900 dark:text-white block">Recording Mode</span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Audio-only is always supported</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Audio-only is always supported</span>
           </div>
 
           <div className="inline-flex p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs">
             <button
               type="button"
               onClick={() => setVideoEnabled(true)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${videoEnabled
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${videoEnabled
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
@@ -392,7 +393,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 setVideoEnabled(false);
                 setVideoAnalyticsEnabled(false);
               }}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${!videoEnabled
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${!videoEnabled
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
@@ -403,10 +404,10 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         </div>
 
         {/* Row 2: Video Analytics */}
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
           <div>
             <span className="text-xs font-bold text-slate-900 dark:text-white block">Video Analytics</span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 block">Off by default (YOLO posture &amp; gaze)</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Off by default (YOLO posture &amp; gaze)</span>
           </div>
 
           <PreferenceToggle
@@ -421,10 +422,10 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
         {/* Row 3: Target Job Description (Visible only for JOB_DESCRIPTION_INTRO) */}
         {(assessmentType === 'JOB_DESCRIPTION_INTRO' || selectedMeta.requiresJd) && (
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 animate-in fade-in duration-150">
             <div>
               <span className="text-xs font-bold text-slate-900 dark:text-white block">Target Job Description</span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
                 {jdText ? 'Custom job description active ✓' : 'Provide target job description to tailor questions'}
               </span>
             </div>
@@ -432,7 +433,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             <button
               type="button"
               onClick={() => setShowJdModal(true)}
-              className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl hover:border-[#4A6CF7] hover:text-[#4A6CF7] dark:hover:text-blue-400 shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl hover:border-[#4A6CF7] hover:text-[#4A6CF7] dark:hover:text-blue-400 shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
             >
               {jdText ? 'Edit Description' : 'Add Description'}
             </button>
@@ -440,14 +441,14 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         )}
       </div>
 
-      {/* ── Action Buttons Footer Row ── */}
+      {/* ── Action Buttons Footer Row (Sticky for screen height fit) ── */}
       {(onNext || onCancel) && (
-        <div className="flex items-center justify-between pt-3.5 border-t border-slate-100 dark:border-slate-800">
+        <div className="sticky bottom-0 bg-white dark:bg-slate-900 z-10 pt-2.5 pb-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
           {onCancel ? (
             <button
               type="button"
               onClick={onCancel}
-              className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm cursor-pointer"
+              className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm cursor-pointer"
             >
               Cancel
             </button>
@@ -457,7 +458,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             <button
               type="button"
               onClick={onNext}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               <span>Next: Consent</span>
               <ChevronRight className="w-4 h-4 stroke-[2.5]" />
