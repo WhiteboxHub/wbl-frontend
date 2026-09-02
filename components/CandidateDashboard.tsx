@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
@@ -89,6 +89,7 @@ import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 import { AIPrepDashboard } from "./aiprep/AIPrepDashboard";
 import { ExecutiveDashboard } from "./aiprep/ExecutiveDashboard";
 import { ReportOverview } from "./aiprep/ReportOverview";
+import { TemporaryInterviewPractice } from "./aiprep/TemporaryInterviewPractice";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
@@ -377,6 +378,7 @@ interface CandidateDashboardProps {
 export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { userRole } = useAuth() as { userRole: string };
 
     const getLocalTodayString = () => {
@@ -401,9 +403,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
-    const [aiPrepView, setAiPrepView] = useState<"dashboard" | "analytics" | "report">("dashboard");
+    const [aiPrepView, setAiPrepView] = useState<"setup" | "dashboard" | "practice" | "analytics" | "report">("setup");
     const [aiPrepReportId, setAiPrepReportId] = useState<number | null>(null);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === "wbl-smartprep" && searchParams.get("ai_prep_practice") === "1") {
+            setAiPrepView("practice");
+            window.history.replaceState(null, "", "/user_dashboard/wbl-smartprep");
+        }
+    }, [activeTab, searchParams]);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
     const [todayClickSummary, setTodayClickSummary] = useState<{
@@ -559,7 +568,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
         if (tab === "wbl-smartprep") {
-            setAiPrepView("dashboard");
+            setAiPrepView("setup");
             setAiPrepReportId(null);
         }
         setActiveTab(tab);
@@ -3305,14 +3314,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             <ExecutiveDashboard embedded />
                                         ) : aiPrepView === "report" && aiPrepReportId !== null ? (
                                             <ReportOverview assessmentId={aiPrepReportId} embedded />
-                                        ) : <AIPrepDashboard
+                                        ) : aiPrepView === "practice" ? (
+                                            <TemporaryInterviewPractice onBack={() => setAiPrepView("dashboard")} />
+                                        ) : aiPrepView === "dashboard" ? <AIPrepDashboard
                                             candidateId={userProfile?.candidate_id ?? null}
-                                            onStartAssessment={() => router.push("/aiprep")}
+                                            onStartAssessment={() => setAiPrepView("practice")}
                                             onViewReport={(assessmentId) => { setAiPrepReportId(assessmentId); setAiPrepView("report"); }}
                                             onViewHistoryAnalytics={() => setAiPrepView("analytics")}
-                                        />}
+                                        /> : null}
 
-                                        {false && (
+                                        {aiPrepView === "setup" && (
                                         <>
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -3402,25 +3413,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 <div className="flex-1 flex items-center justify-center mt-8">
                                                     {setupStatus.setup_complete ? (
                                                         <button
-                                                            onClick={async () => {
-                                                                const getAiPrepUrl = () => {
-                                                                    const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                    if (url) {
-                                                                        return url;
-                                                                    }
-
-                                                                    return "https://ai-prep.whitebox-learning.com";
-                                                                };
-                                                                const baseUrl = getAiPrepUrl();
-                                                                const token = localStorage.getItem("prep_token");
-
-                                                                if (token) {
-                                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                                } else {
-                                                                    window.open(baseUrl, '_blank');
-                                                                }
-                                                            }}
+                                                            onClick={() => setAiPrepView("dashboard")}
                                                             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                                         >
                                                             <PlayCircle className="w-4 h-4" />
