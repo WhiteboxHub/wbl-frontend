@@ -26,6 +26,7 @@ import {
     Briefcase,
     Target,
     Activity,
+    ArrowLeft,
     BarChart3,
     Home,
     PlayCircle,
@@ -85,6 +86,9 @@ import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
+import { AIPrepDashboard } from "./aiprep/AIPrepDashboard";
+import { ExecutiveDashboard } from "./aiprep/ExecutiveDashboard";
+import { ReportOverview } from "./aiprep/ReportOverview";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
@@ -397,6 +401,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
+    const [aiPrepView, setAiPrepView] = useState<"dashboard" | "analytics" | "report">("dashboard");
+    const [aiPrepReportId, setAiPrepReportId] = useState<number | null>(null);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
@@ -552,6 +558,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
+        if (tab === "wbl-smartprep") {
+            setAiPrepView("dashboard");
+            setAiPrepReportId(null);
+        }
         setActiveTab(tab);
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         window.history.pushState(null, "", `/user_dashboard/${tab}${searchString}`);
@@ -3286,7 +3296,24 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                 {activeTab === 'wbl-smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+                                        {aiPrepView !== "dashboard" && (
+                                            <button type="button" onClick={() => { setAiPrepView("dashboard"); setAiPrepReportId(null); }} className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                                <ArrowLeft className="h-4 w-4" /> Back to AI Prep Dashboard
+                                            </button>
+                                        )}
+                                        {aiPrepView === "analytics" ? (
+                                            <ExecutiveDashboard embedded />
+                                        ) : aiPrepView === "report" && aiPrepReportId !== null ? (
+                                            <ReportOverview assessmentId={aiPrepReportId} embedded />
+                                        ) : <AIPrepDashboard
+                                            candidateId={userProfile?.candidate_id ?? null}
+                                            onStartAssessment={() => router.push("/aiprep")}
+                                            onViewReport={(assessmentId) => { setAiPrepReportId(assessmentId); setAiPrepView("report"); }}
+                                            onViewHistoryAnalytics={() => setAiPrepView("analytics")}
+                                        />}
 
+                                        {false && (
+                                        <>
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex items-center justify-between mb-4">
@@ -3427,6 +3454,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 </div>
                                             )}
                                         </div>
+                                        </>
+                                        )}
 
                                     </div>
                                 )}

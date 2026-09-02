@@ -1,0 +1,6 @@
+import type { CoachingSuggestion } from "@/types/aiprep";
+
+export function CoachingSuggestions({ suggestions }: { suggestions: CoachingSuggestion[] | null }) {
+  const ordered = suggestions ? [...suggestions].sort((left, right) => left.priority - right.priority) : [];
+  return <section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><h2 className="text-lg font-bold text-gray-900 dark:text-white">Coaching suggestions</h2>{ordered.length === 0 ? <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Coaching suggestions are not available for this assessment.</p> : <div className="mt-4 space-y-3">{ordered.map((item) => <article key={`${item.priority}-${item.area}`} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800"><p className="text-sm font-bold text-gray-900 dark:text-white">{item.area}</p><p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{item.suggestion}</p><dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2"><div><dt className="font-semibold text-gray-400">Dimension</dt><dd className="mt-1 text-gray-700 dark:text-gray-200">{item.dimension}</dd></div><div><dt className="font-semibold text-gray-400">Evidence</dt><dd className="mt-1 text-gray-700 dark:text-gray-200">{item.evidence}</dd></div></dl></article>)}</div>}</section>;
+}

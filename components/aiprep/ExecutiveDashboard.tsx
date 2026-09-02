@@ -1,0 +1,21 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { apiFetch } from "@/lib/api";
+import { aiPrepApi } from "@/lib/aiprep-api";
+import type { DashboardAnalytics } from "@/types/aiprep";
+
+interface UserDashboard { candidate_id: number | null; }
+
+export function ExecutiveDashboard({ embedded = false }: { embedded?: boolean }) {
+  const [data, setData] = useState<DashboardAnalytics | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => { setError(null); try { const user = await apiFetch("user_dashboard") as UserDashboard; if (user.candidate_id === null) throw new Error("candidate missing"); setData(await aiPrepApi.getDashboardAnalytics(user.candidate_id)); } catch { setError("Unable to load AI Prep analytics."); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  if (error) return <main className={`mx-auto max-w-6xl px-4 ${embedded ? "py-2" : "py-28"}`}><p className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">{error}</p><button type="button" onClick={() => void load()} className="mt-3 text-sm font-semibold text-indigo-600">Retry</button></main>;
+  if (!data) return <main className={`mx-auto max-w-6xl px-4 text-sm text-gray-500 ${embedded ? "py-2" : "py-28"}`}>Loading AI Prep analytics...</main>;
+  const summary = data.executive_summary;
+  return <main className={`mx-auto max-w-6xl space-y-5 px-4 sm:px-6 ${embedded ? "py-2" : "py-28"}`}><header><p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">AI Prep</p><h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Executive dashboard</h1></header><div className="grid gap-3 sm:grid-cols-3"><Card label="Completed assessments" value={summary.completed} /><Card label="Latest coaching band" value={summary.latest_coaching_band ?? "Not available"} /><Card label="Average overall score" value={summary.average_overall_score} /></div><section className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"><h2 className="text-lg font-bold text-gray-900 dark:text-white">Communication trend</h2>{data.communication_trend.length ? <div className="mt-4 h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={data.communication_trend}><XAxis dataKey="date" hide /><YAxis /><Tooltip /><Line type="monotone" dataKey="wpm" stroke="#4f46e5" name="WPM" /><Line type="monotone" dataKey="filler_per_min" stroke="#0f766e" name="Filler words/min" /><Line type="monotone" dataKey="silence_pct" stroke="#a16207" name="Silence ratio" /></LineChart></ResponsiveContainer></div> : <p className="mt-3 text-sm text-gray-500">Communication analytics are not available.</p>}</section><section className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900"><h2 className="px-5 py-5 text-lg font-bold text-gray-900 dark:text-white">Assessment history</h2><div className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="border-y border-gray-100 text-xs uppercase text-gray-400 dark:border-gray-800"><tr><th className="px-5 py-3">Date</th><th className="px-5 py-3">Type</th><th className="px-5 py-3">Score</th><th className="px-5 py-3">Band</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{summary.assessments.map((item) => <tr key={item.id} className="border-b border-gray-100 last:border-0 dark:border-gray-800"><td className="px-5 py-3">{item.created_at}</td><td className="px-5 py-3">{item.assessment_type}</td><td className="px-5 py-3">{item.overall_score ?? "Not available"}</td><td className="px-5 py-3">{item.coaching_band ?? "Not available"}</td><td className="px-5 py-3">{item.status}</td></tr>)}</tbody></table></div></section></main>;
+}
+function Card({ label, value }: { label: string; value: string | number }) { return <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"><p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p><p className="mt-2 text-xl font-bold text-gray-900 dark:text-white">{value}</p></div>; }
