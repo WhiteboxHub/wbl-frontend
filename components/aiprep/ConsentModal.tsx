@@ -119,13 +119,13 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
 
       {/* Real-time split layout (Left: Stepper panel, Right: Controls) */}
       <div
-        className={`relative z-10 w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800
-          transition-all duration-300 ease-out flex flex-col overflow-hidden my-auto
+        className={`relative z-10 w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800
+          transition-all duration-300 ease-out flex flex-col my-auto
           ${revealed ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}
       >
 
         {/* Top Info Bar */}
-        <div className="px-6 py-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+        <div className="px-6 py-3.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
           <div className="flex items-center gap-2">
 
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Session Setup Wizard</span>
@@ -136,7 +136,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
 
           {/* LEFT: Onboarding flow timeline & Info cards (3/5) */}
-          <div className="col-span-1 lg:col-span-3 p-8 bg-slate-50 dark:bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[350px]">
+          <div className="col-span-1 lg:col-span-3 p-5 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between min-h-[320px]">
 
             <div className="space-y-6">
               <div>
@@ -202,7 +202,7 @@ export const ConsentModal: React.FC<ConsentModalProps> = ({
           </div>
 
           {/* RIGHT: Consent Checkboxes & Actions (2/5) */}
-          <div className="col-span-1 lg:col-span-2 p-8 flex flex-col justify-between bg-white dark:bg-slate-900">
+          <div className="col-span-1 lg:col-span-2 p-5 sm:p-6 lg:p-8 flex flex-col justify-between bg-white dark:bg-slate-900">
             <div className="space-y-4">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">Select Practice Mode</h4>

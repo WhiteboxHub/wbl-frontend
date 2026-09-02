@@ -1051,7 +1051,7 @@ export default function AssessmentSessionPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-4 transition-colors duration-300 select-none overflow-y-auto">
+    <div className="min-h-screen max-h-screen w-full bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col justify-between p-3 sm:p-4 transition-colors duration-300 select-none overflow-y-auto">
 
       <div className="max-w-[1650px] w-full h-full mx-auto flex flex-col justify-between gap-3">
 

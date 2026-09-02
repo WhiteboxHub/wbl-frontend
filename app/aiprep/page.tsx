@@ -843,7 +843,7 @@ export default function AIPrepDashboard() {
       {/* Interactive 2-Step Practice Setup Wizard Modal */}
       {showModeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl p-8 relative animate-zoom-in overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-slate-200 dark:border-slate-700 shadow-2xl p-6 sm:p-8 relative animate-zoom-in">
             {isLaunching ? (
               <div className="flex flex-col items-center justify-center py-12 animate-in fade-in duration-200">
                 <div className="h-12 w-12 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-6" />
