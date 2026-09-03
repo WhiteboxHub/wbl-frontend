@@ -1222,14 +1222,21 @@ export default function AssessmentSessionPage() {
 
                   {/* 3. Start Answer OR Pause / Resume Button */}
                   {isInactive ? (
-                    <button
-                      type="button"
-                      onClick={startRecording}
-                      className="px-5 py-2 rounded-xl bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-[#4A6CF7]/25 transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                    >
-                      <IconPlayerPlay size={16} stroke={2} fill="currentColor" />
-                      <span>Start Answer</span>
-                    </button>
+                    !isIntroType ? (
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        className="px-5 py-2 rounded-xl bg-[#4A6CF7] hover:bg-[#3b5bd9] text-white font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-[#4A6CF7]/25 transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      >
+                        <IconPlayerPlay size={16} stroke={2} fill="currentColor" />
+                        <span>Start Answer</span>
+                      </button>
+                    ) : (
+                      <div className="px-4 py-2 rounded-xl bg-[#4A6CF7]/10 text-[#4A6CF7] dark:bg-indigo-950/40 dark:text-indigo-400 text-xs font-extrabold border border-[#4A6CF7]/20 flex items-center gap-2 shrink-0 animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-[#4A6CF7] animate-ping" />
+                        <span>Auto-Starting Practice...</span>
+                      </div>
+                    )
                   ) : !isPauseDisabled ? (
                     <button
                       type="button"
