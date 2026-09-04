@@ -573,7 +573,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         camera_permission: !!cameraOk,
         mic_permission: !!micOk,
         speaker_ok: speakerOk !== false,
-        bandwidth_kbps: bandwidthKbps || 1000,
+        bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
         yolo_consent: videoAnalyticsEnabled,
         assessment_type: assessmentType,
         audio_enabled: true,
