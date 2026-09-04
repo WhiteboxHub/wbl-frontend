@@ -177,9 +177,8 @@ export default function AIPrepPage() {
     sessionStorage.removeItem('aiprep_active_type');
     sessionStorage.removeItem('aiprep_active_mode');
     sessionStorage.removeItem('aiprep_active_id');
-    // Always use Next.js router to avoid full-page reload inside the iframe
-    // which would cause the homepage layout to render inside the candidate dashboard
-    router.replace('/aiprep?embed=true');
+    const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+    router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
 
   if (!isMounted || isAuthenticated === null) {
@@ -220,7 +219,7 @@ export default function AIPrepPage() {
     );
   }
 
-  const isEmbedded = searchParams.get('embed') === 'true';
+  const isEmbedded = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
 
   return (
     <div className={`w-full bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 ${isEmbedded ? 'h-screen max-h-screen overflow-hidden p-2 sm:p-3' : 'min-h-screen p-4 sm:p-5'}`}>
