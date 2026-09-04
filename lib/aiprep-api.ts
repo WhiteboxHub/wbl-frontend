@@ -244,15 +244,12 @@ export function formatTimeEstimate(
   secPerQuestion: number = 120,
   type?: AssessmentType
 ): string {
-  if (type === 'INTRO' || type === 'JD_INTRO') return '~4 mins total';
-  if (count <= 0) return '~15 mins total';
-  const minPerQuestion = secPerQuestion / 60;
-  const perQuestionStr = Number.isInteger(minPerQuestion)
-    ? `${minPerQuestion}m / question`
-    : `${minPerQuestion.toFixed(1)}m / question`;
-
-  const totalMin = Math.round((count * secPerQuestion) / 60);
-  return `${perQuestionStr} (~${totalMin}m total)`;
+  if (type === 'INTRO' || type === 'JD_INTRO') return '4 mins';
+  if (count > 0) {
+    const totalMin = Math.round((count * secPerQuestion) / 60);
+    return `~${totalMin} mins`;
+  }
+  return '~15 mins';
 }
 
 export function buildAssessmentCardMetadata(
@@ -284,15 +281,14 @@ export function buildAssessmentCardMetadata(
 
   const count = typeof dbQuestionCount === 'number' ? dbQuestionCount : 0;
   const sec = typeof avgSecondsPerQuestion === 'number' ? avgSecondsPerQuestion : getDefaultTypeSeconds(type);
-  const timeLimit = isIntro ? '~4 mins total' : formatTimeEstimate(count, sec);
-  const qCountText = isIntro ? '' : (count > 0 ? `${count} Question${count === 1 ? '' : 's'}` : 'Dynamic Questions');
+  const timeLimit = isIntro ? '4 mins' : formatTimeEstimate(count, sec, type);
 
   return {
     type,
     title: titleMap[type] || type,
     description: descMap[type] || '',
     timeLimit,
-    questionCount: qCountText,
+    questionCount: '',
     pauseAllowed: !isNoPause,
     requiresJd,
   };

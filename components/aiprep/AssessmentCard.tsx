@@ -279,7 +279,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
               const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
               return (
                 <option key={type} value={type} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1">
-                  {meta.questionCount ? `${meta.title} (${meta.questionCount})` : `${meta.title} (${meta.timeLimit})`}
+                  {meta.title} ({meta.timeLimit})
                 </option>
               );
             })}
@@ -306,7 +306,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 {selectedMeta.title}
               </span>
               <span className="text-[11px] font-bold text-[#4A6CF7] dark:text-blue-400">
-                {selectedMeta.questionCount ? `${selectedMeta.questionCount} · ` : ''}{selectedMeta.timeLimit} · {selectedMeta.pauseAllowed ? 'Pause OK' : 'No Pause'}
+                {selectedMeta.timeLimit} · {selectedMeta.pauseAllowed ? 'Pause OK' : 'No Pause'}
               </span>
             </div>
           </div>
