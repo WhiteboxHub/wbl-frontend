@@ -267,7 +267,7 @@ export function buildAssessmentCardMetadata(
     RECRUITER: 'Recruiter Phone Screen',
     HIRING_MANAGER: 'Hiring Manager Conversation',
     TECHNICAL: 'Technical Theory & Coding',
-    SYSTEM_DESIGN: 'AI System Design',
+    SYSTEM_DESIGN: 'System Design',
   };
 
   const descMap: Record<AssessmentType, string> = {
