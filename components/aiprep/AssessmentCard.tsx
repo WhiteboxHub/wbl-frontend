@@ -111,9 +111,11 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
 
       {/* Footer Meta Badges */}
       <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-1 text-[9.5px]">
-        <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${config.badgeBg}`}>
-          {questionCount}
-        </span>
+        {questionCount ? (
+          <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${config.badgeBg}`}>
+            {questionCount}
+          </span>
+        ) : <span />}
         <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1 font-medium">
           <Clock className="w-3 h-3 text-gray-400" />
           {timeLimit}
@@ -277,7 +279,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
               const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
               return (
                 <option key={type} value={type} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1">
-                  {meta.title} ({meta.questionCount})
+                  {meta.questionCount ? `${meta.title} (${meta.questionCount})` : `${meta.title} (${meta.timeLimit})`}
                 </option>
               );
             })}
@@ -304,7 +306,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 {selectedMeta.title}
               </span>
               <span className="text-[11px] font-bold text-[#4A6CF7] dark:text-blue-400">
-                {selectedMeta.questionCount} · {selectedMeta.timeLimit} · {selectedMeta.pauseAllowed ? 'Pause OK' : 'No Pause'}
+                {selectedMeta.questionCount ? `${selectedMeta.questionCount} · ` : ''}{selectedMeta.timeLimit} · {selectedMeta.pauseAllowed ? 'Pause OK' : 'No Pause'}
               </span>
             </div>
           </div>

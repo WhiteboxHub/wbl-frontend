@@ -228,7 +228,7 @@ export function getDefaultTypeSeconds(type: AssessmentType): number {
   switch (type) {
     case 'INTRO':
     case 'JD_INTRO':
-      return 120;
+      return 240;
     case 'RECRUITER':
       return 120;
     case 'HIRING_MANAGER':
@@ -241,8 +241,10 @@ export function getDefaultTypeSeconds(type: AssessmentType): number {
 
 export function formatTimeEstimate(
   count: number,
-  secPerQuestion: number = 120
+  secPerQuestion: number = 120,
+  type?: AssessmentType
 ): string {
+  if (type === 'INTRO' || type === 'JD_INTRO') return '~4 mins total';
   if (count <= 0) return '~15 mins total';
   const minPerQuestion = secPerQuestion / 60;
   const perQuestionStr = Number.isInteger(minPerQuestion)
@@ -260,6 +262,7 @@ export function buildAssessmentCardMetadata(
 ): AssessmentCardMeta {
   const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
   const requiresJd = type === 'JD_INTRO';
+  const isIntro = type === 'INTRO' || type === 'JD_INTRO';
 
   const titleMap: Record<AssessmentType, string> = {
     INTRO: 'General Intro',
@@ -281,8 +284,8 @@ export function buildAssessmentCardMetadata(
 
   const count = typeof dbQuestionCount === 'number' ? dbQuestionCount : 0;
   const sec = typeof avgSecondsPerQuestion === 'number' ? avgSecondsPerQuestion : getDefaultTypeSeconds(type);
-  const timeLimit = formatTimeEstimate(count, sec);
-  const qCountText = count > 0 ? `${count} Question${count === 1 ? '' : 's'}` : 'Dynamic Questions';
+  const timeLimit = isIntro ? '~4 mins total' : formatTimeEstimate(count, sec);
+  const qCountText = isIntro ? '' : (count > 0 ? `${count} Question${count === 1 ? '' : 's'}` : 'Dynamic Questions');
 
   return {
     type,
