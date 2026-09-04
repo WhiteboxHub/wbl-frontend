@@ -131,6 +131,7 @@ export default function AIPrepPage() {
     const targetId = assessment.id;
     setActiveAssessmentId(targetId);
     sessionStorage.setItem('aiprep_active_id', String(targetId));
+    sessionStorage.setItem('aiprep_active_type', results.assessment_type);
 
     sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
 
@@ -155,9 +156,9 @@ export default function AIPrepPage() {
       setIsSaving(true);
       setErrorMsg(null);
 
-      const targetId = activeAssessmentId;
+      let targetId = activeAssessmentId;
       if (!targetId) {
-        throw new Error('Assessment session missing. Please retry.');
+        targetId = await handlePrepareConfirmation(_results);
       }
 
       const statusRes = await aiprepApi.updateAssessmentStatus(targetId, 'IN_PROGRESS');

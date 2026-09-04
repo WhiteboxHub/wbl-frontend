@@ -158,6 +158,7 @@ export default function AssessmentSessionPage() {
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const hasAutoStartedRef = useRef<boolean>(false);
+  const sessionInitializedRef = useRef<boolean>(false);
 
   // Live Speech Recognition Transcript
   const [liveTranscript, setLiveTranscript] = useState<string>('');
@@ -220,6 +221,11 @@ export default function AssessmentSessionPage() {
   const isRecording = recordingStatus === 'recording';
   const isPaused = recordingStatus === 'paused';
   const isInactive = recordingStatus === 'idle';
+
+  const startRecorderRef = useRef(startRecorderCore);
+  startRecorderRef.current = startRecorderCore;
+  const cleanupRecorderRef = useRef(cleanupRecorder);
+  cleanupRecorderRef.current = cleanupRecorder;
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
@@ -285,22 +291,33 @@ export default function AssessmentSessionPage() {
       setIsLoading(false);
       return;
     }
+    if (sessionInitializedRef.current) return;
+    sessionInitializedRef.current = true;
 
     async function initSession() {
       try {
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode from browser storage if set
-        const storedType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'TECHNICAL';
-        const storedMode = (sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'VIDEO';
+        // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
+        let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
+        let resolvedMode: MediaType = (sessionStorage.getItem('aiprep_active_mode') as MediaType);
 
-        setAssessmentType(storedType);
-        setMediaType(storedMode);
+        try {
+          const details = await aiprepApi.getAssessment(Number(assessmentId));
+          if (details?.assessment_type) resolvedType = details.assessment_type;
+          if (details?.media_type) resolvedMode = details.media_type;
+        } catch (_) {}
+
+        const finalType: AssessmentType = resolvedType || 'INTRO';
+        const finalMode: MediaType = resolvedMode || 'VIDEO';
+
+        setAssessmentType(finalType);
+        setMediaType(finalMode);
 
         // 2. Query Question Bank API dynamically for this track
         let loadedQuestions: QuestionBankItem[] = [];
         try {
-          const qResponse = await aiprepApi.getQuestions(storedType);
+          const qResponse = await aiprepApi.getQuestions(finalType);
           if (qResponse?.items && qResponse.items.length > 0) {
             loadedQuestions = qResponse.items;
           }
@@ -311,21 +328,21 @@ export default function AssessmentSessionPage() {
         }
 
         // For intro tracks, prioritize 1-2 focused questions
-        if (NO_PAUSE_ASSESSMENT_TYPES.includes(storedType) && loadedQuestions.length > 1) {
+        if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && loadedQuestions.length > 1) {
           loadedQuestions = [loadedQuestions[0]];
         }
 
         setQuestions(loadedQuestions);
 
         // If intro track, trigger 3-second auto countdown to start practice smoothly
-        if (NO_PAUSE_ASSESSMENT_TYPES.includes(storedType) && !hasAutoStartedRef.current) {
+        if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
           hasAutoStartedRef.current = true;
           setCountdownValue(3);
           const interval = setInterval(() => {
             setCountdownValue((prev) => {
               if (prev === null || prev <= 1) {
                 clearInterval(interval);
-                startRecorderCore();
+                startRecorderRef.current();
                 return null;
               }
               return prev - 1;
@@ -344,9 +361,9 @@ export default function AssessmentSessionPage() {
 
     return () => {
       stopAiSpeech();
-      cleanupRecorder();
+      cleanupRecorderRef.current();
     };
-  }, [assessmentId, startRecorderCore, cleanupRecorder, stopAiSpeech]);
+  }, [assessmentId, stopAiSpeech]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -863,7 +880,7 @@ export default function AssessmentSessionPage() {
             </div>
           ) : (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center text-xs text-slate-400">
-              Loading assessment questions…
+              {isLoading ? 'Loading assessment questions…' : 'No questions currently available in Question Bank for this track.'}
             </div>
           )}
 
