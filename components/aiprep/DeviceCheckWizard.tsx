@@ -39,7 +39,7 @@ import {
 import { YOLOAnalyzer } from './MediaPipe';
 import { AssessmentConfig } from './AssessmentCard';
 import { ConsentStep } from './ConsentModal';
-import { aiprepApi, AssessmentDetails } from '@/lib/aiprep-api';
+import { aiprepApi, AssessmentDetails, AssessmentType } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'CONFIRMATION';
