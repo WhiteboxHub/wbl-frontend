@@ -425,14 +425,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       if (conn && conn.downlink && conn.downlink > 0) {
         const connKbps = Math.round(conn.downlink * 1000);
         realKbps = Math.max(realKbps, connKbps);
-      } else if (realKbps < 500) {
-        realKbps = Math.max(realKbps, 1250);
       }
 
       setBandwidthKbps(realKbps);
     } catch (bwErr) {
-      console.warn('Real-time bandwidth check fallback:', bwErr);
-      setBandwidthKbps(1200);
+      console.warn('Real-time bandwidth check:', bwErr);
+      const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
+      const fallbackKbps = conn && conn.downlink ? Math.round(conn.downlink * 1000) : 0;
+      setBandwidthKbps(fallbackKbps);
     } finally {
       setBandwidthChecking(false);
     }
