@@ -171,7 +171,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // 1. Wizard Step & Mode State
   const [step, setStep] = useState<WizardStep>(initialStep);
-  const [assessmentType, setAssessmentType] = useState<string>(initialType || 'INTRO');
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>((initialType as AssessmentType) || 'INTRO');
   const [videoEnabled, setVideoEnabled] = useState<boolean>(!audioOnly && initialMode !== 'AUDIO_ONLY');
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(true);
   const [jdText, setJdText] = useState<string>('');
@@ -675,7 +675,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               <div className="flex-1 flex flex-col justify-center my-auto py-2 sm:py-3">
                 <AssessmentConfig
                   assessmentType={assessmentType}
-                  setAssessmentType={setAssessmentType as any}
+                  setAssessmentType={setAssessmentType}
                   videoEnabled={videoEnabled}
                   setVideoEnabled={setVideoEnabled}
                   videoAnalyticsEnabled={videoAnalyticsEnabled}
