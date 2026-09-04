@@ -6,7 +6,12 @@
  * Base URL Prefix: /api/aiprep
  */
 
-import { apiFetch } from '@/lib/api';
+import { apiFetch as baseApiFetch } from '@/lib/api';
+
+const apiFetch = (endpoint: string, options?: any) => {
+  const path = endpoint.startsWith('aiprep/') || endpoint === 'user_dashboard' ? endpoint : `aiprep/${endpoint}`;
+  return baseApiFetch(path, options);
+};
 
 // ============================================================================
 // TypeScript Interfaces & Contract Schema Definitions
@@ -335,7 +340,11 @@ export const aiprepApi = {
       }
     }
 
-    const normMediaType: MediaType = (payload.media_type || (payload.assessment_mode === 'AUDIO_ONLY' ? 'AUDIO' : 'VIDEO')) as MediaType;
+    const normMediaType: MediaType = (
+      payload.media_type === 'AUDIO' || payload.assessment_mode === 'AUDIO_ONLY' || payload.assessment_mode === 'AUDIO'
+        ? 'AUDIO'
+        : 'VIDEO'
+    ) as MediaType;
     const jd = payload.job_description || payload.job_description_text || null;
 
     let clientIp = payload.ip_address;
@@ -435,10 +444,10 @@ export const aiprepApi = {
     difficulty?: string
   ): Promise<QuestionListResponse> => {
     const params = new URLSearchParams();
-    if (category) {
-      params.append('category', category);
+    if (category && category !== 'GENERAL') {
+      params.append('category', category.toUpperCase());
     }
-    if (difficulty) params.append('difficulty_level', difficulty);
+    if (difficulty) params.append('difficulty_level', difficulty.toUpperCase());
 
     const queryStr = params.toString() ? `?${params.toString()}` : '';
     return apiFetch(`questions${queryStr}`);
@@ -508,29 +517,112 @@ export const aiprepApi = {
 
   uploadChunk: async (
     assessmentId: number,
-    _chunkNumber?: any,
-    _blob?: any
-  ): Promise<{ success: boolean }> => {
-    return { success: true };
+    chunkIndex: number,
+    blob: Blob,
+    mediaType: string = 'VIDEO',
+    isFinal: boolean = false
+  ): Promise<{ message: string; chunk_index?: number; file_path?: string; success?: boolean }> => {
+    const formData = new FormData();
+    formData.append('file', blob, `chunk_${chunkIndex}.webm`);
+    formData.append('chunk_index', String(chunkIndex));
+    formData.append('assessment_id', String(assessmentId));
+    formData.append('media_type', mediaType);
+    if (isFinal !== undefined) {
+      formData.append('is_final', String(isFinal));
+    }
+
+    try {
+      const res = await apiFetch(`assessments/${assessmentId}/upload-media`, {
+        method: 'POST',
+        body: formData,
+      });
+      return { success: true, ...res };
+    } catch (err: any) {
+      // If 404, fallback to /aiprep/assessments prefix
+      if (err?.status === 404 || (typeof err?.message === 'string' && err.message.includes('404'))) {
+        try {
+          const fallbackRes = await apiFetch(`aiprep/assessments/${assessmentId}/upload-media`, {
+            method: 'POST',
+            body: formData,
+          });
+          return { success: true, ...fallbackRes };
+        } catch (_) {}
+      }
+      console.error(`[AIPrep API] Failed to upload chunk ${chunkIndex}:`, err);
+      throw err;
+    }
   },
 
   getProcessingStatus: async (
     assessmentId: number
   ): Promise<ProcessingStatusResponse> => {
-    return {
-      step: 'COMPLETE',
-      progress: 100,
-      status: 'COMPLETED',
-    };
+    try {
+      const assessment = await aiprepApi.getAssessment(assessmentId);
+      const status = assessment?.status || 'IN_PROGRESS';
+
+      let progress = 10;
+      let step = 'SUBMITTED';
+
+      if (status === 'IN_PROGRESS') {
+        progress = 25;
+        step = 'RECORDING';
+      } else if (status === 'EVALUATING') {
+        progress = 65;
+        step = 'EVALUATING_ENGINES';
+      } else if (status === 'COMPLETED') {
+        progress = 100;
+        step = 'COMPLETED';
+      } else if (status === 'FAILED') {
+        step = 'FAILED';
+        progress = 0;
+      }
+
+      return {
+        step,
+        progress,
+        status,
+      };
+    } catch (err: any) {
+      console.error(`[AIPrep API] Failed to fetch processing status for ${assessmentId}:`, err);
+      return {
+        step: 'RETRYING',
+        progress: 50,
+        status: 'EVALUATING',
+      };
+    }
   },
 
   subscribeToProcessing: (
     assessmentId: number,
     onProgress: (status: ProcessingStatusResponse) => void,
-    onError?: () => void
+    onError?: (err: any) => void
   ): (() => void) => {
-    onProgress({ step: 'COMPLETE', progress: 100, status: 'COMPLETED' });
-    return () => {};
+    let isCancelled = false;
+
+    const poll = async () => {
+      try {
+        const res = await aiprepApi.getProcessingStatus(assessmentId);
+        if (isCancelled) return;
+        onProgress(res);
+
+        if (res.status === 'COMPLETED' || res.status === 'FAILED') {
+          return;
+        }
+      } catch (err) {
+        if (!isCancelled && onError) onError(err);
+      }
+
+      if (!isCancelled) {
+        timerId = setTimeout(poll, 3000);
+      }
+    };
+
+    let timerId = setTimeout(poll, 1500);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timerId);
+    };
   },
 };
 
