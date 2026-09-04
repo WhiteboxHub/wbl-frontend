@@ -54,7 +54,7 @@ export default function DeviceCheckPage() {
   const storedIdStr = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_id') : null;
   const storedId = storedIdStr ? parseInt(storedIdStr, 10) : null;
 
-  const effectiveType = queryType || storedType || 'TECHNICAL';
+  const effectiveType = queryType || storedType || 'INTRO';
   const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(

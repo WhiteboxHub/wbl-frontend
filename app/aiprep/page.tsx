@@ -93,7 +93,7 @@ export default function AIPrepPage() {
   const storedType = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_type') as AssessmentType | null) : null;
   const storedMode = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_mode') as AssessmentMode | null) : null;
 
-  const effectiveType = queryType || storedType || 'TECHNICAL';
+  const effectiveType = queryType || storedType || 'INTRO';
   const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {

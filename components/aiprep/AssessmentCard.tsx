@@ -172,8 +172,10 @@ interface AssessmentConfigProps {
   videoAnalyticsEnabled: boolean;
   setVideoAnalyticsEnabled: (enabled: boolean) => void;
   jdText: string;
-  setJdText: (text: string) => void;
-  onNext: () => void;
+  setJdText?: (text: string) => void;
+  setShowJdModal?: (show: boolean) => void;
+  onNext?: () => void;
+  onCancel?: () => void;
   dbQuestionCounts?: Record<string, number>;
   dbAvgSeconds?: Record<string, number>;
 }
@@ -187,7 +189,9 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   setVideoAnalyticsEnabled,
   jdText,
   setJdText,
+  setShowJdModal,
   onNext,
+  onCancel,
   dbQuestionCounts = {},
   dbAvgSeconds = {},
 }) => {
@@ -204,7 +208,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
       {/* ── Scenario Select Dropdown ── */}
       <div className="space-y-1.5">
         <label className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
-          Evaluation Scenario
+          Assessment Selection Type
         </label>
 
         <div className="relative">
@@ -296,7 +300,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
           <div>
             <span className="text-xs font-bold text-slate-900 dark:text-white block">Video Analytics</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Off by default (YOLO posture &amp; gaze)</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Off by default (Posture &amp; gaze only)</span>
           </div>
 
           <PreferenceToggle
@@ -323,7 +327,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
             <button
               type="button"
-              onClick={() => setShowJdModal(true)}
+              onClick={() => setShowJdModal?.(true)}
               className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl hover:border-[#4A6CF7] hover:text-[#4A6CF7] dark:hover:text-blue-400 shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
             >
               {jdText ? 'Edit Description' : 'Add Description'}
