@@ -219,10 +219,9 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
           >
             {SUPPORTED_ASSESSMENT_TYPES.map((type) => {
               const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
-              const time = getFormattedDisplayTime(type);
               return (
                 <option key={type} value={type} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1">
-                  {meta.title} ({time})
+                  {meta.title}
                 </option>
               );
             })}
