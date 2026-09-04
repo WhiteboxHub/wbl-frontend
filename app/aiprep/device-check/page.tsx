@@ -36,6 +36,13 @@ export default function DeviceCheckPage() {
       } catch (err) {
         console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check.');
         setIsAuthenticated(false);
+        if (typeof window !== 'undefined') {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = '/login';
+          } else {
+            router.replace('/login');
+          }
+        }
       }
     }
     verifyAuth();

@@ -63,6 +63,13 @@ export default function AIPrepPage() {
       } catch (err) {
         console.warn('[Security Guard]: Unauthenticated candidate session attempt.');
         setIsAuthenticated(false);
+        if (typeof window !== 'undefined') {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = '/login';
+          } else {
+            router.replace('/login');
+          }
+        }
       }
     }
     verifyAuthAndInitSession();
