@@ -262,12 +262,12 @@ export function buildAssessmentCardMetadata(
   const isIntro = type === 'INTRO' || type === 'JD_INTRO';
 
   const titleMap: Record<AssessmentType, string> = {
-    INTRO: 'Intro',
-    JD_INTRO: 'Job Description Intro',
-    RECRUITER: 'Recruiter Phone Screen',
-    HIRING_MANAGER: 'Hiring Manager Conversation',
-    TECHNICAL: 'Technical',
-    SYSTEM_DESIGN: 'System Design',
+    INTRO: 'INTRO',
+    JD_INTRO: 'JD_INTRO',
+    RECRUITER: 'RECRUITER',
+    HIRING_MANAGER: 'HIRING_MANAGER',
+    TECHNICAL: 'TECHNICAL',
+    SYSTEM_DESIGN: 'SYSTEM_DESIGN',
   };
 
   const descMap: Record<AssessmentType, string> = {
