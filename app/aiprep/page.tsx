@@ -28,38 +28,60 @@ export default function AIPrepPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    async function verifyAuth() {
-      // If running inside an iframe (candidate dashboard), always treat as authenticated.
-      // Never redirect — that would load the homepage INSIDE the iframe.
+
+    async function verifyAuthAndInitSession() {
       const isEmbedded = typeof window !== 'undefined' && (
         window.self !== window.top || window.location.search.includes('embed=true')
       );
-      if (isEmbedded) {
-        setIsAuthenticated(true);
-        return;
-      }
-
-      // Standalone route: verify via token or API
-      const token = typeof window !== 'undefined' && (
-        localStorage.getItem("access_token") ||
-        localStorage.getItem("token") ||
-        localStorage.getItem("auth_token") ||
-        localStorage.getItem("bearer_token")
-      );
-      if (token) {
-        setIsAuthenticated(true);
-        return;
-      }
 
       try {
-        await apiFetch("user_dashboard");
+        const userDash: any = await apiFetch("user_dashboard");
         setIsAuthenticated(true);
+        const candidateId = userDash?.candidate_id || userDash?.basic_info?.id;
+        const userEmail = userDash?.email || userDash?.basic_info?.email;
+
+        if (candidateId || userEmail) {
+          try {
+            const prepToken = typeof window !== 'undefined' ? localStorage.getItem("prep_token") : null;
+            const summaryData: any = await apiFetch("setup/init-and-summary", {
+              method: "POST",
+              body: JSON.stringify({
+                candidate_id: candidateId,
+                candidate_email: userEmail,
+                wbl_email: userEmail,
+                name: userEmail,
+                prep_token: prepToken,
+              }),
+            });
+            if (summaryData?.session_id && typeof window !== 'undefined') {
+              localStorage.setItem("prep_token", String(summaryData.session_id));
+            }
+          } catch (initErr) {
+            console.warn('[Session direct init note]:', initErr);
+          }
+        }
       } catch (err) {
+        if (isEmbedded) {
+          setIsAuthenticated(true);
+          return;
+        }
+
+        const token = typeof window !== 'undefined' && (
+          localStorage.getItem("access_token") ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("auth_token") ||
+          localStorage.getItem("bearer_token")
+        );
+        if (token) {
+          setIsAuthenticated(true);
+          return;
+        }
+
         console.warn('[Security Guard]: Unauthenticated. Redirecting to login.');
         router.replace('/login');
       }
     }
-    verifyAuth();
+    verifyAuthAndInitSession();
   }, [router]);
 
   const searchParams = useSearchParams();
@@ -108,7 +130,8 @@ export default function AIPrepPage() {
       assessment_type: results.assessment_type as AssessmentType,
       assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
       candidate_id: candidateId,
-      job_description_text: results.assessment_type === 'JOB_DESCRIPTION_INTRO' ? results.jd_text : null,
+      job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+      user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
     });
 
     if (!assessment || !assessment.id) {
@@ -118,16 +141,7 @@ export default function AIPrepPage() {
     setActiveAssessmentId(targetId);
     sessionStorage.setItem('aiprep_active_id', String(targetId));
 
-    await aiprepApi.saveHardwareCheck({
-      assessment_id: targetId,
-      browser_info: results.browser_info,
-      os_info: results.os_info,
-      camera_permission: results.camera_permission,
-      mic_permission: results.mic_permission,
-      speaker_ok: results.speaker_ok,
-      bandwidth_kbps: results.bandwidth_kbps,
-      yolo_model_enabled: results.camera_permission && results.yolo_consent,
-    });
+    sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
 
     return targetId!;
   };

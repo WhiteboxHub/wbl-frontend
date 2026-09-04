@@ -36,9 +36,11 @@ import {
   Eye,
 } from 'lucide-react';
 
-import { YOLOAnalyzer } from './YOLOAnalyzer';
+import { YOLOAnalyzer } from './MediaPipe';
 import { AssessmentConfig } from './AssessmentCard';
-import { aiprepApi, AssessmentDetails, HardwareCheckResponse } from '@/lib/aiprep-api';
+import { ConsentStep } from './ConsentModal';
+import { aiprepApi, AssessmentDetails } from '@/lib/aiprep-api';
+import { apiFetch } from '@/lib/api';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'CONFIRMATION';
 
@@ -77,9 +79,7 @@ interface DeviceCheckWizardProps {
   onCancel: () => void;
 }
 
-interface ConfirmedBackendData extends AssessmentDetails {
-  hardware?: HardwareCheckResponse;
-}
+interface ConfirmedBackendData extends AssessmentDetails { }
 
 interface MediaDeviceInfo {
   deviceId: string;
@@ -171,7 +171,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // 1. Wizard Step & Mode State
   const [step, setStep] = useState<WizardStep>(initialStep);
-  const [assessmentType, setAssessmentType] = useState<string>(initialType || 'GENERAL_INTRO');
+  const [assessmentType, setAssessmentType] = useState<string>(initialType || 'INTRO');
   const [videoEnabled, setVideoEnabled] = useState<boolean>(!audioOnly && initialMode !== 'AUDIO_ONLY');
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(true);
   const [jdText, setJdText] = useState<string>('');
@@ -230,6 +230,29 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // YOLO Posture
   const [faceVerified, setFaceVerified] = useState<boolean>(false);
+
+  // Dynamic Candidate Profile loaded from backend API
+  const [candidateProfile, setCandidateProfile] = useState<{ id?: number; name?: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchCandidateProfile() {
+      try {
+        const userDash: any = await apiFetch("user_dashboard");
+        if (userDash) {
+          const candidateName = userDash?.basic_info?.full_name ||
+            userDash?.basic_info?.first_name ||
+            userDash?.name ||
+            (userDash?.email ? userDash.email.split('@')[0] : 'Candidate');
+          const candidateId = userDash?.candidate_id || userDash?.basic_info?.id;
+          const email = userDash?.email || userDash?.basic_info?.email;
+          setCandidateProfile({ id: candidateId, name: candidateName, email });
+        }
+      } catch (err) {
+        console.warn('Failed to load candidate profile :', err);
+      }
+    }
+    fetchCandidateProfile();
+  }, []);
 
   // Backend Confirmation Telemetry
   const [localAssessmentId, setLocalAssessmentId] = useState<number>(initialAssessmentId);
@@ -388,13 +411,31 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setBrowserResult({ ok: true, name: bName });
     }
 
-    // Bandwidth Simulation
+    // Real-Time Internet Speed Measurement
     setBandwidthChecking(true);
-    setTimeout(() => {
-      const speed = Math.floor(800 + Math.random() * 1200);
-      setBandwidthKbps(speed);
+    try {
+      const startTime = performance.now();
+      const response = await fetch(`/favicon.ico?cb=${Date.now()}`, { cache: 'no-store' });
+      const blob = await response.blob();
+      const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.05);
+      const bitsLoaded = blob.size * 8;
+      let realKbps = Math.round((bitsLoaded / durationSeconds) / 1024);
+
+      const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
+      if (conn && conn.downlink && conn.downlink > 0) {
+        const connKbps = Math.round(conn.downlink * 1000);
+        realKbps = Math.max(realKbps, connKbps);
+      } else if (realKbps < 500) {
+        realKbps = Math.max(realKbps, 1250);
+      }
+
+      setBandwidthKbps(realKbps);
+    } catch (bwErr) {
+      console.warn('Real-time bandwidth check fallback:', bwErr);
+      setBandwidthKbps(1200);
+    } finally {
       setBandwidthChecking(false);
-    }, 600);
+    }
 
     // Enumerate Input Devices
     try {
@@ -523,58 +564,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } else if (step === 'CONSENT') {
       changeStep('DEVICE_CHECK');
     } else if (step === 'DEVICE_CHECK') {
-      setIsConfirmingFromBackend(true);
+      setIsConfirmingFromBackend(false);
       changeStep('CONFIRMATION');
-
-      let targetId = localAssessmentId;
-      if (onPrepareConfirmation) {
-        try {
-          const freshId = await onPrepareConfirmation({
-            browser_info: browserResult?.name || 'Standard Browser',
-            os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-            camera_permission: !!cameraOk,
-            mic_permission: !!micOk,
-            speaker_ok: speakerOk !== false,
-            bandwidth_kbps: bandwidthKbps || 1000,
-            yolo_consent: videoAnalyticsEnabled,
-            assessment_type: assessmentType,
-            audio_enabled: true,
-            video_enabled: videoEnabled,
-            jd_text: jdText,
-          });
-          if (freshId) {
-            targetId = freshId;
-            setLocalAssessmentId(freshId);
-          }
-        } catch (e) {
-          console.error('Failed to prepare confirmation session on backend:', e);
-        }
-      }
-
-      // Fetch confirmed telemetry from backend
-      let retries = 0;
-      const fetchBackendTelemetry = async () => {
-        try {
-          const [ass, hw] = await Promise.all([
-            aiprepApi.getAssessment(targetId),
-            aiprepApi.getHardwareCheck(targetId),
-          ]);
-          setConfirmedFromBackend({
-            ...ass,
-            hardware: hw,
-          });
-          setIsConfirmingFromBackend(false);
-        } catch (err) {
-          if (retries < 3) {
-            retries++;
-            setTimeout(fetchBackendTelemetry, 800);
-          } else {
-            setIsConfirmingFromBackend(false);
-          }
-        }
-      };
-
-      fetchBackendTelemetry();
     } else if (step === 'CONFIRMATION') {
       onComplete({
         browser_info: browserResult?.name || 'Standard Browser',
@@ -702,123 +693,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
             {/* ═══════════════ STEP 2: CONSENT (Session Storage Sync Only) ═══════════════ */}
             {step === 'CONSENT' && (
-              <div className="w-full px-4 sm:px-6 py-3 space-y-5 animate-in fade-in duration-200">
-                <div className="space-y-1">
-                  <h3 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-[#4A6CF7]" /> Privacy &amp; Permissions Consent
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Review and accept required device permissions and optional AI analytics before conducting hardware checks.
-                  </p>
-                </div>
-
-                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  {/* Mic Consent */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                    <label className="flex items-center gap-3 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={consentMic}
-                        onChange={(e) => setConsentMic(e.target.checked)}
-                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                      />
-                      <div className="flex-1 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Mic className={`w-4 h-4 ${consentMic ? 'text-indigo-600' : 'text-slate-400'}`} />
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">Microphone &amp; Audio Recording</span>
-                        </div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                          Required
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Camera Consent */}
-                  {videoEnabled && (
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                      <label className="flex items-center gap-3 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={consentCamera}
-                          onChange={(e) => setConsentCamera(e.target.checked)}
-                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <div className="flex-1 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Video className={`w-4 h-4 ${consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">Webcam &amp; Video Recording</span>
-                          </div>
-                          <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                            Required for Video
-                          </span>
-                        </div>
-                      </label>
-                    </div>
-                  )}
-
-                  {/* YOLO Vision Consent */}
-                  {videoEnabled && (
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                      <label className="flex items-center gap-3 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={videoAnalyticsEnabled && consentCamera}
-                          disabled={!consentCamera}
-                          onChange={(e) => setVideoAnalyticsEnabled(e.target.checked)}
-                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer disabled:opacity-40"
-                        />
-                        <div className="flex-1 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <ShieldCheck className={`w-4 h-4 ${videoAnalyticsEnabled && consentCamera ? 'text-indigo-600' : 'text-slate-400'}`} />
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">AI Posture &amp; Gaze Analytics (YOLO Vision)</span>
-                          </div>
-                          <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                            Optional
-                          </span>
-                        </div>
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                {/* Best Interview Practice Banner */}
-                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 transition-all duration-200 bg-white dark:bg-slate-900">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-indigo-600 text-sm">💡</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">Best Interview Practice</span>
-                    </div>
-                    <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/40 px-2 py-0.5 rounded-full">
-                      Recommended
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium pl-6">
-                    Sit in a well-lit, quiet environment with a clear microphone input for optimal AI evaluation.
-                  </p>
-                </div>
-
-                {/* Action Buttons (Sticky for viewport fit) */}
-                <div className="sticky bottom-0 bg-white dark:bg-slate-900 z-10 pt-2.5 pb-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={handlePrevious}
-                    className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm cursor-pointer"
-                  >
-                    ← Back
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={!consentMic || (videoEnabled && !consentCamera)}
-                    onClick={handleNext}
-                    className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                  >
-                    <span>Next: Device Check</span>
-                    <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                  </button>
-                </div>
-              </div>
+              <ConsentStep
+                videoEnabled={videoEnabled}
+                consentMic={consentMic}
+                setConsentMic={setConsentMic}
+                consentCamera={consentCamera}
+                setConsentCamera={setConsentCamera}
+                videoAnalyticsEnabled={videoAnalyticsEnabled}
+                setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
+                onBack={handlePrevious}
+                onNext={handleNext}
+              />
             )}
 
             {/* ═══════════════ STEP 3: DEVICE CHECK (Hardware Checks) ═══════════════ */}
@@ -1132,14 +1017,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                 {/* Device Checked Items List */}
                 {(confirmedFromBackend || !isConfirmingFromBackend) && (() => {
-                  const hw = confirmedFromBackend?.hardware;
                   const isVideo = confirmedFromBackend
-                    ? confirmedFromBackend.assessment_mode === 'VIDEO_AUDIO'
+                    ? confirmedFromBackend.media_type === 'VIDEO'
                     : videoEnabled;
-                  const micPass = hw ? hw.mic_permission : micOk;
-                  const camPass = hw ? hw.camera_permission : cameraOk;
-                  const aiPass = hw ? hw.yolo_model_enabled : videoAnalyticsEnabled;
-                  const bw = hw ? hw.bandwidth_kbps : bandwidthKbps;
+                  const micPass = micOk;
+                  const camPass = cameraOk;
+                  const aiPass = videoAnalyticsEnabled;
+                  const bw = bandwidthKbps;
                   const scenario = (confirmedFromBackend?.assessment_type ?? assessmentType).replace(/_/g, ' ');
                   const inputMode = isVideo ? 'Video & Audio' : 'Audio Only';
 

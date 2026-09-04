@@ -133,28 +133,16 @@ export default function DeviceCheckPage() {
         assessment_type: results.assessment_type as AssessmentType,
         assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
         candidate_id: candidateId,
-        job_description_text: results.assessment_type === 'JOB_DESCRIPTION_INTRO' ? results.jd_text : null,
+        job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+        user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
       });
       targetId = assessment.id;
       setActiveAssessmentId(targetId);
       sessionStorage.setItem('aiprep_active_id', String(targetId));
     }
 
-    // Save hardware check results
-    const hwResponse = await aiprepApi.saveHardwareCheck({
-      assessment_id: targetId,
-      browser_info: results.browser_info,
-      os_info: results.os_info,
-      camera_permission: results.camera_permission,
-      mic_permission: results.mic_permission,
-      speaker_ok: results.speaker_ok,
-      bandwidth_kbps: results.bandwidth_kbps,
-      yolo_model_enabled: results.camera_permission && results.yolo_consent,
-    });
-
-    if (!hwResponse || !hwResponse.id) {
-      throw new Error('Hardware verification failed on the server.');
-    }
+    // Store local hardware check results in sessionStorage
+    sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
 
     return targetId!;
   };

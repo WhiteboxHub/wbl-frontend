@@ -2,14 +2,13 @@
  * AssessmentCard & AssessmentConfig Components
  * 
  * Target Workspace: wbl-frontend
-
  * 
- * Group all Step 1 Configuration (Select Scenario + Session Preferences) 
+ * Groups all Step 1 Configuration (Select Scenario + Session Preferences) 
  * inside the AssessmentCard component with state-of-the-art rich UI design.
  */
 
 import React, { useEffect, useState } from 'react';
-import { AssessmentType, AssessmentCardMeta, buildAssessmentCardMetadata, aiprepApi, BACKEND_QUESTION_LIMITS, getDifficultySeconds } from '@/lib/aiprep-api';
+import { AssessmentType, AssessmentCardMeta, buildAssessmentCardMetadata, aiprepApi, getDifficultySeconds } from '@/lib/aiprep-api';
 import {
   MessageSquare,
   Briefcase,
@@ -18,25 +17,48 @@ import {
   Puzzle,
   UserCheck,
   Target,
-  Mic,
-  Camera,
   ShieldCheck,
   CheckCircle2,
   Clock,
-  Sparkles,
-  HelpCircle,
   ChevronRight,
 } from 'lucide-react';
 
 export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = [
-  'GENERAL_INTRO',
-  'JOB_DESCRIPTION_INTRO',
-  'HR',
+  'INTRO',
+  'JD_INTRO',
   'RECRUITER',
   'HIRING_MANAGER',
   'TECHNICAL',
   'SYSTEM_DESIGN',
 ];
+
+/**
+ * Shared icon configuration helper for assessment types
+ */
+export const getAssessmentIconConfig = (type: AssessmentType) => {
+  const defaultStyle = {
+    gradient: 'bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20',
+    accentColor: 'text-[#4A6CF7] dark:text-blue-400',
+    badgeBg: 'bg-blue-50 text-[#4A6CF7] border border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/40',
+  };
+
+  switch (type) {
+    case 'INTRO':
+      return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+    case 'JD_INTRO':
+      return { ...defaultStyle, icon: <Briefcase className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+    case 'TECHNICAL':
+      return { ...defaultStyle, icon: <Code2 className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+    case 'SYSTEM_DESIGN':
+      return { ...defaultStyle, icon: <Puzzle className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+    case 'RECRUITER':
+      return { ...defaultStyle, icon: <UserCheck className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+    case 'HIRING_MANAGER':
+      return { ...defaultStyle, icon: <Target className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+    default:
+      return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+  }
+};
 
 interface AssessmentCardProps {
   metadata: AssessmentCardMeta;
@@ -52,60 +74,7 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
   isLocked = false,
 }) => {
   const { type, title, description, questionCount, timeLimit } = metadata;
-
-  // Select icon config with unified WBL brand color scheme matching existing WBL grid
-  const getIconConfig = () => {
-    const defaultStyle = {
-      gradient: 'bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20',
-      accentColor: 'text-[#4A6CF7] dark:text-blue-400',
-      badgeBg: 'bg-blue-50 text-[#4A6CF7] border border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/40',
-    };
-
-    switch (type) {
-      case 'GENERAL_INTRO':
-        return {
-          ...defaultStyle,
-          icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      case 'JOB_DESCRIPTION_INTRO':
-        return {
-          ...defaultStyle,
-          icon: <Briefcase className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      case 'HR':
-        return {
-          ...defaultStyle,
-          icon: <Users className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      case 'TECHNICAL':
-        return {
-          ...defaultStyle,
-          icon: <Code2 className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      case 'SYSTEM_DESIGN':
-        return {
-          ...defaultStyle,
-          icon: <Puzzle className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      case 'RECRUITER':
-        return {
-          ...defaultStyle,
-          icon: <UserCheck className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      case 'HIRING_MANAGER':
-        return {
-          ...defaultStyle,
-          icon: <Target className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-      default:
-        return {
-          ...defaultStyle,
-          icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" />,
-        };
-    }
-  };
-
-  const config = getIconConfig();
+  const config = getAssessmentIconConfig(type);
 
   return (
     <div
@@ -197,7 +166,7 @@ const PreferenceToggle: React.FC<PreferenceToggleProps> = ({
   );
 };
 
-/* ── AssessmentConfig Container Component for Step 1 (Style 1.A — Dropdown Layout) ───────────────────────── */
+/* ── AssessmentConfig Container Component for Step 1 ── */
 interface AssessmentConfigProps {
   assessmentType: string;
   setAssessmentType: (type: AssessmentType) => void;
@@ -237,9 +206,8 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         SYSTEM_DESIGN: 'SYSTEM_DESIGN',
         RECRUITER: 'RECRUITER',
         HIRING_MANAGER: 'HIRING_MANAGER',
-        HR: 'BEHAVIORAL',
-        GENERAL_INTRO: 'GENERAL',
-        JOB_DESCRIPTION_INTRO: 'JOB_DESCRIPTION_INTRO',
+        INTRO: 'GENERAL',
+        JD_INTRO: 'GENERAL',
       };
 
       const counts: Record<string, number> = {};
@@ -249,12 +217,21 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         SUPPORTED_ASSESSMENT_TYPES.map(async (type) => {
           try {
             const cat = categoryMap[type] || type;
-            // Fetch questions from backend DB API for exact category
-            const res: any = await aiprepApi.getQuestions(cat as any);
-            const qList: any[] = Array.isArray(res) ? res : (res?.items || []);
-            const totalCount = typeof res === 'object' && typeof res?.total === 'number'
+            let res: any = await aiprepApi.getQuestions(cat as any);
+            let qList: any[] = Array.isArray(res) ? res : (res?.items || []);
+            let totalCount = typeof res === 'object' && typeof res?.total === 'number'
               ? res.total
               : qList.length;
+
+            // If 0 questions returned for specific intro category, fallback to 'GENERAL' category in DB
+            if (totalCount === 0 && (cat === 'INTRO' || cat === 'JD_INTRO')) {
+              const fallbackRes: any = await aiprepApi.getQuestions('GENERAL' as any);
+              const fallbackList: any[] = Array.isArray(fallbackRes) ? fallbackRes : (fallbackRes?.items || []);
+              totalCount = typeof fallbackRes === 'object' && typeof fallbackRes?.total === 'number'
+                ? fallbackRes.total
+                : fallbackList.length;
+              qList = fallbackList;
+            }
 
             counts[type] = totalCount;
 
@@ -263,7 +240,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
               avgSecs[type] = Math.round(totalSec / qList.length);
             }
           } catch (err) {
-            console.warn(`[AssessmentConfig] Failed to fetch count for ${type}:`, err);
+            console.warn(`Failed to fetch count for ${type}`, err);
             counts[type] = 0;
           }
         })
@@ -274,37 +251,12 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
     loadBackendQuestionCounts();
   }, []);
 
-  const getIconConfig = (type: AssessmentType) => {
-    const defaultStyle = {
-      gradient: 'bg-[#4A6CF7]/10 text-[#4A6CF7] dark:bg-[#4A6CF7]/20 dark:text-blue-400',
-    };
-
-    switch (type) {
-      case 'GENERAL_INTRO':
-        return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      case 'JOB_DESCRIPTION_INTRO':
-        return { ...defaultStyle, icon: <Briefcase className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      case 'HR':
-        return { ...defaultStyle, icon: <Users className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      case 'TECHNICAL':
-        return { ...defaultStyle, icon: <Code2 className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      case 'SYSTEM_DESIGN':
-        return { ...defaultStyle, icon: <Puzzle className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      case 'RECRUITER':
-        return { ...defaultStyle, icon: <UserCheck className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      case 'HIRING_MANAGER':
-        return { ...defaultStyle, icon: <Target className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-      default:
-        return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
-    }
-  };
-
   const selectedMeta = buildAssessmentCardMetadata(
-    (assessmentType as AssessmentType) || 'GENERAL_INTRO',
+    (assessmentType as AssessmentType) || 'INTRO',
     dbQuestionCounts[assessmentType],
     dbAvgSeconds[assessmentType]
   );
-  const selectedIconConfig = getIconConfig((assessmentType as AssessmentType) || 'GENERAL_INTRO');
+  const selectedIconConfig = getAssessmentIconConfig((assessmentType as AssessmentType) || 'INTRO');
 
   return (
     <div className="w-full px-3.5 sm:px-5 py-2 space-y-3.5 animate-in fade-in duration-200">
@@ -420,8 +372,8 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
           />
         </div>
 
-        {/* Row 3: Target Job Description (Visible only for JOB_DESCRIPTION_INTRO) */}
-        {(assessmentType === 'JOB_DESCRIPTION_INTRO' || selectedMeta.requiresJd) && (
+        {/* Row 3: Target Job Description (Visible only for JD_INTRO) */}
+        {(assessmentType === 'JD_INTRO' || selectedMeta.requiresJd) && (
           <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 animate-in fade-in duration-150">
             <div>
               <span className="text-xs font-bold text-slate-900 dark:text-white block">Target Job Description</span>
@@ -429,6 +381,8 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 {jdText ? 'Custom job description active ✓' : 'Provide target job description to tailor questions'}
               </span>
             </div>
+
+
 
             <button
               type="button"
@@ -472,5 +426,3 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 };
 
 export default AssessmentCard;
-
-

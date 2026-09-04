@@ -1185,12 +1185,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         let hasAnyKeyInBackend = false;
         try {
             const keys: any = await apiFetch("coderpad/me/llm-keys");
-            hasAnyKeyInBackend = keys.length > 0;
+            hasAnyKeyInBackend = Array.isArray(keys) && keys.length > 0;
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
 
             if (defaultKey) {
-                // Validation status is now returned directly from the DB via GET /coderpad/me/llm-keys
-                // (V124 migration: status column on candidate_llm_api_keys)
                 if (defaultKey.validation_status === "active") {
                     hasValidDefaultKey = true;
                 }
@@ -1199,18 +1197,84 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             // fallback
         }
 
+        let hasResumeDirect = false;
+        let candidateIdVal: number | undefined;
+        let userEmailVal: string | undefined;
+
+        try {
+            const dash: any = await apiFetch("user_dashboard");
+            candidateIdVal = dash?.candidate_id || dash?.basic_info?.id;
+            userEmailVal = dash?.email || dash?.basic_info?.email;
+
+            if (
+                dash?.has_resume === true ||
+                Boolean(dash?.resume_filename) ||
+                Boolean(dash?.binary_resume_filename) ||
+                Boolean(dash?.resume_url) ||
+                dash?.resume_json != null ||
+                dash?.resume_data != null
+            ) {
+                hasResumeDirect = true;
+            }
+
+            if (candidateIdVal || userEmailVal) {
+                try {
+                    const prepToken = typeof window !== 'undefined' ? localStorage.getItem("prep_token") : null;
+                    const summaryData: any = await apiFetch("setup/init-and-summary", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            candidate_id: candidateIdVal,
+                            candidate_email: userEmailVal,
+                            wbl_email: userEmailVal,
+                            name: userEmailVal,
+                            prep_token: prepToken,
+                        }),
+                    });
+                    const s = summaryData?.summary || summaryData;
+                    if (s) {
+                        if (
+                            s.resume_text === "Exists" ||
+                            s.has_resume === true ||
+                            s.has_binary_resume === true ||
+                            s.resume_uploaded === true ||
+                            (s.resume_json != null && typeof s.resume_json === "object" && Object.keys(s.resume_json).length > 0)
+                        ) {
+                            hasResumeDirect = true;
+                        }
+                        if (s.has_api_key === true || (Array.isArray(s.llm_keys) && s.llm_keys.length > 0)) {
+                            hasAnyKeyInBackend = true;
+                        }
+                        if (summaryData?.session_id && typeof window !== 'undefined') {
+                            localStorage.setItem("prep_token", String(summaryData.session_id));
+                        }
+                    }
+                } catch {
+                    // note
+                }
+            }
+        } catch {
+            // fallback
+        }
+
         try {
             const d: any = await setupApi.getStatus();
-            // Fallback: if cache miss but they have keys in both places, assume AI prep status
-            const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && (d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0)));
+            const isResumeUploaded = hasResumeDirect || d.resume_uploaded || d.has_binary_resume || d.has_resume || d.resume_text === "Exists";
+            const isConfigured = hasValidDefaultKey || hasAnyKeyInBackend || d.api_keys_configured || d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0);
             const resolvedStatus = {
                 ...d,
+                resume_uploaded: isResumeUploaded,
                 api_keys_configured: isConfigured,
-                setup_complete: d.resume_uploaded && isConfigured
+                setup_complete: isResumeUploaded && isConfigured
             };
             return resolvedStatus;
         } catch {
-            return null;
+            const isResumeUploaded = hasResumeDirect;
+            const isConfigured = hasValidDefaultKey || hasAnyKeyInBackend;
+            return {
+                resume_uploaded: isResumeUploaded,
+                api_keys_configured: isConfigured,
+                setup_complete: isResumeUploaded && isConfigured
+            };
         }
     };
 
