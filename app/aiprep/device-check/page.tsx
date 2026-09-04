@@ -20,7 +20,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ShieldAlert } from 'lucide-react';
 
 export default function DeviceCheckPage() {
   const router = useRouter();
@@ -34,8 +34,15 @@ export default function DeviceCheckPage() {
         await apiFetch("user_dashboard");
         setIsAuthenticated(true);
       } catch (err) {
-        console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check. Redirecting to login.');
-        router.replace('/login');
+        console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check.');
+        setIsAuthenticated(false);
+        if (typeof window !== 'undefined') {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = '/login';
+          } else {
+            router.replace('/login');
+          }
+        }
       }
     }
     verifyAuth();
@@ -54,7 +61,7 @@ export default function DeviceCheckPage() {
   const storedIdStr = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_id') : null;
   const storedId = storedIdStr ? parseInt(storedIdStr, 10) : null;
 
-  const effectiveType = queryType || storedType || 'TECHNICAL';
+  const effectiveType = queryType || storedType || 'INTRO';
   const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(
@@ -191,11 +198,40 @@ export default function DeviceCheckPage() {
     router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
   };
 
-  if (!isMounted) {
+  if (!isMounted || isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
         <p className="text-xs text-slate-500 font-medium">Initializing hardware environment...</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="w-14 h-14 rounded-full bg-indigo-500/10 text-[#4A6CF7] flex items-center justify-center mb-4">
+            <ShieldAlert className="w-8 h-8 text-[#4A6CF7]" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Login Required</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            Please log in to your Whitebox candidate account to access AI Practice Assessments.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.top) {
+                window.top.location.href = '/login';
+              } else {
+                router.push('/login');
+              }
+            }}
+            className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-[#4A6CF7] hover:bg-[#3b5bd9] active:scale-95 transition-all shadow-md cursor-pointer"
+          >
+            Log In to Account
+          </button>
+        </div>
       </div>
     );
   }
@@ -263,7 +299,7 @@ export default function DeviceCheckPage() {
               assessmentType={effectiveType}
               assessmentMode={effectiveMode}
               audioOnly={effectiveMode === 'AUDIO_ONLY'}
-              initialStep="DEVICE_CHECK"
+              initialStep={(sessionStorage.getItem('aiprep_wizard_step') as any) || (activeAssessmentId ? 'DEVICE_CHECK' : 'CONFIGURATION')}
               onPrepareConfirmation={handlePrepareConfirmation}
               onComplete={handleCheckComplete}
               onCancel={handleCancel}

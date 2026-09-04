@@ -39,7 +39,7 @@ import {
 import { YOLOAnalyzer } from './MediaPipe';
 import { AssessmentConfig } from './AssessmentCard';
 import { ConsentStep } from './ConsentModal';
-import { aiprepApi, AssessmentDetails } from '@/lib/aiprep-api';
+import { aiprepApi, AssessmentDetails, AssessmentType } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'CONFIRMATION';
@@ -171,7 +171,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // 1. Wizard Step & Mode State
   const [step, setStep] = useState<WizardStep>(initialStep);
-  const [assessmentType, setAssessmentType] = useState<string>(initialType || 'INTRO');
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>((initialType as AssessmentType) || 'INTRO');
   const [videoEnabled, setVideoEnabled] = useState<boolean>(!audioOnly && initialMode !== 'AUDIO_ONLY');
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(true);
   const [jdText, setJdText] = useState<string>('');
@@ -425,14 +425,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       if (conn && conn.downlink && conn.downlink > 0) {
         const connKbps = Math.round(conn.downlink * 1000);
         realKbps = Math.max(realKbps, connKbps);
-      } else if (realKbps < 500) {
-        realKbps = Math.max(realKbps, 1250);
       }
 
       setBandwidthKbps(realKbps);
     } catch (bwErr) {
-      console.warn('Real-time bandwidth check fallback:', bwErr);
-      setBandwidthKbps(1200);
+      console.warn('Real-time bandwidth check:', bwErr);
+      const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
+      const fallbackKbps = conn && conn.downlink ? Math.round(conn.downlink * 1000) : 0;
+      setBandwidthKbps(fallbackKbps);
     } finally {
       setBandwidthChecking(false);
     }
@@ -573,7 +573,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         camera_permission: !!cameraOk,
         mic_permission: !!micOk,
         speaker_ok: speakerOk !== false,
-        bandwidth_kbps: bandwidthKbps || 1000,
+        bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
         yolo_consent: videoAnalyticsEnabled,
         assessment_type: assessmentType,
         audio_enabled: true,
@@ -675,7 +675,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               <div className="flex-1 flex flex-col justify-center my-auto py-2 sm:py-3">
                 <AssessmentConfig
                   assessmentType={assessmentType}
-                  setAssessmentType={setAssessmentType as any}
+                  setAssessmentType={setAssessmentType}
                   videoEnabled={videoEnabled}
                   setVideoEnabled={setVideoEnabled}
                   videoAnalyticsEnabled={videoAnalyticsEnabled}

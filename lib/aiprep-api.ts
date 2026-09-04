@@ -233,7 +233,7 @@ export function getDefaultTypeSeconds(type: AssessmentType): number {
   switch (type) {
     case 'INTRO':
     case 'JD_INTRO':
-      return 120;
+      return 240;
     case 'RECRUITER':
       return 120;
     case 'HIRING_MANAGER':
@@ -246,16 +246,15 @@ export function getDefaultTypeSeconds(type: AssessmentType): number {
 
 export function formatTimeEstimate(
   count: number,
-  secPerQuestion: number = 120
+  secPerQuestion: number = 120,
+  type?: AssessmentType
 ): string {
-  if (count <= 0) return '~15 mins total';
-  const minPerQuestion = secPerQuestion / 60;
-  const perQuestionStr = Number.isInteger(minPerQuestion)
-    ? `${minPerQuestion}m / question`
-    : `${minPerQuestion.toFixed(1)}m / question`;
-
-  const totalMin = Math.round((count * secPerQuestion) / 60);
-  return `${perQuestionStr} (~${totalMin}m total)`;
+  if (type === 'INTRO' || type === 'JD_INTRO') return '4 mins';
+  if (count > 0) {
+    const totalMin = Math.round((count * secPerQuestion) / 60);
+    return `~${totalMin} mins`;
+  }
+  return '~15 mins';
 }
 
 export function buildAssessmentCardMetadata(
@@ -265,14 +264,15 @@ export function buildAssessmentCardMetadata(
 ): AssessmentCardMeta {
   const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
   const requiresJd = type === 'JD_INTRO';
+  const isIntro = type === 'INTRO' || type === 'JD_INTRO';
 
   const titleMap: Record<AssessmentType, string> = {
-    INTRO: 'General Intro',
-    JD_INTRO: 'Job Description Intro',
-    RECRUITER: 'Recruiter Phone Screen',
-    HIRING_MANAGER: 'Hiring Manager Conversation',
-    TECHNICAL: 'Technical Theory & Coding',
-    SYSTEM_DESIGN: 'AI System Design',
+    INTRO: 'INTRO',
+    JD_INTRO: 'JD_INTRO',
+    RECRUITER: 'RECRUITER',
+    HIRING_MANAGER: 'HIRING_MANAGER',
+    TECHNICAL: 'TECHNICAL',
+    SYSTEM_DESIGN: 'SYSTEM_DESIGN',
   };
 
   const descMap: Record<AssessmentType, string> = {
@@ -286,15 +286,14 @@ export function buildAssessmentCardMetadata(
 
   const count = typeof dbQuestionCount === 'number' ? dbQuestionCount : 0;
   const sec = typeof avgSecondsPerQuestion === 'number' ? avgSecondsPerQuestion : getDefaultTypeSeconds(type);
-  const timeLimit = formatTimeEstimate(count, sec);
-  const qCountText = count > 0 ? `${count} Question${count === 1 ? '' : 's'}` : 'Dynamic Questions';
+  const timeLimit = isIntro ? '4 mins' : formatTimeEstimate(count, sec, type);
 
   return {
     type,
     title: titleMap[type] || type,
     description: descMap[type] || '',
     timeLimit,
-    questionCount: qCountText,
+    questionCount: '',
     pauseAllowed: !isNoPause,
     requiresJd,
   };
@@ -334,10 +333,13 @@ export const aiprepApi = {
     if (!candidateId) {
       try {
         const userDash: any = await apiFetch('user_dashboard');
-        candidateId = userDash?.candidate_id || userDash?.basic_info?.id || 1001;
+        candidateId = userDash?.candidate_id || userDash?.basic_info?.id || userDash?.id || userDash?.user_id;
       } catch (e) {
-        candidateId = 1001;
+        console.warn('Could not fetch candidateId from user_dashboard profile', e);
       }
+    }
+    if (!candidateId) {
+      throw new Error('Candidate ID is required to create an assessment session.');
     }
 
     const normMediaType: MediaType = (
