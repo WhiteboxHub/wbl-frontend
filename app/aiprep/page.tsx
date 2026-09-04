@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 
 
 export default function AIPrepPage() {
@@ -61,24 +61,8 @@ export default function AIPrepPage() {
           }
         }
       } catch (err) {
-        if (isEmbedded) {
-          setIsAuthenticated(true);
-          return;
-        }
-
-        const token = typeof window !== 'undefined' && (
-          localStorage.getItem("access_token") ||
-          localStorage.getItem("token") ||
-          localStorage.getItem("auth_token") ||
-          localStorage.getItem("bearer_token")
-        );
-        if (token) {
-          setIsAuthenticated(true);
-          return;
-        }
-
-        console.warn('[Security Guard]: Unauthenticated. Redirecting to login.');
-        router.replace('/login');
+        console.warn('[Security Guard]: Unauthenticated candidate session attempt.');
+        setIsAuthenticated(false);
       }
     }
     verifyAuthAndInitSession();
@@ -203,6 +187,35 @@ export default function AIPrepPage() {
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
         <p className="text-xs text-slate-550 font-semibold select-none">Loading secure environment...</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="w-14 h-14 rounded-full bg-indigo-500/10 text-[#4A6CF7] flex items-center justify-center mb-4">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Login Required</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            Please log in to your Whitebox candidate account to access AI Practice Assessments.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.top) {
+                window.top.location.href = '/login';
+              } else {
+                router.push('/login');
+              }
+            }}
+            className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-[#4A6CF7] hover:bg-[#3b5bd9] active:scale-95 transition-all shadow-md cursor-pointer"
+          >
+            Log In to Account
+          </button>
+        </div>
       </div>
     );
   }
