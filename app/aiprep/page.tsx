@@ -77,6 +77,16 @@ export default function AIPrepPage() {
 
   const searchParams = useSearchParams();
 
+  // Redirect standalone access to /aiprep so it opens inside Candidate Dashboard layout
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isEmbedded = window.self !== window.top || searchParams.get('embed') === 'true';
+      if (!isEmbedded) {
+        router.replace('/user_dashboard/ai-prep');
+      }
+    }
+  }, [searchParams, router]);
+
   // Active preferences
   const queryType = searchParams.get('type') as AssessmentType | null;
   const queryMode = searchParams.get('mode') as AssessmentMode | null;
