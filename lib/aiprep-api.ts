@@ -328,10 +328,13 @@ export const aiprepApi = {
     if (!candidateId) {
       try {
         const userDash: any = await apiFetch('user_dashboard');
-        candidateId = userDash?.candidate_id || userDash?.basic_info?.id || 1001;
+        candidateId = userDash?.candidate_id || userDash?.basic_info?.id || userDash?.id || userDash?.user_id;
       } catch (e) {
-        candidateId = 1001;
+        console.warn('Could not fetch candidateId from user_dashboard profile', e);
       }
+    }
+    if (!candidateId) {
+      throw new Error('Candidate ID is required to create an assessment session.');
     }
 
     const normMediaType: MediaType = (payload.media_type || (payload.assessment_mode === 'AUDIO_ONLY' ? 'AUDIO' : 'VIDEO')) as MediaType;

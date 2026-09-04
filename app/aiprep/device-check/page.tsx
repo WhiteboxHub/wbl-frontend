@@ -263,7 +263,7 @@ export default function DeviceCheckPage() {
               assessmentType={effectiveType}
               assessmentMode={effectiveMode}
               audioOnly={effectiveMode === 'AUDIO_ONLY'}
-              initialStep="DEVICE_CHECK"
+              initialStep={(sessionStorage.getItem('aiprep_wizard_step') as any) || (activeAssessmentId ? 'DEVICE_CHECK' : 'CONFIGURATION')}
               onPrepareConfirmation={handlePrepareConfirmation}
               onComplete={handleCheckComplete}
               onCancel={handleCancel}
