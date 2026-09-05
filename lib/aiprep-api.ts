@@ -257,6 +257,154 @@ export function formatTimeEstimate(
   return '~15 mins';
 }
 
+export interface AssessmentInfo {
+  type: AssessmentType;
+  title: string;
+  modalHeader: string;
+  modalQuestion: string;
+  modalDescription: string;
+  shortDescription: string;
+  duration: string;
+  keyTopics: string[];
+  tips?: string[];
+}
+
+export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
+  INTRO: {
+    type: 'INTRO',
+    title: 'Introduction Assessment',
+    modalHeader: 'Introduction Assessment',
+    modalQuestion: 'What is an Introduction Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to introduce yourself in a professional interview-style format. You can talk about your background, education, skills, experience, key strengths, projects, and career goals.',
+    shortDescription:
+      'Introduce yourself in a professional interview-style format covering background, skills, strengths, and career goals.',
+    duration: '4 mins',
+    keyTopics: [
+      'Background & Education',
+      'Technical & Professional Skills',
+      'Key Strengths & Core Values',
+      'Relevant Projects & Achievements',
+      'Career Goals & Aspirations',
+    ],
+    tips: [
+      'Keep your introduction structured and concise (around 2–3 minutes).',
+      'Highlight 1–2 key career accomplishments.',
+      'Speak clearly and maintain positive eye contact with your camera.',
+    ],
+  },
+  JD_INTRO: {
+    type: 'JD_INTRO',
+    title: 'JD Introduction Assessment',
+    modalHeader: 'JD Introduction Assessment',
+    modalQuestion: 'What is a JD Introduction Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to explain your understanding of the job description. You can talk about the role, responsibilities, required skills, qualifications, and how your experience and skills match the position.',
+    shortDescription:
+      'Explain your understanding of the target job description and demonstrate how your background matches the role.',
+    duration: '4 mins',
+    keyTopics: [
+      'Role & Core Responsibilities',
+      'Required Skills & Technical Qualifications',
+      'Direct Experience Match',
+      'How You Plan to Add Value',
+    ],
+    tips: [
+      'Reference specific requirements mentioned in the job description.',
+      'Connect your past experiences directly to the role needs.',
+      'Explain why you are uniquely suited for this specific opening.',
+    ],
+  },
+  RECRUITER: {
+    type: 'RECRUITER',
+    title: 'Recruiter Assessment',
+    modalHeader: 'Recruiter Assessment',
+    modalQuestion: 'What is a Recruiter Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to discuss your professional background, career interests, experience, and expectations. You can talk about your strengths, achievements, career goals, and why you are interested in the opportunity.',
+    shortDescription:
+      'Discuss professional background, career interests, experience, strengths, and expectations with a recruiter.',
+    duration: '~15 mins',
+    keyTopics: [
+      'Professional Career Overview',
+      'Key Achievements & Milestones',
+      'Career Interests & Trajectory',
+      'Role Expectations & Motivations',
+    ],
+    tips: [
+      'Be clear about your career journey and motivations.',
+      'Highlight interpersonal skills and adaptability.',
+      'Communicate your passion and interest in the opportunity.',
+    ],
+  },
+  HIRING_MANAGER: {
+    type: 'HIRING_MANAGER',
+    title: 'Hiring Manager Assessment',
+    modalHeader: 'Hiring Manager Assessment',
+    modalQuestion: 'What is a Hiring Manager Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to discuss your professional experience and how you can contribute to the role and team. You can talk about your previous work, important projects, achievements, problem-solving approach, and how you handle different situations.',
+    shortDescription:
+      'Discuss professional experience, past project impact, problem-solving approach, and how you contribute to the role.',
+    duration: '~15 mins',
+    keyTopics: [
+      'High-Impact Past Projects',
+      'Contribution to Role & Team',
+      'Problem-Solving Approach',
+      'Handling Situations & Impact',
+    ],
+    tips: [
+      'Use the STAR method (Situation, Task, Action, Result) for situational questions.',
+      'Emphasize your ownership, decision rationale, and measurable outcomes.',
+      'Show how you collaborate with cross-functional teams.',
+    ],
+  },
+  TECHNICAL: {
+    type: 'TECHNICAL',
+    title: 'Technical Assessment',
+    modalHeader: 'Technical Assessment',
+    modalQuestion: 'What is a Technical Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to demonstrate your technical knowledge and problem-solving skills. You can answer questions about technologies, programming concepts, tools, systems, and technical challenges related to the role.',
+    shortDescription:
+      'Demonstrate technical knowledge, programming concepts, tools, systems, and problem-solving skills related to the role.',
+    duration: '~15 mins',
+    keyTopics: [
+      'Technologies & Core Programming Concepts',
+      'Tools & Frameworks Mastery',
+      'Technical Problem-Solving Skills',
+      'Role-Related Engineering Challenges',
+    ],
+    tips: [
+      'Walk through your thought process out loud.',
+      'Discuss trade-offs between different technical solutions.',
+      'Clarify assumptions before diving into deep technical answers.',
+    ],
+  },
+  SYSTEM_DESIGN: {
+    type: 'SYSTEM_DESIGN',
+    title: 'System Design Assessment',
+    modalHeader: 'System Design Assessment',
+    modalQuestion: 'What is a System Design Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to demonstrate how you design and build a software system. You can discuss the system architecture, components, databases, APIs, scalability, reliability, and the technical decisions you would make.',
+    shortDescription:
+      'Demonstrate how you design and build software systems, architecture, components, databases, APIs, scalability, and reliability.',
+    duration: '~15 mins',
+    keyTopics: [
+      'System Architecture & Components',
+      'Databases & APIs Integration',
+      'Scalability & Reliability Design',
+      'Technical Decisions & Trade-offs',
+    ],
+    tips: [
+      'Start with requirements gathering and scale estimation.',
+      'Define high-level architecture before diving into component details.',
+      'Highlight bottlenecks, caching strategies, and fault tolerance.',
+    ],
+  },
+};
+
 export function buildAssessmentCardMetadata(
   type: AssessmentType,
   dbQuestionCount?: number,
@@ -265,24 +413,7 @@ export function buildAssessmentCardMetadata(
   const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
   const requiresJd = type === 'JD_INTRO';
   const isIntro = type === 'INTRO' || type === 'JD_INTRO';
-
-  const titleMap: Record<AssessmentType, string> = {
-    INTRO: 'INTRO',
-    JD_INTRO: 'JD_INTRO',
-    RECRUITER: 'RECRUITER',
-    HIRING_MANAGER: 'HIRING_MANAGER',
-    TECHNICAL: 'TECHNICAL',
-    SYSTEM_DESIGN: 'SYSTEM_DESIGN',
-  };
-
-  const descMap: Record<AssessmentType, string> = {
-    INTRO: 'Introductory dialogue covering your overall professional background and general experience.',
-    JD_INTRO: 'Introductory dialogue tailored dynamically to your target Job Description.',
-    RECRUITER: 'Simulates a standard recruiter phone screen covering experience overview, compensation expectations, and notice period.',
-    HIRING_MANAGER: 'Deeper technical alignment screen exploring system design, architecture ownership, and past project impact.',
-    TECHNICAL: 'Deep-dive into core AI Engineering topics: LLMs, transformers, RAG architecture, vector search, and MLOps.',
-    SYSTEM_DESIGN: 'Solve production AI scale challenges. Deconstruct business problems and design real-time data pipelines.',
-  };
+  const info = ASSESSMENT_INFO_DETAILS[type];
 
   const count = typeof dbQuestionCount === 'number' ? dbQuestionCount : 0;
   const sec = typeof avgSecondsPerQuestion === 'number' ? avgSecondsPerQuestion : getDefaultTypeSeconds(type);
@@ -290,8 +421,8 @@ export function buildAssessmentCardMetadata(
 
   return {
     type,
-    title: titleMap[type] || type,
-    description: descMap[type] || '',
+    title: type,
+    description: info?.modalDescription || info?.shortDescription || '',
     timeLimit,
     questionCount: '',
     pauseAllowed: !isNoPause,

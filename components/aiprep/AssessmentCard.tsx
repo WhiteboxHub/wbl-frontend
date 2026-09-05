@@ -4,11 +4,19 @@
  * Target Workspace: wbl-frontend
  * 
  * Groups all Step 1 Configuration (Select Scenario + Session Preferences) 
- * inside the AssessmentCard component with state-of-the-art rich UI design.
+ * inside the AssessmentCard component with state-of-the-art rich UI design
+ * and full interactive guidance modals for all 6 assessment types.
  */
 
 import React, { useEffect, useState } from 'react';
-import { AssessmentType, AssessmentCardMeta, buildAssessmentCardMetadata, aiprepApi, getDifficultySeconds } from '@/lib/aiprep-api';
+import {
+  AssessmentType,
+  AssessmentCardMeta,
+  buildAssessmentCardMetadata,
+  ASSESSMENT_INFO_DETAILS,
+  aiprepApi,
+  getDifficultySeconds,
+} from '@/lib/aiprep-api';
 import {
   MessageSquare,
   Briefcase,
@@ -21,7 +29,10 @@ import {
   CheckCircle2,
   Clock,
   ChevronRight,
+  Info,
+  HelpCircle,
 } from 'lucide-react';
+import { AssessmentInfoModal } from './AssessmentInfoModal';
 
 export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = [
   'INTRO',
@@ -63,11 +74,12 @@ export const getAssessmentIconConfig = (type: AssessmentType) => {
 interface AssessmentCardProps {
   metadata: AssessmentCardMeta;
   onLaunch: (type: AssessmentType) => void;
+  onInfo?: (type: AssessmentType) => void;
   isSelected?: boolean;
   isLocked?: boolean;
 }
 
-function getFormattedDisplayTime(type: AssessmentType): string {
+export function getFormattedDisplayTime(type: AssessmentType): string {
   if (type === 'INTRO' || type === 'JD_INTRO') return '4 mins';
   return '~15 mins';
 }
@@ -75,12 +87,14 @@ function getFormattedDisplayTime(type: AssessmentType): string {
 export const AssessmentCard: React.FC<AssessmentCardProps> = ({
   metadata,
   onLaunch,
+  onInfo,
   isSelected = false,
   isLocked = false,
 }) => {
   const { type, title, description } = metadata;
   const config = getAssessmentIconConfig(type);
   const displayTime = getFormattedDisplayTime(type);
+  const info = ASSESSMENT_INFO_DETAILS[type];
 
   return (
     <div
@@ -95,23 +109,39 @@ export const AssessmentCard: React.FC<AssessmentCardProps> = ({
           {config.icon}
         </div>
 
-        {/* Selected Checkmark Badge */}
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected
-          ? 'border-indigo-600 bg-indigo-600 dark:border-indigo-500 dark:bg-indigo-500 text-white shadow-xs'
-          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group-hover:border-indigo-300'
-          }`}>
-          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 stroke-[3]" />}
+        <div className="flex items-center gap-1">
+          {onInfo && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onInfo(type);
+              }}
+              aria-label="View assessment details"
+              className="p-1 rounded-full text-slate-400 hover:text-[#7C3AED] hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Selected Checkmark Badge */}
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected
+            ? 'border-indigo-600 bg-indigo-600 dark:border-indigo-500 dark:bg-indigo-500 text-white shadow-xs'
+            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group-hover:border-indigo-300'
+            }`}>
+            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 stroke-[3]" />}
+          </div>
         </div>
       </div>
 
       <div className="mt-2 text-left space-y-1">
         <div className="flex items-center justify-between gap-1">
           <span className="text-xs font-bold text-gray-900 dark:text-white block leading-tight tracking-tight">
-            {title}
+            {info?.title || title}
           </span>
         </div>
         <p className="text-[10.5px] text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">
-          {description}
+          {info?.modalDescription || description}
         </p>
       </div>
 
@@ -195,16 +225,33 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   dbQuestionCounts = {},
   dbAvgSeconds = {},
 }) => {
+  // Modal state to display the interactive description popup for any clicked assessment type
+  const [modalType, setModalType] = useState<AssessmentType | null>(null);
+
   const selectedMeta = buildAssessmentCardMetadata(
     assessmentType,
     dbQuestionCounts[assessmentType],
     dbAvgSeconds[assessmentType]
   );
-  const selectedIconConfig = getAssessmentIconConfig(assessmentType);
+  const selectedInfo = ASSESSMENT_INFO_DETAILS[assessmentType];
   const requiresJd = assessmentType === 'JD_INTRO';
+
+  const handleTypeSelect = (type: AssessmentType) => {
+    setAssessmentType(type);
+    setModalType(type);
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto py-2">
+      {/* ── Assessment Description & Guidance Modal ── */}
+      <AssessmentInfoModal
+        isOpen={modalType !== null}
+        type={modalType}
+        onClose={() => setModalType(null)}
+        onSelect={(type) => setAssessmentType(type)}
+        isSelected={modalType === assessmentType}
+      />
+
       {/* ── Choose Assessment Type (Pill/Chip Selector) ── */}
       <div className="space-y-3">
         <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
@@ -213,43 +260,22 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {SUPPORTED_ASSESSMENT_TYPES.map((type) => {
-            const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
             const isSelected = assessmentType === type;
             return (
               <button
                 key={type}
                 type="button"
-                onClick={() => setAssessmentType(type)}
-                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer select-none border ${
+                onClick={() => handleTypeSelect(type)}
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer select-none border inline-flex items-center gap-1.5 ${
                   isSelected
                     ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-sm shadow-purple-500/20 scale-[1.02]'
                     : 'bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:border-purple-300 dark:hover:border-purple-500/60 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-50/30 dark:hover:bg-purple-950/20'
                 }`}
               >
-                {meta.title}
+                <span>{type}</span>
               </button>
             );
           })}
-        </div>
-
-        {/* Selected Type Context Badge */}
-        <div className="mt-2 p-3 rounded-2xl bg-purple-50/40 dark:bg-purple-950/10 border border-purple-100 dark:border-purple-900/30 flex items-start gap-3">
-          <div className={`w-7 h-7 rounded-xl ${selectedIconConfig.gradient} flex items-center justify-center shrink-0 mt-0.5`}>
-            {selectedIconConfig.icon}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-white">
-                {selectedMeta.title}
-              </span>
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
-                {getFormattedDisplayTime(assessmentType)}
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">
-              {selectedMeta.description}
-            </p>
-          </div>
         </div>
       </div>
 

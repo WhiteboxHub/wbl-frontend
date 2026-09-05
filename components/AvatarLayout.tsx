@@ -16,6 +16,7 @@ import {
   Mail,
   List,
   Linkedin,
+  Brain,
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -37,6 +38,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
   const allSidebarItems = [
     { title: "Home", href: "/avatar/employee/employee-dashboard", icon: HomeIcon, exact: true },
+    { title: "AI Prep", href: "/avatar/question-bank", icon: Brain },
     { title: "Analytics", href: "/avatar/analytics", icon: ShieldCheck },
     {
       title: "Leads",
@@ -401,15 +403,20 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                     <div className="absolute left-full top-0 z-50 ml-2 min-w-[12rem] rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                       {item.children.map((child) => (
                         <Link
-                          key={child.href}
-                          href={child.href}
-                          onClick={() => {
+                          key={child.title}
+                          href={child.disabled ? "#" : child.href}
+                          onClick={(e) => {
+                            if (child.disabled) {
+                              e.preventDefault();
+                              return;
+                            }
                             if (hoverTimeoutRef.current)
                               clearTimeout(hoverTimeoutRef.current);
                             setExpandedItem(null);
                           }}
                           className={cn(
                             "block rounded px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
+                            child.disabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
                             pathname === child.href
                               ? "border-r-2 border-violet-500 bg-gradient-to-r from-violet-50 to-fuchsia-50 text-violet-700 dark:border-violet-400 dark:from-violet-900/30 dark:to-fuchsia-900/30 dark:text-violet-300"
                               : "text-gray-600 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400"
@@ -493,13 +500,20 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                     <div className="ml-4 mt-1 flex flex-col space-y-1">
                       {item.children!.map((child) => (
                         <Link
-                          key={child.href}
-                          href={child.href}
-                          onClick={() => {
+                          key={child.title}
+                          href={child.disabled ? "#" : child.href}
+                          onClick={(e) => {
+                            if (child.disabled) {
+                              e.preventDefault();
+                              return;
+                            }
                             setSidebarOpen(false);
                             setExpandedItem(null);
                           }}
-                          className="block rounded px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                          className={cn(
+                            "block rounded px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700",
+                            child.disabled && "cursor-not-allowed opacity-50 hover:bg-transparent"
+                          )}
                         >
                           {child.title}
                         </Link>

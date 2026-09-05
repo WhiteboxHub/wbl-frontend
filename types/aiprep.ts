@@ -1,12 +1,3 @@
-/**
- * Master TypeScript Contracts for AIPrep
- * Compliant with: AIPrep_Contracts_signature.pdf & contracts/api_endpoints.md
- */
-
-// ============================================================================
-// Core Enums & Literal Types
-// ============================================================================
-
 export type AssessmentType =
   | 'INTRO'
   | 'JD_INTRO'
@@ -14,6 +5,8 @@ export type AssessmentType =
   | 'HIRING_MANAGER'
   | 'TECHNICAL'
   | 'SYSTEM_DESIGN';
+
+export type QuestionCategory = AssessmentType;
 
 export type AssessmentStatus =
   | 'IN_PROGRESS'
@@ -40,21 +33,56 @@ export const NO_PAUSE_ASSESSMENT_TYPES: ReadonlyArray<AssessmentType> = [
 
 export interface QuestionBankItem {
   id: number;
-  category: AssessmentType | string;
+  category: QuestionCategory;
   sub_category?: string | null;
-  difficulty_level?: QuestionDifficulty | string | null;
+  difficulty_level: QuestionDifficulty;
   question_text: string;
   ideal_answer_rubric?: string | null;
-  is_active?: boolean;
+  is_active: number | boolean;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface QuestionBankResponse extends QuestionBankItem {}
 
+export interface QuestionFiltersState {
+  search: string;
+  category: string;
+  sub_category: string;
+  difficulty: string;
+  status: 'all' | 'active' | 'inactive';
+}
+
 export interface QuestionListResponse {
   items: QuestionBankItem[];
   total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
+
+/**
+ * According to DB constraint `chk_qb_subcategory` (Migration V134):
+ * - Sub-categories are allowed/required ONLY when category is 'TECHNICAL'.
+ * - For non-TECHNICAL categories, sub_category MUST be NULL.
+ */
+export const QUESTION_TAXONOMY: Record<QuestionCategory, string[]> = {
+  TECHNICAL: [
+    'Agentic AI & Orchestration',
+    'RAG & Retrieval Systems',
+    'LLMs, Prompting & Fine-Tuning',
+    'MLOps, Deployment & Infrastructure',
+    'Machine Learning & Evaluation',
+    'Python, Coding & Debugging',
+    'Cloud & AWS',
+    'NLP & Text Processing',
+  ],
+  SYSTEM_DESIGN: [],
+  RECRUITER: [],
+  HIRING_MANAGER: [],
+  INTRO: [],
+  JD_INTRO: [],
+};
 
 // ============================================================================
 // Telemetry & Assessment Data (POST /api/aiprep/assessments/{id}/data)
