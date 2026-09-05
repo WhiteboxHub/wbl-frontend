@@ -149,6 +149,7 @@ export default function DeviceCheckPage() {
       targetId = assessment.id;
       setActiveAssessmentId(targetId);
       sessionStorage.setItem('aiprep_active_id', String(targetId));
+      sessionStorage.setItem('aiprep_active_type', results.assessment_type);
     }
 
     // Store local hardware check results in sessionStorage
@@ -177,8 +178,10 @@ export default function DeviceCheckPage() {
       setIsSaving(true);
       setErrorMsg(null);
 
-      const targetId = activeAssessmentId;
-      if (!targetId) throw new Error('No active assessment found. Please restart the setup.');
+      let targetId = activeAssessmentId;
+      if (!targetId) {
+        targetId = await handlePrepareConfirmation(_results as any);
+      }
 
       // Transition to IN_PROGRESS
       const statusRes = await aiprepApi.updateAssessmentStatus(targetId, 'IN_PROGRESS');
