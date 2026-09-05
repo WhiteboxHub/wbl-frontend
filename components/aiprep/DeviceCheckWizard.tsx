@@ -1219,5 +1219,3 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     </>
   );
 };
-
-export default DeviceCheckWizard;

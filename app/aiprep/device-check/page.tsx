@@ -313,3 +313,19 @@ export default function DeviceCheckPage() {
     </div>
   );
 }
+<DeviceCheckWizard
+  assessmentId={activeAssessmentId || 0}
+  assessmentType={effectiveType}
+  assessmentMode={effectiveMode}
+  audioOnly={effectiveMode === 'AUDIO_ONLY'}
+  initialStep="CONFIGURATION"
+  onPrepareConfirmation={handlePrepareConfirmation}
+  onComplete={handleCheckComplete}
+  onCancel={handleCancel}
+/>
+          </div >
+        )}
+      </div >
+    </div >
+  );
+}

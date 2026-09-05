@@ -1,14 +1,9 @@
-/**
- * AIPrep Main Page Route
- * 
- * Route: /aiprep
- * 
- * Redirects or renders the DeviceCheckWizard directly. The dashboard cards
- * will be placed here by Vishnu later.
- */
+"use client";
 
-'use client';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
+<<<<<<< Updated upstream
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
@@ -287,4 +282,10 @@ export default function AIPrepPage() {
       </div>
     </div>
   );
+=======
+export default function AIPrepAssessmentPage() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/user_dashboard/wbl-smartprep?ai_prep_practice=1"); }, [router]);
+  return null;
+>>>>>>> Stashed changes
 }

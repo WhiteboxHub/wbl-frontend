@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
@@ -26,6 +26,7 @@ import {
     Briefcase,
     Target,
     Activity,
+    ArrowLeft,
     BarChart3,
     Home,
     PlayCircle,
@@ -85,6 +86,10 @@ import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
+import { AIPrepDashboard } from "./aiprep/AIPrepDashboard";
+import { ExecutiveDashboard } from "./aiprep/ExecutiveDashboard";
+import { ReportOverview } from "./aiprep/ReportOverview";
+import { aiprepApi } from "@/lib/aiprep-api";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
@@ -184,7 +189,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume' | 'ai-prep';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -373,6 +378,7 @@ interface CandidateDashboardProps {
 export default function CandidateDashboard({ defaultTab = 'overview' }: CandidateDashboardProps) {
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { userRole } = useAuth() as { userRole: string };
 
     const getLocalTodayString = () => {
@@ -397,7 +403,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
+    const [aiPrepView, setAiPrepView] = useState<"setup" | "dashboard" | "analytics" | "report">("setup");
+    const [aiPrepReportId, setAiPrepReportId] = useState<number | null>(null);
+    const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(null);
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === "wbl-smartprep" && searchParams.get("ai_prep_practice") === "1") {
+            setAiPrepView("dashboard");
+            window.history.replaceState(null, "", "/user_dashboard/wbl-smartprep");
+        }
+    }, [activeTab, searchParams]);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
     const [todayClickSummary, setTodayClickSummary] = useState<{
@@ -552,6 +568,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
+        if (tab === "wbl-smartprep") {
+            setAiPrepView("setup");
+            setAiPrepReportId(null);
+            void refreshSetupStatus();
+        }
         setActiveTab(tab);
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         window.history.pushState(null, "", `/user_dashboard/${tab}${searchString}`);
@@ -989,11 +1010,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setShowTemplates(false);
             setSetupStatus(prev => {
                 const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
+                const isKeys = Boolean(base.api_keys_configured);
                 return {
                     ...base,
                     has_binary_resume: true,
                     binary_resume_filename: fileToUpload.name,
-                    resume_uploaded: true
+                    resume_uploaded: true,
+                    setup_complete: isKeys,
                 };
             });
 
@@ -1013,6 +1036,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     const dataSummary = await resSummary.json();
                     if (dataSummary.summary) {
                         setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
+                        const s = dataSummary.summary;
+                        const hasKeys = s.has_api_key === true || (Array.isArray(s.llm_keys) && s.llm_keys.length > 0);
+                        setSetupStatus(prev => {
+                            const isKeys = hasKeys || Boolean(prev?.api_keys_configured);
+                            return {
+                                ...prev,
+                                resume_uploaded: true,
+                                api_keys_configured: isKeys,
+                                setup_complete: isKeys,
+                                has_binary_resume: true,
+                                binary_resume_filename: fileToUpload.name,
+                            };
+                        });
                     }
                 }
             } catch (reloadErr) {
@@ -1197,13 +1233,28 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             // fallback
         }
 
-        let hasResumeDirect = false;
-        let candidateIdVal: number | undefined;
+        let hasResumeDirect = Boolean(
+            showTemplates ||
+            setupStatus?.has_binary_resume ||
+            setupStatus?.resume_uploaded ||
+            resumeFile !== null ||
+            prefetchedSession?.summaryData?.resume_text === "Exists" ||
+            prefetchedSession?.summaryData?.has_resume === true ||
+            prefetchedSession?.summaryData?.has_binary_resume === true ||
+            prefetchedSession?.summaryData?.resume_uploaded === true ||
+            (prefetchedSession?.summaryData?.resume_json != null &&
+                typeof prefetchedSession.summaryData.resume_json === "object" &&
+                Object.keys(prefetchedSession.summaryData.resume_json).length > 0)
+        );
+
+        let candidateIdVal: number | undefined = candidateId ?? undefined;
         let userEmailVal: string | undefined;
 
         try {
             const dash: any = await apiFetch("user_dashboard");
-            candidateIdVal = dash?.candidate_id || dash?.basic_info?.id;
+            if (!candidateIdVal) {
+                candidateIdVal = dash?.candidate_id || dash?.basic_info?.id;
+            }
             userEmailVal = dash?.email || dash?.basic_info?.email;
 
             if (
@@ -1247,6 +1298,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         if (summaryData?.session_id && typeof window !== 'undefined') {
                             localStorage.setItem("prep_token", String(summaryData.session_id));
                         }
+                        if (summaryData?.session_id && s) {
+                            setPrefetchedSession({ sessionId: String(summaryData.session_id), summaryData: s });
+                        }
                     }
                 } catch {
                     // note
@@ -1257,14 +1311,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
 
         try {
-            const d: any = await setupApi.getStatus();
-            const isResumeUploaded = hasResumeDirect || d.resume_uploaded || d.has_binary_resume || d.has_resume || d.resume_text === "Exists";
-            const isConfigured = hasValidDefaultKey || hasAnyKeyInBackend || d.api_keys_configured || d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0);
+            const d: any = await setupApi.getStatus(true);
+            const isResumeUploaded = Boolean(hasResumeDirect || d?.resume_uploaded || d?.has_binary_resume || d?.has_resume || d?.resume_text === "Exists");
+            const isConfigured = Boolean(hasValidDefaultKey || hasAnyKeyInBackend || d?.api_keys_configured || d?.has_api_key === true || (Array.isArray(d?.llm_keys) && d?.llm_keys.length > 0));
             const resolvedStatus = {
                 ...d,
                 resume_uploaded: isResumeUploaded,
                 api_keys_configured: isConfigured,
-                setup_complete: isResumeUploaded && isConfigured
+                setup_complete: isResumeUploaded && isConfigured,
+                has_binary_resume: Boolean(d?.has_binary_resume || prefetchedSession?.summaryData?.has_binary_resume || showTemplates),
+                binary_resume_filename: d?.binary_resume_filename || prefetchedSession?.summaryData?.binary_resume_filename || null,
             };
             return resolvedStatus;
         } catch {
@@ -2173,13 +2229,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             setPrefetchedSession({ sessionId: sid, summaryData });
 
                             const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
-                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
-                            setSetupStatus({
-                                resume_uploaded: hasResume,
-                                api_keys_configured: hasKeys,
-                                setup_complete: hasResume && hasKeys,
-                                has_binary_resume: !!summaryData.has_binary_resume,
-                                binary_resume_filename: summaryData.binary_resume_filename || null,
+                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object" && Object.keys(summaryData.resume_json).length > 0) || !!summaryData.has_binary_resume || summaryData.has_resume === true || summaryData.resume_uploaded === true;
+                            setSetupStatus(prev => {
+                                const isKeys = hasKeys || Boolean(prev?.api_keys_configured);
+                                return {
+                                    resume_uploaded: hasResume,
+                                    api_keys_configured: isKeys,
+                                    setup_complete: hasResume && isKeys,
+                                    has_binary_resume: !!summaryData.has_binary_resume,
+                                    binary_resume_filename: summaryData.binary_resume_filename || null,
+                                };
                             });
                         }
                     }
@@ -2340,9 +2399,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 <span>AI PrepTool</span>
                                 {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
-
-
-
                         </div>
                     </div>
 
@@ -2444,8 +2500,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         <Sparkles className="w-3.5 h-3.5" />
                         AI PrepTool
                     </button>
-
-
                 </div>
 
                 {/* Scrollable Content */}
@@ -2454,7 +2508,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
                     {/* ==================== TAB CONTENT ==================== */}
-                    <div className={`flex-1 overflow-hidden flex flex-col animate-fadeIn ${activeTab === 'ai-prep' ? 'relative' : ''}`}>
+                    <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
                         {setupWizardOpen ? (
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
                                 <CandidateSetupWizard
@@ -3355,7 +3409,61 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                 {activeTab === 'wbl-smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+                                        {aiPrepView === "analytics" ? (
+                                            <div className="space-y-4">
+                                                <button type="button" onClick={() => { setAiPrepView("dashboard"); setAiPrepReportId(null); }} className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                                                    <ArrowLeft className="h-4 w-4" /> Back to AI Prep Dashboard
+                                                </button>
+                                                <ExecutiveDashboard
+                                                    embedded
+                                                    onBack={() => setAiPrepView("dashboard")}
+                                                    onViewReport={(id) => {
+                                                        setAiPrepReportId(id);
+                                                        setAiPrepView("report");
+                                                    }}
+                                                />
+                                            </div>
+                                        ) : aiPrepView === "report" && aiPrepReportId !== null ? (
+                                            <div className="space-y-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAiPrepView("dashboard")}
+                                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+                                                >
+                                                    <ArrowLeft className="w-3.5 h-3.5" /> Back to AI Prep Dashboard
+                                                </button>
+                                                <ReportOverview
+                                                    assessmentId={aiPrepReportId}
+                                                    embedded
+                                                    onBack={() => setAiPrepView("dashboard")}
+                                                />
+                                            </div>
+                                        ) : aiPrepView === "dashboard" ? (
+                                            <div className="space-y-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAiPrepView("setup")}
+                                                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors"
+                                                >
+                                                    <ArrowLeft className="w-3.5 h-3.5" /> Back to AI Profile Setup
+                                                </button>
+                                                <AIPrepDashboard
+                                                    candidateId={userProfile?.candidate_id ?? null}
+                                                    candidateName={userProfile?.full_name || "Vamsi Krishna"}
+                                                    onStartAssessment={() => {
+                                                        window.location.href = "/aiprep/device-check";
+                                                    }}
+                                                    onViewReport={(assessmentId) => {
+                                                        setAiPrepReportId(assessmentId);
+                                                        setAiPrepView("report");
+                                                    }}
+                                                    onViewHistoryAnalytics={() => setAiPrepView("analytics")}
+                                                />
+                                            </div>
+                                        ) : null}
 
+                                        {aiPrepView === "setup" && (
+                                        <>
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex items-center justify-between mb-4">
@@ -3444,10 +3552,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 <div className="flex-1 flex items-center justify-center mt-8">
                                                     {setupStatus.setup_complete ? (
                                                         <button
-                                                            onClick={() => {
-                                                                goToTab('ai-prep');
-                                                            }}
-                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer"
+                                                            onClick={() => setAiPrepView("dashboard")}
+                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                                         >
                                                             <PlayCircle className="w-4 h-4" />
                                                             Open AI PrepTool
@@ -3480,21 +3586,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 </div>
                                             )}
                                         </div>
+                                        </>
+                                        )}
 
                                     </div>
                                 )}
-
-                                {activeTab === 'ai-prep' && (
-                                    <div className="w-full h-full min-h-[calc(100vh-100px)] relative overflow-hidden bg-slate-50 dark:bg-gray-950 flex flex-col">
-                                        <iframe
-                                            src="/aiprep?embed=true"
-                                            className="w-full flex-1 border-0 min-h-[calc(100vh-100px)]"
-                                            style={{ display: 'block' }}
-                                            allow="camera; microphone"
-                                        />
-                                    </div>
-                                )}
-
 
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
