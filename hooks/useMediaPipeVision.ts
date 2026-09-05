@@ -12,9 +12,9 @@
 
 import React, { useRef, useState, useCallback, useEffect, type RefObject } from 'react';
 import {
-    FilesetResolver,
-    FaceLandmarker,
-    PoseLandmarker,
+  FilesetResolver,
+  FaceLandmarker,
+  PoseLandmarker,
 } from '@mediapipe/tasks-vision';
 
 export interface FaceBox {
