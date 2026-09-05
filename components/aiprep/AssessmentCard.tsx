@@ -204,78 +204,81 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   const requiresJd = assessmentType === 'JD_INTRO';
 
   return (
-    <div className="space-y-4">
-      {/* ── Scenario Select Dropdown ── */}
-      <div className="space-y-1.5">
-        <label className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
-          Assessment Selection Type
-        </label>
+    <div className="space-y-6 max-w-4xl mx-auto py-2">
+      {/* ── Choose Assessment Type (Pill/Chip Selector) ── */}
+      <div className="space-y-3">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+          Choose assessment type
+        </h3>
 
-        <div className="relative">
-          <select
-            value={assessmentType}
-            onChange={(e) => setAssessmentType(e.target.value as AssessmentType)}
-            className="w-full appearance-none text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl py-2.5 pl-3.5 pr-10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4A6CF7]/30 focus:border-[#4A6CF7] transition-all cursor-pointer shadow-xs"
-          >
-            {SUPPORTED_ASSESSMENT_TYPES.map((type) => {
-              const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
-              return (
-                <option key={type} value={type} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1">
-                  {meta.title}
-                </option>
-              );
-            })}
-          </select>
-          <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-            <ChevronRight className="w-4 h-4 rotate-90 stroke-[2.5]" />
-          </div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {SUPPORTED_ASSESSMENT_TYPES.map((type) => {
+            const meta = buildAssessmentCardMetadata(type, dbQuestionCounts[type], dbAvgSeconds[type]);
+            const isSelected = assessmentType === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setAssessmentType(type)}
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer select-none border ${
+                  isSelected
+                    ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-sm shadow-purple-500/20 scale-[1.02]'
+                    : 'bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:border-purple-300 dark:hover:border-purple-500/60 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-50/30 dark:hover:bg-purple-950/20'
+                }`}
+              >
+                {meta.title}
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      {/* ── Selected Type Details Row ── */}
-      <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-7 h-7 rounded-lg ${selectedIconConfig.gradient} flex items-center justify-center shrink-0`}>
-              {selectedIconConfig.icon}
-            </div>
-            <div>
-              <span className="text-xs font-extrabold text-slate-900 dark:text-white block">
+        {/* Selected Type Context Badge */}
+        <div className="mt-2 p-3 rounded-2xl bg-purple-50/40 dark:bg-purple-950/10 border border-purple-100 dark:border-purple-900/30 flex items-start gap-3">
+          <div className={`w-7 h-7 rounded-xl ${selectedIconConfig.gradient} flex items-center justify-center shrink-0 mt-0.5`}>
+            {selectedIconConfig.icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
                 {selectedMeta.title}
               </span>
-              <span className="text-[11px] font-bold text-[#4A6CF7] dark:text-blue-400">
-                {getFormattedDisplayTime(assessmentType)} · {selectedMeta.pauseAllowed ? 'Pause OK' : 'No Pause'}
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                {getFormattedDisplayTime(assessmentType)}
               </span>
             </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">
+              {selectedMeta.description}
+            </p>
           </div>
         </div>
-        <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-medium pt-1 border-t border-slate-200 dark:border-slate-800">
-          {selectedMeta.description}
-        </p>
       </div>
 
-      {/* ── Option Rows (Preferences & Media Setup) ── */}
-      <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-        <h4 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider flex items-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#4A6CF7] dark:text-blue-400" />
-          Session Options &amp; Media Setup
-        </h4>
+      {/* ── Session Options & Media Setup ── */}
+      <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+          Session options &amp; media setup
+        </h3>
 
         {/* Row 1: Recording Mode */}
-        <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60">
           <div>
-            <span className="text-xs font-bold text-slate-900 dark:text-white block">Recording Mode</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Audio-only is always supported</span>
+            <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
+              Recording Mode
+            </span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 block mt-0.5">
+              Audio-only is always supported
+            </span>
           </div>
 
-          <div className="inline-flex p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <div className="inline-flex p-1 rounded-full border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 shadow-xs">
             <button
               type="button"
               onClick={() => setVideoEnabled(true)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${videoEnabled
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                videoEnabled
+                  ? 'bg-[#7C3AED] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
               Video + Audio
             </button>
@@ -285,10 +288,11 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 setVideoEnabled(false);
                 setVideoAnalyticsEnabled(false);
               }}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${!videoEnabled
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                !videoEnabled
+                  ? 'bg-[#7C3AED] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
               Audio Only
             </button>
@@ -296,38 +300,50 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         </div>
 
         {/* Row 2: Video Analytics */}
-        <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60">
           <div>
-            <span className="text-xs font-bold text-slate-900 dark:text-white block">Video Analytics</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Off by default (Posture &amp; gaze only)</span>
+            <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
+              Video Analytics
+            </span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 block mt-0.5">
+              Off by default (posture &amp; gaze only)
+            </span>
           </div>
 
-          <PreferenceToggle
-            enabled={videoAnalyticsEnabled && videoEnabled}
-            onChange={() => setVideoAnalyticsEnabled(!videoAnalyticsEnabled)}
+          <button
+            type="button"
             disabled={!videoEnabled}
-            activeLabel="ON"
-            inactiveLabel="OFF"
-            activeColor="indigo"
-          />
+            onClick={() => setVideoAnalyticsEnabled(!videoAnalyticsEnabled)}
+            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none p-0.5 ${
+              videoAnalyticsEnabled && videoEnabled
+                ? 'bg-[#7C3AED]'
+                : 'bg-slate-200 dark:bg-slate-700'
+            } ${!videoEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+          >
+            <span
+              className={`block w-5 h-5 bg-white rounded-full shadow-xs transition-transform transform ${
+                videoAnalyticsEnabled && videoEnabled ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
 
-        {/* Row 3: Target Job Description (Visible only for JD_INTRO) */}
+        {/* Row 3: Target Job Description (Visible for JD_INTRO) */}
         {(assessmentType === 'JD_INTRO' || selectedMeta.requiresJd) && (
-          <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between py-2 animate-in fade-in duration-150">
             <div>
-              <span className="text-xs font-bold text-slate-900 dark:text-white block">Target Job Description</span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 block">
+              <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
+                Target Job Description
+              </span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 block mt-0.5">
                 {jdText ? 'Custom job description active ✓' : 'Provide target job description to tailor questions'}
               </span>
             </div>
 
-
-
             <button
               type="button"
               onClick={() => setShowJdModal?.(true)}
-              className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl hover:border-[#4A6CF7] hover:text-[#4A6CF7] dark:hover:text-blue-400 shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
+              className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-full hover:border-[#7C3AED] hover:text-[#7C3AED] dark:hover:text-purple-300 shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
             >
               {jdText ? 'Edit Description' : 'Add Description'}
             </button>
@@ -335,14 +351,14 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         )}
       </div>
 
-      {/* ── Action Buttons Footer Row (Sticky for screen height fit) ── */}
+      {/* ── Action Buttons Footer Row ── */}
       {(onNext || onCancel) && (
-        <div className="sticky bottom-0 bg-white dark:bg-slate-900 z-10 pt-2.5 pb-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="pt-6 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
           {onCancel ? (
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm cursor-pointer"
+              className="px-6 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
             >
               Cancel
             </button>
@@ -352,10 +368,9 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             <button
               type="button"
               onClick={onNext}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              className="px-8 py-2.5 rounded-full text-xs sm:text-sm font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer"
             >
-              <span>Next: Consent</span>
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              Next
             </button>
           )}
         </div>
