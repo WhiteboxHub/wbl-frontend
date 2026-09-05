@@ -1,208 +1,270 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { AssessmentMode } from '@/lib/aiprep-api';
+
+export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped' | 'error';
 
 export interface UseMediaRecorderOptions {
-  stream: MediaStream | null;
-  mode: AssessmentMode;
-  chunkDurationMs?: number;
-  onChunkReady: (chunkBlob: Blob, chunkNumber: number) => void;
+  mediaType?: 'VIDEO' | 'AUDIO' | string;
+  chunkDurationMs?: number; // default 30000 (30 seconds)
+  onChunkReady?: (blob: Blob, chunkIndex: number, isFinal: boolean) => void;
   onError?: (error: Error) => void;
-  onDeviceDisconnected?: () => void;
 }
 
 export interface UseMediaRecorderReturn {
-  recordingState: 'inactive' | 'recording' | 'paused';
-  elapsedSeconds: number;
-  chunkCount: number;
-  startRecording: () => void;
+  status: RecordingStatus;
+  stream: MediaStream | null;
+  elapsedTime: number; // in seconds
+  chunkIndex: number;
+  error: string | null;
+  startRecording: (customStream?: MediaStream) => Promise<void>;
   pauseRecording: () => void;
   resumeRecording: () => void;
-  stopRecording: () => Promise<number>;
+  stopRecording: () => Promise<void>;
+  cleanup: () => void;
 }
 
-let cachedVideoMime: string | null = null;
-let cachedAudioMime: string | null = null;
+/**
+ * Determine supported MIME type for recording.
+ * Priority: WebM (VP8/Opus) -> WebM -> MP4
+ */
+function getSupportedMimeType(isVideo: boolean): string {
+  if (typeof window === 'undefined') return '';
 
-function resolveSupportedMime(mode: AssessmentMode): string {
-  if (typeof window === 'undefined' || typeof MediaRecorder === 'undefined') return '';
-
-  if (mode === 'AUDIO_ONLY') {
-    if (cachedAudioMime) return cachedAudioMime;
-    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
-    cachedAudioMime = candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
-    return cachedAudioMime;
+  if (isVideo) {
+    const videoTypes = [
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp9,opus',
+      'video/webm',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
+    ];
+    for (const t of videoTypes) {
+      if (MediaRecorder.isTypeSupported(t)) {
+        return t;
+      }
+    }
+    return '';
   }
 
-  if (cachedVideoMime) return cachedVideoMime;
-  const candidates = [
-    'video/webm;codecs=vp8,opus',
-    'video/webm;codecs=vp9,opus',
-    'video/webm',
-    'video/mp4;codecs=avc1,mp4a',
+  const audioTypes = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/ogg;codecs=opus',
   ];
-  cachedVideoMime = candidates.find(t => MediaRecorder.isTypeSupported(t)) || '';
-  return cachedVideoMime;
+  for (const t of audioTypes) {
+    if (MediaRecorder.isTypeSupported(t)) {
+      return t;
+    }
+  }
+  return '';
 }
 
 export function useMediaRecorder({
-  stream,
-  mode,
+  mediaType = 'VIDEO',
   chunkDurationMs = 30000,
   onChunkReady,
   onError,
-  onDeviceDisconnected,
-}: UseMediaRecorderOptions): UseMediaRecorderReturn {
-  const [recordingState, setRecordingState] = useState<'inactive' | 'recording' | 'paused'>('inactive');
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [chunkCount, setChunkCount] = useState<number>(0);
+}: UseMediaRecorderOptions = {}): UseMediaRecorderReturn {
+  const [status, setStatus] = useState<RecordingStatus>('idle');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [chunkIndex, setChunkIndex] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunkIndexRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const chunkIndexRef = useRef<number>(0);
+  const isFinalizingRef = useRef<boolean>(false);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const onChunkReadyRef = useRef(onChunkReady);
-  const onErrorRef = useRef(onError);
-  const onDeviceDisconnectedRef = useRef(onDeviceDisconnected);
+  const isVideoMode = mediaType !== 'AUDIO' && mediaType !== 'AUDIO_ONLY';
+
+  // Release stream tracks
+  const cleanupStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setStream(null);
+    }
+  }, []);
+
+  // Clear timer
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  // Full cleanup
+  const cleanup = useCallback(() => {
+    stopTimer();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (_) {}
+    }
+    cleanupStream();
+    setStatus('idle');
+  }, [cleanupStream, stopTimer]);
 
   useEffect(() => {
-    onChunkReadyRef.current = onChunkReady;
-    onErrorRef.current = onError;
-    onDeviceDisconnectedRef.current = onDeviceDisconnected;
-  });
-
-  useEffect(() => {
-    if (!stream) return;
-
-    const handleTrackEnd = () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        onDeviceDisconnectedRef.current?.();
-      }
-    };
-
-    const tracks = stream.getTracks();
-    tracks.forEach(track => track.addEventListener('ended', handleTrackEnd));
-
     return () => {
-      tracks.forEach(track => track.removeEventListener('ended', handleTrackEnd));
+      cleanup();
     };
-  }, [stream]);
+  }, [cleanup]);
 
-  const startRecording = useCallback(() => {
-    if (!stream || stream.getTracks().length === 0) {
-      onErrorRef.current?.(new Error('Active media stream is required to start recording.'));
-      return;
-    }
+  // Start timer interval
+  const startTimer = useCallback(() => {
+    stopTimer();
+    timerRef.current = setInterval(() => {
+      setElapsedTime((prev) => prev + 1);
+    }, 1000);
+  }, [stopTimer]);
 
-    try {
-      // Isolate audio tracks in audio-only mode to prevent encoding video frames
-      const streamToRecord =
-        mode === 'AUDIO_ONLY' ? new MediaStream(stream.getAudioTracks()) : stream;
+  // Start Recording with 30s chunks
+  const startRecording = useCallback(
+    async (customStream?: MediaStream) => {
+      try {
+        setError(null);
+        let activeStream = customStream || streamRef.current;
 
-      const mimeType = resolveSupportedMime(mode);
-      const options: MediaRecorderOptions = {
-        mimeType: mimeType || undefined,
-        audioBitsPerSecond: 128000,
-        ...(mode === 'VIDEO_AUDIO' ? { videoBitsPerSecond: 1500000 } : {}),
-      };
+        // Obtain media stream if not provided
+        if (!activeStream || !activeStream.active) {
+          const constraints: MediaStreamConstraints = isVideoMode
+            ? {
+                video: {
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 },
+                  frameRate: { ideal: 30 },
+                  facingMode: 'user',
+                },
+                audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  sampleRate: 44100,
+                },
+              }
+            : {
+                audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  sampleRate: 44100,
+                },
+              };
 
-      const recorder = new MediaRecorder(streamToRecord, options);
-      chunkIndexRef.current = 0;
-      setChunkCount(0);
-
-      recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data && event.data.size > 0) {
-          const currentIndex = chunkIndexRef.current;
-          chunkIndexRef.current += 1;
-          setChunkCount(chunkIndexRef.current);
-          onChunkReadyRef.current(event.data, currentIndex);
+          activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+          streamRef.current = activeStream;
+          setStream(activeStream);
         }
-      };
 
-      recorder.onerror = (e: Event) => {
-        const err = (e as any).error || new Error('MediaRecorder error occurred');
-        onErrorRef.current?.(err);
-      };
+        const mimeType = getSupportedMimeType(isVideoMode);
+        const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
 
-      recorder.start(chunkDurationMs);
-      mediaRecorderRef.current = recorder;
-      setRecordingState('recording');
-      setElapsedSeconds(0);
+        const recorder = new MediaRecorder(activeStream, options);
+        mediaRecorderRef.current = recorder;
+        chunkIndexRef.current = 0;
+        isFinalizingRef.current = false;
+        setChunkIndex(0);
+        setElapsedTime(0);
 
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
-      }, 1000);
-    } catch (err) {
-      onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
-    }
-  }, [stream, mode, chunkDurationMs]);
+        recorder.ondataavailable = (event: BlobEvent) => {
+          if (event.data && event.data.size > 0) {
+            const currentIdx = chunkIndexRef.current;
+            chunkIndexRef.current += 1;
+            setChunkIndex(chunkIndexRef.current);
 
+            const isFinal = isFinalizingRef.current;
+            if (onChunkReady) {
+              onChunkReady(event.data, currentIdx, isFinal);
+            }
+          }
+        };
+
+        recorder.onerror = (evt: Event) => {
+          const err = new Error('MediaRecorder execution error');
+          setError(err.message);
+          setStatus('error');
+          if (onError) onError(err);
+        };
+
+        // Start timeslice chunking every chunkDurationMs (30s)
+        recorder.start(chunkDurationMs);
+        setStatus('recording');
+        startTimer();
+      } catch (err: any) {
+        const message = err?.message || 'Failed to start media recorder';
+        setError(message);
+        setStatus('error');
+        if (onError) onError(err);
+        cleanup();
+      }
+    },
+    [isVideoMode, chunkDurationMs, onChunkReady, onError, startTimer, cleanup]
+  );
+
+  // Pause Recording
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.pause();
-      setRecordingState('paused');
-      if (timerRef.current) clearInterval(timerRef.current);
+      stopTimer();
+      setStatus('paused');
     }
-  }, []);
+  }, [stopTimer]);
 
+  // Resume Recording
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
       mediaRecorderRef.current.resume();
-      setRecordingState('recording');
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
-      }, 1000);
+      startTimer();
+      setStatus('recording');
     }
-  }, []);
+  }, [startTimer]);
 
-  const stopRecording = useCallback((): Promise<number> => {
+  // Stop Recording
+  const stopRecording = useCallback(async (): Promise<void> => {
     return new Promise((resolve) => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      stopTimer();
+      isFinalizingRef.current = true;
 
-      const recorder = mediaRecorderRef.current;
-      if (!recorder || recorder.state === 'inactive') {
-        resolve(chunkIndexRef.current);
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        setStatus('stopped');
+        cleanupStream();
+        resolve();
         return;
       }
 
-      recorder.onstop = () => {
-        setRecordingState('inactive');
-        resolve(chunkIndexRef.current);
+      mediaRecorderRef.current.onstop = () => {
+        setStatus('stopped');
+        cleanupStream();
+        resolve();
       };
 
       try {
-        recorder.requestData();
-        recorder.stop();
-      } catch {
-        resolve(chunkIndexRef.current);
+        // Requests any remaining buffer to fire in ondataavailable as final chunk
+        mediaRecorderRef.current.requestData();
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        setStatus('stopped');
+        cleanupStream();
+        resolve();
       }
     });
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch {
-          // Ignore cleanup error if already stopped
-        }
-      }
-    };
-  }, []);
+  }, [stopTimer, cleanupStream]);
 
   return {
-    recordingState,
-    elapsedSeconds,
-    chunkCount,
+    status,
+    stream,
+    elapsedTime,
+    chunkIndex,
+    error,
     startRecording,
     pauseRecording,
     resumeRecording,
     stopRecording,
+    cleanup,
   };
 }
+export default useMediaRecorder;

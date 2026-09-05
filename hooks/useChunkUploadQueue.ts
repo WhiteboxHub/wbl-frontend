@@ -1,235 +1,217 @@
 'use client';
 
-import { useReducer, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { aiprepApi } from '@/lib/aiprep-api';
+import type { ChunkStatus } from '@/types/aiprep';
 
 export interface ChunkQueueItem {
-  chunkNumber: number;
-  blob: Blob | null;
-  status: 'queued' | 'uploading' | 'uploaded' | 'failed';
+  chunkIndex: number;
+  blob: Blob;
+  status: ChunkStatus;
   retryCount: number;
+  isFinal: boolean;
   error?: string;
-}
-
-export interface ChunkUploadQueueState {
-  queue: ChunkQueueItem[];
-  totalUploaded: number;
-  isUploading: boolean;
-  hasErrors: boolean;
 }
 
 export interface UseChunkUploadQueueOptions {
   assessmentId: number;
+  mediaType?: 'VIDEO' | 'AUDIO' | string;
   maxRetries?: number;
-  onError?: (error: Error) => void;
+  onChunkUploaded?: (chunkIndex: number, isFinal: boolean) => void;
+  onQueueComplete?: () => void;
+  onUploadError?: (error: Error, chunkIndex: number) => void;
 }
 
 export interface UseChunkUploadQueueReturn {
-  state: ChunkUploadQueueState;
-  enqueueChunk: (blob: Blob, chunkNumber: number) => void;
+  queue: ChunkQueueItem[];
+  totalChunks: number;
+  uploadedChunks: number;
+  pendingChunks: number;
+  failedChunks: number;
+  isUploading: boolean;
+  isComplete: boolean;
+  enqueueChunk: (blob: Blob, chunkIndex: number, isFinal?: boolean) => void;
   retryFailedChunks: () => void;
-  waitForAllUploads: () => Promise<void>;
-  resetQueue: () => void;
-}
-
-type Action =
-  | { type: 'ENQUEUE'; chunkNumber: number; blob: Blob }
-  | { type: 'SET_STATUS'; chunkNumber: number; status: ChunkQueueItem['status']; error?: string }
-  | { type: 'INCREMENT_RETRY'; chunkNumber: number }
-  | { type: 'RESET_FAILED' }
-  | { type: 'RESET_ALL' };
-
-function queueReducer(state: ChunkUploadQueueState, action: Action): ChunkUploadQueueState {
-  switch (action.type) {
-    case 'ENQUEUE': {
-      const exists = state.queue.some(c => c.chunkNumber === action.chunkNumber);
-      if (exists) return state;
-
-      const newItem: ChunkQueueItem = {
-        chunkNumber: action.chunkNumber,
-        blob: action.blob,
-        status: 'queued',
-        retryCount: 0,
-      };
-
-      const updatedQueue = [...state.queue, newItem];
-      return {
-        ...state,
-        queue: updatedQueue,
-        isUploading: true,
-      };
-    }
-
-    case 'SET_STATUS': {
-      const updatedQueue = state.queue.map(item => {
-        if (item.chunkNumber === action.chunkNumber) {
-          return {
-            ...item,
-            status: action.status,
-            error: action.error,
-            // Dereference blob on success to prevent memory bloat
-            blob: action.status === 'uploaded' ? null : item.blob,
-          };
-        }
-        return item;
-      });
-
-      const totalUploaded = updatedQueue.filter(i => i.status === 'uploaded').length;
-      const isUploading = updatedQueue.some(i => i.status === 'uploading' || i.status === 'queued');
-      const hasErrors = updatedQueue.some(i => i.status === 'failed');
-
-      return {
-        queue: updatedQueue,
-        totalUploaded,
-        isUploading,
-        hasErrors,
-      };
-    }
-
-    case 'INCREMENT_RETRY': {
-      const updatedQueue = state.queue.map(item =>
-        item.chunkNumber === action.chunkNumber
-          ? { ...item, retryCount: item.retryCount + 1 }
-          : item
-      );
-      return { ...state, queue: updatedQueue };
-    }
-
-    case 'RESET_FAILED': {
-      const updatedQueue = state.queue.map(item =>
-        item.status === 'failed'
-          ? { ...item, status: 'queued' as const, retryCount: 0, error: undefined }
-          : item
-      );
-      return {
-        ...state,
-        queue: updatedQueue,
-        isUploading: true,
-        hasErrors: false,
-      };
-    }
-
-    case 'RESET_ALL':
-      return {
-        queue: [],
-        totalUploaded: 0,
-        isUploading: false,
-        hasErrors: false,
-      };
-
-    default:
-      return state;
-  }
+  clearQueue: () => void;
 }
 
 export function useChunkUploadQueue({
   assessmentId,
+  mediaType = 'VIDEO',
   maxRetries = 3,
-  onError,
+  onChunkUploaded,
+  onQueueComplete,
+  onUploadError,
 }: UseChunkUploadQueueOptions): UseChunkUploadQueueReturn {
-  const [state, dispatch] = useReducer(queueReducer, {
-    queue: [],
-    totalUploaded: 0,
-    isUploading: false,
-    hasErrors: false,
-  });
+  const [queue, setQueue] = useState<ChunkQueueItem[]>([]);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
+  // Use refs to avoid stale closure during async loops
+  const queueRef = useRef<ChunkQueueItem[]>([]);
   const isProcessingRef = useRef<boolean>(false);
-  const queueRef = useRef<ChunkQueueItem[]>(state.queue);
-  const onErrorRef = useRef(onError);
+  const isMountedRef = useRef<boolean>(true);
 
   useEffect(() => {
-    queueRef.current = state.queue;
-    onErrorRef.current = onError;
-  });
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-  const processNextChunk = useCallback(async () => {
-    if (isProcessingRef.current) return;
+  // Process next chunk in queue sequentially
+  const processQueue = useCallback(async () => {
+    if (isProcessingRef.current || !assessmentId) return;
 
-    const nextItem = queueRef.current.find(item => item.status === 'queued');
-    if (!nextItem || !nextItem.blob) {
+    // Find next queued item or retryable failed item
+    const nextIndex = queueRef.current.findIndex(
+      (item) => item.status === 'queued'
+    );
+
+    if (nextIndex === -1) {
+      setIsUploading(false);
       isProcessingRef.current = false;
+
+      // Check if all chunks uploaded and the final chunk is included
+      const hasFinal = queueRef.current.some((item) => item.isFinal && item.status === 'uploaded');
+      const allDone = queueRef.current.length > 0 && queueRef.current.every((item) => item.status === 'uploaded');
+      if (hasFinal && allDone && onQueueComplete) {
+        onQueueComplete();
+      }
       return;
     }
 
     isProcessingRef.current = true;
-    const { chunkNumber, blob, retryCount } = nextItem;
+    setIsUploading(true);
 
-    dispatch({ type: 'SET_STATUS', chunkNumber, status: 'uploading' });
+    const currentItem = queueRef.current[nextIndex];
+    queueRef.current[nextIndex] = { ...currentItem, status: 'uploading' };
+    setQueue([...queueRef.current]);
 
     try {
-      await aiprepApi.uploadChunk(assessmentId, chunkNumber, blob);
-      dispatch({ type: 'SET_STATUS', chunkNumber, status: 'uploaded' });
-    } catch (err: any) {
-      const errorMessage = err?.message || 'Chunk upload failed';
+      await aiprepApi.uploadChunk(
+        assessmentId,
+        currentItem.chunkIndex,
+        currentItem.blob,
+        mediaType,
+        currentItem.isFinal
+      );
 
-      if (retryCount < maxRetries) {
-        dispatch({ type: 'INCREMENT_RETRY', chunkNumber });
-        // Exponential backoff: 2s, 4s, 8s
-        const backoffMs = Math.pow(2, retryCount + 1) * 1000;
-        await new Promise(res => setTimeout(res, backoffMs));
-        dispatch({ type: 'SET_STATUS', chunkNumber, status: 'queued' });
-      } else {
-        dispatch({
-          type: 'SET_STATUS',
-          chunkNumber,
-          status: 'failed',
-          error: `Chunk ${chunkNumber} failed after ${maxRetries} retries: ${errorMessage}`,
-        });
-        onErrorRef.current?.(new Error(`Failed to upload chunk ${chunkNumber}: ${errorMessage}`));
+      if (!isMountedRef.current) return;
+
+      queueRef.current[nextIndex] = {
+        ...queueRef.current[nextIndex],
+        status: 'uploaded',
+        error: undefined,
+      };
+      setQueue([...queueRef.current]);
+
+      if (onChunkUploaded) {
+        onChunkUploaded(currentItem.chunkIndex, currentItem.isFinal);
+      }
+    } catch (err: any) {
+      if (!isMountedRef.current) return;
+
+      const newRetryCount = currentItem.retryCount + 1;
+      const willRetry = newRetryCount <= maxRetries;
+
+      queueRef.current[nextIndex] = {
+        ...queueRef.current[nextIndex],
+        status: willRetry ? 'queued' : 'failed',
+        retryCount: newRetryCount,
+        error: err?.message || 'Chunk upload failed',
+      };
+      setQueue([...queueRef.current]);
+
+      if (onUploadError) {
+        onUploadError(err, currentItem.chunkIndex);
+      }
+
+      // Exponential backoff before processing next
+      if (willRetry) {
+        const backoffMs = Math.min(1000 * Math.pow(2, newRetryCount - 1), 8000);
+        await new Promise((res) => setTimeout(res, backoffMs));
       }
     } finally {
       isProcessingRef.current = false;
-      setTimeout(() => {
-        processNextChunk();
-      }, 50);
+      // Continue queue
+      processQueue();
     }
-  }, [assessmentId, maxRetries]);
+  }, [assessmentId, mediaType, maxRetries, onChunkUploaded, onQueueComplete, onUploadError]);
 
+  // Enqueue a chunk
   const enqueueChunk = useCallback(
-    (blob: Blob, chunkNumber: number) => {
-      dispatch({ type: 'ENQUEUE', chunkNumber, blob });
-      setTimeout(() => {
-        processNextChunk();
-      }, 0);
+    (blob: Blob, chunkIndex: number, isFinal: boolean = false) => {
+      // Check if chunkIndex already in queue
+      const existingIdx = queueRef.current.findIndex((item) => item.chunkIndex === chunkIndex);
+      if (existingIdx !== -1) {
+        // If final flag updated
+        if (isFinal && !queueRef.current[existingIdx].isFinal) {
+          queueRef.current[existingIdx].isFinal = true;
+          setQueue([...queueRef.current]);
+        }
+        return;
+      }
+
+      const newItem: ChunkQueueItem = {
+        chunkIndex,
+        blob,
+        status: 'queued',
+        retryCount: 0,
+        isFinal,
+      };
+
+      queueRef.current.push(newItem);
+      setQueue([...queueRef.current]);
+
+      // Trigger queue processing
+      processQueue();
     },
-    [processNextChunk]
+    [processQueue]
   );
 
+  // Retry any failed chunks
   const retryFailedChunks = useCallback(() => {
-    dispatch({ type: 'RESET_FAILED' });
-    setTimeout(() => {
-      processNextChunk();
-    }, 0);
-  }, [processNextChunk]);
-
-  const waitForAllUploads = useCallback(async (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(() => {
-        const currentQueue = queueRef.current;
-        const allUploaded = currentQueue.length > 0 && currentQueue.every(c => c.status === 'uploaded');
-        const hasPermanentFailures = currentQueue.some(c => c.status === 'failed');
-
-        if (allUploaded) {
-          clearInterval(checkInterval);
-          resolve();
-        } else if (hasPermanentFailures) {
-          clearInterval(checkInterval);
-          reject(new Error('One or more media chunks failed to upload to storage.'));
-        }
-      }, 250);
+    let hasFailed = false;
+    queueRef.current = queueRef.current.map((item) => {
+      if (item.status === 'failed') {
+        hasFailed = true;
+        return { ...item, status: 'queued', retryCount: 0, error: undefined };
+      }
+      return item;
     });
+
+    if (hasFailed) {
+      setQueue([...queueRef.current]);
+      processQueue();
+    }
+  }, [processQueue]);
+
+  // Clear queue
+  const clearQueue = useCallback(() => {
+    queueRef.current = [];
+    setQueue([]);
+    setIsUploading(false);
+    isProcessingRef.current = false;
   }, []);
 
-  const resetQueue = useCallback(() => {
-    dispatch({ type: 'RESET_ALL' });
-  }, []);
+  const totalChunks = queue.length;
+  const uploadedChunks = queue.filter((i) => i.status === 'uploaded').length;
+  const failedChunks = queue.filter((i) => i.status === 'failed').length;
+  const pendingChunks = queue.filter((i) => i.status === 'queued' || i.status === 'uploading').length;
+  const hasFinal = queue.some((i) => i.isFinal && i.status === 'uploaded');
+  const isComplete = totalChunks > 0 && uploadedChunks === totalChunks && hasFinal;
 
   return {
-    state,
+    queue,
+    totalChunks,
+    uploadedChunks,
+    pendingChunks,
+    failedChunks,
+    isUploading,
+    isComplete,
     enqueueChunk,
     retryFailedChunks,
-    waitForAllUploads,
-    resetQueue,
+    clearQueue,
   };
 }
+export default useChunkUploadQueue;

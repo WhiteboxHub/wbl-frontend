@@ -1,11 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  aiprepApi,
-  type ProcessingSteps,
-  type ProcessingStatusResponse,
-} from '@/lib/aiprep-api';
+import { aiprepApi } from '@/lib/aiprep-api';
+import type { AssessmentStatus } from '@/types/aiprep';
+
+export type EngineStepStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface ProcessingPipelineSteps {
+  stt: EngineStepStatus;
+  audio: EngineStepStatus;
+  video: EngineStepStatus;
+  llm: EngineStepStatus;
+  finalize: EngineStepStatus;
+}
 
 export interface UseProcessingStatusOptions {
   assessmentId: number | null;
@@ -15,7 +22,8 @@ export interface UseProcessingStatusOptions {
 }
 
 export interface UseProcessingStatusReturn {
-  steps: ProcessingSteps;
+  status: AssessmentStatus | string;
+  steps: ProcessingPipelineSteps;
   progressPercent: number;
   isCompleted: boolean;
   isFailed: boolean;
@@ -23,42 +31,23 @@ export interface UseProcessingStatusReturn {
   refetch: () => Promise<void>;
 }
 
-const INITIAL_STEPS: ProcessingSteps = {
-  stt: 'QUEUED',
+const INITIAL_STEPS: ProcessingPipelineSteps = {
+  stt: 'RUNNING',
   audio: 'QUEUED',
-  vision: 'QUEUED',
+  video: 'QUEUED',
   llm: 'QUEUED',
   finalize: 'QUEUED',
 };
 
-const STEP_WEIGHTS: Record<keyof ProcessingSteps, number> = {
-  stt: 20,
-  audio: 20,
-  vision: 20,
-  llm: 25,
-  finalize: 15,
-};
-
-function calculateProgress(steps: ProcessingSteps): number {
-  let progress = 0;
-  for (const [key, weight] of Object.entries(STEP_WEIGHTS) as [keyof ProcessingSteps, number][]) {
-    const status = steps[key];
-    if (status === 'COMPLETED') {
-      progress += weight;
-    } else if (status === 'RUNNING') {
-      progress += Math.round(weight * 0.4);
-    }
-  }
-  return Math.min(100, Math.max(0, progress));
-}
-
 export function useProcessingStatus({
   assessmentId,
-  pollIntervalMs = 5000,
+  pollIntervalMs = 3000,
   onCompleted,
   onFailed,
 }: UseProcessingStatusOptions): UseProcessingStatusReturn {
-  const [steps, setSteps] = useState<ProcessingSteps>(INITIAL_STEPS);
+  const [status, setStatus] = useState<AssessmentStatus | string>('EVALUATING');
+  const [steps, setSteps] = useState<ProcessingPipelineSteps>(INITIAL_STEPS);
+  const [progressPercent, setProgressPercent] = useState<number>(20);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [isFailed, setIsFailed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -66,6 +55,7 @@ export function useProcessingStatus({
   const isMountedRef = useRef<boolean>(true);
   const hasTriggeredCompleteRef = useRef<boolean>(false);
   const hasTriggeredFailedRef = useRef<boolean>(false);
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const onCompletedRef = useRef(onCompleted);
   const onFailedRef = useRef(onFailed);
@@ -75,88 +65,117 @@ export function useProcessingStatus({
     onFailedRef.current = onFailed;
   });
 
-  const handleStatusUpdate = useCallback((data: ProcessingStatusResponse) => {
-    if (!isMountedRef.current) return;
-
-    if (data.steps) {
-      setSteps(data.steps);
-    }
-
-    if (data.status === 'COMPLETED' || data.steps?.finalize === 'COMPLETED') {
-      setIsCompleted(true);
-      setIsFailed(false);
-      if (!hasTriggeredCompleteRef.current) {
-        hasTriggeredCompleteRef.current = true;
-        onCompletedRef.current?.();
-      }
-    } else if (data.status === 'FAILED') {
-      setIsFailed(true);
-      const errorStr = data.error || 'Evaluation pipeline encountered a processing error.';
-      setErrorMessage(errorStr);
-      if (!hasTriggeredFailedRef.current) {
-        hasTriggeredFailedRef.current = true;
-        onFailedRef.current?.(errorStr);
-      }
-    }
-  }, []);
-
-  const fetchStatus = useCallback(async () => {
-    if (!assessmentId) return;
-
-    try {
-      const data = await aiprepApi.getProcessingStatus(assessmentId);
-      handleStatusUpdate(data);
-    } catch (err: any) {
-      if (isMountedRef.current && !isCompleted) {
-        const msg = err?.message || 'Failed to poll processing status';
-        setErrorMessage(msg);
-      }
-    }
-  }, [assessmentId, handleStatusUpdate, isCompleted]);
-
   useEffect(() => {
     isMountedRef.current = true;
-    hasTriggeredCompleteRef.current = false;
-    hasTriggeredFailedRef.current = false;
-
-    if (!assessmentId) return;
-
-    fetchStatus();
-
-    let unsubscribeSse: (() => void) | null = null;
-    try {
-      unsubscribeSse = aiprepApi.subscribeToProcessing(
-        assessmentId,
-        (data) => handleStatusUpdate(data),
-        () => {
-          // SSE failed or unsupported, fallback to polling
-        }
-      );
-    } catch {
-      // Fallback to polling
-    }
-
-    const pollingInterval = setInterval(() => {
-      if (!isCompleted && !isFailed) {
-        fetchStatus();
-      }
-    }, pollIntervalMs);
-
     return () => {
       isMountedRef.current = false;
-      clearInterval(pollingInterval);
-      if (unsubscribeSse) unsubscribeSse();
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
-  }, [assessmentId, pollIntervalMs, fetchStatus, handleStatusUpdate, isCompleted, isFailed]);
+  }, []);
 
-  const progressPercent = calculateProgress(steps);
+  const checkStatus = useCallback(async () => {
+    if (!assessmentId) return;
+
+    try {
+      const assessment = await aiprepApi.getAssessment(assessmentId);
+      if (!isMountedRef.current) return;
+
+      const currentStatus = assessment?.status || 'EVALUATING';
+      setStatus(currentStatus);
+
+      if (currentStatus === 'COMPLETED') {
+        setProgressPercent(100);
+        setSteps({
+          stt: 'COMPLETED',
+          audio: 'COMPLETED',
+          video: 'COMPLETED',
+          llm: 'COMPLETED',
+          finalize: 'COMPLETED',
+        });
+        setIsCompleted(true);
+        setIsFailed(false);
+
+        if (!hasTriggeredCompleteRef.current) {
+          hasTriggeredCompleteRef.current = true;
+          if (onCompletedRef.current) onCompletedRef.current();
+        }
+        return;
+      }
+
+      if (currentStatus === 'FAILED') {
+        setIsFailed(true);
+        setIsCompleted(false);
+        setErrorMessage('Evaluation processing encountered an error.');
+        if (!hasTriggeredFailedRef.current) {
+          hasTriggeredFailedRef.current = true;
+          if (onFailedRef.current) onFailedRef.current('Evaluation processing encountered an error.');
+        }
+        return;
+      }
+
+      // Status is EVALUATING or IN_PROGRESS - simulate smooth realistic step progression
+      setProgressPercent((prev) => {
+        const next = Math.min(92, prev + 12);
+        if (next >= 40 && next < 60) {
+          setSteps({
+            stt: 'COMPLETED',
+            audio: 'RUNNING',
+            video: 'QUEUED',
+            llm: 'QUEUED',
+            finalize: 'QUEUED',
+          });
+        } else if (next >= 60 && next < 78) {
+          setSteps({
+            stt: 'COMPLETED',
+            audio: 'COMPLETED',
+            video: 'RUNNING',
+            llm: 'QUEUED',
+            finalize: 'QUEUED',
+          });
+        } else if (next >= 78) {
+          setSteps({
+            stt: 'COMPLETED',
+            audio: 'COMPLETED',
+            video: 'COMPLETED',
+            llm: 'RUNNING',
+            finalize: 'QUEUED',
+          });
+        }
+        return next;
+      });
+
+      // Schedule next poll
+      if (isMountedRef.current) {
+        pollTimerRef.current = setTimeout(checkStatus, pollIntervalMs);
+      }
+    } catch (err: any) {
+      console.warn('[ProcessingStatus Poll Note]:', err);
+      // Retry poll even on temporary network hiccup
+      if (isMountedRef.current) {
+        pollTimerRef.current = setTimeout(checkStatus, pollIntervalMs);
+      }
+    }
+  }, [assessmentId, pollIntervalMs]);
+
+  useEffect(() => {
+    if (!assessmentId) return;
+
+    checkStatus();
+
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, [assessmentId, checkStatus]);
 
   return {
+    status,
     steps,
     progressPercent,
     isCompleted,
     isFailed,
     errorMessage,
-    refetch: fetchStatus,
+    refetch: checkStatus,
   };
 }
+
+export default useProcessingStatus;

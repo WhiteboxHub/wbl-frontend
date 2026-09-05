@@ -1,64 +1,68 @@
 'use client';
 
 import React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import {
   IconCheck,
   IconLoader2,
   IconAlertTriangle,
   IconSparkles,
   IconArrowRight,
-  IconClock,
+  IconCpu,
+  IconWaveSine,
+  IconEyeCheck,
+  IconFileText,
 } from '@tabler/icons-react';
-import { useProcessingStatus } from '@/hooks/useProcessingStatus';
-import type { ProcessingSteps } from '@/lib/aiprep-api';
+import { useProcessingStatus, type ProcessingPipelineSteps } from '@/hooks/useProcessingStatus';
 
 interface StepConfig {
-  key: keyof ProcessingSteps;
+  key: keyof ProcessingPipelineSteps;
   title: string;
   description: string;
+  icon: React.ElementType;
 }
 
 const PIPELINE_STEPS: StepConfig[] = [
   {
     key: 'stt',
-    title: 'Transcribing Audio',
-    description: 'Converting speech to text with OpenAI Whisper',
+    title: 'Transcribing Audio & Q&A Transcript',
+    description: 'Converting voice recordings to structured candidate text',
+    icon: IconWaveSine,
   },
   {
     key: 'audio',
-    title: 'Analyzing Speech Patterns',
-    description: 'Evaluating speaking pace (WPM), pauses, and volume',
+    title: 'Speech & Cadence Analysis',
+    description: 'Measuring speaking pace (WPM), pause ratios, and clarity',
+    icon: IconCpu,
   },
   {
-    key: 'vision',
-    title: 'Validating Video Telemetry',
-    description: 'Verifying on-device face presence and camera framing',
+    key: 'video',
+    title: 'Video Engagement & Presence',
+    description: 'Validating posture alignment, face presence, and stability',
+    icon: IconEyeCheck,
   },
   {
     key: 'llm',
-    title: 'Generating AI Coaching Report',
-    description: 'Synthesizing technical depth and structured feedback with GPT-4o',
+    title: 'AI Scoring Engine (GPT-4o)',
+    description: 'Synthesizing technical depth, answer quality, and rubrics',
+    icon: IconSparkles,
   },
   {
     key: 'finalize',
-    title: 'Compiling Final Insights',
-    description: 'Calculating coaching bands and radar metrics',
+    title: 'Coaching Report Generation',
+    description: 'Compiling strengths, improvement areas, and radar metrics',
+    icon: IconFileText,
   },
 ];
 
-export default function ProcessingPage() {
+export default function AssessmentProcessingPage() {
   const router = useRouter();
   const routeParams = useParams();
+  const searchParams = useSearchParams();
+
   const rawId = routeParams?.assessmentId;
   const assessmentId = Array.isArray(rawId) ? Number(rawId[0]) : Number(rawId);
-
-  // Embedded detection
-  const [isEmbedded, setIsEmbedded] = React.useState(false);
-  React.useEffect(() => {
-    const embedded = window.self !== window.top || window.location.search.includes('embed=true');
-    setIsEmbedded(embedded);
-  }, []);
+  const isEmbedded = searchParams?.get('embed') === 'true';
 
   const {
     steps,
@@ -70,159 +74,197 @@ export default function ProcessingPage() {
   } = useProcessingStatus({
     assessmentId: isNaN(assessmentId) || !assessmentId ? null : assessmentId,
     onCompleted: () => {
-      router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
+      // Auto-redirect to candidate's detailed report page
+      const targetUrl = isEmbedded
+        ? `/aiprep/reports/${assessmentId}?embed=true`
+        : `/aiprep/reports/${assessmentId}`;
+      setTimeout(() => {
+        router.push(targetUrl);
+      }, 1200);
     },
   });
 
   return (
-    <main className="min-h-screen w-full bg-[#F8FAFC] dark:bg-[#0b0f19] text-gray-900 dark:text-white pt-28 sm:pt-32 pb-16 px-4 sm:px-6 flex flex-col items-center justify-center transition-colors">
-      <div className="w-full max-w-xl bg-white dark:bg-[#1D2144] border border-gray-200 dark:border-[#333756] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-        <div className="text-center space-y-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-xs font-semibold text-primary">
-            <IconSparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>AI Evaluation in Progress</span>
+    <main className="min-h-screen w-full bg-[#090d16] text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 select-none relative overflow-hidden">
+      {/* Background glow effects */}
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-xl bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10 space-y-6">
+        {/* Header with glowing animated icon */}
+        <div className="text-center space-y-3">
+          <div className="relative inline-flex items-center justify-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+              {isCompleted ? (
+                <IconCheck size={32} className="text-white" stroke={3} />
+              ) : isFailed ? (
+                <IconAlertTriangle size={32} className="text-white" />
+              ) : (
+                <IconSparkles size={32} className="text-white animate-pulse" />
+              )}
+            </div>
+            {!isCompleted && !isFailed && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-indigo-500"></span>
+              </span>
+            )}
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-indigo-500 to-purple-600 dark:from-blue-400 dark:to-indigo-300 bg-clip-text text-transparent">
-            Synthesizing Your Coaching Report
-          </h1>
-
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-body-color max-w-md mx-auto">
-            Our multi-modal evaluation workers are extracting depth, structure, and communication insights.
-          </p>
+          <div>
+            <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+              {isCompleted
+                ? 'Evaluation Complete!'
+                : isFailed
+                ? 'Evaluation Stalled'
+                : 'AI Evaluation in Progress'}
+            </h1>
+            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+              {isCompleted
+                ? 'Your coaching insights have been generated. Loading your report now…'
+                : isFailed
+                ? (errorMessage || 'We encountered a delay analyzing your response.')
+                : `Pure evaluation engines are grading your assessment (Session #${assessmentId}).`}
+            </p>
+          </div>
         </div>
 
+        {/* Progress Bar & Percentage */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-semibold text-gray-600 dark:text-gray-400">
-            <span>Overall Progress</span>
-            <span className="font-mono text-primary font-bold">{progressPercent}%</span>
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-slate-400">Processing Progress</span>
+            <span className="text-indigo-400 font-mono font-bold">{progressPercent}%</span>
           </div>
-
-          <div className="w-full h-2.5 bg-gray-100 dark:bg-[#121723] rounded-full overflow-hidden border border-gray-200/60 dark:border-transparent">
+          <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
             <div
-              role="progressbar"
-              aria-valuenow={progressPercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className={`h-full transition-all duration-500 ease-out rounded-full ${isFailed
+              className={`h-full rounded-full transition-all duration-500 ease-out ${
+                isCompleted
+                  ? 'bg-emerald-500'
+                  : isFailed
                   ? 'bg-rose-500'
-                  : isCompleted
-                    ? 'bg-emerald-500'
-                    : 'bg-primary'
-                }`}
+                  : 'bg-gradient-to-r from-indigo-500 to-purple-500'
+              }`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
-        <div
-          role="list"
-          aria-label="Evaluation pipeline steps"
-          className="space-y-3"
-        >
+        {/* Pipeline Step Checklist */}
+        <div className="space-y-3 pt-2">
           {PIPELINE_STEPS.map((step) => {
             const stepStatus = steps[step.key];
-            const isRunning = stepStatus === 'RUNNING';
-            const isDone = stepStatus === 'COMPLETED';
+            const StepIcon = step.icon;
+
+            const isStepRunning = stepStatus === 'RUNNING';
+            const isStepCompleted = stepStatus === 'COMPLETED';
             const isStepFailed = stepStatus === 'FAILED';
 
             return (
               <div
                 key={step.key}
-                role="listitem"
-                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${isRunning
-                    ? 'bg-primary/5 dark:bg-primary/10 border-primary/40 shadow-md'
-                    : isDone
-                      ? 'bg-gray-50 dark:bg-[#121723]/40 border-gray-200 dark:border-[#333756]/60'
-                      : isStepFailed
-                        ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
-                        : 'bg-gray-50/50 dark:bg-[#121723]/20 border-gray-200/50 dark:border-[#333756]/30 opacity-60'
-                  }`}
+                className={`flex items-start gap-3.5 p-3 rounded-2xl border transition-all duration-200 ${
+                  isStepCompleted
+                    ? 'bg-emerald-950/20 border-emerald-500/20'
+                    : isStepRunning
+                    ? 'bg-indigo-950/30 border-indigo-500/40 shadow-sm'
+                    : isStepFailed
+                    ? 'bg-rose-950/20 border-rose-500/30'
+                    : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isDone
-                        ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                        : isRunning
-                          ? 'bg-primary/10 dark:bg-primary/20 text-primary'
-                          : isStepFailed
-                            ? 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
-                            : 'bg-gray-100 dark:bg-[#121723] text-gray-400 dark:text-gray-500'
-                      }`}
-                  >
-                    {isDone ? (
-                      <IconCheck className="w-4 h-4" aria-hidden="true" />
-                    ) : isRunning ? (
-                      <IconLoader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                    ) : isStepFailed ? (
-                      <IconAlertTriangle className="w-4 h-4" aria-hidden="true" />
-                    ) : (
-                      <IconClock className="w-4 h-4" aria-hidden="true" />
-                    )}
-                  </div>
-
-                  <div>
-                    <p
-                      className={`text-sm font-semibold ${isRunning
-                          ? 'text-primary dark:text-white'
-                          : isDone
-                            ? 'text-gray-800 dark:text-gray-200'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`}
-                    >
-                      {step.title}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-body-color hidden sm:block">
-                      {step.description}
-                    </p>
-                  </div>
+                <div
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    isStepCompleted
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : isStepRunning
+                      ? 'bg-indigo-500/20 text-indigo-400'
+                      : isStepFailed
+                      ? 'bg-rose-500/20 text-rose-400'
+                      : 'bg-slate-800 text-slate-500'
+                  }`}
+                >
+                  {isStepCompleted ? (
+                    <IconCheck size={16} stroke={3} />
+                  ) : isStepRunning ? (
+                    <IconLoader2 size={16} className="animate-spin text-indigo-400" />
+                  ) : (
+                    <StepIcon size={16} />
+                  )}
                 </div>
 
-                <div className="text-xs font-mono font-medium">
-                  {isDone && <span className="text-emerald-600 dark:text-emerald-400">Complete</span>}
-                  {isRunning && <span className="text-primary font-bold animate-pulse">Running...</span>}
-                  {isStepFailed && <span className="text-rose-600 dark:text-rose-400">Failed</span>}
-                  {stepStatus === 'QUEUED' && <span className="text-gray-400 dark:text-gray-500">Pending</span>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h3
+                      className={`text-xs font-bold ${
+                        isStepCompleted
+                          ? 'text-emerald-300'
+                          : isStepRunning
+                          ? 'text-indigo-300'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {step.title}
+                    </h3>
+                    <span
+                      className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
+                        isStepCompleted
+                          ? 'text-emerald-400'
+                          : isStepRunning
+                          ? 'text-indigo-400'
+                          : 'text-slate-600'
+                      }`}
+                    >
+                      {stepStatus}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    {step.description}
+                  </p>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {isFailed && (
-          <div
-            role="alert"
-            className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 rounded-2xl space-y-2 text-rose-600 dark:text-rose-300 text-xs"
-          >
-            <div className="flex items-center gap-2 font-semibold">
-              <IconAlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
-              <span>Processing Interrupted</span>
-            </div>
-            <p className="text-rose-600/80 dark:text-rose-300/80">{errorMessage}</p>
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="mt-2 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded-lg text-xs transition-all active:scale-95 shadow"
-            >
-              Retry Status Query
-            </button>
-          </div>
-        )}
-
-        {isCompleted && (
-          <div className="pt-2 text-center">
+        {/* Footer actions / redirect prompt */}
+        <div className="pt-2 text-center">
+          {isCompleted ? (
             <button
               type="button"
               onClick={() => {
-                router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
+                const targetUrl = isEmbedded
+                  ? `/aiprep/reports/${assessmentId}?embed=true`
+                  : `/aiprep/reports/${assessmentId}`;
+                router.push(targetUrl);
               }}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primarylight text-white font-semibold rounded-xl shadow-lg transition-all transform active:scale-95 text-sm"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
             >
               <span>View Coaching Report</span>
-              <IconArrowRight className="w-4 h-4" aria-hidden="true" />
+              <IconArrowRight size={16} />
             </button>
-          </div>
-        )}
+          ) : isFailed ? (
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={refetch}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Retry Check
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Back to Portal
+              </button>
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500">
+              Please keep this tab open. You will be automatically redirected once evaluation finishes.
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );

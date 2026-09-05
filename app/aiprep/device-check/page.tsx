@@ -3,14 +3,14 @@
  * 
  * Target Workspace: wbl-frontend
  * Route: /aiprep/device-check
- * Primary Developer: Narasimha (FE1)
+ *
  * 
  * Continuous Flow:
  * 1. Checks if assessmentId is specified. If not, queries parameters (type & mode) are read.
- * 2. If video mode, displays ConsentModal immediately inside this page.
- * 3. Once accepted (or if audio-only), shows a loading spinner, creates the assessment via backend API,
- *    updates the URL search params in-place, and mounts the DeviceCheckWizard directly.
- * 4. Displays a larger CSS card footprint (max-w-4xl).
+ * 2. Mounts the DeviceCheckWizard onboarding flow immediately.
+ * 3. Inside the wizard, the candidate selects options, consents to privacy modules, and tests hardware.
+ * 4. Once validation is completed ("Start Assessment"), creates the assessment session on the backend
+ *    (if not created yet), records privacy consent, saves hardware checks, and redirects to the session room.
  */
 
 'use client';
@@ -20,8 +20,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
-import { ConsentModal } from '@/components/aiprep/ConsentModal';
-import { AlertCircle, AlertTriangle, X, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ShieldAlert } from 'lucide-react';
 
 export default function DeviceCheckPage() {
   const router = useRouter();
@@ -35,8 +34,15 @@ export default function DeviceCheckPage() {
         await apiFetch("user_dashboard");
         setIsAuthenticated(true);
       } catch (err) {
-        console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check. Redirecting to login.');
-        router.replace('/login');
+        console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check.');
+        setIsAuthenticated(false);
+        if (typeof window !== 'undefined') {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = '/login';
+          } else {
+            router.replace('/login');
+          }
+        }
       }
     }
     verifyAuth();
@@ -55,17 +61,13 @@ export default function DeviceCheckPage() {
   const storedIdStr = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_id') : null;
   const storedId = storedIdStr ? parseInt(storedIdStr, 10) : null;
 
-  const effectiveType = queryType || storedType || 'TECHNICAL';
+  const effectiveType = queryType || storedType || 'INTRO';
   const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(
     queryAssessmentId ? parseInt(queryAssessmentId, 10) : storedId
   );
   const [assessmentMode, setAssessmentMode] = useState<AssessmentMode | null>(queryMode || storedMode);
-  const [consentAccepted, setConsentAccepted] = useState<boolean>(() => {
-    return typeof window !== 'undefined' && sessionStorage.getItem('aiprep_consent_accepted') === 'true';
-  });
-  const [showConsent, setShowConsent] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -80,7 +82,10 @@ export default function DeviceCheckPage() {
   useEffect(() => {
     const embedded = window.self !== window.top || window.location.search.includes('embed=true');
     setIsEmbedded(embedded);
-  }, []);
+    if (!embedded) {
+      router.replace('/user_dashboard/ai-prep/device-check');
+    }
+  }, [router]);
 
   // Load assessment mode if assessmentId is provided on mount
   useEffect(() => {
@@ -98,123 +103,100 @@ export default function DeviceCheckPage() {
     fetchAssessmentMode();
   }, [activeAssessmentId]);
 
-  // Initialize flow: check if we have assessmentId or if we need to trigger creation (with consent first)
+  // Sync types and modes in storage
   useEffect(() => {
     if (effectiveType) sessionStorage.setItem('aiprep_active_type', effectiveType);
     if (effectiveMode) sessionStorage.setItem('aiprep_active_mode', effectiveMode);
     if (activeAssessmentId) sessionStorage.setItem('aiprep_active_id', String(activeAssessmentId));
+  }, [effectiveType, effectiveMode, activeAssessmentId]);
 
-    // Always require consent check if not accepted yet
-    if (!consentAccepted) {
-      setShowConsent(true);
-    }
-  }, [queryAssessmentId, queryType, queryMode, effectiveType, effectiveMode, activeAssessmentId, consentAccepted]);
-
-  const createSessionFlow = async (videoConsented: boolean) => {
-    try {
-      setIsSaving(true);
-      setErrorMsg(null);
-
-      let candidateId: number | undefined = undefined;
-      try {
-        const userResponse = await apiFetch("user_dashboard");
-        if (userResponse?.candidate_id) {
-          candidateId = userResponse.candidate_id;
-        }
-      } catch (profileErr) {
-        console.error("Failed to retrieve candidateId:", profileErr);
-      }
-
-      // Record consent if in video mode
-      if (effectiveMode === 'VIDEO_AUDIO') {
-        await aiprepApi.recordConsent({
-          candidate_id: candidateId,
-          consent_type: 'VIDEO_ANALYTICS',
-          consented: videoConsented,
-        });
-      }
-
-      // Get JD text from sessionStorage if needed
-      const jdText = sessionStorage.getItem('aiprep_jd_text') || null;
-
-      const assessment = await aiprepApi.createAssessment({
-        assessment_type: effectiveType!,
-        assessment_mode: videoConsented ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
-        candidate_id: candidateId,
-        job_description_text: effectiveType === 'JOB_DESCRIPTION_INTRO' ? jdText : null,
-      });
-      const newId = assessment.id;
-      setAssessmentMode(assessment.assessment_mode);
-
-      setActiveAssessmentId(newId);
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('aiprep_active_id', String(newId));
-      }
-      const cleanUrl = isEmbedded ? '/aiprep/device-check?embed=true' : '/aiprep/device-check';
-      router.replace(cleanUrl);
-    } catch (err: any) {
-      console.error('Backend session creation failed:', err);
-      setErrorMsg(err.message || 'Failed to create assessment session. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleConsentConfirm = async (videoConsented: boolean, yoloEnabled?: boolean) => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('aiprep_consent_accepted', 'true');
-      sessionStorage.setItem('aiprep_yolo_consent', yoloEnabled ? 'true' : 'false');
-    }
-    setConsentAccepted(true);
-    setShowConsent(false);
-    await createSessionFlow(videoConsented);
-  };
-
-  const handleCheckComplete = async (results: {
+  /**
+   * Phase 1 — called by wizard when transitioning from DEVICE_CHECK → CONFIRMATION.
+   * Creates the assessment and saves hardware check results.
+   * Returns the new assessmentId so the CONFIRMATION step can fetch backend data.
+   */
+  const handlePrepareConfirmation = async (results: {
     browser_info: string;
     os_info: string;
     camera_permission: boolean;
     mic_permission: boolean;
     speaker_ok: boolean;
     bandwidth_kbps: number;
-  }) => {
-    if (!activeAssessmentId) {
-      setErrorMsg('No active assessment session was specified. Please return to the selector dashboard.');
-      return;
+    yolo_consent: boolean;
+    assessment_type: string;
+    audio_enabled: boolean;
+    video_enabled: boolean;
+    jd_text: string;
+  }): Promise<number> => {
+    let targetId = activeAssessmentId;
+    let candidateId: number | undefined = undefined;
+    try {
+      const userResponse = await apiFetch("user_dashboard");
+      if (userResponse?.candidate_id) candidateId = userResponse.candidate_id;
+    } catch (profileErr) {
+      console.error("Failed to retrieve candidateId:", profileErr);
     }
 
+    if (!targetId) {
+      // Create assessment
+      const assessment = await aiprepApi.createAssessment({
+        assessment_type: results.assessment_type as AssessmentType,
+        assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+        candidate_id: candidateId,
+        job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+        user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
+      });
+      targetId = assessment.id;
+      setActiveAssessmentId(targetId);
+      sessionStorage.setItem('aiprep_active_id', String(targetId));
+      sessionStorage.setItem('aiprep_active_type', results.assessment_type);
+    }
+
+    // Store local hardware check results in sessionStorage
+    sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+
+    return targetId!;
+  };
+
+  /**
+   * Phase 2 — called when user clicks "Start Assessment" on the Confirmation step.
+   * Assessment + hardware check already created. Just set status to IN_PROGRESS and redirect.
+   */
+  const handleCheckComplete = async (_results: {
+    browser_info: string;
+    os_info: string;
+    camera_permission: boolean;
+    mic_permission: boolean;
+    speaker_ok: boolean;
+    bandwidth_kbps: number;
+    assessment_type: string;
+    audio_enabled: boolean;
+    video_enabled: boolean;
+    jd_text: string;
+  }) => {
     try {
       setIsSaving(true);
       setErrorMsg(null);
 
-      // 1. Save hardware verification results to backend
-      const hwResponse = await aiprepApi.saveHardwareCheck({
-        assessment_id: activeAssessmentId,
-        browser_info: results.browser_info,
-        os_info: results.os_info,
-        camera_permission: results.camera_permission,
-        mic_permission: results.mic_permission,
-        speaker_ok: results.speaker_ok,
-        bandwidth_kbps: results.bandwidth_kbps,
-        yolo_model_enabled: results.camera_permission,
-      });
-
-      if (!hwResponse || !hwResponse.id) {
-        throw new Error('Hardware verification failed on the server. Please check your devices and try again.');
+      let targetId = activeAssessmentId;
+      if (!targetId) {
+        targetId = await handlePrepareConfirmation(_results as any);
       }
 
-      // 2. Transition assessment status to IN_PROGRESS
-      const statusRes = await aiprepApi.updateAssessmentStatus(activeAssessmentId, 'IN_PROGRESS');
+      // Transition to IN_PROGRESS
+      const statusRes = await aiprepApi.updateAssessmentStatus(targetId, 'IN_PROGRESS');
       if (!statusRes || statusRes.status !== 'IN_PROGRESS') {
         throw new Error('Failed to start assessment session. Please retry.');
       }
 
-      // 3. Successful verification -> Route directly to active practice room via clean dynamic route path
-      const targetSessionUrl = isEmbedded ? `/aiprep/session/${activeAssessmentId}?embed=true` : `/aiprep/session/${activeAssessmentId}`;
+      sessionStorage.removeItem('aiprep_wizard_step');
+      const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
       router.push(targetSessionUrl);
     } catch (err: any) {
       console.error('[Device Check Save Error] Backend failed:', err);
       setErrorMsg(err.message || 'Failed to complete device verification. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -222,11 +204,40 @@ export default function DeviceCheckPage() {
     router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
   };
 
-  if (!isMounted) {
+  if (!isMounted || isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
         <p className="text-xs text-slate-500 font-medium">Initializing hardware environment...</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="w-14 h-14 rounded-full bg-indigo-500/10 text-[#4A6CF7] flex items-center justify-center mb-4">
+            <ShieldAlert className="w-8 h-8 text-[#4A6CF7]" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Login Required</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            Please log in to your Whitebox candidate account to access AI Practice Assessments.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.top) {
+                window.top.location.href = '/login';
+              } else {
+                router.push('/login');
+              }
+            }}
+            className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-[#4A6CF7] hover:bg-[#3b5bd9] active:scale-95 transition-all shadow-md cursor-pointer"
+          >
+            Log In to Account
+          </button>
+        </div>
       </div>
     );
   }
@@ -266,7 +277,7 @@ export default function DeviceCheckPage() {
                     window.location.reload();
                   }
                 }}
-                className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all duration-200 shadow-md shadow-indigo-600/10"
+                className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-650 hover:bg-indigo-500 active:scale-95 transition-all duration-200 shadow-md shadow-indigo-600/10"
               >
                 Retry Setup Flow
               </button>
@@ -288,24 +299,20 @@ export default function DeviceCheckPage() {
             </p>
           </div>
         ) : (
-          !showConsent && activeAssessmentId && (
+          <div className="p-6">
             <DeviceCheckWizard
-              assessmentId={activeAssessmentId}
-              audioOnly={assessmentMode === 'AUDIO_ONLY'}
+              assessmentId={activeAssessmentId || 0}
+              assessmentType={effectiveType}
+              assessmentMode={effectiveMode}
+              audioOnly={effectiveMode === 'AUDIO_ONLY'}
+              initialStep={(sessionStorage.getItem('aiprep_wizard_step') as any) || (activeAssessmentId ? 'DEVICE_CHECK' : 'CONFIGURATION')}
+              onPrepareConfirmation={handlePrepareConfirmation}
               onComplete={handleCheckComplete}
               onCancel={handleCancel}
             />
-          )
+          </div>
         )}
       </div>
-
-      <ConsentModal
-        isOpen={showConsent}
-        onClose={handleCancel}
-        onConfirm={handleConsentConfirm}
-        isSubmitting={isSaving}
-        audioOnly={effectiveMode === 'AUDIO_ONLY'}
-      />
     </div>
   );
 }

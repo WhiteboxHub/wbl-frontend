@@ -1,150 +1,88 @@
 'use client';
 
-import React, { useRef, useEffect, useState, memo } from 'react';
-import {
-  IconMicrophone,
-  IconUser,
-} from '@tabler/icons-react';
+import React, { useRef, useEffect } from 'react';
+import { Video, Mic, VideoOff } from 'lucide-react';
+import type { RecordingStatus } from '@/hooks/useMediaRecorder';
 
 export interface VideoPreviewProps {
-  stream?: MediaStream | null;
-  playbackUrl?: string | null;
-  playbackBlob?: Blob | null;
-  isAudioOnly?: boolean;
-  candidateName?: string;
+  stream: MediaStream | null;
+  status: RecordingStatus;
+  mediaType?: 'VIDEO' | 'AUDIO' | string;
   isMirrored?: boolean;
   className?: string;
 }
 
-export const VideoPreview: React.FC<VideoPreviewProps> = memo(({
-  stream = null,
-  playbackUrl = null,
-  playbackBlob = null,
-  isAudioOnly = false,
-  candidateName = 'Candidate',
+export const VideoPreview: React.FC<VideoPreviewProps> = ({
+  stream,
+  status,
+  mediaType = 'VIDEO',
   isMirrored = true,
   className = '',
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const blobUrlRef = useRef<string | null>(null);
-  const [isVideoTrackLive, setIsVideoTrackLive] = useState<boolean>(true);
-
-  const isPlaybackMode = Boolean(playbackUrl || playbackBlob);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const isAudioOnly = mediaType === 'AUDIO' || mediaType === 'AUDIO_ONLY';
 
   useEffect(() => {
-    if (!stream) {
-      setIsVideoTrackLive(false);
-      return;
+    if (videoRef.current && stream && !isAudioOnly) {
+      videoRef.current.srcObject = stream;
     }
-
-    const videoTrack = stream.getVideoTracks()[0];
-    if (!videoTrack) {
-      setIsVideoTrackLive(false);
-      return;
-    }
-
-    setIsVideoTrackLive(videoTrack.enabled && videoTrack.readyState === 'live');
-
-    const handleTrackChange = () => {
-      setIsVideoTrackLive(videoTrack.enabled && videoTrack.readyState === 'live');
-    };
-
-    videoTrack.addEventListener('mute', handleTrackChange);
-    videoTrack.addEventListener('unmute', handleTrackChange);
-    videoTrack.addEventListener('ended', handleTrackChange);
-
-    return () => {
-      videoTrack.removeEventListener('mute', handleTrackChange);
-      videoTrack.removeEventListener('unmute', handleTrackChange);
-      videoTrack.removeEventListener('ended', handleTrackChange);
-    };
-  }, [stream]);
-
-  useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
-    if (stream && !isPlaybackMode) {
-      videoElement.srcObject = stream;
-      videoElement.muted = true;
-      videoElement.play().catch(() => {});
-    }
-
-    return () => {
-      if (videoElement && videoElement.srcObject) {
-        videoElement.srcObject = null;
-      }
-    };
-  }, [stream, isPlaybackMode]);
-
-  useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
-    if (playbackBlob) {
-      const url = URL.createObjectURL(playbackBlob);
-      blobUrlRef.current = url;
-      videoElement.srcObject = null;
-      videoElement.src = url;
-      videoElement.muted = false;
-    } else if (playbackUrl) {
-      videoElement.srcObject = null;
-      videoElement.src = playbackUrl;
-      videoElement.muted = false;
-    }
-
-    return () => {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current);
-        blobUrlRef.current = null;
-      }
-    };
-  }, [playbackBlob, playbackUrl]);
-
-  const showPlaceholder = isAudioOnly || (!isVideoTrackLive && !isPlaybackMode);
+  }, [stream, isAudioOnly]);
 
   return (
     <div
-      role="region"
-      aria-label="Camera feed preview"
-      className={`relative w-full aspect-video bg-gray-900 dark:bg-[#121723] rounded-2xl overflow-hidden border border-gray-300 dark:border-[#333756] shadow-xl flex items-center justify-center ${className}`}
+      className={`relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center ${className}`}
     >
-      <video
-        ref={videoRef}
-        playsInline
-        autoPlay={!isPlaybackMode}
-        muted={!isPlaybackMode}
-        controls={isPlaybackMode}
-        className={`w-full h-full object-cover transition-transform ${
-          isMirrored && !isPlaybackMode ? '-scale-x-100' : ''
-        } ${showPlaceholder ? 'hidden' : 'block'}`}
-      />
-
-      {showPlaceholder && (
-        <div className="flex flex-col items-center justify-center gap-3 text-gray-500 dark:text-gray-400 p-6 text-center">
-          <div className="relative w-20 h-20 rounded-full bg-gray-200 dark:bg-[#1D2144] border border-gray-300 dark:border-[#333756] flex items-center justify-center shadow-inner">
-            <IconUser className="w-10 h-10 text-gray-400 dark:text-gray-400" aria-hidden="true" />
-            <div className="absolute -bottom-1 -right-1 p-1.5 bg-primary rounded-full border-2 border-white dark:border-[#121723] shadow">
-              <IconMicrophone className="w-4 h-4 text-white" aria-hidden="true" />
-            </div>
+      {!isAudioOnly && stream ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${isMirrored ? 'scale-x-[-1]' : ''}`}
+        />
+      ) : isAudioOnly ? (
+        <div className="flex flex-col items-center justify-center text-center p-6 space-y-4">
+          <div className="w-20 h-20 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-indigo-400 shadow-lg">
+            <Mic className="w-9 h-9 animate-pulse" />
           </div>
           <div>
-            <p className="font-semibold text-gray-800 dark:text-gray-200">{candidateName}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {isAudioOnly ? 'Audio Only Mode' : 'Camera inactive'}
+            <h4 className="text-base font-semibold text-white">Audio-Only Mode</h4>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs">
+              Your voice is being captured and analyzed in real-time.
             </p>
           </div>
         </div>
-      )}
-
-      {!isPlaybackMode && stream && isVideoTrackLive && !isAudioOnly && (
-        <div className="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1 bg-black/60 dark:bg-[#121723]/80 backdrop-blur-md rounded-lg border border-white/10 dark:border-[#333756] text-[11px] font-medium text-white shadow">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>LIVE</span>
+      ) : (
+        <div className="flex flex-col items-center justify-center text-center p-6 space-y-3 text-slate-600">
+          <VideoOff className="w-12 h-12" />
+          <p className="text-sm font-medium">Camera standby</p>
         </div>
       )}
+
+      {/* Floating Status Badge */}
+      <div className="absolute top-4 left-4 z-10 flex items-center space-x-2">
+        {status === 'recording' ? (
+          <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-red-500/40">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
+            <span className="text-[11px] font-bold tracking-wider uppercase text-red-400">REC</span>
+          </div>
+        ) : status === 'paused' ? (
+          <div className="flex items-center space-x-2 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-amber-500/40">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+            <span className="text-[11px] font-bold tracking-wider uppercase text-amber-400">PAUSED</span>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-slate-700/60">
+            <Video className="w-3 h-3 text-slate-400" />
+            <span className="text-[11px] font-medium text-slate-400">PREVIEW</span>
+          </div>
+        )}
+      </div>
     </div>
   );
-});
+};
 
-VideoPreview.displayName = 'VideoPreview';
+export default VideoPreview;
