@@ -451,7 +451,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Prioritize quality over trying to mention every requirement.',
     ],
     overview:
-      'The JD Intro assessment is a 3–5 minute interview where you analyze a target Job Description (JD). It evaluates how well you understand the role requirements, team deliverables, and how effectively you connect your background to the position.',
+      'A Job Description (JD) is a document that outlines what a company expects from a candidate for a specific role, including the responsibilities, required skills, experience, technologies, and expectations. This assessment helps you understand those requirements, connect them with your background and experience, and clearly explain how you can contribute to the role.',
     purposeBullets: [
       'Demonstrate deep understanding of target job requirements',
       'Map your past accomplishments directly to required skills',
