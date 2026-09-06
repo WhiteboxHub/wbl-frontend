@@ -346,7 +346,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Keep your introduction clear, structured, and concise.',
     ],
     overview:
-      'The Intro assessment is a 3–5 minute AI-powered interview where you introduce yourself. It helps you practice communicating your background, education, skills, experience, recent work, and career goals in a structured and natural way.',
+      'The Intro Assessment is a 3–5 minute AI-powered interview where you introduce yourself and share your professional journey.\n\nThis is a short introduction you present during an interview, based on your resume, recent projects, experience, and recent work. It helps you practice presenting your background, skills, achievements, and career goals in a clear and structured way.',
     purposeBullets: [
       'Build a clear, confident, and structured self-introduction',
       'Highlight your professional background and career journey',

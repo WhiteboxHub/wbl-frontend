@@ -227,7 +227,7 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
             <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white tracking-tight">
               Overview
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-normal whitespace-pre-line">
               {overviewText}
             </p>
           </div>
