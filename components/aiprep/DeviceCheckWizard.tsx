@@ -672,7 +672,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
             {/* ═══════════════ STEP 1: CONFIGURATION ═══════════════ */}
             {step === 'CONFIGURATION' && (
-              <div className="flex-1 flex flex-col justify-center my-auto py-2 sm:py-3">
+              <div className="flex-1 flex flex-col justify-center my-auto py-0.5 sm:py-1">
                 <AssessmentConfig
                   assessmentType={assessmentType}
                   setAssessmentType={setAssessmentType}
