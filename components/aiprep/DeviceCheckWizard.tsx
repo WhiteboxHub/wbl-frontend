@@ -659,10 +659,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     onCancel();
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
-                <ArrowLeft className="w-3 h-3" />
-                <span>{step === 'CONFIGURATION' ? 'Reset Setup' : 'Back'}</span>
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>{step === 'CONFIGURATION' ? 'Back to Dashboard' : 'Back'}</span>
               </button>
             </div>
           </div>

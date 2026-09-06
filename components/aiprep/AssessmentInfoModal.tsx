@@ -1,14 +1,13 @@
 /**
  * AssessmentInfoModal Component
  *
- * Rich, multi-card assessment guidance modal matching the Whitebox design specification.
- * Renders identical structured sections across all 6 assessment types:
- *   1. Header: Assessment icon, type title, subtitle, close button
- *   2. Overview: Contextual paragraph explaining the format and goal
- *   3. Purpose: Highlight box with target icon and 5 bullet points
+ * Pixel-perfect assessment guidance modal matching the Whitebox reference layout:
+ *   1. Clean Header: Assessment icon, type title, subtitle, clean '✕' close button
+ *   2. Overview: Contextual paragraph explaining format and role expectations
+ *   3. Purpose: Lavender card with purple target icon and 5 bullet points
  *   4. What to Cover: 3-column themed category cards (Blue, Green, Amber) with bulleted details
- *   5. What to Expect & Example: 2-column layout with icon checklist + example walkthrough card
- *   6. Footer: "Got It" action button to confirm and proceed
+ *   5. Bottom Row: What to Expect list (4 items with icons) + Example walkthrough card
+ *   6. Footer: Clean right-aligned purple "Got It" action button
  */
 
 'use client';
@@ -86,7 +85,7 @@ const getCategoryIcon = (iconName?: string) => {
 };
 
 const getExpectIcon = (iconName?: string) => {
-  const iconProps = { className: "w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" };
+  const iconProps = { className: "w-4 h-4 text-slate-800 dark:text-slate-200 shrink-0" };
   switch (iconName?.toLowerCase()) {
     case 'clock':
       return <Clock {...iconProps} />;
@@ -139,7 +138,6 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
   const info = ASSESSMENT_INFO_DETAILS[type];
   if (!info) return null;
 
-  // Fallback defaults if any type is missing specific extended arrays
   const overviewText = info.overview || info.whatIsThis || info.modalDescription;
   const purposeBullets = info.purposeBullets || [
     'Build a clear, confident, and structured response',
@@ -151,7 +149,7 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
 
   const coverCategories = info.coverCategories || [
     {
-      title: 'Core Fundamentals',
+      title: 'Background & Experience',
       theme: 'blue' as const,
       icon: 'user',
       items: info.keyTopics.slice(0, 4),
@@ -163,7 +161,7 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
       items: info.whatToCover.slice(0, 4),
     },
     {
-      title: 'Execution & Delivery',
+      title: 'Execution & Quality',
       theme: 'amber' as const,
       icon: 'settings',
       items: info.tips.slice(0, 4),
@@ -179,74 +177,74 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
 
   const exampleData = info.example || {
     title: `Example ${info.title} and Transcript`,
-    description: 'Watch an example session to see how to structure your response.',
-    linkText: `View Example ${info.subtitle || 'Session'} →`,
+    description: 'Watch an example introduction to see how to structure your response.',
+    linkText: `View Example ${info.subtitle || 'Intro'} →`,
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
 
       {/* Modal Dialog Card */}
-      <div className="relative w-full max-w-3xl lg:max-w-4xl max-h-[92vh] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-10 flex flex-col transform transition-all animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden">
+      <div className="relative w-full max-w-2xl xl:max-w-[720px] max-h-[92vh] bg-white dark:bg-slate-900 rounded-[20px] border border-slate-200/80 dark:border-slate-800 shadow-2xl z-10 flex flex-col transform transition-all animate-in zoom-in-95 slide-in-from-bottom-4 duration-200 overflow-hidden">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 sm:px-6 pt-4 sm:pt-5 pb-3 shrink-0 border-b border-slate-100 dark:border-slate-800/80">
+        <div className="flex items-start justify-between px-6 pt-5 pb-2 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-800/50 flex items-center justify-center text-[#7C3AED] dark:text-purple-400 shrink-0 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-[#FAF5FF] dark:bg-purple-950/50 border border-[#E9D5FF] dark:border-purple-800/50 flex items-center justify-center text-[#7C3AED] dark:text-purple-400 shrink-0">
               {getAssessmentSymbol(type)}
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
+              <h2 className="text-base sm:text-[17px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
                 {info.modalHeader || `${info.title} Details`}
               </h2>
-              <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">
+              <p className="text-xs sm:text-[13px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">
                 {info.subtitle}
               </p>
             </div>
           </div>
 
-          {/* Close Button */}
+          {/* Clean Close Icon (No circle background, just like reference) */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 -mr-1 transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 stroke-[1.8]" />
           </button>
         </div>
 
         {/* ── Modal Body (Scrollable) ── */}
-        <div ref={contentRef} className="px-5 sm:px-6 py-4 overflow-y-auto space-y-4 max-h-[calc(92vh-140px)]">
+        <div ref={contentRef} className="px-6 py-2 overflow-y-auto space-y-3.5 max-h-[calc(92vh-125px)]">
 
           {/* 1. Overview Section */}
-          <div className="space-y-1.5">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+          <div className="space-y-1">
+            <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white tracking-tight">
               Overview
             </h3>
-            <p className="text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
               {overviewText}
             </p>
           </div>
 
           {/* 2. Purpose Box */}
-          <div className="rounded-xl sm:rounded-2xl bg-[#FAF5FF] dark:bg-purple-950/25 border border-[#E9D5FF] dark:border-purple-900/40 p-3.5 sm:p-4 space-y-2">
-            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-[#7C3AED] dark:text-purple-300">
+          <div className="rounded-2xl bg-[#FAF5FF] dark:bg-purple-950/25 border border-[#E9D5FF] dark:border-purple-900/40 p-3.5 sm:p-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs sm:text-[13px] font-bold text-[#7C3AED] dark:text-purple-300">
               <Target className="w-4 h-4 text-[#7C3AED] dark:text-purple-400 stroke-[2.5]" />
               <span>Purpose</span>
             </div>
-            <ul className="space-y-1.5 pl-0.5">
+            <ul className="space-y-1 pl-0.5">
               {purposeBullets.map((bullet, idx) => (
                 <li
                   key={idx}
-                  className="flex items-start gap-2.5 text-xs sm:text-[12.5px] text-slate-700 dark:text-slate-200 leading-relaxed font-normal"
+                  className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-200 leading-snug font-normal"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0 mt-2" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 shrink-0 mt-1.5" />
                   <span>{bullet}</span>
                 </li>
               ))}
@@ -255,7 +253,7 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
 
           {/* 3. What to Cover Section */}
           <div className="space-y-2">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+            <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white tracking-tight">
               What to Cover
             </h3>
 
@@ -267,23 +265,20 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
 
                 const themeStyles = isBlue
                   ? {
-                      container: 'bg-[#F0F7FF] dark:bg-blue-950/25 border-[#BFDBFE] dark:border-blue-900/40',
-                      headerText: 'text-[#1D4ED8] dark:text-blue-300',
+                      container: 'bg-[#F0F7FF] dark:bg-blue-950/25 border-[#DBEAFE] dark:border-blue-900/40',
+                      headerText: 'text-slate-900 dark:text-slate-100',
                       iconText: 'text-[#2563EB] dark:text-blue-400',
-                      bulletColor: 'text-[#2563EB] dark:text-blue-400',
                     }
                   : isGreen
                   ? {
-                      container: 'bg-[#F0FDF4] dark:bg-emerald-950/25 border-[#BBF7D0] dark:border-emerald-900/40',
-                      headerText: 'text-[#15803D] dark:text-emerald-300',
+                      container: 'bg-[#F0FDF4] dark:bg-emerald-950/25 border-[#DCFCE7] dark:border-emerald-900/40',
+                      headerText: 'text-slate-900 dark:text-slate-100',
                       iconText: 'text-[#16A34A] dark:text-emerald-400',
-                      bulletColor: 'text-[#16A34A] dark:text-emerald-400',
                     }
                   : {
-                      container: 'bg-[#FFFBEB] dark:bg-amber-950/25 border-[#FDE68A] dark:border-amber-900/40',
-                      headerText: 'text-[#B45309] dark:text-amber-300',
+                      container: 'bg-[#FFFBEB] dark:bg-amber-950/25 border-[#FEF08A] dark:border-amber-900/40',
+                      headerText: 'text-slate-900 dark:text-slate-100',
                       iconText: 'text-[#D97706] dark:text-amber-400',
-                      bulletColor: 'text-[#D97706] dark:text-amber-400',
                     };
 
                 return (
@@ -302,9 +297,9 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
                       {category.items.map((item, itemIdx) => (
                         <li
                           key={itemIdx}
-                          className="flex items-start gap-1.5 text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 leading-snug"
+                          className="flex items-start gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 leading-snug"
                         >
-                          <span className={`font-bold shrink-0 text-sm leading-none ${themeStyles.bulletColor}`}>
+                          <span className="text-slate-800 dark:text-slate-300 font-bold shrink-0 text-sm leading-none">
                             •
                           </span>
                           <span>{item}</span>
@@ -318,43 +313,55 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
           </div>
 
           {/* 4. Bottom Row: What to Expect & Example */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-0.5">
 
             {/* Left: What to Expect */}
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight mb-2.5">
+              <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white tracking-tight mb-2">
                 What to Expect
               </h3>
-              <div className="space-y-2.5">
-                {expectItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2.5 text-xs sm:text-[12.5px] text-slate-700 dark:text-slate-200 font-medium"
-                  >
-                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                      {getExpectIcon(item.icon)}
+              <div className="space-y-2">
+                {expectItems.map((item, idx) => {
+                  const isDuration = item.text.startsWith('Duration:');
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-200 font-normal"
+                    >
+                      <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                        {getExpectIcon(item.icon)}
+                      </div>
+                      <span>
+                        {isDuration ? (
+                          <>
+                            <strong className="font-semibold text-slate-900 dark:text-white">Duration:</strong>{' '}
+                            {item.text.replace('Duration:', '').trim()}
+                          </>
+                        ) : (
+                          item.text
+                        )}
+                      </span>
                     </div>
-                    <span>{item.text}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             {/* Right: Example Card */}
             <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight mb-2.5">
+              <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white tracking-tight mb-2">
                 Example
               </h3>
               <div className="rounded-xl bg-[#FAF5FF] dark:bg-purple-950/25 border border-[#E9D5FF] dark:border-purple-900/40 p-3.5 flex flex-col justify-between h-[calc(100%-28px)]">
                 <div className="flex items-start gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
-                    <FileText className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded-md text-[#7C3AED] dark:text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <FileText className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-tight">
                       {exampleData.title}
                     </h4>
-                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
                       {exampleData.description}
                     </p>
                   </div>
@@ -364,12 +371,11 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      // Demo walkthrough action
                       if (onSelect) onSelect(type);
                     }}
-                    className="flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] hover:text-[#6D28D9] dark:text-purple-400 group transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[#7C3AED] hover:text-[#6D28D9] dark:text-purple-400 group transition-colors cursor-pointer"
                   >
-                    <PlayCircle className="w-4 h-4 text-[#7C3AED] dark:text-purple-400 group-hover:scale-110 transition-transform" />
+                    <PlayCircle className="w-4 h-4 text-[#7C3AED] dark:text-purple-400 group-hover:scale-105 transition-transform" />
                     <span>{exampleData.linkText}</span>
                   </button>
                 </div>
@@ -381,14 +387,14 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
         </div>
 
         {/* ── Footer ── */}
-        <div className="px-5 sm:px-6 py-3 shrink-0 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="px-6 py-4 shrink-0 flex items-center justify-end">
           <button
             type="button"
             onClick={() => {
               if (onSelect) onSelect(type);
               onClose();
             }}
-            className="px-7 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer"
+            className="px-8 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer"
           >
             Got It
           </button>
