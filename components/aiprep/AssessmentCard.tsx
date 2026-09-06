@@ -21,7 +21,7 @@ import {
   MessageSquare,
   Briefcase,
   Users,
-  Code2,
+  Zap,
   Puzzle,
   UserCheck,
   Target,
@@ -59,7 +59,7 @@ export const getAssessmentIconConfig = (type: AssessmentType) => {
     case 'JD_INTRO':
       return { ...defaultStyle, icon: <Briefcase className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
     case 'TECHNICAL':
-      return { ...defaultStyle, icon: <Code2 className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <Zap className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
     case 'SYSTEM_DESIGN':
       return { ...defaultStyle, icon: <Puzzle className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
     case 'RECRUITER':
@@ -242,7 +242,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto py-2">
+    <div className="w-full px-4 sm:px-6 py-4 space-y-6 animate-in fade-in duration-200">
       {/* ── Assessment Description & Guidance Modal ── */}
       <AssessmentInfoModal
         isOpen={modalType !== null}
@@ -251,7 +251,6 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         onSelect={(type) => setAssessmentType(type)}
         isSelected={modalType === assessmentType}
       />
-
       {/* ── Choose Assessment Type (Pill/Chip Selector) ── */}
       <div className="space-y-3">
         <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
@@ -266,11 +265,10 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 key={type}
                 type="button"
                 onClick={() => handleTypeSelect(type)}
-                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer select-none border inline-flex items-center gap-1.5 ${
-                  isSelected
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer select-none border inline-flex items-center gap-1.5 ${isSelected
                     ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-sm shadow-purple-500/20 scale-[1.02]'
                     : 'bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:border-purple-300 dark:hover:border-purple-500/60 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-50/30 dark:hover:bg-purple-950/20'
-                }`}
+                  }`}
               >
                 <span>{type}</span>
               </button>
@@ -300,11 +298,10 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             <button
               type="button"
               onClick={() => setVideoEnabled(true)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                videoEnabled
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${videoEnabled
                   ? 'bg-[#7C3AED] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               Video + Audio
             </button>
@@ -314,11 +311,10 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                 setVideoEnabled(false);
                 setVideoAnalyticsEnabled(false);
               }}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                !videoEnabled
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${!videoEnabled
                   ? 'bg-[#7C3AED] text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               Audio Only
             </button>
@@ -340,16 +336,14 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             type="button"
             disabled={!videoEnabled}
             onClick={() => setVideoAnalyticsEnabled(!videoAnalyticsEnabled)}
-            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none p-0.5 ${
-              videoAnalyticsEnabled && videoEnabled
+            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none p-0.5 ${videoAnalyticsEnabled && videoEnabled
                 ? 'bg-[#7C3AED]'
                 : 'bg-slate-200 dark:bg-slate-700'
-            } ${!videoEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+              } ${!videoEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <span
-              className={`block w-5 h-5 bg-white rounded-full shadow-xs transition-transform transform ${
-                videoAnalyticsEnabled && videoEnabled ? 'translate-x-6' : 'translate-x-0'
-              }`}
+              className={`block w-5 h-5 bg-white rounded-full shadow-xs transition-transform transform ${videoAnalyticsEnabled && videoEnabled ? 'translate-x-6' : 'translate-x-0'
+                }`}
             />
           </button>
         </div>
