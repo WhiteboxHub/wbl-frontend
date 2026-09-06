@@ -3,12 +3,12 @@
  * 
  * Target Workspace: wbl-frontend
  * 
- * Groups all Step 1 Configuration (Select Scenario + Session Preferences) 
- * inside the AssessmentCard component with state-of-the-art rich UI design
- * and full interactive guidance modals for all 6 assessment types.
+ * Card-based assessment type selector with "See Example" guidance modals
+ * for all 6 assessment types. Each card educates the candidate about what
+ * the assessment involves before they select it.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   AssessmentType,
   AssessmentCardMeta,
@@ -31,6 +31,10 @@ import {
   ChevronRight,
   Info,
   HelpCircle,
+  Layers,
+  Eye,
+  Sparkles,
+  Lightbulb,
 } from 'lucide-react';
 import { AssessmentInfoModal } from './AssessmentInfoModal';
 
@@ -43,31 +47,51 @@ export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = [
   'SYSTEM_DESIGN',
 ];
 
+export const getAssessmentTypeSymbol = (type: AssessmentType) => {
+  const iconProps = { className: "w-5 h-5 shrink-0 stroke-[2.2] text-[#7C3AED] dark:text-purple-400" };
+  switch (type) {
+    case 'INTRO':
+      return <MessageSquare {...iconProps} />;
+    case 'JD_INTRO':
+      return <Briefcase {...iconProps} />;
+    case 'RECRUITER':
+      return <UserCheck {...iconProps} />;
+    case 'HIRING_MANAGER':
+      return <Target {...iconProps} />;
+    case 'TECHNICAL':
+      return <Code2 {...iconProps} />;
+    case 'SYSTEM_DESIGN':
+      return <Layers {...iconProps} />;
+    default:
+      return <MessageSquare {...iconProps} />;
+  }
+};
+
 /**
  * Shared icon configuration helper for assessment types
  */
 export const getAssessmentIconConfig = (type: AssessmentType) => {
   const defaultStyle = {
-    gradient: 'bg-[#4A6CF7]/10 dark:bg-[#4A6CF7]/20',
-    accentColor: 'text-[#4A6CF7] dark:text-blue-400',
-    badgeBg: 'bg-blue-50 text-[#4A6CF7] border border-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/40',
+    gradient: 'bg-gradient-to-br from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20',
+    accentColor: 'text-[#7C3AED] dark:text-purple-400',
+    badgeBg: 'bg-purple-50 text-[#7C3AED] border border-purple-100 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/40',
   };
 
   switch (type) {
     case 'INTRO':
-      return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
     case 'JD_INTRO':
-      return { ...defaultStyle, icon: <Briefcase className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <Briefcase className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
     case 'TECHNICAL':
-      return { ...defaultStyle, icon: <Code2 className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <Code2 className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
     case 'SYSTEM_DESIGN':
-      return { ...defaultStyle, icon: <Puzzle className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <Layers className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
     case 'RECRUITER':
-      return { ...defaultStyle, icon: <UserCheck className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <UserCheck className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
     case 'HIRING_MANAGER':
-      return { ...defaultStyle, icon: <Target className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <Target className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
     default:
-      return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#4A6CF7] dark:text-blue-400" /> };
+      return { ...defaultStyle, icon: <MessageSquare className="w-5 h-5 text-[#7C3AED] dark:text-purple-400" /> };
   }
 };
 
@@ -80,7 +104,7 @@ interface AssessmentCardProps {
 }
 
 export function getFormattedDisplayTime(type: AssessmentType): string {
-  if (type === 'INTRO' || type === 'JD_INTRO') return '4 mins';
+  if (type === 'INTRO' || type === 'JD_INTRO') return '3–5 mins';
   return '~15 mins';
 }
 
@@ -225,8 +249,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   dbQuestionCounts = {},
   dbAvgSeconds = {},
 }) => {
-  // Modal state to display the interactive description popup for any clicked assessment type
-  const [modalType, setModalType] = useState<AssessmentType | null>(null);
+  const [infoModalType, setInfoModalType] = useState<AssessmentType | null>(null);
 
   const selectedMeta = buildAssessmentCardMetadata(
     assessmentType,
@@ -238,153 +261,158 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
   const handleTypeSelect = (type: AssessmentType) => {
     setAssessmentType(type);
-    setModalType(type);
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto py-2">
-      {/* ── Assessment Description & Guidance Modal ── */}
-      <AssessmentInfoModal
-        isOpen={modalType !== null}
-        type={modalType}
-        onClose={() => setModalType(null)}
-        onSelect={(type) => setAssessmentType(type)}
-        isSelected={modalType === assessmentType}
-      />
+    <div className="space-y-2 max-w-4xl mx-auto">
+      {/* ── Choose Assessment Type ── */}
+      <div>
+        <div className="mb-2 space-y-1.5">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+            Choose Your Assessment Type
+          </h3>
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-purple-50/80 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40">
+            <div className="w-4.5 h-4.5 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Lightbulb className="w-2.5 h-2.5 text-white" />
+            </div>
+            <p className="text-[10.5px] sm:text-[11px] text-slate-700 dark:text-slate-300 leading-normal">
+              Select an assessment type to continue. Use <span className="font-bold text-[#7C3AED] dark:text-purple-300">Info</span> to learn about the purpose and format of each assessment.
+            </p>
+          </div>
+        </div>
 
-      {/* ── Choose Assessment Type (Pill/Chip Selector) ── */}
-      <div className="space-y-3">
-        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-          Choose assessment type
-        </h3>
-
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {/* Assessment Cards Grid — 3 columns, ultra-compact */}
+        <div className="grid grid-cols-3 gap-1.5">
           {SUPPORTED_ASSESSMENT_TYPES.map((type) => {
             const isSelected = assessmentType === type;
+            const info = ASSESSMENT_INFO_DETAILS[type];
+            const config = getAssessmentIconConfig(type);
+            const displayTime = getFormattedDisplayTime(type);
+
             return (
-              <button
+              <div
                 key={type}
-                type="button"
                 onClick={() => handleTypeSelect(type)}
-                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer select-none border inline-flex items-center gap-1.5 ${
+                className={`relative px-2.5 py-2 rounded-lg border transition-all duration-150 cursor-pointer group select-none ${
                   isSelected
-                    ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-sm shadow-purple-500/20 scale-[1.02]'
-                    : 'bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:border-purple-300 dark:hover:border-purple-500/60 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-50/30 dark:hover:bg-purple-950/20'
+                    ? 'bg-white dark:bg-slate-900 border-[#7C3AED] dark:border-purple-500 ring-2 ring-purple-500/15 shadow-sm'
+                    : 'bg-white dark:bg-slate-900 border-slate-150 dark:border-slate-800 hover:border-purple-200 dark:hover:border-purple-800 shadow-xs hover:shadow-sm'
                 }`}
               >
-                <span>{type}</span>
-              </button>
+                {/* Top row: icon + title + radio */}
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-7 h-7 rounded-md ${config.gradient} flex items-center justify-center shrink-0`}>
+                    <span className="[&>svg]:w-3.5 [&>svg]:h-3.5">{config.icon}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10.5px] font-black text-slate-900 dark:text-white block leading-none tracking-tight uppercase truncate">
+                      {type.replace('_', ' ')}
+                    </span>
+                    <span className="text-[9.5px] font-semibold text-[#7C3AED] dark:text-purple-300 block leading-none mt-0.5 truncate">
+                      {info.subtitle}
+                    </span>
+                  </div>
+                  <div className={`w-3.5 h-3.5 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-all ${
+                    isSelected
+                      ? 'border-[#7C3AED] bg-[#7C3AED] dark:border-purple-500 dark:bg-purple-500 text-white'
+                      : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800'
+                  }`}>
+                    {isSelected && <CheckCircle2 className="w-2.5 h-2.5 stroke-[3]" />}
+                  </div>
+                </div>
+
+                {/* Description — sharp, readable text color */}
+                <p className="mt-1 text-[9.5px] font-medium text-slate-700 dark:text-slate-200 leading-snug line-clamp-2">
+                  {info.cardDescription}
+                </p>
+
+                {/* Footer: duration + info link */}
+                <div className="mt-1 pt-1 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+                  <span className="text-[8.5px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-0.5">
+                    <Clock className="w-2.5 h-2.5 text-slate-500 dark:text-slate-400" />
+                    {displayTime}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setInfoModalType(type);
+                    }}
+                    className="inline-flex items-center gap-0.5 text-[8.5px] font-bold text-[#7C3AED] dark:text-purple-300 hover:text-[#6D28D9] dark:hover:text-purple-200 transition-colors"
+                  >
+                    <Info className="w-2.5 h-2.5" />
+                    <span>Info</span>
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>
       </div>
 
       {/* ── Session Options & Media Setup ── */}
-      <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+      <div className="pt-2 sm:pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+        <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white tracking-tight mb-1.5 sm:mb-2">
           Session options &amp; media setup
         </h3>
 
-        {/* Row 1: Recording Mode */}
-        <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60">
-          <div>
-            <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-              Recording Mode
-            </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500 block mt-0.5">
-              Audio-only is always supported
-            </span>
-          </div>
-
-          <div className="inline-flex p-1 rounded-full border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800/80 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setVideoEnabled(true)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                videoEnabled
-                  ? 'bg-[#7C3AED] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Video + Audio
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setVideoEnabled(false);
-                setVideoAnalyticsEnabled(false);
-              }}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                !videoEnabled
-                  ? 'bg-[#7C3AED] text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Audio Only
-            </button>
-          </div>
-        </div>
-
-        {/* Row 2: Video Analytics */}
-        <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800/60">
-          <div>
-            <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-              Video Analytics
-            </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500 block mt-0.5">
-              Off by default (posture &amp; gaze only)
-            </span>
-          </div>
-
-          <button
-            type="button"
-            disabled={!videoEnabled}
-            onClick={() => setVideoAnalyticsEnabled(!videoAnalyticsEnabled)}
-            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none p-0.5 ${
-              videoAnalyticsEnabled && videoEnabled
-                ? 'bg-[#7C3AED]'
-                : 'bg-slate-200 dark:bg-slate-700'
-            } ${!videoEnabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-          >
-            <span
-              className={`block w-5 h-5 bg-white rounded-full shadow-xs transition-transform transform ${
-                videoAnalyticsEnabled && videoEnabled ? 'translate-x-6' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Row 3: Target Job Description (Visible for JD_INTRO) */}
-        {(assessmentType === 'JD_INTRO' || selectedMeta.requiresJd) && (
-          <div className="flex items-center justify-between py-2 animate-in fade-in duration-150">
-            <div>
-              <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-                Target Job Description
-              </span>
-              <span className="text-xs text-slate-400 dark:text-slate-500 block mt-0.5">
-                {jdText ? 'Custom job description active ✓' : 'Provide target job description to tailor questions'}
-              </span>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {/* Recording Mode */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Recording</span>
+            <div className="inline-flex p-0.5 rounded-full border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800/80">
+              <button
+                type="button"
+                onClick={() => setVideoEnabled(true)}
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
+                  videoEnabled
+                    ? 'bg-[#7C3AED] text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Video + Audio
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVideoEnabled(false);
+                  setVideoAnalyticsEnabled(false);
+                }}
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer ${
+                  !videoEnabled
+                    ? 'bg-[#7C3AED] text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Audio Only
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setShowJdModal?.(true)}
-              className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 rounded-full hover:border-[#7C3AED] hover:text-[#7C3AED] dark:hover:text-purple-300 shadow-xs cursor-pointer transition-all active:scale-95 whitespace-nowrap"
-            >
-              {jdText ? 'Edit Description' : 'Add Description'}
-            </button>
           </div>
-        )}
+
+          {/* JD (conditional) */}
+          {(assessmentType === 'JD_INTRO' || selectedMeta.requiresJd) && (
+            <div className="flex items-center gap-2 animate-in fade-in duration-150">
+              <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Job Description</span>
+              <button
+                type="button"
+                onClick={() => setShowJdModal?.(true)}
+                className="px-2.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-300 rounded-full hover:border-[#7C3AED] hover:text-[#7C3AED] dark:hover:text-purple-300 cursor-pointer transition-all"
+              >
+                {jdText ? 'Edit JD ✓' : 'Add JD'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── Action Buttons Footer Row ── */}
+      {/* ── Action Buttons ── */}
       {(onNext || onCancel) && (
-        <div className="pt-6 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+        <div className="pt-2 sm:pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
           {onCancel ? (
             <button
               type="button"
               onClick={onCancel}
-              className="px-6 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              className="px-5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
             >
               Cancel
             </button>
@@ -394,7 +422,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
             <button
               type="button"
               onClick={onNext}
-              className="px-8 py-2.5 rounded-full text-xs sm:text-sm font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer"
+              className="px-6 py-1.5 rounded-full text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer"
             >
               Next
             </button>
@@ -402,6 +430,16 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         </div>
       )}
 
+      {/* ── Assessment Info Modal ── */}
+      <AssessmentInfoModal
+        isOpen={infoModalType !== null}
+        type={infoModalType}
+        onClose={() => setInfoModalType(null)}
+        onSelect={(type) => {
+          setAssessmentType(type);
+          setInfoModalType(null);
+        }}
+      />
     </div>
   );
 };
