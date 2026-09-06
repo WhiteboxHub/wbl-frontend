@@ -348,11 +348,12 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     overview:
       'The Intro Assessment is a 3–5 minute AI-powered interview where you introduce yourself and share your professional journey.\n\nThis is a short introduction you present during an interview, based on your resume, recent projects, experience, and recent work. It helps you practice presenting your background, skills, achievements, and career goals in a clear and structured way.',
     purposeBullets: [
-      'Build a clear, confident, and structured self-introduction',
-      'Highlight your professional background and career journey',
-      'Demonstrate your communication and storytelling skills',
-      'Showcase your AI/ML knowledge and technical experience',
-      'Set the right impression for future interviews',
+      'Build a clear, confident, and well-structured self-introduction',
+      'Highlight your educational background, professional experience, and career journey',
+      'Showcase your technical knowledge, projects, and relevant experience',
+      'Clearly communicate your key skills, strengths, and areas of expertise',
+      'Help interviewers quickly understand your background and professional profile',
+      'Create a strong first impression and prepare you for future interview discussions',
     ],
     coverCategories: [
       {
