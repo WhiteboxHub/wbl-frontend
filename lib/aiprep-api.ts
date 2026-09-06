@@ -361,10 +361,11 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         theme: 'blue',
         icon: 'user',
         items: [
-          'Your current role and responsibilities',
-          'Past roles and key projects',
-          'Career growth and transitions',
-          'Education and relevant skills',
+          'Current role and responsibilities',
+          'Previous experience and career journey',
+          'Key projects and achievements',
+          'How your experience aligns with the role',
+          'Strengths relevant to the role',
         ],
       },
       {
