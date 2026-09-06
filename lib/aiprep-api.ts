@@ -453,11 +453,11 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     overview:
       'A Job Description (JD) is a document that outlines what a company expects from a candidate for a specific role, including the responsibilities, required skills, experience, technologies, and expectations. This assessment helps you understand those requirements, connect them with your background and experience, and clearly explain how you can contribute to the role.',
     purposeBullets: [
-      'Demonstrate deep understanding of target job requirements',
-      'Map your past accomplishments directly to required skills',
-      'Articulate how you will deliver value and solve role challenges',
-      'Showcase technical alignment with required frameworks & tools',
-      'Prove proactive preparation and genuine enthusiasm for the position',
+      'Understand the key responsibilities and expectations of the role',
+      'Connect your skills, experience, and projects to the JD',
+      'Highlight the qualifications and technologies relevant to the position',
+      'Explain how you can contribute value and solve role-related challenges',
+      'Demonstrate strong preparation and alignment with the role',
     ],
     coverCategories: [
       {
