@@ -105,6 +105,7 @@ export interface VideoTelemetry {
   frame_stability_score?: number;
   sitting_position?: string;
   gaze_direction?: string;
+  stress_level?: string;
 }
 
 export interface SubmitTelemetryPayload {
