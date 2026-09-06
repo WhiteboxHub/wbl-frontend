@@ -258,6 +258,24 @@ export function formatTimeEstimate(
   return '~15 mins';
 }
 
+export interface WhatToCoverCategory {
+  title: string;
+  theme: 'blue' | 'green' | 'amber';
+  icon: 'user' | 'cpu' | 'settings' | 'layers' | 'code' | 'shield';
+  items: string[];
+}
+
+export interface WhatToExpectItem {
+  icon: 'clock' | 'chat' | 'file' | 'chart';
+  text: string;
+}
+
+export interface AssessmentExample {
+  title: string;
+  description: string;
+  linkText: string;
+}
+
 export interface AssessmentInfo {
   type: AssessmentType;
   title: string;
@@ -274,6 +292,12 @@ export interface AssessmentInfo {
   whatToCover: string[];
   whatToExpect: string;
   tips: string[];
+  // Rich assessment details for comprehensive guidance modal
+  overview?: string;
+  purposeBullets?: string[];
+  coverCategories?: WhatToCoverCategory[];
+  expectItems?: WhatToExpectItem[];
+  example?: AssessmentExample;
 }
 
 export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
@@ -281,7 +305,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     type: 'INTRO',
     title: 'Introduction Assessment',
     subtitle: 'Tell Me About Yourself',
-    modalHeader: 'Introduction Assessment',
+    modalHeader: 'Intro Assessment Details',
     modalQuestion: 'What is an Introduction Assessment?',
     modalDescription:
       'This is a short introduction you present during an interview, based on your resume, recent projects, experience, and recent work. Typically, your introduction should take 3–5 minutes.',
@@ -321,12 +345,70 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Speak naturally instead of memorizing your introduction.',
       'Keep your introduction clear, structured, and concise.',
     ],
+    overview:
+      'The Intro assessment is a 3–5 minute AI-powered interview where you introduce yourself. It helps you practice communicating your background, education, skills, experience, recent work, and career goals in a structured and natural way.',
+    purposeBullets: [
+      'Build a clear, confident, and structured self-introduction',
+      'Highlight your professional background and career journey',
+      'Demonstrate your communication and storytelling skills',
+      'Showcase your AI/ML knowledge and technical experience',
+      'Set the right impression for future interviews',
+    ],
+    coverCategories: [
+      {
+        title: 'Background & Experience',
+        theme: 'blue',
+        icon: 'user',
+        items: [
+          'Your current role and responsibilities',
+          'Past roles and key projects',
+          'Career growth and transitions',
+          'Education and relevant skills',
+        ],
+      },
+      {
+        title: 'AI Engineering',
+        theme: 'green',
+        icon: 'cpu',
+        items: [
+          'Agentic AI (frameworks, orchestration)',
+          'RAG, vector databases, embeddings',
+          'MCP/ tool calling',
+          'Prompting (eg, chain of thought)',
+          'Evaluations, guardrails, observability',
+          'Governance and safety',
+          'Frameworks (LangChain, LangGraph, ADK, etc.)',
+        ],
+      },
+      {
+        title: 'Software Engineering & More',
+        theme: 'amber',
+        icon: 'settings',
+        items: [
+          'Traditional software engineering experience',
+          'Languages, frameworks, and tools',
+          'System design exposure',
+          'QA, data, DevOps, or MLOps experience (if applicable)',
+        ],
+      },
+    ],
+    expectItems: [
+      { icon: 'clock', text: 'Duration: 3–5 minutes' },
+      { icon: 'chat', text: 'Conversational AI interviewer' },
+      { icon: 'file', text: 'Questions based on the areas above' },
+      { icon: 'chart', text: 'Real-time feedback after completion' },
+    ],
+    example: {
+      title: 'Example Intro and Transcript',
+      description: 'Watch an example introduction to see how to structure your response.',
+      linkText: 'View Example Intro →',
+    },
   },
   JD_INTRO: {
     type: 'JD_INTRO',
     title: 'JD Introduction Assessment',
     subtitle: 'Job Description Introduction',
-    modalHeader: 'JD Introduction Assessment',
+    modalHeader: 'JD Intro Assessment Details',
     modalQuestion: 'What is a JD Introduction Assessment?',
     modalDescription:
       'This assessment helps you demonstrate that you understand the Job Description (JD) and can connect its requirements to your own experience, skills, and projects.',
@@ -367,132 +449,289 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Be honest about skills or requirements you have not worked with.',
       'Prioritize quality over trying to mention every requirement.',
     ],
+    overview:
+      'The JD Intro assessment is a 3–5 minute interview where you analyze a target Job Description (JD). It evaluates how well you understand the role requirements, team deliverables, and how effectively you connect your background to the position.',
+    purposeBullets: [
+      'Demonstrate deep understanding of target job requirements',
+      'Map your past accomplishments directly to required skills',
+      'Articulate how you will deliver value and solve role challenges',
+      'Showcase technical alignment with required frameworks & tools',
+      'Prove proactive preparation and genuine enthusiasm for the position',
+    ],
+    coverCategories: [
+      {
+        title: 'Role & Responsibilities',
+        theme: 'blue',
+        icon: 'user',
+        items: [
+          'Core day-to-day duties from the JD',
+          'Key team deliverables and milestones',
+          'Cross-functional collaboration scope',
+          'Level of ownership and project leadership',
+        ],
+      },
+      {
+        title: 'Tech Stack & Tool Match',
+        theme: 'green',
+        icon: 'cpu',
+        items: [
+          'Direct alignment with required languages',
+          'Cloud platforms (AWS, GCP, Azure)',
+          'AI/ML, data pipelines, or specialized tools',
+          'Architecture, testing, and CI/CD competencies',
+        ],
+      },
+      {
+        title: 'Experience & Value Delivery',
+        theme: 'amber',
+        icon: 'settings',
+        items: [
+          'Past projects solving similar problems',
+          'Measurable outcomes and business metrics',
+          'How you plan to bridge any minor skill gaps',
+          'Immediate contributions in first 90 days',
+        ],
+      },
+    ],
+    expectItems: [
+      { icon: 'clock', text: 'Duration: 3–5 minutes' },
+      { icon: 'chat', text: 'Targeted JD-based AI interviewer' },
+      { icon: 'file', text: 'Questions based on your pasted JD' },
+      { icon: 'chart', text: 'Real-time role-matching analysis' },
+    ],
+    example: {
+      title: 'Example JD Walkthrough & Transcript',
+      description: 'Watch a candidate demonstrate strong job description alignment.',
+      linkText: 'View Example JD Intro →',
+    },
   },
   RECRUITER: {
     type: 'RECRUITER',
     title: 'Recruiter Assessment',
     subtitle: 'General Recruiter Interview',
-    modalHeader: 'Recruiter Assessment',
+    modalHeader: 'Recruiter Assessment Details',
     modalQuestion: 'What is a Recruiter Assessment?',
     modalDescription:
-      'This assessment simulates an initial conversation with a recruiter. It focuses on your professional background, communication, career interests, motivation, and overall fit for the opportunity.',
+      'This assessment simulates an initial conversation with a recruiter. It covers your career journey, experience, skills, motivation, and expectations for the role.',
     shortDescription:
-      'Discuss professional background, career interests, experience, strengths, and expectations with a recruiter.',
+      'Simulate an initial recruiter conversation covering your professional background, career interests, motivation, and general qualifications.',
     cardDescription:
-      'Simulate an initial recruiter conversation covering your professional background, career interests, motivation, and overall fit for the opportunity.',
+      'Simulate an initial recruiter conversation covering your professional background, career interests, motivation, and general qualifications.',
     duration: '~15 mins',
     keyTopics: [
-      'Professional Career Overview',
-      'Key Achievements & Milestones',
-      'Career Interests & Trajectory',
-      'Role Expectations & Motivations',
+      'Career Journey & Work Experience',
+      'Key Accomplishments & Responsibilities',
+      'Communication & Motivation',
+      'Role Expectations & Fit',
     ],
     whatIsThis:
-      'This assessment simulates an initial conversation with a recruiter. It focuses on your professional background, communication, career interests, motivation, and overall fit for the opportunity.',
+      'A realistic simulation of a recruiter phone or video screen. Recruiters ask broad questions to evaluate communication, motivation, experience, and cultural alignment.',
     whatWillYouDo:
-      'You will respond to questions about your experience, career journey, interests, goals, motivation, and suitability for the role.',
+      'You will answer common recruiter questions about your background, career decisions, experience, motivation, and interest in the opportunity.',
     whatToCover: [
-      'Professional background',
-      'Career journey',
-      'Current or recent experience',
-      'Key skills',
-      'Relevant projects',
-      'Career interests',
-      'Career goals',
-      'Motivation for the opportunity',
-      'Interest in the company or role',
-      'Strengths relevant to the position',
+      'Your career journey and background',
+      'Key responsibilities in current or previous roles',
+      'Why you are interested in this opportunity',
+      'What you are looking for in your next role',
+      'Preferred work environment',
+      'Your strengths and areas where you excel',
+      'Salary and availability expectations (general)',
+      'Any questions you have for the recruiter',
     ],
     whatToExpect:
-      'The questions are generally conversational and focus more on your overall professional profile and career fit than on deep technical details.',
+      'Expect conversational and behavioral questions. Recruiters want to understand who you are, how well you communicate, and whether your experience aligns with the role.',
     tips: [
-      'Know your resume well.',
-      'Keep your answers clear and concise.',
-      'Be prepared to explain your career transitions.',
-      'Clearly communicate your career goals.',
-      'Explain why the opportunity interests you.',
-      'Keep your answers professional but conversational.',
-      'Be honest about your experience and expectations.',
-      'Avoid giving unnecessarily long answers.',
+      'Keep your answers concise and focused (1–2 minutes per answer).',
+      'Clearly explain why you are interested in the opportunity.',
+      'Highlight relevant experience and accomplishments.',
+      'Be honest about your skills and background.',
+      'Speak clearly and professionally.',
+      'Show enthusiasm for the role and company.',
+      'Prepare 1–2 thoughtful questions to ask.',
     ],
+    overview:
+      'The Recruiter assessment simulates an initial screening conversation with a talent acquisition specialist. It prepares you to articulate your career narrative, transitions, motivations, compensation expectations, and culture fit in a confident, professional manner.',
+    purposeBullets: [
+      'Master the critical initial recruiter screening conversation',
+      'Communicate your career narrative concisely and engagingly',
+      'Articulate your motivation for exploring new career opportunities',
+      'Demonstrate professionalism, active listening, and strong culture fit',
+      'Navigate compensation, availability, and logistical discussions with confidence',
+    ],
+    coverCategories: [
+      {
+        title: 'Career Narrative & Transitions',
+        theme: 'blue',
+        icon: 'user',
+        items: [
+          'High-level summary of your professional journey',
+          'Reasons for transitions between companies or roles',
+          'Current employment status and availability',
+          'Industries and business domains you understand well',
+        ],
+      },
+      {
+        title: 'Motivation & Cultural Fit',
+        theme: 'green',
+        icon: 'cpu',
+        items: [
+          'What attracts you to target companies and roles',
+          'Preferred team dynamics and management styles',
+          'Handling collaboration, feedback, and autonomy',
+          'Long-term career aspirations and growth areas',
+        ],
+      },
+      {
+        title: 'Logistics & Alignment',
+        theme: 'amber',
+        icon: 'settings',
+        items: [
+          'Salary and total compensation expectations',
+          'Work authorization and relocation preferences',
+          'Remote, hybrid, or on-site flexibility',
+          'Thoughtful reverse questions to ask recruiters',
+        ],
+      },
+    ],
+    expectItems: [
+      { icon: 'clock', text: 'Duration: ~15 minutes' },
+      { icon: 'chat', text: 'Conversational Recruiter screening format' },
+      { icon: 'file', text: 'Behavioral, career & logistics questions' },
+      { icon: 'chart', text: 'Detailed feedback on pacing, clarity & tone' },
+    ],
+    example: {
+      title: 'Example Recruiter Screen & Transcript',
+      description: 'Review a high-performing recruiter screen with model responses.',
+      linkText: 'View Example Recruiter Screen →',
+    },
   },
   HIRING_MANAGER: {
     type: 'HIRING_MANAGER',
     title: 'Hiring Manager Assessment',
     subtitle: 'Role Fit & Experience',
-    modalHeader: 'Hiring Manager Assessment',
+    modalHeader: 'Hiring Manager Assessment Details',
     modalQuestion: 'What is a Hiring Manager Assessment?',
     modalDescription:
-      'This assessment simulates a deeper conversation with a hiring manager. It focuses on your experience, ownership, problem-solving, decision-making, and ability to contribute to the team.',
+      'This assessment evaluates how well your skills, past experience, and problem-solving approach fit the team\'s needs. You will be asked about your past projects, technical decisions, leadership, and collaboration style.',
     shortDescription:
-      'Discuss professional experience, past project impact, problem-solving approach, and how you contribute to the role.',
+      'Deep discussion about your experience, ownership, problem-solving, decision-making, and ability to contribute effectively to the team.',
     cardDescription:
-      'Deep discussion about your experience, ownership, problem-solving, decision-making, and ability to contribute to the team and role.',
+      'Deep discussion about your experience, ownership, problem-solving, decision-making, and ability to contribute effectively to the team.',
     duration: '~15 mins',
     keyTopics: [
-      'High-Impact Past Projects',
-      'Contribution to Role & Team',
-      'Problem-Solving Approach',
-      'Handling Situations & Impact',
+      'Project Experience & Ownership',
+      'Problem-Solving & Decision Making',
+      'Team Collaboration & Leadership',
+      'Impact & Value Delivery',
     ],
     whatIsThis:
-      'This assessment simulates a deeper conversation with a hiring manager. It focuses on your experience, ownership, problem-solving, decision-making, and ability to contribute to the team.',
+      'An interview with the team lead or hiring manager to assess your ability to execute, collaborate, and make meaningful contributions.',
     whatWillYouDo:
-      'You will discuss your previous work and explain what you did, how you approached problems, why you made certain decisions, and what you learned from the experience.',
+      'You will discuss your past projects in detail, explain technical and business decisions, and answer situational or behavioral questions about how you handle real-world challenges.',
     whatToCover: [
-      'Relevant professional experience',
-      'Important projects',
-      'Your specific responsibilities',
-      'Challenges you encountered',
-      'How you solved problems',
-      'Technical or business decisions you made',
-      'Collaboration with team members',
-      'Ownership and leadership',
-      'Results and impact',
-      'Lessons learned',
+      'Detailed walkthrough of your most important projects',
+      'Your specific role, contributions, and ownership',
+      'Technical decisions you made and why',
+      'Challenges you encountered and how you resolved them',
+      'How you collaborate with cross-functional teams',
+      'How you handle disagreements or conflicting priorities',
+      'Results and business impact of your work',
+      'How you stay updated with new technologies',
     ],
     whatToExpect:
-      'Expect deeper questions about your experience. The interviewer may ask "Why?", "How?", "What was your role?", "What would you do differently?", or ask you to explain your decisions in more detail.',
+      'Questions will be deeper and more specific than a recruiter screen. The interviewer will dig into "why" and "how" you made decisions and look for evidence of ownership and problem-solving ability.',
     tips: [
-      'Focus on your personal contribution.',
-      'Use real examples from your experience.',
-      'Explain the reasoning behind your decisions.',
-      'Discuss challenges, not only successful outcomes.',
-      'Highlight measurable results when possible.',
-      'Be prepared for follow-up questions.',
-      'Show ownership and accountability.',
-      'Explain what you learned from difficult situations.',
-      'Don\'t take credit for work you didn\'t personally do.',
+      'Use the STAR method (Situation, Task, Action, Result) for behavioral questions.',
+      'Be specific about YOUR contribution vs. the team\'s contribution.',
+      'Quantify results where possible (metrics, performance improvements, time saved).',
+      'Be ready to discuss trade-offs and alternative approaches you considered.',
+      'Acknowledge mistakes or lessons learned honestly.',
+      'Connect your past experience to the problems the hiring manager\'s team is solving.',
     ],
+    overview:
+      'The Hiring Manager assessment evaluates your operational leadership, ownership mindset, situational judgment, and problem-solving execution through deep-dive behavioral scenarios.',
+    purposeBullets: [
+      'Prove your capability to operate effectively at the target level',
+      'Demonstrate ownership, decision-making, and critical thinking',
+      'Showcase how you handle ambiguity, conflict, and tight deadlines',
+      'Illustrate technical leadership, mentorship, and collaboration',
+      'Build confidence that you will deliver immediate value to the team',
+    ],
+    coverCategories: [
+      {
+        title: 'Ownership & Accountability',
+        theme: 'blue',
+        icon: 'user',
+        items: [
+          'End-to-end projects led from concept to launch',
+          'Difficult technical or architectural decisions made',
+          'Metrics, KPIs, and measurable business impact',
+          'Accountability and learnings from setbacks or bugs',
+        ],
+      },
+      {
+        title: 'Collaboration & Leadership',
+        theme: 'green',
+        icon: 'cpu',
+        items: [
+          'Partnering with Product, Design, and QA teams',
+          'Resolving disagreements and technical debates constructively',
+          'Mentoring junior engineers and setting code quality bars',
+          'Managing stakeholder expectations and communicating blockers early',
+        ],
+      },
+      {
+        title: 'Execution & Complexity',
+        theme: 'amber',
+        icon: 'settings',
+        items: [
+          'Delivering under tight deadlines and ambiguous requirements',
+          'Balancing technical debt against fast feature delivery',
+          'Root-cause analysis during production incidents',
+          'Prioritizing engineering tasks under resource constraints',
+        ],
+      },
+    ],
+    expectItems: [
+      { icon: 'clock', text: 'Duration: ~15 minutes' },
+      { icon: 'chat', text: 'Deep-dive behavioral AI interviewer' },
+      { icon: 'file', text: 'STAR-method situational interview questions' },
+      { icon: 'chart', text: 'Scorecard on leadership, ownership & judgment' },
+    ],
+    example: {
+      title: 'Example Hiring Manager Interview & Transcript',
+      description: 'See how candidates use the STAR method to answer challenging scenarios.',
+      linkText: 'View Example HM Interview →',
+    },
   },
   TECHNICAL: {
     type: 'TECHNICAL',
     title: 'Technical Assessment',
     subtitle: 'Technical Interview',
-    modalHeader: 'Technical Assessment',
+    modalHeader: 'Technical Assessment Details',
     modalQuestion: 'What is a Technical Assessment?',
     modalDescription:
-      'This assessment evaluates your technical knowledge, practical understanding, and problem-solving ability in areas relevant to the role.',
+      'This assessment tests your technical knowledge, coding concepts, problem-solving skills, and understanding of tools and technologies relevant to the role.',
     shortDescription:
-      'Demonstrate technical knowledge, programming concepts, tools, systems, and problem-solving skills related to the role.',
+      'Evaluate your technical knowledge, problem-solving ability, and understanding of technologies relevant to the role you are preparing for.',
     cardDescription:
-      'Evaluate your technical knowledge, problem-solving ability, and understanding of technologies relevant to the role you are applying for.',
+      'Evaluate your technical knowledge, problem-solving ability, and understanding of technologies relevant to the role you are preparing for.',
     duration: '~15 mins',
     keyTopics: [
-      'Technologies & Core Programming Concepts',
-      'Tools & Frameworks Mastery',
-      'Technical Problem-Solving Skills',
-      'Role-Related Engineering Challenges',
+      'Core Programming & Algorithms',
+      'System & Architecture Concepts',
+      'Frameworks, Libraries & Tools',
+      'Debugging & Optimization',
     ],
     whatIsThis:
-      'This assessment evaluates your technical knowledge, practical understanding, and problem-solving ability in areas relevant to the role.',
+      'A focused technical interview evaluating your engineering skills, technology stack depth, problem-solving methodology, and code comprehension.',
     whatWillYouDo:
-      'You may be asked to explain technical concepts, solve problems, discuss your projects, write or review code, or work through technical scenarios.',
+      'You will answer technical questions, explain concepts, analyze code snippets, discuss architecture choices, and solve problems related to your domain.',
     whatToCover: [
-      'Programming fundamentals',
-      'Data structures and algorithms',
-      'Frameworks and libraries',
-      'Databases',
+      'Core programming languages (Python, Java, TypeScript, etc.)',
+      'Data structures and algorithm concepts',
+      'Frameworks and libraries relevant to the role',
+      'Database concepts (SQL, NoSQL, data modeling)',
       'APIs',
       'Cloud technologies',
       'AI/ML concepts (if applicable)',
@@ -513,12 +752,67 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Don\'t memorize definitions without understanding them.',
       'If you don\'t know something, be honest and explain how you would approach learning or solving it.',
     ],
+    overview:
+      'The Technical assessment evaluates your core technical proficiency, coding principles, algorithm design, system fundamentals, and ability to explain complex engineering solutions with clarity.',
+    purposeBullets: [
+      'Demonstrate deep conceptual understanding and practical coding ability',
+      'Walk through technical problems with structured problem-solving reasoning',
+      'Explain trade-offs in time complexity, space complexity, and design',
+      'Showcase clean code, testing principles, and debugging intuition',
+      'Communicate effectively while tackling complex engineering challenges',
+    ],
+    coverCategories: [
+      {
+        title: 'Data Structures & Algorithms',
+        theme: 'blue',
+        icon: 'code',
+        items: [
+          'Arrays, strings, hash maps, trees, graphs, heaps',
+          'Recursion, dynamic programming, sorting & binary search',
+          'Time and space complexity (Big-O analysis)',
+          'Edge cases, constraints, and boundary validation',
+        ],
+      },
+      {
+        title: 'Systems & Architecture',
+        theme: 'green',
+        icon: 'cpu',
+        items: [
+          'OOP, functional programming, and design patterns',
+          'Concurrency, asynchronous I/O, and multi-threading',
+          'API design (REST, GraphQL, gRPC), caching, and DBs',
+          'Memory management, optimization, and profiling',
+        ],
+      },
+      {
+        title: 'Code Quality & Production',
+        theme: 'amber',
+        icon: 'settings',
+        items: [
+          'Writing clean, modular, maintainable code',
+          'Unit testing, integration testing, and test coverage',
+          'CI/CD pipelines, containerization (Docker, K8s)',
+          'Debugging strategies and live incident troubleshooting',
+        ],
+      },
+    ],
+    expectItems: [
+      { icon: 'clock', text: 'Duration: ~15 minutes' },
+      { icon: 'chat', text: 'Technical AI interviewer & code evaluator' },
+      { icon: 'file', text: 'Algorithmic, conceptual & scenario questions' },
+      { icon: 'chart', text: 'In-depth analysis of accuracy, depth & explanation' },
+    ],
+    example: {
+      title: 'Example Technical Interview & Transcript',
+      description: 'Review sample technical questions with step-by-step reasoning.',
+      linkText: 'View Example Technical Interview →',
+    },
   },
   SYSTEM_DESIGN: {
     type: 'SYSTEM_DESIGN',
     title: 'System Design Assessment',
     subtitle: 'Design a Scalable System',
-    modalHeader: 'System Design Assessment',
+    modalHeader: 'System Design Assessment Details',
     modalQuestion: 'What is a System Design Assessment?',
     modalDescription:
       'This assessment evaluates your ability to design a complete software or AI system and explain how the different parts work together.',
@@ -567,6 +861,61 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Start with a simple design and add complexity only when needed.',
       'Be prepared to explain why you made each major design decision.',
     ],
+    overview:
+      'The System Design assessment evaluates your ability to design robust, scalable, distributed architectures from ambiguous requirements down to component interactions, data models, and trade-offs.',
+    purposeBullets: [
+      'Architect large-scale, distributed systems from high-level requirements',
+      'Make justified architectural decisions and trade-offs',
+      'Design robust database schemas, partitioning, and caching layers',
+      'Ensure high availability, disaster recovery, fault tolerance, and security',
+      'Communicate architectural diagrams and systems thinking clearly',
+    ],
+    coverCategories: [
+      {
+        title: 'Requirements & Architecture',
+        theme: 'blue',
+        icon: 'layers',
+        items: [
+          'Functional vs non-functional requirements definition',
+          'Back-of-the-envelope scale & throughput estimation',
+          'Microservices, API Gateway, and load balancers',
+          'Stateless vs stateful components and CDN caching',
+        ],
+      },
+      {
+        title: 'Data Tier & Partitioning',
+        theme: 'green',
+        icon: 'cpu',
+        items: [
+          'SQL vs NoSQL selection, indexing, and normalization',
+          'Database sharding, master-replica, and read scalability',
+          'Distributed caching (Redis, Memcached, write strategies)',
+          'Event-driven messaging (Kafka, RabbitMQ, SQS)',
+        ],
+      },
+      {
+        title: 'Reliability & Resilience',
+        theme: 'amber',
+        icon: 'settings',
+        items: [
+          'Consistency vs availability trade-offs (CAP theorem)',
+          'Rate limiting, circuit breakers, and fault tolerance',
+          'Distributed transactions, consensus, and idempotency',
+          'Monitoring, tracing, logging (Prometheus, Grafana, OpenTelemetry)',
+        ],
+      },
+    ],
+    expectItems: [
+      { icon: 'clock', text: 'Duration: ~15 minutes' },
+      { icon: 'chat', text: 'Distributed systems AI interviewer' },
+      { icon: 'file', text: 'End-to-end design problems (URL shortener, Feed, Chat)' },
+      { icon: 'chart', text: 'Scorecard on scalability, reliability & trade-off analysis' },
+    ],
+    example: {
+      title: 'Example System Design Walkthrough & Transcript',
+      description: 'Explore a full architectural walkthrough with diagram explanations.',
+      linkText: 'View Example System Design →',
+    },
   },
 };
 
