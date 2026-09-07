@@ -131,18 +131,18 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
       </div>
 
       {/* ── Media Selection Cards (Audio Only vs Video + Audio) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
         {/* Card 1: Audio Only */}
         <div
           onClick={handleSelectAudioOnly}
-          className={`relative flex items-center justify-between py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[52px] ${
+          className={`relative flex items-center justify-between py-2 sm:py-2.5 px-3 sm:px-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[54px] sm:min-h-[58px] ${
             !videoEnabled
               ? 'border-[#7C3AED] bg-purple-50/20 dark:bg-purple-950/20 shadow-sm ring-1 ring-[#7C3AED]/20'
               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] shrink-0">
               <Mic className="w-3.5 h-3.5 stroke-[2]" />
             </div>
             <div>
@@ -170,14 +170,14 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         {/* Card 2: Video + Audio */}
         <div
           onClick={handleSelectVideoAudio}
-          className={`relative flex items-center justify-between py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[52px] ${
+          className={`relative flex items-center justify-between py-2 sm:py-2.5 px-3 sm:px-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[54px] sm:min-h-[58px] ${
             videoEnabled
               ? 'border-[#7C3AED] bg-purple-50/20 dark:bg-purple-950/20 shadow-sm ring-1 ring-[#7C3AED]/20'
               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] shrink-0">
               <Video className="w-3.5 h-3.5 stroke-[2]" />
             </div>
             <div>
@@ -217,7 +217,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         <div className="space-y-1.5">
           {/* Checkbox 1: Combined Media Consent (Camera & Microphone when video enabled, Microphone only when audio only) */}
           <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3">
-            <label className="flex items-center gap-3 flex-1 cursor-pointer select-none">
+            <label className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={videoEnabled ? (consentMic && consentCamera) : consentMic}
@@ -226,7 +226,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                   if (setConsentMic) setConsentMic(val);
                   if (videoEnabled && setConsentCamera) setConsentCamera(val);
                 }}
-                className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                className="w-4 h-4 mt-0.5 sm:mt-0 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
               />
               <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
                 {videoEnabled ? (
@@ -258,7 +258,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                     Required
                   </span>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
                   {videoEnabled
                     ? 'Allow camera and microphone access to conduct your interview and proctoring.'
                     : 'Allow microphone access to record audio and capture your spoken answers.'}
@@ -270,12 +270,12 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
           {/* Checkbox 2: AI Video Analytics (Shown if Video + Audio is selected) */}
           {videoEnabled && (
             <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3 animate-in fade-in duration-200">
-              <label className="flex items-center gap-3 flex-1 cursor-pointer select-none">
+              <label className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={videoAnalyticsEnabled}
                   onChange={(e) => setVideoAnalyticsEnabled(e.target.checked)}
-                  className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                  className="w-4 h-4 mt-0.5 sm:mt-0 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
                 />
                 <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
                   <Video className="w-3.5 h-3.5 stroke-[2]" />
@@ -301,7 +301,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                       Recommended
                     </span>
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
                     Real-time video analysis for engagement, attention, and presentation feedback.
                   </p>
                 </div>
@@ -311,12 +311,12 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
           {/* Checkbox 3: Save Interview Recording */}
           <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3">
-            <label className="flex items-center gap-3 flex-1 cursor-pointer select-none">
+            <label className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={consentSaveRecording}
                 onChange={(e) => setConsentSaveRecording && setConsentSaveRecording(e.target.checked)}
-                className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                className="w-4 h-4 mt-0.5 sm:mt-0 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
               />
               <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
                 <Video className="w-3.5 h-3.5 stroke-[2]" />
@@ -339,7 +339,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                     <Info className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
                   Store full video/audio recording in your account for review.
                 </p>
               </div>
@@ -348,12 +348,12 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
           {/* Checkbox 4: Save Interview Transcript */}
           <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3">
-            <label className="flex items-center gap-3 flex-1 cursor-pointer select-none">
+            <label className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={consentSaveTranscript}
                 onChange={(e) => setConsentSaveTranscript(e.target.checked)}
-                className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                className="w-4 h-4 mt-0.5 sm:mt-0 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
               />
               <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
                 <FileText className="w-3.5 h-3.5 stroke-[2]" />
@@ -376,7 +376,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                     <Info className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-normal">
                   Save full question and answer text with AI feedback for future review.
                 </p>
               </div>
@@ -386,11 +386,11 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
       </div>
 
       {/* ── Footer Navigation Buttons ── */}
-      <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 mt-auto">
+      <div className="pt-2.5 sm:pt-3 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 mt-auto">
         <button
           type="button"
           onClick={onBack}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+          className="px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
         >
           Back
         </button>
@@ -399,7 +399,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
           type="button"
           disabled={!canProceed}
           onClick={handleNextClick}
-          className={`px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+          className={`px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
             canProceed
               ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white cursor-pointer active:scale-95 shadow-purple-500/20'
               : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
@@ -414,13 +414,13 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
       {/* INFO MODALS POPUP (Mounted via Portal over Full Page)               */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       {portalTarget && activeModal && createPortal(
-        <div className="fixed inset-0 z-[99999999] bg-slate-950/45 dark:bg-black/65 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-none p-6 sm:p-7 space-y-4 animate-in zoom-in-95 duration-150 relative text-left">
+        <div className="fixed inset-0 z-[99999999] bg-slate-950/45 dark:bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-[450px] max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-none p-5 sm:p-7 space-y-4 animate-in zoom-in-95 duration-150 relative text-left">
             {/* Close 'X' Button */}
             <button
               type="button"
               onClick={() => setActiveModal(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="absolute top-4 sm:top-5 right-4 sm:right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>

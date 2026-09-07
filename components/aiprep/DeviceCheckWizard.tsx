@@ -1006,51 +1006,54 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     <div
       className={
         step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-100/80 dark:bg-[#070b14] flex items-center justify-center p-1.5 sm:p-3 overflow-hidden select-none"
+          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-100/80 dark:bg-[#070b14] flex items-center justify-center p-0 sm:p-2 md:p-3 overflow-hidden select-none"
           : "w-full h-full flex-1 flex flex-col p-1 sm:p-2 select-none"
       }
     >
       <div
         className={
           step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-            ? "w-full max-w-[98vw] 2xl:max-w-[1650px] h-[92vh] max-h-[92vh] sm:h-[93.5vh] sm:max-h-[93.5vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl shadow-slate-200/60 dark:shadow-black/70 overflow-hidden flex flex-col my-auto transition-all animate-in fade-in duration-200"
+            ? "w-full max-w-[100vw] sm:max-w-[98vw] 2xl:max-w-[1650px] h-full sm:h-[93.5vh] sm:max-h-[93.5vh] bg-white dark:bg-slate-900 border-0 sm:border sm:border-slate-200 dark:sm:border-slate-800 rounded-none sm:rounded-3xl shadow-xl shadow-slate-200/60 dark:shadow-black/70 overflow-hidden flex flex-col my-auto transition-all animate-in fade-in duration-200"
             : "w-full flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col transition-all animate-in fade-in duration-200"
         }
       >
 
         {/* Top Bar Header */}
-        <div className="relative w-full px-4 sm:px-6 py-3 min-h-[52px] sm:min-h-[56px] border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/90 flex items-center justify-between shrink-0">
-          <div className="w-20 hidden sm:block shrink-0" />
-          <div className="flex items-center justify-center gap-2 sm:gap-3 flex-1 sm:flex-none">
+        <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/90 flex items-center justify-between shrink-0">
+          <div className="w-12 sm:w-20 hidden md:block shrink-0" />
+          <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
             {[
-              { key: 'CONFIGURATION', num: 1, label: 'Assessment Type' },
-              { key: 'CONSENT', num: 2, label: 'Consent' },
-              { key: 'DEVICE_CHECK', num: 3, label: 'Device Check' },
-              { key: 'CONFIRMATION', num: 4, label: 'Confirmation' },
-            ].map(({ key, num, label }, idx, arr) => {
+              { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
+              { key: 'CONSENT', num: 2, label: 'Consent', shortLabel: 'Consent' },
+              { key: 'DEVICE_CHECK', num: 3, label: 'Device Check', shortLabel: 'Device' },
+              { key: 'CONFIRMATION', num: 4, label: 'Confirmation', shortLabel: 'Confirm' },
+            ].map(({ key, num, label, shortLabel }, idx, arr) => {
               const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
               return (
-                <div key={key} className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
+                <div key={key} className="flex items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <span className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
                       {isDone ? <Check className="w-3 h-3 stroke-[3]" /> : num}
                     </span>
-                    <span className={`text-[11px] font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white' : isDone ? 'text-slate-500 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'}`}>{label}</span>
+                    <span className={`text-[11px] sm:text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
+                      <span className="hidden md:inline">{label}</span>
+                      <span className="inline md:hidden">{shortLabel}</span>
+                    </span>
                   </div>
-                  {idx < arr.length - 1 && <div className={`w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+                  {idx < arr.length - 1 && <div className={`w-2 sm:w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
                 </div>
               );
             })}
           </div>
 
-          <div className="w-20 flex justify-end shrink-0">
+          <div className="w-auto sm:w-20 flex justify-end shrink-0">
             {step !== 'CONFIGURATION' && step !== 'CONSENT' && (
               <button
                 onClick={() => {
                   cleanup();
                   handlePrevious();
                 }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-3 h-3" />
                 <span>Back</span>
@@ -1060,7 +1063,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${step === 'CONSENT' || step === 'CONFIGURATION' ? 'p-2 sm:p-4 justify-start' : 'pt-1 sm:pt-2 px-2 sm:px-4 pb-2 sm:pb-3 justify-between'} flex flex-col items-center w-full`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto ${step === 'CONSENT' || step === 'CONFIGURATION' ? 'p-2 sm:p-4 justify-start' : 'pt-1.5 sm:pt-2 px-2 sm:px-4 md:px-6 pb-2 sm:pb-3 justify-between'} flex flex-col items-center w-full`}>
 
           {/* STEP 1: CONFIGURATION */}
           {step === 'CONFIGURATION' && (
@@ -1094,9 +1097,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           {step === 'DEVICE_CHECK' && (
             <div className="w-full max-w-full px-4 sm:px-6 pt-0 pb-0 flex flex-col justify-between flex-1 min-h-0 space-y-1.5 animate-in fade-in duration-200">
 
-              {/* Main Workspace 2-Column Grid */}
-              <div className="grid grid-cols-12 gap-5 sm:gap-6 items-stretch w-full max-w-full mx-auto my-auto flex-1">
-                <div className="col-span-12 lg:col-span-7 xl:col-span-8 flex flex-col justify-between h-full space-y-3">
+              {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start lg:items-stretch w-full max-w-full mx-auto my-auto flex-1">
+                <div className="col-span-1 lg:col-span-7 xl:col-span-8 flex flex-col justify-between h-full space-y-3">
                   {/* Video Viewport Frame / Audio-Only Card */}
                   <div className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center flex-1 ${!videoEnabled ? (((micTested && micOk === false) || (internetStatus === 'unstable' || internetStatus === 'failed')) ? 'min-h-[200px] max-h-[240px]' : 'min-h-[240px] sm:min-h-[270px] max-h-[320px]') + ' bg-[#F7F9FE] dark:bg-slate-900/90' : (((micTested && micOk === false) || (internetStatus === 'unstable' || internetStatus === 'failed')) ? 'aspect-[16/9] min-h-[210px] max-h-[260px]' : 'aspect-[16/9] min-h-[250px] sm:min-h-[285px] lg:min-h-[310px] max-h-[340px]') + ' bg-slate-950'}`}>
                     {!videoEnabled ? (
@@ -1346,16 +1349,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                   {/* Camera Troubleshooting Alert Card (Shown when camera failed and internet is not completely offline) */}
                   {(videoEnabled && cameraTested && cameraOk === false && internetStatus !== 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3.5 sm:p-4 text-left flex items-start justify-between gap-3.5 animate-in fade-in duration-200 shadow-2xs">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3 sm:p-4 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-3.5 animate-in fade-in duration-200 shadow-2xs">
+                      <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
                         <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                           <VideoOff className="w-3.5 h-3.5 stroke-[2.5]" />
                         </div>
-                        <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
                           <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
                             Camera not detected or access blocked. Please check:
                           </h4>
-                          <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                          <ul className="space-y-1 text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 font-medium">
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                               <span>Your webcam is plugged in and lens cover is open.</span>
@@ -1371,7 +1374,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           </ul>
                         </div>
                       </div>
-                      <div className="self-center shrink-0">
+                      <div className="self-end sm:self-center shrink-0">
                         <button
                           type="button"
                           onClick={() => testCamera()}
@@ -1387,16 +1390,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                   {/* Microphone Troubleshooting Alert Card (Shown when mic failed and internet is not completely offline) */}
                   {(micTested && micOk === false && internetStatus !== 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3.5 sm:p-4 text-left flex items-start justify-between gap-3.5 animate-in fade-in duration-200 shadow-2xs">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3 sm:p-4 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-3.5 animate-in fade-in duration-200 shadow-2xs">
+                      <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
                         <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                           <MicOff className="w-3.5 h-3.5 stroke-[2.5]" />
                         </div>
-                        <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
                           <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
                             Microphone not detected or no audio received. Please check:
                           </h4>
-                          <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                          <ul className="space-y-1 text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 font-medium">
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                               <span>Your microphone is plugged in and hardware mute switch is off.</span>
@@ -1412,7 +1415,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           </ul>
                         </div>
                       </div>
-                      <div className="self-center shrink-0">
+                      <div className="self-end sm:self-center shrink-0">
                         <button
                           type="button"
                           onClick={() => testMicrophone()}
@@ -1428,16 +1431,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                   {/* Speaker Troubleshooting Alert Card (Shown when speaker failed and internet is not completely offline) */}
                   {(speakerTested && speakerOk === false && internetStatus !== 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3.5 sm:p-4 text-left flex items-start justify-between gap-3.5 animate-in fade-in duration-200 shadow-2xs">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3 sm:p-4 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-3.5 animate-in fade-in duration-200 shadow-2xs">
+                      <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
                         <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                           <VolumeX className="w-3.5 h-3.5 stroke-[2.5]" />
                         </div>
-                        <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
                           <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
                             We couldn&apos;t play the test sound. Please check:
                           </h4>
-                          <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                          <ul className="space-y-1 text-[11px] sm:text-xs text-slate-700 dark:text-slate-200 font-medium">
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                               <span>Your speakers are connected and volume is up.</span>
@@ -1453,7 +1456,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           </ul>
                         </div>
                       </div>
-                      <div className="self-center shrink-0">
+                      <div className="self-end sm:self-center shrink-0">
                         <button
                           type="button"
                           onClick={() => playChimeTone()}
@@ -1477,7 +1480,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       : (audioDevices[0]?.deviceId || 'default');
 
                     return (
-                      <div className={`grid gap-3.5 sm:gap-4 pt-2.5 mt-auto ${videoEnabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 max-w-2xl'}`}>
+                      <div className={`grid gap-3 sm:gap-4 pt-2 sm:pt-2.5 mt-auto ${videoEnabled ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 max-w-2xl'}`}>
                         {videoEnabled && (
                           <div className="flex flex-col">
                             <span className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white mb-1.5">Camera</span>
@@ -1546,14 +1549,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             </select>
                             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                           </div>
-                          <div className="mt-2 flex items-center gap-2.5">
-                            <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`h-9 px-4 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}>
+                          <div className="mt-2 flex flex-wrap sm:flex-nowrap items-center gap-2">
+                            <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`h-9 px-3.5 sm:px-4 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}>
                               <Mic className={`w-4 h-4 ${micTesting ? 'text-white' : 'text-[#4A6CF7]'}`} />
                               <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest Mic' : 'Test Mic'}</span>
                             </button>
-                            <div className="flex items-center gap-1 px-1.5 py-0.5">
-                              {Array.from({ length: 14 }).map((_, i) => (
-                                <div key={i} className={`w-1 rounded-full transition-all duration-75 ${(micTesting ? micLevel > (i / 14) * 100 : micTested && micOk ? i < 10 : micTested && micOk === false ? i === 0 : false) ? (micTested && micOk === false ? 'bg-rose-500 h-3' : 'bg-emerald-500 h-3.5') : 'bg-slate-200 dark:bg-slate-700 h-1.5'}`} />
+                            <div className="flex items-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-0.5 overflow-hidden">
+                              {Array.from({ length: 12 }).map((_, i) => (
+                                <div key={i} className={`w-1 rounded-full transition-all duration-75 ${(micTesting ? micLevel > (i / 12) * 100 : micTested && micOk ? i < 9 : micTested && micOk === false ? i === 0 : false) ? (micTested && micOk === false ? 'bg-rose-500 h-3' : 'bg-emerald-500 h-3.5') : 'bg-slate-200 dark:bg-slate-700 h-1.5'}`} />
                               ))}
                             </div>
                           </div>
@@ -1598,7 +1601,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 </div>
 
                 {/* Right Column: Device Status Card OR Permission Guide Card */}
-                <div className="col-span-12 lg:col-span-5 xl:col-span-4 flex flex-col space-y-3">
+                <div className="col-span-1 lg:col-span-5 xl:col-span-4 flex flex-col space-y-3">
                   {showPermissionGuide ? (
                     /* Browser Permissions Required Notice Card (Camera / Microphone) */
                     <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-5 space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
@@ -1857,11 +1860,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               </div>
 
               {/* Bottom Nav */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80 w-full mt-2">
-                <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm">
+              <div className="flex items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-100 dark:border-slate-800/80 w-full mt-2 bg-white dark:bg-slate-900 shrink-0">
+                <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs">
                   ← Back
                 </button>
-                <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-7 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
+                <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
                   {!allChecksPass && <Lock className="w-3.5 h-3.5" />}
                   <span>Next: Confirmation</span>
                   <ChevronRight className="w-4 h-4 stroke-[2.5]" />
