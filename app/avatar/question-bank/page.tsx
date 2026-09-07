@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, AlertTriangle, RotateCcw, HelpCircle, Sparkles } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, RotateCcw } from "lucide-react";
 import { QuestionBankItem, QuestionFiltersState } from "@/types/aiprep";
 import {
   fetchQuestionBank,
@@ -193,8 +193,6 @@ export default function QuestionBankPage() {
         filters={filters}
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}
-        totalResults={totalCount}
-        onAddQuestion={openAddDrawer}
       />
 
       {/* Error state */}

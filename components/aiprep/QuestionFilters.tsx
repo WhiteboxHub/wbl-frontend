@@ -10,8 +10,6 @@ interface QuestionFiltersProps {
   filters: QuestionFiltersState;
   onFilterChange: (filters: Partial<QuestionFiltersState>) => void;
   onReset: () => void;
-  totalResults: number;
-  onAddQuestion: () => void;
 }
 
 export const QuestionFilters: React.FC<QuestionFiltersProps> = ({

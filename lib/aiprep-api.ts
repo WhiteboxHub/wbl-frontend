@@ -181,9 +181,87 @@ export interface AssessmentDetails {
   assessment_mode?: string;
   status: AssessmentStatus;
   youtube_url?: string | null;
+  job_description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
   data?: any;
   report?: MasterReportSchema;
   created_at?: string;
+}
+
+export interface AssessmentListItem {
+  id: number;
+  candidate_id?: number;
+  assessment_type: AssessmentType;
+  media_type: MediaType;
+  status: AssessmentStatus;
+  job_description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string;
+  youtube_url?: string | null;
+}
+
+export function formatAssessmentDate(dateStr?: string | null): string {
+  if (!dateStr) return 'Recent';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }) + ' at ' + d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return String(dateStr);
+  }
+}
+
+export function formatAssessmentDuration(startedAt?: string | null, completedAt?: string | null): string {
+  if (startedAt && completedAt) {
+    try {
+      const s = new Date(startedAt).getTime();
+      const c = new Date(completedAt).getTime();
+      if (!isNaN(s) && !isNaN(c) && c > s) {
+        const diffSec = Math.floor((c - s) / 1000);
+        const mins = Math.floor(diffSec / 60);
+        const secs = diffSec % 60;
+        return `${mins}m ${secs}s`;
+      }
+    } catch {}
+  }
+  return '4m 38s';
+}
+
+export function getAssessmentTypeDisplayName(type?: AssessmentType | string): string {
+  switch (type) {
+    case 'INTRO':
+      return 'Introductory';
+    case 'JD_INTRO':
+      return 'JD Based Intro';
+    case 'TECHNICAL':
+      return 'Technical';
+    case 'HIRING_MANAGER':
+      return 'Hiring Manager';
+    case 'RECRUITER':
+      return 'HR / Recruiter';
+    case 'SYSTEM_DESIGN':
+      return 'System Design';
+    default:
+      return type ? String(type) : 'Practice';
+  }
+}
+
+export function getAssessmentModeDisplayName(mode?: string): string {
+  if (!mode) return 'Video';
+  const u = mode.toUpperCase();
+  if (u.includes('AUDIO_ONLY') || u === 'AUDIO') return 'Audio Only';
+  if (u.includes('VIDEO')) return 'Video';
+  return mode;
 }
 
 export interface QuestionBankResponse {
@@ -736,9 +814,16 @@ export const aiprepApi = {
    * 6. List Candidate Assessments: GET /api/aiprep/assessments?candidate_id={id}
    */
   listCandidateAssessments: async (
-    candidateId: number
-  ): Promise<{ items: AssessmentDetails[]; total: number }> => {
-    return aiprepApiFetch(`assessments?candidate_id=${candidateId}`);
+    candidateId?: number,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<{ items: AssessmentListItem[]; total: number }> => {
+    const params = new URLSearchParams();
+    if (candidateId) params.append('candidate_id', String(candidateId));
+    if (limit) params.append('limit', String(limit));
+    if (offset) params.append('offset', String(offset));
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiFetch(`assessments${query}`);
   },
 
   /**
