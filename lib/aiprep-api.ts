@@ -554,11 +554,11 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     overview:
       'A Recruiter Interview is an initial conversation that helps the recruiter understand your professional background, career goals, motivation, availability, and overall fit for the role. It focuses on your experience, what you are looking for in your next opportunity, and important job-related expectations.',
     purposeBullets: [
-      'Master the critical initial recruiter screening conversation',
-      'Communicate your career narrative concisely and engagingly',
-      'Articulate your motivation for exploring new career opportunities',
-      'Demonstrate professionalism, active listening, and strong culture fit',
-      'Navigate compensation, availability, and logistical discussions with confidence',
+      'Clearly communicate your background and career journey',
+      'Explain your motivation and interest in the opportunity',
+      'Highlight relevant skills, experience, and achievements',
+      'Demonstrate clear, confident, and professional communication',
+      'Discuss availability, compensation, and work preferences confidently',
     ],
     coverCategories: [
       {
