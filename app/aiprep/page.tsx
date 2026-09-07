@@ -74,15 +74,13 @@ export default function AIPrepPage() {
     verifyAuthAndInitSession();
   }, [router]);
 
-  // Redirect standalone access to /aiprep so it opens inside Candidate Dashboard layout
+  const [isEmbedded, setIsEmbedded] = useState(false);
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isEmbedded = window.self !== window.top || searchParams.get('embed') === 'true';
-      if (!isEmbedded) {
-        router.replace('/user_dashboard/ai-prep');
-      }
+      const embedded = window.self !== window.top || searchParams.get('embed') === 'true';
+      setIsEmbedded(embedded);
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   // Active preferences
   const queryType = searchParams.get('type') as AssessmentType | null;
@@ -269,6 +267,7 @@ export default function AIPrepPage() {
           assessmentType={effectiveType}
           assessmentMode={effectiveMode}
           audioOnly={effectiveMode === 'AUDIO_ONLY'}
+          initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'CONFIGURATION'}
           onPrepareConfirmation={handlePrepareConfirmation}
           onComplete={handleCheckComplete}
           onCancel={handleCancel}

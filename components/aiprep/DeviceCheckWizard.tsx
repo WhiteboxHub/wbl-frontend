@@ -1,77 +1,49 @@
 /**
- * DeviceCheckWizard Component
- *
- * Target Workspace: wbl-frontend
- *
- * Single-file 4-Step Onboarding & Device Verification Wizard:
- *   Step 1: CONFIGURATION  -> Select Assessment Scenario & Session Preferences
- *   Step 2: CONSENT        -> Privacy & Device Permissions (Pure sessionStorage, no API calls)
- *   Step 3: DEVICE_CHECK   -> Camera feed, Mic equalizer, Speaker tone, YOLO posture, Readiness checklist
- *   Step 4: CONFIRMATION   -> Final system check summary & backend telemetry verification
+ * DeviceCheckWizard Component - Target Workspace: wbl-frontend
+ * 4-Step Onboarding & Hardware Verification Wizard (Compact & Hook-driven)
  */
-
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Camera,
-  Mic,
-  Volume2,
-  Check,
-  ChevronRight,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
-  Wifi,
-  Monitor,
-  ArrowLeft,
-  Video,
-  RefreshCw,
-  Briefcase,
-  FileText,
-  Eye,
-  Lock,
-  ShieldAlert,
-  X,
-  ChevronDown,
-  Play,
-  Globe,
+  Camera, Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff,
+  ArrowLeft, ArrowDown, ArrowUp, Activity, Video, VideoOff, AlertCircle, AlertTriangle, RefreshCw, Briefcase, FileText, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, Settings, ExternalLink,
 } from 'lucide-react';
-
 import { AssessmentConfig } from './AssessmentCard';
 import { ConsentStep } from './ConsentModal';
-import { aiprepApi, AssessmentDetails, AssessmentType } from '@/lib/aiprep-api';
-import { apiFetch } from '@/lib/api';
-
-const cleanDeviceLabel = (label: string, fallback: string = 'Device') => {
-  if (!label) return fallback;
-  let cleaned = label
-    .replace(/^(Default|Communications)\s*-\s*/i, '')
-    .replace(/\s*\([^)]*\)/g, '')
-    .replace(/\s*\{[^}]*\}/g, '')
-    .trim();
-  if (cleaned.length > 30) {
-    cleaned = cleaned.substring(0, 28) + '...';
-  }
-  return cleaned || fallback;
-};
-
-const filterUniqueDevices = (devs: MediaDeviceInfo[], defaultFallback: string) => {
-  const seen = new Set<string>();
-  const result: { deviceId: string; label: string }[] = [];
-  for (const d of devs) {
-    const cleaned = cleanDeviceLabel(d.label, defaultFallback);
-    if (!seen.has(cleaned)) {
-      seen.add(cleaned);
-      result.push({ deviceId: d.deviceId, label: cleaned });
-    }
-  }
-  return result;
-};
+import { AssessmentType } from '@/lib/aiprep-api';
+import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'CONFIRMATION';
+interface MediaDev { deviceId: string; label: string; }
+
+const cleanLabel = (label: string, fallback: string) => {
+  if (!label || !label.trim()) return fallback;
+  const c = label.replace(/^(Default|Communications)\s*-\s*/i, '').trim();
+  return c || fallback;
+};
+
+const filterDevs = (devs: any[], kind: string, fallback: string): MediaDev[] => {
+  const seen = new Set<string>();
+  const list = devs
+    .filter((d) => d.kind === kind)
+    .map((d, i) => {
+      const devId = d.deviceId || (i === 0 ? 'default' : `dev-${i}`);
+      const rawLabel = d.label && d.label.trim() ? d.label.trim() : `${fallback} ${i + 1}`;
+      const l = cleanLabel(rawLabel, fallback);
+      return { deviceId: devId, label: l };
+    })
+    .filter((d) => {
+      if (!seen.has(d.label)) {
+        seen.add(d.label);
+        return true;
+      }
+      return false;
+    });
+
+  return list.length > 0 ? list : [{ deviceId: 'default', label: fallback }];
+};
 
 interface DeviceCheckWizardProps {
   assessmentId: number;
@@ -79,47 +51,10 @@ interface DeviceCheckWizardProps {
   assessmentMode: string;
   audioOnly?: boolean;
   initialStep?: WizardStep;
-  onPrepareConfirmation?: (results: {
-    browser_info: string;
-    os_info: string;
-    camera_permission: boolean;
-    mic_permission: boolean;
-    speaker_ok: boolean;
-    bandwidth_kbps: number;
-    yolo_consent: boolean;
-    assessment_type: string;
-    audio_enabled: boolean;
-    video_enabled: boolean;
-    jd_text: string;
-  }) => Promise<number>;
-  onComplete: (results: {
-    browser_info: string;
-    os_info: string;
-    camera_permission: boolean;
-    mic_permission: boolean;
-    speaker_ok: boolean;
-    bandwidth_kbps: number;
-    yolo_consent: boolean;
-    assessment_type: string;
-    audio_enabled: boolean;
-    video_enabled: boolean;
-    jd_text: string;
-  }) => void;
+  onPrepareConfirmation?: (results: any) => Promise<number>;
+  onComplete: (results: any) => void;
   onCancel: () => void;
 }
-
-interface ConfirmedBackendData extends AssessmentDetails { }
-
-interface MediaDeviceInfo {
-  deviceId: string;
-  label: string;
-}
-
-
-
-/* ═══════════════════════════════════════════════════════════════════════════ */
-/* MAIN WIZARD COMPONENT                                                      */
-/* ═══════════════════════════════════════════════════════════════════════════ */
 
 export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   assessmentId: initialAssessmentId,
@@ -133,68 +68,88 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 }) => {
   const router = useRouter();
 
-  // 1. Wizard Step & Mode State
-  const [step, setStep] = useState<WizardStep>(initialStep);
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>((initialType as AssessmentType) || 'INTRO');
+  // 1. Wizard Configuration State
+  const [step, setStep] = useState<WizardStep>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlStep = urlParams.get('step') as WizardStep | null;
+      if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'CONFIRMATION'].includes(urlStep)) {
+        return urlStep;
+      }
+      const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
+      if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'CONFIRMATION'].includes(savedStep)) {
+        return savedStep;
+      }
+      if (window.location.pathname.includes('/device-check')) {
+        return 'DEVICE_CHECK';
+      }
+    }
+    return initialStep;
+  });
+
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
+    if (typeof window !== 'undefined') {
+      const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
+      if (savedType) return savedType;
+    }
+    return (initialType as AssessmentType) || 'INTRO';
+  });
+
   const [videoEnabled, setVideoEnabled] = useState<boolean>(!audioOnly && initialMode !== 'AUDIO_ONLY');
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(true);
-  const [jdText, setJdText] = useState<string>('');
+  const [jdText, setJdText] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('aiprep_jd_text') || '';
+    }
+    return '';
+  });
   const [showJdModal, setShowJdModal] = useState<boolean>(false);
 
-  // 2. Consent States (sessionStorage persistence, NO API calls)
-  const [consentMic, setConsentMic] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return sessionStorage.getItem('aiprep_consent_mic') !== 'false';
-  });
+  // 2. Consent State
+  const [consentMic, setConsentMic] = useState<boolean>(() => typeof window === 'undefined' ? true : sessionStorage.getItem('aiprep_consent_mic') !== 'false');
+  const [consentCamera, setConsentCamera] = useState<boolean>(() => typeof window === 'undefined' ? true : sessionStorage.getItem('aiprep_consent_camera') !== 'false');
+  const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(() => typeof window === 'undefined' ? true : sessionStorage.getItem('aiprep_consent_recording') !== 'false');
+  const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(() => typeof window === 'undefined' ? true : sessionStorage.getItem('aiprep_consent_transcript') !== 'false');
 
-  const [consentCamera, setConsentCamera] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return sessionStorage.getItem('aiprep_consent_camera') !== 'false';
-  });
-
-  const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return sessionStorage.getItem('aiprep_consent_recording') !== 'false';
-  });
-
-  const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    return sessionStorage.getItem('aiprep_consent_transcript') !== 'false';
-  });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('aiprep_active_mode', videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
-      sessionStorage.setItem('aiprep_consent_mic', consentMic ? 'true' : 'false');
-      sessionStorage.setItem('aiprep_consent_camera', consentCamera ? 'true' : 'false');
-      sessionStorage.setItem('aiprep_consent_yolo', videoAnalyticsEnabled ? 'true' : 'false');
-      sessionStorage.setItem('aiprep_consent_recording', consentSaveRecording ? 'true' : 'false');
-      sessionStorage.setItem('aiprep_consent_transcript', consentSaveTranscript ? 'true' : 'false');
-    }
-  }, [videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript]);
-
-  // Full-screen Viewport Expansion (hides parent left sidebar, top header & bottom footer ONLY during DEVICE_CHECK & CONFIRMATION steps)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    sessionStorage.setItem('aiprep_wizard_step', step);
+    sessionStorage.setItem('aiprep_active_type', assessmentType);
+    sessionStorage.setItem('aiprep_active_mode', videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+    sessionStorage.setItem('aiprep_consent_mic', String(consentMic));
+    sessionStorage.setItem('aiprep_consent_camera', String(consentCamera));
+    sessionStorage.setItem('aiprep_consent_yolo', String(videoAnalyticsEnabled));
+    sessionStorage.setItem('aiprep_consent_recording', String(consentSaveRecording));
+    sessionStorage.setItem('aiprep_consent_transcript', String(consentSaveTranscript));
+    if (jdText) sessionStorage.setItem('aiprep_jd_text', jdText);
 
+    // Keep URL parameter in sync with active step so page reload preserves step
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('step') !== step) {
+        url.searchParams.set('step', step);
+        window.history.replaceState(null, '', url.toString());
+      }
+    } catch { }
+  }, [step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
+
+  // Fullscreen container behavior (expands parent iframe to cover full viewport)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const isFullScreenStep = step === 'DEVICE_CHECK' || step === 'CONFIRMATION';
     if (!isFullScreenStep) return;
 
-    // Lock local body overflow
-    const origBodyOverflow = document.body.style.overflow;
+    const origOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     let parentIframe: HTMLElement | null = null;
-    let origIframeCssText = '';
-    let origParentBodyOverflow = '';
+    let origIframeCss = '', origParentOverflow = '';
 
-    // If hosted inside CandidateDashboard iframe
     if (window.parent && window.parent !== window) {
       try {
         const parentDoc = window.parent.document;
-        origParentBodyOverflow = parentDoc.body.style.overflow;
+        origParentOverflow = parentDoc.body.style.overflow;
         parentDoc.body.style.setProperty('overflow', 'hidden', 'important');
-
         const iframes = parentDoc.querySelectorAll('iframe');
         for (let i = 0; i < iframes.length; i++) {
           const f = iframes[i];
@@ -203,547 +158,458 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             break;
           }
         }
-
         if (parentIframe) {
-          origIframeCssText = parentIframe.style.cssText;
-          parentIframe.style.setProperty('position', 'fixed', 'important');
-          parentIframe.style.setProperty('top', '0px', 'important');
-          parentIframe.style.setProperty('left', '0px', 'important');
-          parentIframe.style.setProperty('width', '100vw', 'important');
-          parentIframe.style.setProperty('height', '100vh', 'important');
-          parentIframe.style.setProperty('z-index', '999999', 'important');
-          parentIframe.style.setProperty('margin', '0px', 'important');
-          parentIframe.style.setProperty('padding', '0px', 'important');
+          origIframeCss = parentIframe.style.cssText;
+          ['position:fixed', 'top:0px', 'left:0px', 'width:100vw', 'height:100vh', 'z-index:999999', 'margin:0px', 'padding:0px'].forEach((r) => {
+            const [k, v] = r.split(':');
+            parentIframe!.style.setProperty(k, v, 'important');
+          });
         }
       } catch (e) {
-        console.warn('Full-screen parent iframe expansion note:', e);
+        console.warn('Parent iframe expansion warning:', e);
       }
     }
 
     return () => {
-      document.body.style.overflow = origBodyOverflow;
+      document.body.style.overflow = origOverflow;
       if (window.parent && window.parent !== window) {
         try {
-          if (parentIframe) {
-            parentIframe.style.cssText = origIframeCssText;
-          }
-          window.parent.document.body.style.overflow = origParentBodyOverflow;
-        } catch (e) { }
+          if (parentIframe) parentIframe.style.cssText = origIframeCss;
+          window.parent.document.body.style.overflow = origParentOverflow;
+        } catch { }
       }
     };
   }, [step]);
 
-  // 3. Hardware Diagnostic States
-  // Media Device UI State: 'disabled' | 'enabling' | 'enabled' | 'error'
-  const [deviceState, setDeviceState] = useState<'disabled' | 'enabling' | 'enabled' | 'error'>('disabled');
-  const [deviceErrorMsg, setDeviceErrorMsg] = useState<string | null>(null);
+  // 3. Hardware Diagnostics & Streams (Initialized from sessionStorage for refresh persistence)
+  const [cameraOk, setCameraOk] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const s = sessionStorage.getItem('aiprep_test_camera_ok');
+    return s === 'true' ? true : s === 'false' ? false : null;
+  });
+  const [micOk, setMicOk] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const s = sessionStorage.getItem('aiprep_test_mic_ok');
+    return s === 'true' ? true : s === 'false' ? false : null;
+  });
+  const [speakerOk, setSpeakerOk] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const s = sessionStorage.getItem('aiprep_test_speaker_ok');
+    return s === 'true' ? true : s === 'false' ? false : null;
+  });
+  const [cameraTested, setCameraTested] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('aiprep_test_camera_tested') === 'true';
+  });
+  const [micTested, setMicTested] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('aiprep_test_mic_tested') === 'true';
+  });
+  const [speakerTested, setSpeakerTested] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('aiprep_test_speaker_tested') === 'true';
+  });
+  const [cameraDetails, setCameraDetails] = useState<{ label: string; resolution: string; frameRate?: number } | null>(null);
 
-  const [cameraOk, setCameraOk] = useState<boolean | null>(null);
-  const [micOk, setMicOk] = useState<boolean | null>(null);
-  const [speakerOk, setSpeakerOk] = useState<boolean | null>(null);
   const [bandwidthKbps, setBandwidthKbps] = useState<number>(0);
-  const [transcriptionText, setTranscriptionText] = useState<string>('');
+  const [networkPingMs, setNetworkPingMs] = useState<number>(45);
+  const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [bandwidthChecking, setBandwidthChecking] = useState<boolean>(false);
   const [browserResult, setBrowserResult] = useState<{ ok: boolean; name: string } | null>(null);
-  const [hardwareError, setHardwareError] = useState<string | null>(null);
   const [errorModalDismissed, setErrorModalDismissed] = useState<boolean>(false);
   const [manualErrorModalType, setManualErrorModalType] = useState<'MIC' | 'CAMERA' | 'SPEAKER' | 'ALL' | null>(null);
+  const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
+  const [permissionGuideTarget, setPermissionGuideTarget] = useState<'camera' | 'mic' | 'network' | 'all'>('camera');
+  const [guideType, setGuideType] = useState<'permission' | 'audio'>('permission');
 
-  // Media Devices
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedVideoDevice, setSelectedVideoDevice] = useState<string>('');
-  const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>('');
+  // Real Internet Connectivity Probe (Probes external endpoints to verify real WAN reachability)
+  const checkRealInternet = useCallback(async (): Promise<{ online: boolean; kbps: number; latencyMs: number }> => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsRealInternetOnline(false);
+      setBandwidthKbps(0);
+      setNetworkPingMs(999);
+      return { online: false, kbps: 0, latencyMs: 999 };
+    }
 
-  // Streams & Audio Analysis
+    const probes = [
+      'https://www.google.com/generate_204',
+      'https://connectivitycheck.gstatic.com/generate_204',
+      'https://1.1.1.1/cdn-cgi/trace',
+    ];
+
+    const probeEndpoint = async (url: string): Promise<number> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+      const start = performance.now();
+      try {
+        await fetch(`${url}?_cb=${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, {
+          mode: 'no-cors',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return Math.max(Math.round(performance.now() - start), 10);
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
+      }
+    };
+
+    let minLatency = 999;
+    let success = false;
+
+    try {
+      minLatency = await Promise.any(probes.map((url) => probeEndpoint(url)));
+      success = true;
+    } catch {
+      success = false;
+    }
+
+    if (!success) {
+      setIsRealInternetOnline(false);
+      setBandwidthKbps(0);
+      setNetworkPingMs(999);
+      return { online: false, kbps: 0, latencyMs: 999 };
+    }
+
+    const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
+    const reportedDownlink = conn?.downlink ? Math.round(conn.downlink * 1000) : null;
+    const reportedRtt = conn?.rtt ? conn.rtt : null;
+
+    const trueLatency = reportedRtt || (minLatency < 900 ? minLatency : 45);
+    const trueKbps = reportedDownlink || (minLatency > 500 ? 350 : 8500);
+
+    setIsRealInternetOnline(true);
+    setBandwidthKbps(trueKbps);
+    setNetworkPingMs(trueLatency);
+    return { online: true, kbps: trueKbps, latencyMs: trueLatency };
+  }, []);
+
+  const [videoDevices, setVideoDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Integrated Webcam' }]);
+  const [audioDevices, setAudioDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Default Microphone' }]);
+  const [selectedVideoDevice, setSelectedVideoDevice] = useState<string>('default');
+  const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>('default');
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Vision Hook Integration
+  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision(videoRef);
+
   const [micLevel, setMicLevel] = useState<number>(0);
   const [micTesting, setMicTesting] = useState<boolean>(false);
-  const [micTested, setMicTested] = useState<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const speechRecRef = useRef<any>(null);
   const micTestingRef = useRef<boolean>(false);
+  const maxLevelSeenRef = useRef<number>(0);
+  const knownAudioDeviceCountRef = useRef<number>(0);
 
-  // Speaker Audio Chime Test State
   const [speakerTestState, setSpeakerTestState] = useState<'idle' | 'playing' | 'confirming'>('idle');
-  const [speakerTested, setSpeakerTested] = useState<boolean>(false);
-
-
-
-  // Real-Time Hardware Hot-Plugging / Unplugging Detection (Decoupled Camera & Audio)
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
-
-    const handleDeviceChange = async () => {
-      try {
-        const devs = await navigator.mediaDevices.enumerateDevices();
-        const rawVDevs = devs.filter((d: any) => d.kind === 'videoinput');
-        const rawADevs = devs.filter((d: any) => d.kind === 'audioinput');
-        const vDevs = filterUniqueDevices(rawVDevs, 'Integrated Webcam');
-        const aDevs = filterUniqueDevices(rawADevs, 'Default Microphone');
-        setVideoDevices(vDevs);
-        setAudioDevices(aDevs);
-
-        // 1. Maintain camera if it is healthy, or reconnect to default if disconnected
-        const camTrack = cameraStreamRef.current?.getVideoTracks()[0];
-        const isCamAlive = camTrack && camTrack.readyState === 'live' && !camTrack.muted;
-        if (!isCamAlive && videoEnabled && vDevs.length > 0) {
-          const nextVid = selectedVideoDevice && vDevs.some((d) => d.deviceId === selectedVideoDevice)
-            ? selectedVideoDevice
-            : vDevs[0].deviceId;
-          setSelectedVideoDevice(nextVid);
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: nextVid ? { deviceId: { exact: nextVid } } : true });
-            cameraStreamRef.current = stream;
-            setCameraStream(stream);
-            setCameraOk(true);
-          } catch (e) { }
-        }
-
-        // 2. If headset / mic was unplugged, cleanly switch to default built-in mic without interrupting camera
-        if (selectedAudioDevice && !aDevs.some((d) => d.deviceId === selectedAudioDevice)) {
-          const nextAud = aDevs.length > 0 ? aDevs[0].deviceId : '';
-          setSelectedAudioDevice(nextAud);
-          try {
-            cleanup('AUDIO_ONLY');
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: nextAud ? { deviceId: { exact: nextAud } } : true });
-            micStreamRef.current = stream;
-            setMicOk(true);
-          } catch (e) { }
-        }
-      } catch (e) {
-        console.warn('Real-time devicechange listener error:', e);
-      }
-    };
-
-    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
-    return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
-    };
-  }, [selectedVideoDevice, selectedAudioDevice, videoEnabled]);
-
-  // Dynamic Candidate Profile loaded from backend API (Instant cache-first load on reload)
-  const [candidateProfile, setCandidateProfile] = useState<{ id?: number; name?: string; email?: string } | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const cached = sessionStorage.getItem('aiprep_cached_profile');
-      return cached ? JSON.parse(cached) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    async function fetchCandidateProfile() {
-      try {
-        const userDash: any = await apiFetch("user_dashboard");
-        if (userDash) {
-          const candidateName = userDash?.basic_info?.full_name ||
-            userDash?.basic_info?.first_name ||
-            userDash?.name ||
-            (userDash?.email ? userDash.email.split('@')[0] : 'Candidate');
-          const candidateId = userDash?.candidate_id || userDash?.basic_info?.id;
-          const email = userDash?.email || userDash?.basic_info?.email;
-          const profile = { id: candidateId, name: candidateName, email };
-          setCandidateProfile(profile);
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('aiprep_cached_profile', JSON.stringify(profile));
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load candidate profile :', err);
-      }
-    }
-    fetchCandidateProfile();
-  }, []);
-
-  // Backend Confirmation Telemetry
-  const [localAssessmentId, setLocalAssessmentId] = useState<number>(initialAssessmentId);
-  const [confirmedFromBackend, setConfirmedFromBackend] = useState<ConfirmedBackendData | null>(null);
+  const [testingCamera, setTestingCamera] = useState<boolean>(false);
+  const [isGoodLighting, setIsGoodLighting] = useState<boolean>(true);
   const [isConfirmingFromBackend, setIsConfirmingFromBackend] = useState<boolean>(false);
 
-  // 4. Stream & Resource Scoped Cleanup (Decoupled)
-  const cleanup = (scope: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY' = 'ALL') => {
+  // Sync test results with sessionStorage so they persist on page refresh
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (cameraOk !== null) sessionStorage.setItem('aiprep_test_camera_ok', String(cameraOk));
+    else sessionStorage.removeItem('aiprep_test_camera_ok');
+    sessionStorage.setItem('aiprep_test_camera_tested', String(cameraTested));
+
+    if (micOk !== null) sessionStorage.setItem('aiprep_test_mic_ok', String(micOk));
+    else sessionStorage.removeItem('aiprep_test_mic_ok');
+    sessionStorage.setItem('aiprep_test_mic_tested', String(micTested));
+
+    if (speakerOk !== null) sessionStorage.setItem('aiprep_test_speaker_ok', String(speakerOk));
+    else sessionStorage.removeItem('aiprep_test_speaker_ok');
+    sessionStorage.setItem('aiprep_test_speaker_tested', String(speakerTested));
+  }, [cameraOk, cameraTested, micOk, micTested, speakerOk, speakerTested]);
+
+  // Cleanup helper
+  const cleanup = useCallback((scope: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY' = 'ALL') => {
     if (scope === 'ALL' || scope === 'VIDEO_ONLY') {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks().forEach((t) => t.stop());
-        cameraStreamRef.current = null;
-      }
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
       setCameraStream(null);
     }
-
     if (scope === 'ALL' || scope === 'AUDIO_ONLY') {
-      if (micStreamRef.current) {
-        micStreamRef.current.getTracks().forEach((t) => t.stop());
-        micStreamRef.current = null;
-      }
-
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-
+      micStreamRef.current?.getTracks().forEach((t) => t.stop());
+      micStreamRef.current = null;
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(() => { });
         audioContextRef.current = null;
-      }
-
-      if (speechRecRef.current) {
-        try {
-          speechRecRef.current.stop();
-        } catch (e) { }
-        speechRecRef.current = null;
       }
       micTestingRef.current = false;
       setMicLevel(0);
       setSpeakerTestState('idle');
     }
-  };
-
-  useEffect(() => {
-    return () => cleanup();
   }, []);
 
-  const stepSlugMap: Record<WizardStep, string> = {
-    CONFIGURATION: 'assessment-type',
-    CONSENT: 'consent',
-    DEVICE_CHECK: 'device-check',
-    CONFIRMATION: 'confirmation',
-  };
+  useEffect(() => () => cleanup(), [cleanup]);
 
-  const slugStepMap: Record<string, WizardStep> = {
-    'assessment-type': 'CONFIGURATION',
-    'consent': 'CONSENT',
-    'device-check': 'DEVICE_CHECK',
-    'confirmation': 'CONFIRMATION',
-  };
+  // Bind and attach disconnection listeners to Microphone stream
+  const bindMicStream = useCallback((stream: MediaStream) => {
+    micStreamRef.current = stream;
+    stream.getAudioTracks().forEach((track) => {
+      const handleEnded = () => {
+        console.warn('[DeviceCheckWizard] Microphone disconnected or audio track ended');
+        setMicOk(false);
+        setMicTested(true);
+        micTestingRef.current = false;
+        setMicLevel(0);
+        cleanup('AUDIO_ONLY');
+      };
+      track.onended = handleEnded;
+      track.onmute = () => {
+        console.warn('[DeviceCheckWizard] Audio track muted (device detached or hardware muted)');
+        handleEnded();
+      };
+    });
+  }, [cleanup]);
 
-  // Sync step from initial URL on mount & browser back/forward buttons
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  // Bind and attach disconnection listeners to Camera stream
+  const bindCameraStream = useCallback((stream: MediaStream) => {
+    cameraStreamRef.current = stream;
+    setCameraStream(stream);
 
-    const parseStepFromPath = (path: string): WizardStep | null => {
-      const parts = path.split('/').filter(Boolean);
-      const last = parts[parts.length - 1];
-      return slugStepMap[last] || null;
-    };
-
-    let initialFromUrl: WizardStep | null = null;
-    try {
-      if (window.parent && window.parent !== window) {
-        initialFromUrl = parseStepFromPath(window.parent.location.pathname);
-      }
-    } catch (e) { }
-
-    if (!initialFromUrl) {
-      initialFromUrl = parseStepFromPath(window.location.pathname);
-    }
-
-    if (initialFromUrl) {
-      setStep(initialFromUrl);
-    }
-
-    const handlePopState = () => {
-      let popStep: WizardStep | null = null;
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack) {
       try {
-        if (window.parent && window.parent !== window) {
-          popStep = parseStepFromPath(window.parent.location.pathname);
-        }
-      } catch (e) { }
-
-      if (!popStep) {
-        popStep = parseStepFromPath(window.location.pathname);
-      }
-
-      if (popStep) {
-        setStep(popStep);
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  const changeStep = (nextStep: WizardStep) => {
-    if (nextStep === 'CONFIGURATION') {
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem('aiprep_active_id');
-      }
-      setLocalAssessmentId(0);
-      setConfirmedFromBackend(null);
+        const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+        const width = settings.width;
+        const height = settings.height;
+        const fps = settings.frameRate ? Math.round(settings.frameRate) : undefined;
+        const label = videoTrack.label || 'Integrated Webcam';
+        const resStr = width && height ? `${width}x${height}` : '720p HD';
+        setCameraDetails({ label, resolution: resStr, frameRate: fps });
+      } catch { }
     }
-    setStep(nextStep);
 
-    // Update browser address bar URL dynamically
-    if (typeof window !== 'undefined') {
-      const slug = stepSlugMap[nextStep] || 'assessment-type';
-
-      // 1) Update parent iframe window address bar if embedded in CandidateDashboard
-      try {
-        if (window.parent && window.parent !== window) {
-          const parentPath = window.parent.location.pathname;
-          if (parentPath.includes('user_dashboard')) {
-            const targetParentUrl = `${window.parent.location.origin}/user_dashboard/ai-prep/${slug}`;
-            window.parent.history.pushState({ step: nextStep }, '', targetParentUrl);
-          }
+    stream.getVideoTracks().forEach((track) => {
+      const handleEnded = () => {
+        console.warn('[DeviceCheckWizard] Camera disconnected or video track ended');
+        setCameraOk(false);
+        setCameraTested(true);
+        setCameraStream(null);
+        cleanup('VIDEO_ONLY');
+        setErrorModalDismissed(false);
+        setManualErrorModalType((prev) => (micOk === false ? 'ALL' : 'CAMERA'));
+      };
+      track.onended = handleEnded;
+      track.onmute = () => {
+        if (track.readyState === 'ended' || !track.enabled) {
+          handleEnded();
         }
-      } catch (e) { }
+      };
+    });
+  }, [cleanup, micOk]);
 
-      // 2) Update current window address bar
-      const currentPath = window.location.pathname;
-      let targetPath = currentPath;
-
-      if (currentPath.includes('/user_dashboard/ai-prep')) {
-        targetPath = `/user_dashboard/ai-prep/${slug}`;
-      } else if (currentPath.includes('/aiprep')) {
-        targetPath = `/aiprep/${slug}`;
-      }
-
-      if (targetPath !== currentPath) {
-        window.history.pushState({ step: nextStep }, '', targetPath);
-      }
-    }
-  };
-
-  // 5. Diagnostics Runner (Step 3) - High-Speed Concurrent Execution
-  const runDiagnostics = async () => {
-    setHardwareError(null);
+  // Diagnostics Runner
+  const runDiagnostics = useCallback(async () => {
     setErrorModalDismissed(false);
-    setTranscriptionText('');
-    // Scoped cleanup of audio only so live camera stream is not interrupted on audio device changes
+    setShowPermissionGuide(false);
     cleanup('AUDIO_ONLY');
 
-    // Browser Detection (Instant)
     if (typeof window !== 'undefined') {
       const ua = navigator.userAgent;
-      let bName = 'Browser';
-      if (ua.includes('Chrome')) bName = 'Google Chrome';
-      else if (ua.includes('Firefox')) bName = 'Mozilla Firefox';
-      else if (ua.includes('Safari')) bName = 'Apple Safari';
-      else if (ua.includes('Edg')) bName = 'Microsoft Edge';
+      const bName = ua.includes('Chrome') ? 'Google Chrome' : ua.includes('Firefox') ? 'Mozilla Firefox' : ua.includes('Safari') ? 'Apple Safari' : ua.includes('Edg') ? 'Microsoft Edge' : 'Browser';
       setBrowserResult({ ok: true, name: bName });
     }
 
-    // Fast Instant Bandwidth Baseline + Non-blocking Background Measurement
-    const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
-    const fastKbps = conn && conn.downlink && conn.downlink > 0 ? Math.round(conn.downlink * 1000) : 10000;
-    setBandwidthKbps(fastKbps);
+    setBandwidthChecking(true);
+    checkRealInternet().finally(() => {
+      setBandwidthChecking(false);
+    });
 
-    // Run active speed test asynchronously in the background so it doesn't delay hardware initialization
-    (async () => {
-      setBandwidthChecking(true);
+    // 1. Enumerate all connected devices from browser first
+    let rawVideoCount = 0;
+    let rawAudioCount = 0;
+    let vDevs: MediaDev[] = [];
+    let aDevs: MediaDev[] = [];
+
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
       try {
-        const startTime = performance.now();
-        const response = await fetch(`/favicon.ico?cb=${Date.now()}`, { cache: 'no-store' });
-        const blob = await response.blob();
-        const durationSeconds = Math.max((performance.now() - startTime) / 1000, 0.05);
-        const bitsLoaded = blob.size * 8;
-        let realKbps = Math.round((bitsLoaded / durationSeconds) / 1024);
-        if (conn && conn.downlink && conn.downlink > 0) {
-          realKbps = Math.max(realKbps, Math.round(conn.downlink * 1000));
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        rawVideoCount = devs.filter((d) => d.kind === 'videoinput').length;
+        rawAudioCount = devs.filter((d) => d.kind === 'audioinput').length;
+        vDevs = filterDevs(devs, 'videoinput', 'Integrated Webcam');
+        aDevs = filterDevs(devs, 'audioinput', 'Default Microphone');
+        if (vDevs.length > 0) {
+          setVideoDevices(vDevs);
+          setSelectedVideoDevice((prev) => (vDevs.some((d) => d.deviceId === prev) ? prev : vDevs[0].deviceId));
         }
-        setBandwidthKbps(realKbps);
-      } catch (bwErr) {
-        setBandwidthKbps(fastKbps);
-      } finally {
-        setBandwidthChecking(false);
+        if (aDevs.length > 0) {
+          setAudioDevices(aDevs);
+          setSelectedAudioDevice((prev) => (aDevs.some((d) => d.deviceId === prev) ? prev : aDevs[0].deviceId));
+        }
+        knownAudioDeviceCountRef.current = rawAudioCount;
+      } catch (e) {
+        console.warn('[runDiagnostics] Device enumeration failed:', e);
       }
-    })();
-
-    // Concurrent Parallel Media Stream Acquisition & Device Enumeration with Resilient Fallbacks
-    const videoPromise = (videoEnabled && typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia)
-      ? (async () => {
-        // If camera stream is already running and healthy, preserve it without interruption
-        const existingTrack = cameraStreamRef.current?.getVideoTracks()[0];
-        const existingDeviceId = existingTrack?.getSettings?.()?.deviceId;
-        if (existingTrack && existingTrack.readyState === 'live' && !existingTrack.muted) {
-          if (!selectedVideoDevice || existingDeviceId === selectedVideoDevice) {
-            return cameraStreamRef.current;
-          }
-        }
-        cleanup('VIDEO_ONLY');
-        try {
-          return await navigator.mediaDevices.getUserMedia({
-            video: selectedVideoDevice ? { deviceId: { exact: selectedVideoDevice } } : true,
-          });
-        } catch (vErr: any) {
-          return await navigator.mediaDevices.getUserMedia({ video: true });
-        }
-      })()
-      : Promise.resolve(null);
-
-    const audioPromise = (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia)
-      ? (async () => {
-        try {
-          return await navigator.mediaDevices.getUserMedia({
-            audio: selectedAudioDevice ? { deviceId: { exact: selectedAudioDevice } } : true,
-          });
-        } catch (aErr: any) {
-          return await navigator.mediaDevices.getUserMedia({ audio: true });
-        }
-      })()
-      : Promise.reject(new Error('MediaDevices unavailable'));
-
-    const enumPromise = (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices)
-      ? navigator.mediaDevices.enumerateDevices()
-      : Promise.resolve([]);
-
-    const [vRes, aRes, dRes] = await Promise.allSettled([videoPromise, audioPromise, enumPromise]);
-
-    let anyError = false;
-
-    // Handle Camera Stream Result
-    if (videoEnabled) {
-      if (vRes.status === 'fulfilled' && vRes.value) {
-        const stream = vRes.value as MediaStream;
-        const videoTracks = stream.getVideoTracks();
-        if (!videoTracks || videoTracks.length === 0 || !videoTracks[0].enabled || videoTracks[0].readyState !== 'live') {
-          anyError = true;
-          setCameraOk(false);
-          setCameraStream(null);
-          setDeviceErrorMsg('Camera track is inactive, turned off, or unavailable.');
-          setHardwareError('Camera track is inactive, turned off, or unavailable.');
-        } else {
-          const track = videoTracks[0];
-          track.onended = () => {
-            setCameraOk(false);
-            setCameraStream(null);
-          };
-          track.onmute = () => {
-            setCameraOk(false);
-          };
-          track.onunmute = () => {
-            setCameraOk(true);
-          };
-
-          cameraStreamRef.current = stream;
-          setCameraStream(stream);
-          setCameraOk(true);
-        }
-      } else if (vRes.status === 'rejected') {
-        anyError = true;
-        setCameraOk(false);
-        setCameraStream(null);
-        const err: any = vRes.reason;
-        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-          setDeviceErrorMsg('Permission denied. Please allow camera access in browser settings.');
-          setHardwareError('Permission denied. Please allow camera access in browser settings.');
-        } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
-          setDeviceErrorMsg('No camera found on this device.');
-          setHardwareError('No camera found on this device.');
-        } else {
-          setDeviceErrorMsg(err?.message || 'Camera is off or unavailable.');
-          setHardwareError(err?.message || 'Camera is off or unavailable.');
-        }
-      }
-    } else {
-      setCameraOk(false);
-      setCameraStream(null);
     }
 
-    // Handle Microphone Stream Result & Level Analyzer
-    if (aRes.status === 'fulfilled' && aRes.value) {
-      const micStream = aRes.value as MediaStream;
-      micStreamRef.current = micStream;
+    // 2. Read previous test results from sessionStorage
+    const savedCamOk = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_test_camera_ok') : null;
+    const savedCamTested = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_test_camera_tested') === 'true' : false;
+    const savedMicroOk = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_test_mic_ok') : null;
+    const savedMicroTested = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_test_mic_tested') === 'true' : false;
+    const savedSpkOk = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_test_speaker_ok') : null;
+    const savedSpkTested = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_test_speaker_tested') === 'true' : false;
 
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioContextClass) {
-        const actx = new AudioContextClass();
-        audioContextRef.current = actx;
-        const source = actx.createMediaStreamSource(micStream);
-        const analyser = actx.createAnalyser();
-        analyser.fftSize = 64;
-        source.connect(analyser);
-        analyserRef.current = analyser;
-
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-        const updateLevel = () => {
-          if (!analyserRef.current) return;
-          if (!micTestingRef.current) {
-            setMicLevel(0);
-            animFrameRef.current = requestAnimationFrame(updateLevel);
-            return;
+    // 3. Camera diagnostics
+    if (videoEnabled) {
+      if (rawVideoCount === 0) {
+        // Physical camera disconnected or not found!
+        console.warn('[runDiagnostics] No camera hardware detected in browser');
+        setCameraOk(false);
+        setCameraTested(true);
+        setCameraStream(null);
+        cleanup('VIDEO_ONLY');
+      } else if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        try {
+          cleanup('VIDEO_ONLY');
+          const camId = (vDevs.length > 0 ? vDevs[0].deviceId : null) || (selectedVideoDevice !== 'default' ? selectedVideoDevice : null);
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: camId ? { deviceId: { exact: camId } } : true,
+          });
+          bindCameraStream(stream);
+          setShowPermissionGuide(false);
+          // If previously passed and camera is healthy, keep it passed!
+          if (savedCamOk === 'true' && savedCamTested) {
+            setCameraOk(true);
+            setCameraTested(true);
           }
-          analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-          const avg = sum / dataArray.length;
-          // Apply a noise floor threshold (ignore ambient noise below 18)
-          if (avg < 18) {
-            setMicLevel(0);
-          } else {
-            const normalized = Math.min(100, Math.round(((avg - 18) / 90) * 100));
-            setMicLevel(normalized);
-          }
-          animFrameRef.current = requestAnimationFrame(updateLevel);
-        };
-        updateLevel();
+        } catch {
+          // Access blocked or camera unavailable
+          setCameraOk(false);
+          setCameraTested(true);
+          setCameraStream(null);
+        }
       }
-    } else if (aRes.status === 'rejected') {
-      anyError = true;
+    }
+
+    // 4. Microphone diagnostics
+    if (rawAudioCount === 0) {
+      // Physical microphone disconnected or not found!
+      console.warn('[runDiagnostics] No microphone hardware detected in browser');
       setMicOk(false);
       setMicTested(true);
-      const err: any = aRes.reason;
-      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-        setDeviceErrorMsg('Permission denied. Please allow camera/mic access in browser settings.');
-        setHardwareError('Permission denied. Please allow camera/mic access in browser settings.');
-      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
-        setDeviceErrorMsg('No camera or microphone found on this device.');
-        setHardwareError('No camera or microphone found on this device.');
+      cleanup('AUDIO_ONLY');
+    } else if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const micId = (aDevs.length > 0 ? aDevs[0].deviceId : null) || (selectedAudioDevice !== 'default' ? selectedAudioDevice : null);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: micId ? { deviceId: { exact: micId } } : true,
+        });
+        bindMicStream(stream);
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const actx = new AudioCtx();
+          audioContextRef.current = actx;
+          const source = actx.createMediaStreamSource(stream);
+          const analyser = actx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          const update = () => {
+            if (!analyserRef.current) return;
+            if (!micTestingRef.current) { setMicLevel(0); animFrameRef.current = requestAnimationFrame(update); return; }
+            analyserRef.current.getByteFrequencyData(data);
+            const avg = data.reduce((a, b) => a + b, 0) / data.length;
+            const lvl = avg < 18 ? 0 : Math.min(100, Math.round(((avg - 18) / 90) * 100));
+            setMicLevel(lvl);
+            if (lvl > maxLevelSeenRef.current) maxLevelSeenRef.current = lvl;
+            animFrameRef.current = requestAnimationFrame(update);
+          };
+          update();
+        }
+        // If previously passed and mic is healthy, keep it passed!
+        if (savedMicroOk === 'true' && savedMicroTested) {
+          setMicOk(true);
+          setMicTested(true);
+        }
+      } catch {
+        setMicOk(false);
+        setMicTested(true);
+      }
+    }
+
+    // 5. Speaker diagnostics (Restore if previously passed and audio hardware exists)
+    if (savedSpkOk === 'true' && savedSpkTested) {
+      if (rawAudioCount > 0) {
+        setSpeakerOk(true);
+        setSpeakerTested(true);
       } else {
-        setDeviceErrorMsg(err?.message || 'Microphone verification failed: Requested device not found.');
-        setHardwareError(err?.message || 'Microphone verification failed: Requested device not found.');
+        setSpeakerOk(false);
+        setSpeakerTested(true);
       }
     }
+  }, [cleanup, videoEnabled, selectedVideoDevice, selectedAudioDevice, bindCameraStream, bindMicStream, checkRealInternet]);
 
-    // Populate Enumerate Devices
-    try {
-      let devs: MediaDeviceInfo[] = [];
-      if (dRes.status === 'fulfilled' && (dRes.value as any[]).length > 0) {
-        devs = dRes.value as MediaDeviceInfo[];
+  // Listen for audio / video hardware changes (e.g. plug in / unplug headset/mic/webcam)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.addEventListener) return;
+    const handleDeviceChange = async () => {
+      try {
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const rawAudioCount = devs.filter((d) => d.kind === 'audioinput').length;
+        const rawVideoCount = devs.filter((d) => d.kind === 'videoinput').length;
+
+        const vDevs = filterDevs(devs, 'videoinput', 'Integrated Webcam');
+        const aDevs = filterDevs(devs, 'audioinput', 'Default Microphone');
+        if (vDevs.length > 0) setVideoDevices(vDevs);
+        if (aDevs.length > 0) setAudioDevices(aDevs);
+
+        // Check if Microphone device was disconnected or ended
+        const micTracks = micStreamRef.current?.getAudioTracks() || [];
+        const isMicTrackDead = !micStreamRef.current?.active || micTracks.length === 0 || micTracks.some((t) => t.readyState === 'ended' || t.muted);
+        const isSelectedMicGone = selectedAudioDevice !== 'default' && !devs.some((d) => d.kind === 'audioinput' && d.deviceId === selectedAudioDevice);
+        const isAudioDeviceDetached = knownAudioDeviceCountRef.current > 0 && rawAudioCount < knownAudioDeviceCountRef.current;
+
+        if (rawAudioCount === 0 || isMicTrackDead || isSelectedMicGone || isAudioDeviceDetached) {
+          console.warn('[DeviceChange] Microphone unplugged / disconnected');
+          setMicOk(false);
+          setMicTested(true);
+          cleanup('AUDIO_ONLY');
+          if (aDevs.length > 0 && aDevs[0].deviceId) {
+            setSelectedAudioDevice(aDevs[0].deviceId);
+          }
+        }
+        knownAudioDeviceCountRef.current = rawAudioCount;
+
+        // Check if Camera device was disconnected or ended (if video is enabled)
+        if (videoEnabled) {
+          const camTracks = cameraStreamRef.current?.getVideoTracks() || [];
+          const isCamTrackDead = camTracks.length === 0 || camTracks.every((t) => t.readyState === 'ended');
+          const isSelectedCamGone = selectedVideoDevice !== 'default' && !devs.some((d) => d.kind === 'videoinput' && d.deviceId === selectedVideoDevice);
+
+          if (rawVideoCount === 0 || isCamTrackDead || isSelectedCamGone) {
+            console.warn('[DeviceChange] Camera unplugged / disconnected');
+            setCameraOk(false);
+            setCameraTested(true);
+            setCameraStream(null);
+            cleanup('VIDEO_ONLY');
+            if (vDevs.length > 0 && vDevs[0].deviceId) {
+              setSelectedVideoDevice(vDevs[0].deviceId);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('devicechange handler error:', err);
       }
-      if ((!devs.length || !devs.some((d) => d.label)) && navigator.mediaDevices?.enumerateDevices) {
-        devs = await navigator.mediaDevices.enumerateDevices();
-      }
-      const rawVDevs = devs.filter((d: any) => d.kind === 'videoinput');
-      const rawADevs = devs.filter((d: any) => d.kind === 'audioinput');
-      const vDevs = filterUniqueDevices(rawVDevs, 'Integrated Webcam');
-      const aDevs = filterUniqueDevices(rawADevs, 'Default Microphone');
-      setVideoDevices(vDevs);
-      setAudioDevices(aDevs);
-      if (vDevs.length && !selectedVideoDevice) setSelectedVideoDevice(vDevs[0].deviceId);
-      if (aDevs.length && !selectedAudioDevice) setSelectedAudioDevice(aDevs[0].deviceId);
-    } catch (e) { }
+    };
 
-    if (anyError) {
-      setDeviceState('error');
-    } else {
-      setDeviceState('enabled');
-      setDeviceErrorMsg(null);
-    }
-  };
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    return () => {
+      navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
+    };
+  }, [cleanup, videoEnabled, selectedAudioDevice, selectedVideoDevice]);
 
-  const enableDevices = async () => {
-    setDeviceErrorMsg(null);
-    setDeviceState('enabling');
-    await runDiagnostics();
-  };
-
-  const disableDevices = () => {
-    cleanup();
-    setCameraOk(false);
-    setMicOk(false);
-    setMicTested(false);
-    setDeviceState('disabled');
-  };
-
-  const [testingCamera, setTestingCamera] = useState<boolean>(false);
-
+  // Test Camera
   const testCamera = async () => {
     if (testingCamera || !videoEnabled) return;
     setTestingCamera(true);
@@ -751,97 +617,86 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     try {
       cleanup('VIDEO_ONLY');
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: selectedVideoDevice ? { deviceId: { exact: selectedVideoDevice } } : true,
+        video: selectedVideoDevice && selectedVideoDevice !== 'default' ? { deviceId: { exact: selectedVideoDevice } } : true,
       });
-      cameraStreamRef.current = stream;
-      setCameraStream(stream);
+      bindCameraStream(stream);
+      await new Promise((r) => setTimeout(r, 600));
       setCameraOk(true);
-      setDeviceState('enabled');
-    } catch (err: any) {
-      console.warn('Camera verification error:', err);
+      setCameraTested(true);
+      setShowPermissionGuide(false);
+    } catch {
       setCameraOk(false);
+      setCameraTested(true);
       setCameraStream(null);
       setErrorModalDismissed(false);
-      if (micOk === false) {
-        setManualErrorModalType('ALL');
-      } else {
-        setManualErrorModalType('CAMERA');
-      }
+      setManualErrorModalType(micOk === false ? 'ALL' : 'CAMERA');
     } finally {
       setTestingCamera(false);
     }
   };
 
+  // Test Microphone
   const testMicrophone = async () => {
     if (micTesting) return;
     micTestingRef.current = true;
+    maxLevelSeenRef.current = 0;
     setMicTesting(true);
-    setTranscriptionText('');
     setManualErrorModalType(null);
-
     try {
       let stream = micStreamRef.current;
-      if (!stream || !stream.active || stream.getAudioTracks().length === 0 || stream.getAudioTracks()[0].readyState !== 'live') {
+      if (!stream?.active || !stream.getAudioTracks().length || stream.getAudioTracks()[0].readyState !== 'live') {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: selectedAudioDevice ? { deviceId: { exact: selectedAudioDevice } } : true,
+          audio: selectedAudioDevice && selectedAudioDevice !== 'default' ? { deviceId: { exact: selectedAudioDevice } } : true,
         });
-        micStreamRef.current = stream;
-      }
-
-      const audioTracks = stream.getAudioTracks();
-      if (!audioTracks || audioTracks.length === 0 || audioTracks[0].readyState !== 'live') {
-        throw new Error('Microphone is inactive or unavailable.');
-      }
-
-      // Start Speech Recognition ONLY when Test Mic is clicked
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        try {
-          if (speechRecRef.current) {
-            try { speechRecRef.current.stop(); } catch (e) { }
-          }
-          const rec = new SpeechRecognition();
-          rec.continuous = true;
-          rec.interimResults = true;
-          rec.lang = 'en-US';
-          rec.onresult = (e: any) => {
-            const lastIdx = e.results.length - 1;
-            const latestChunk = e.results[lastIdx]?.[0]?.transcript || '';
-            if (latestChunk.trim()) {
-              setTranscriptionText(latestChunk.trim());
-            }
+        bindMicStream(stream);
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx && !audioContextRef.current) {
+          const actx = new AudioCtx();
+          audioContextRef.current = actx;
+          const source = actx.createMediaStreamSource(stream);
+          const analyser = actx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+          const data = new Uint8Array(analyser.frequencyBinCount);
+          const update = () => {
+            if (!analyserRef.current) return;
+            if (!micTestingRef.current) { setMicLevel(0); animFrameRef.current = requestAnimationFrame(update); return; }
+            analyserRef.current.getByteFrequencyData(data);
+            const avg = data.reduce((a, b) => a + b, 0) / data.length;
+            const lvl = avg < 18 ? 0 : Math.min(100, Math.round(((avg - 18) / 90) * 100));
+            setMicLevel(lvl);
+            if (lvl > maxLevelSeenRef.current) maxLevelSeenRef.current = lvl;
+            animFrameRef.current = requestAnimationFrame(update);
           };
-          rec.onerror = () => { };
-          rec.onend = () => { };
-          rec.start();
-          speechRecRef.current = rec;
-        } catch (e) { }
+          update();
+        }
+      } else {
+        bindMicStream(stream);
       }
 
-      // Listening test window: 4 seconds for user to speak
-      await new Promise((res) => setTimeout(res, 4000));
-
-      if (speechRecRef.current) {
-        try { speechRecRef.current.stop(); } catch (e) { }
-        speechRecRef.current = null;
+      await new Promise((r) => setTimeout(r, 2500));
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
+        try {
+          const currentDevs = await navigator.mediaDevices.enumerateDevices();
+          knownAudioDeviceCountRef.current = currentDevs.filter((d) => d.kind === 'audioinput').length;
+        } catch { }
       }
-
-      setMicOk(true);
-      setMicTested(true);
-      setDeviceState('enabled');
-      setDeviceErrorMsg(null);
-      setManualErrorModalType(null);
-    } catch (err: any) {
-      console.warn('Microphone verification error:', err);
+      if (maxLevelSeenRef.current > 0 || stream?.active) {
+        setMicOk(true);
+        setMicTested(true);
+        setShowPermissionGuide(false);
+      } else {
+        setMicOk(false);
+        setMicTested(true);
+        setShowPermissionGuide(false);
+      }
+    } catch {
       setMicOk(false);
       setMicTested(true);
-      setDeviceErrorMsg(err?.message || 'Microphone test failed.');
+      setShowPermissionGuide(false);
       setErrorModalDismissed(false);
-      if (videoEnabled && cameraOk === false) {
-        setManualErrorModalType('ALL');
-      } else {
-        setManualErrorModalType('MIC');
-      }
+      setManualErrorModalType(videoEnabled && cameraOk === false ? 'ALL' : 'MIC');
     } finally {
       micTestingRef.current = false;
       setMicLevel(0);
@@ -849,512 +704,515 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (step === 'DEVICE_CHECK') {
-      if (typeof navigator !== 'undefined' && (navigator as any).permissions) {
-        (navigator as any).permissions
-          .query({ name: 'microphone' as any })
-          .then((status: any) => {
-            if (status.state === 'denied') {
-              setDeviceErrorMsg('Permission denied. Please allow camera/mic access in browser settings.');
-              setDeviceState('error');
-            }
-          })
-          .catch(() => { });
-
-        (navigator as any).permissions
-          .query({ name: 'speaker-selection' as any })
-          .then((status: any) => {
-            if (status.state === 'denied') {
-              setSpeakerOk(false);
-              setSpeakerTested(true);
-            }
-          })
-          .catch(() => { });
-      }
-      runDiagnostics();
-    } else {
-      cleanup();
-    }
-  }, [step, videoEnabled, selectedVideoDevice, selectedAudioDevice]);
-
-  useEffect(() => {
-    if (videoRef.current) {
-      if (cameraStream) {
-        videoRef.current.srcObject = cameraStream;
-        videoRef.current.play().catch(() => { });
-      } else {
-        videoRef.current.srcObject = null;
-      }
-    }
-  }, [cameraStream]);
-
-  // Harmonic chime tone generator for speaker testing (C5 -> E5 -> G5 -> C6)
+  // Test Speaker Chime
   const playChimeTone = async () => {
     if (speakerTestState === 'playing') return;
-
     setSpeakerTestState('playing');
-
     try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) {
-        throw new Error('Audio playback is not supported on this browser.');
-      }
-
-      const ctx = new AudioContextClass();
-      if (ctx.state === 'suspended') {
-        await ctx.resume();
-      }
-
-      // If site sound is blocked/turned off in browser settings, AudioContext remains suspended
-      if (ctx.state !== 'running') {
-        throw new Error('Sound is turned off or blocked in browser settings.');
-      }
-
-      // Test HTML5 Audio element playability for site permission verification
-      try {
-        const testAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-        testAudio.volume = 0.05;
-        const playP = testAudio.play();
-        if (playP !== undefined) {
-          await playP;
-          testAudio.pause();
-        }
-      } catch (audioErr) {
-        console.warn('HTML5 Audio playback blocked:', audioErr);
-        throw new Error('Sound is blocked by browser site permissions.');
-      }
-
-      // 4-note melodic ascending chime (C5 -> E5 -> G5 -> C6)
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) throw new Error('Audio unsupported');
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') await ctx.resume();
       const notes = [
-        { freq: 523.25, time: 0, duration: 0.3 },
-        { freq: 659.25, time: 0.12, duration: 0.3 },
-        { freq: 783.99, time: 0.24, duration: 0.4 },
-        { freq: 1046.50, time: 0.36, duration: 0.55 },
+        { freq: 523.25, time: 0, dur: 0.25 },
+        { freq: 659.25, time: 0.12, dur: 0.25 },
+        { freq: 783.99, time: 0.24, dur: 0.35 },
+        { freq: 1046.50, time: 0.36, dur: 0.45 },
       ];
-
       const now = ctx.currentTime;
-      notes.forEach(({ freq, time, duration }) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + time);
-
+      notes.forEach(({ freq, time, dur }) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + time);
         gain.gain.setValueAtTime(0.001, now + time);
-        gain.gain.exponentialRampToValueAtTime(0.2, now + time + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + time + duration);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(now + time);
-        osc.stop(now + time + duration + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + time + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + time + dur);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now + time); osc.stop(now + time + dur + 0.05);
       });
-
-      setTimeout(() => {
-        setSpeakerTestState('confirming');
-        try { ctx.close(); } catch (e) { }
-      }, 950);
-    } catch (e: any) {
-      console.warn('Chime playback error / Sound blocked:', e);
-      setSpeakerTestState('idle');
-      setSpeakerTested(true);
-      setSpeakerOk(false);
+      setTimeout(() => { setSpeakerTestState('confirming'); try { ctx.close(); } catch { } }, 850);
+    } catch {
+      setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false);
     }
   };
 
-  const allChecksPass =
-    !!browserResult?.ok &&
-    !bandwidthChecking &&
-    bandwidthKbps > 0 &&
-    micOk === true &&
-    micTested === true &&
-    speakerOk === true &&
-    speakerTested === true &&
-    (!videoEnabled || cameraOk === true);
+  // Step Change & Mount Run
+  useEffect(() => {
+    if (step === 'DEVICE_CHECK') runDiagnostics();
+    else cleanup();
+  }, [step, runDiagnostics, cleanup]);
 
-  // 6. Navigation Handlers
+  useEffect(() => {
+    if (videoRef.current) {
+      if (cameraStream) { videoRef.current.srcObject = cameraStream; videoRef.current.play().catch(() => { }); }
+      else { videoRef.current.srcObject = null; }
+    }
+  }, [cameraStream]);
+
+  // MediaPipe Vision & Lighting Loop
+  useEffect(() => {
+    if (step !== 'DEVICE_CHECK' || !videoEnabled || !cameraStream || !videoRef.current || !isVisionReady) return;
+    let animId: number | null = null;
+    const videoEl = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    let frame = 0;
+
+    const loop = (time: number) => {
+      if (videoEl && !videoEl.paused && !videoEl.ended && videoEl.readyState >= 2) {
+        detectVideoFrame(videoEl, time);
+        if (++frame % 10 === 0 && ctx) {
+          try {
+            ctx.drawImage(videoEl, 0, 0, 32, 32);
+            const d = ctx.getImageData(0, 0, 32, 32).data;
+            let sum = 0;
+            for (let i = 0; i < d.length; i += 4) sum += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            const avg = sum / (32 * 32);
+            setIsGoodLighting(avg >= 30 && avg <= 240);
+          } catch { }
+        }
+      }
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+    return () => { if (animId) cancelAnimationFrame(animId); };
+  }, [step, videoEnabled, cameraStream, isVisionReady, detectVideoFrame]);
+
+  // Real-time Network & Hardware Heartbeat Listeners
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOffline = () => {
+      setIsRealInternetOnline(false);
+      setBandwidthKbps(0);
+      setNetworkPingMs(999);
+    };
+
+    const handleOnline = () => {
+      setBandwidthChecking(true);
+      checkRealInternet().finally(() => setBandwidthChecking(false));
+    };
+
+    const handleConnChange = () => {
+      checkRealInternet();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const conn = (navigator as any)?.connection;
+    if (conn?.addEventListener) {
+      conn.addEventListener('change', handleConnChange);
+    }
+
+    // Periodic Heartbeat check (every 1.5 seconds on DEVICE_CHECK step for real-time network and hardware sanity)
+    let intervalId: any = null;
+    if (step === 'DEVICE_CHECK') {
+      intervalId = setInterval(() => {
+        checkRealInternet();
+
+        // Hardware sanity check: if mic was marked OK but tracks are dead/unplugged
+        if (micOk === true) {
+          const micTracks = micStreamRef.current?.getAudioTracks() || [];
+          const isDead = !micStreamRef.current?.active || micTracks.length === 0 || micTracks.some((t) => t.readyState === 'ended' || t.muted);
+          if (isDead) {
+            console.warn('[Heartbeat] Microphone track is disconnected / dead');
+            setMicOk(false);
+            setMicTested(true);
+            cleanup('AUDIO_ONLY');
+          } else if (navigator.mediaDevices?.enumerateDevices) {
+            navigator.mediaDevices.enumerateDevices().then((devs) => {
+              const currentAudioCount = devs.filter((d) => d.kind === 'audioinput').length;
+              const isSelectedMicGone = selectedAudioDevice !== 'default' && !devs.some((d) => d.kind === 'audioinput' && d.deviceId === selectedAudioDevice);
+              if (currentAudioCount === 0 || (knownAudioDeviceCountRef.current > 0 && currentAudioCount < knownAudioDeviceCountRef.current) || isSelectedMicGone) {
+                console.warn('[Heartbeat] Audio input device disconnected');
+                setMicOk(false);
+                setMicTested(true);
+                cleanup('AUDIO_ONLY');
+              }
+              knownAudioDeviceCountRef.current = currentAudioCount;
+            }).catch(() => {});
+          }
+        }
+
+        // Camera sanity check: if camera was marked OK but tracks are dead/unplugged
+        if (videoEnabled && cameraOk === true) {
+          const camTracks = cameraStreamRef.current?.getVideoTracks() || [];
+          if (camTracks.length === 0 || camTracks.every((t) => t.readyState === 'ended' || t.muted)) {
+            console.warn('[Heartbeat] Camera track is disconnected / dead');
+            setCameraOk(false);
+            setCameraTested(true);
+            setCameraStream(null);
+            cleanup('VIDEO_ONLY');
+          }
+        }
+      }, 1500);
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (conn?.removeEventListener) {
+        conn.removeEventListener('change', handleConnChange);
+      }
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [step, checkRealInternet, micOk, cameraOk, videoEnabled, cleanup]);
+
+  const internetStatus = useMemo<'checking' | 'passed' | 'unstable' | 'failed'>(() => {
+    if (bandwidthChecking && bandwidthKbps === 0) return 'checking';
+    if (!isRealInternetOnline) return 'failed';
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return 'failed';
+    if (bandwidthKbps <= 0) return 'failed';
+
+    const conn = typeof navigator !== 'undefined' ? (navigator as any).connection : null;
+    if (
+      bandwidthKbps < 500 ||
+      (conn?.downlink !== undefined && conn.downlink > 0 && conn.downlink < 0.5) ||
+      conn?.effectiveType === '2g' ||
+      conn?.effectiveType === 'slow-2g' ||
+      networkPingMs > 600 ||
+      (conn?.rtt && conn.rtt > 800) ||
+      conn?.saveData
+    ) {
+      return 'unstable';
+    }
+    return 'passed';
+  }, [bandwidthChecking, isRealInternetOnline, bandwidthKbps, networkPingMs]);
+
+  // Navigation handlers
+  const allChecksPass = internetStatus !== 'checking' && internetStatus !== 'failed' && micOk === true && micTested === true && speakerOk === true && speakerTested === true && (!videoEnabled || (cameraOk === true && cameraTested === true));
+
   const handleNext = async () => {
-    if (step === 'CONFIGURATION') {
-      changeStep('CONSENT');
-    } else if (step === 'CONSENT') {
-      changeStep('DEVICE_CHECK');
-    } else if (step === 'DEVICE_CHECK') {
+    if (step === 'CONFIGURATION') setStep('CONSENT');
+    else if (step === 'CONSENT') setStep('DEVICE_CHECK');
+    else if (step === 'DEVICE_CHECK') {
+      // Live Pre-flight Hardware Verification: ensure microphone and camera are still physically connected and live
+      try {
+        const netCheck = await checkRealInternet();
+        if (!netCheck.online || netCheck.kbps <= 0) {
+          setIsRealInternetOnline(false);
+          return;
+        }
+
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const rawAudioCount = devs.filter((d) => d.kind === 'audioinput').length;
+        const rawVideoCount = devs.filter((d) => d.kind === 'videoinput').length;
+
+        // Microphone physical presence & live stream check
+        if (rawAudioCount === 0) {
+          console.warn('[handleNext] No microphone found in system');
+          setMicOk(false);
+          setMicTested(true);
+          cleanup('AUDIO_ONLY');
+          return;
+        }
+
+        const activeMicTrack = micStreamRef.current?.getAudioTracks().find((t) => t.readyState === 'live' && !t.muted);
+        if (!activeMicTrack) {
+          // Attempt to probe microphone
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: selectedAudioDevice ? { deviceId: { exact: selectedAudioDevice } } : true,
+            });
+            bindMicStream(stream);
+          } catch (micErr) {
+            console.warn('[handleNext] Failed to acquire microphone stream:', micErr);
+            setMicOk(false);
+            setMicTested(true);
+            cleanup('AUDIO_ONLY');
+            return;
+          }
+        }
+
+        // Camera physical presence & live stream check (if video is enabled)
+        if (videoEnabled) {
+          if (rawVideoCount === 0) {
+            console.warn('[handleNext] No camera found in system');
+            setCameraOk(false);
+            setCameraTested(true);
+            setCameraStream(null);
+            cleanup('VIDEO_ONLY');
+            return;
+          }
+
+          const activeCamTrack = cameraStreamRef.current?.getVideoTracks().find((t) => t.readyState === 'live' && !t.muted);
+          if (!activeCamTrack) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({
+                video: selectedVideoDevice ? { deviceId: { exact: selectedVideoDevice } } : true,
+              });
+              bindCameraStream(stream);
+            } catch (camErr) {
+              console.warn('[handleNext] Failed to acquire camera stream:', camErr);
+              setCameraOk(false);
+              setCameraTested(true);
+              setCameraStream(null);
+              cleanup('VIDEO_ONLY');
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[handleNext] Hardware pre-flight error:', err);
+        setMicOk(false);
+        setMicTested(true);
+        return;
+      }
+
+      // Final gate: verify all required states are valid
+      if (micOk !== true || micTested !== true || speakerOk !== true || speakerTested !== true || (videoEnabled && (cameraOk !== true || cameraTested !== true))) {
+        return;
+      }
+
       if (onPrepareConfirmation) {
         setIsConfirmingFromBackend(true);
         try {
           await onPrepareConfirmation({
             browser_info: browserResult?.name || 'Standard Browser',
             os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-            camera_permission: !!cameraOk,
-            mic_permission: !!micOk,
-            speaker_ok: speakerOk !== false,
-            bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
-            yolo_consent: videoAnalyticsEnabled,
-            assessment_type: assessmentType,
-            audio_enabled: true,
-            video_enabled: videoEnabled,
-            jd_text: jdText,
+            camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: !!speakerOk,
+            bandwidth_kbps: bandwidthKbps, yolo_consent: videoAnalyticsEnabled, assessment_type: assessmentType,
+            audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
           });
-        } catch (e) {
-          console.error('Confirmation payload prep error:', e);
-        } finally {
-          setIsConfirmingFromBackend(false);
-        }
+        } catch { } finally { setIsConfirmingFromBackend(false); }
       }
-      changeStep('CONFIRMATION');
+      setStep('CONFIRMATION');
     } else if (step === 'CONFIRMATION') {
       onComplete({
         browser_info: browserResult?.name || 'Standard Browser',
         os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-        camera_permission: !!cameraOk,
-        mic_permission: !!micOk,
-        speaker_ok: speakerOk !== false,
-        bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
-        yolo_consent: videoAnalyticsEnabled,
-        assessment_type: assessmentType,
-        audio_enabled: true,
-        video_enabled: videoEnabled,
-        jd_text: jdText,
+        camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: speakerOk !== false,
+        bandwidth_kbps: bandwidthKbps, yolo_consent: videoAnalyticsEnabled, assessment_type: assessmentType,
+        audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
       });
     }
   };
 
   const handlePrevious = () => {
-    if (step === 'CONSENT') {
-      changeStep('CONFIGURATION');
-    } else if (step === 'DEVICE_CHECK') {
-      cleanup();
-      changeStep('CONSENT');
-    } else if (step === 'CONFIRMATION') {
-      changeStep('DEVICE_CHECK');
-    }
+    if (step === 'CONSENT') setStep('CONFIGURATION');
+    else if (step === 'DEVICE_CHECK') { cleanup(); setStep('CONSENT'); }
+    else if (step === 'CONFIRMATION') setStep('DEVICE_CHECK');
   };
+
+  // Vision Telemetry status metrics
+  const isFaceDetected = (realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || !!realtimeTelemetry?.face_box;
+  const isEyesOnScreen = isFaceDetected && ((realtimeTelemetry?.screen_attention_pct ?? 0) >= 20 || (realtimeTelemetry?.eye_contact_pct ?? 0) >= 15 || !!realtimeTelemetry?.is_instant_straight);
+  const hasGoodLighting = !!cameraStream && isGoodLighting;
+  const isCentered = isFaceDetected && realtimeTelemetry?.sitting_position === 'Upright Centered';
+  const isHeadPoseStraight = isFaceDetected && !!realtimeTelemetry?.is_instant_straight;
 
   return (
     <div
       className={
         step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-100/80 dark:bg-[#070b14] flex items-center justify-center p-2 sm:p-3 overflow-hidden select-none"
+          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-100/80 dark:bg-[#070b14] flex items-center justify-center p-1.5 sm:p-3 overflow-hidden select-none"
           : "w-full h-full flex-1 flex flex-col p-1 sm:p-2 select-none"
       }
     >
-      {/* SINGLE UNIFIED WIZARD CARD - FULL WIDTH, COMPACT HEIGHT */}
       <div
         className={
           step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-            ? "w-full max-w-[98vw] 2xl:max-w-[1700px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl shadow-slate-200/60 dark:shadow-black/70 overflow-hidden flex flex-col max-h-[88vh] my-auto transition-all animate-in fade-in duration-200"
+            ? "w-full max-w-[98vw] 2xl:max-w-[1650px] h-[92vh] max-h-[92vh] sm:h-[93.5vh] sm:max-h-[93.5vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl shadow-slate-200/60 dark:shadow-black/70 overflow-hidden flex flex-col my-auto transition-all animate-in fade-in duration-200"
             : "w-full flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col transition-all animate-in fade-in duration-200"
         }
       >
 
-        {/* Top Bar Header: Non-interactive Step Indicator Pills */}
-        <div className="relative px-4 sm:px-6 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/90 flex items-center shrink-0">
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 pointer-events-none">
+        {/* Top Bar Header */}
+        <div className="relative w-full px-4 sm:px-6 py-3 min-h-[52px] sm:min-h-[56px] border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/90 flex items-center justify-between shrink-0">
+          <div className="w-20 hidden sm:block shrink-0" />
+          <div className="flex items-center justify-center gap-2 sm:gap-3 flex-1 sm:flex-none">
             {[
               { key: 'CONFIGURATION', num: 1, label: 'Assessment Type' },
-              { key: 'CONSENT', num: 2, label: 'Media & Consent' },
+              { key: 'CONSENT', num: 2, label: 'Consent' },
               { key: 'DEVICE_CHECK', num: 3, label: 'Device Check' },
               { key: 'CONFIRMATION', num: 4, label: 'Confirmation' },
             ].map(({ key, num, label }, idx, arr) => {
-              const isActive = step === key;
-              const isDone = arr.findIndex((s) => s.key === step) > idx;
+              const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
               return (
                 <div key={key} className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all shadow-sm ${isActive
-                        ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20'
-                        : isDone
-                          ? 'bg-emerald-500 text-white border-emerald-500'
-                          : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'
-                        }`}
-                    >
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
                       {isDone ? <Check className="w-3 h-3 stroke-[3]" /> : num}
                     </span>
-                    <span
-                      className={`text-[11px] font-bold whitespace-nowrap ${isActive
-                        ? 'text-slate-900 dark:text-white'
-                        : isDone
-                          ? 'text-slate-500 dark:text-slate-400'
-                          : 'text-slate-400 dark:text-slate-500'
-                        }`}
-                    >
-                      {label}
-                    </span>
+                    <span className={`text-[11px] font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white' : isDone ? 'text-slate-500 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'}`}>{label}</span>
                   </div>
-                  {idx < arr.length - 1 && (
-                    <div className={`w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />
-                  )}
+                  {idx < arr.length - 1 && <div className={`w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
                 </div>
               );
             })}
           </div>
 
-          {/* WBL Back / Reset Button */}
-          <div className="ml-auto">
-            <button
-              onClick={() => {
-                cleanup();
-                if (step === 'CONSENT') {
-                  changeStep('CONFIGURATION');
-                } else if (step === 'DEVICE_CHECK') {
-                  changeStep('CONSENT');
-                } else if (step === 'CONFIRMATION') {
-                  changeStep('DEVICE_CHECK');
-                } else {
-                  onCancel();
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3 h-3" />
-              <span>{step === 'CONFIGURATION' ? 'Reset Setup' : 'Back'}</span>
-            </button>
+          <div className="w-20 flex justify-end shrink-0">
+            {step !== 'CONFIGURATION' && step !== 'CONSENT' && (
+              <button
+                onClick={() => {
+                  cleanup();
+                  handlePrevious();
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>Back</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Content Body */}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${step === 'CONSENT' || step === 'CONFIGURATION' ? 'p-2 sm:p-4 justify-start' : 'p-3 sm:p-5 justify-center'} flex flex-col items-center`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto ${step === 'CONSENT' || step === 'CONFIGURATION' ? 'p-2 sm:p-4 justify-start' : 'pt-1 sm:pt-2 px-2 sm:px-4 pb-2 sm:pb-3 justify-between'} flex flex-col items-center w-full`}>
 
-          {/* ═══════════════ STEP 1: CONFIGURATION ═══════════════ */}
+          {/* STEP 1: CONFIGURATION */}
           {step === 'CONFIGURATION' && (
-            <div className="w-full max-w-6xl xl:max-w-7xl mx-auto my-auto flex flex-col py-1">
+            <div className="w-full max-w-6xl xl:max-w-7xl mx-auto mt-0 mb-auto flex flex-col pt-0 pb-1">
               <AssessmentConfig
-                assessmentType={assessmentType}
-                setAssessmentType={setAssessmentType}
-                videoEnabled={videoEnabled}
-                setVideoEnabled={setVideoEnabled}
-                videoAnalyticsEnabled={videoAnalyticsEnabled}
-                setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
-                jdText={jdText}
-                setShowJdModal={setShowJdModal}
-                onNext={handleNext}
-                onCancel={() => {
-                  cleanup();
-                  onCancel();
-                }}
+                assessmentType={assessmentType} setAssessmentType={setAssessmentType}
+                videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled}
+                videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
+                jdText={jdText} setShowJdModal={setShowJdModal} onNext={handleNext}
+                onCancel={() => { cleanup(); onCancel(); }}
               />
             </div>
           )}
 
-          {/* ═══════════════ STEP 2: CONSENT (Session Storage Sync Only) ═══════════════ */}
+          {/* STEP 2: CONSENT */}
           {step === 'CONSENT' && (
             <div className="w-full max-w-6xl mx-auto mt-0 mb-auto flex flex-col py-0">
               <ConsentStep
-                videoEnabled={videoEnabled}
-                setVideoEnabled={setVideoEnabled}
-                consentMic={consentMic}
-                setConsentMic={setConsentMic}
-                consentCamera={consentCamera}
-                setConsentCamera={setConsentCamera}
-                videoAnalyticsEnabled={videoAnalyticsEnabled}
-                setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
-                consentSaveRecording={consentSaveRecording}
-                setConsentSaveRecording={setConsentSaveRecording}
-                consentSaveTranscript={consentSaveTranscript}
-                setConsentSaveTranscript={setConsentSaveTranscript}
-                onBack={handlePrevious}
-                onNext={handleNext}
+                videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled}
+                consentMic={consentMic} setConsentMic={setConsentMic}
+                consentCamera={consentCamera} setConsentCamera={setConsentCamera}
+                videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
+                consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording}
+                consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
+                onBack={handlePrevious} onNext={handleNext}
               />
             </div>
           )}
 
-          {/* ═══════════════ STEP 3: DEVICE CHECK (Hardware Checks) ═══════════════ */}
+          {/* STEP 3: DEVICE CHECK */}
           {step === 'DEVICE_CHECK' && (
-            <div className="w-full max-w-full px-4 sm:px-6 py-2 space-y-3 animate-in fade-in duration-200">
-              {/* ── Top-Center Alert Popup Banner (WBL Style) ── */}
-              {(() => {
-                const activeType = manualErrorModalType;
-                if (!activeType || errorModalDismissed) return null;
+            <div className="w-full max-w-full px-4 sm:px-6 pt-0 pb-0 flex flex-col justify-between flex-1 min-h-0 space-y-1.5 animate-in fade-in duration-200">
 
-                let alertTitle = 'Microphone Access Blocked';
-                let alertDeviceName = 'Microphone';
-                let alertIconLabel = 'microphone';
-
-                if (activeType === 'CAMERA') {
-                  alertTitle = 'Camera Access Blocked';
-                  alertDeviceName = 'Camera';
-                  alertIconLabel = 'camera';
-                } else if (activeType === 'ALL') {
-                  alertTitle = 'Camera & Mic Access Blocked';
-                  alertDeviceName = 'Camera and Microphone';
-                  alertIconLabel = 'camera & microphone';
-                } else if (activeType === 'SPEAKER') {
-                  alertTitle = 'Audio Output Unverified';
-                  alertDeviceName = 'Sound / Speakers';
-                  alertIconLabel = 'sound';
-                }
-
-                const getPortalTarget = () => {
-                  if (typeof window === 'undefined') return null;
-                  try {
-                    if (window.parent && window.parent !== window && window.parent.document?.body) {
-                      return window.parent.document.body;
-                    }
-                  } catch (e) { }
-                  return document.body;
-                };
-
-                const modalContent = (
-                  <div className="fixed inset-0 z-[99999999] bg-slate-950/45 dark:bg-black/65 backdrop-blur-md flex items-center justify-center pb-16 sm:pb-24 p-4 animate-in fade-in duration-200">
-                    {/* Modal Backdrop Overlay */}
-                    <div
-                      className="absolute inset-0 transition-opacity"
-                      onClick={() => {
-                        setErrorModalDismissed(true);
-                        setManualErrorModalType(null);
-                      }}
-                    />
-
-                    {/* Modal Dialog Card */}
-                    <div className="relative z-10 w-full max-w-[430px] sm:max-w-[440px] bg-white dark:bg-slate-900 rounded-2xl border-none shadow-2xl p-5 sm:p-6 text-left animate-in zoom-in-95 duration-200">
-                      {/* Header */}
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 shadow-xs">
-                            <ShieldAlert className="w-4 h-4" />
-                          </div>
-                          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
-                            {alertTitle}
-                          </h3>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setErrorModalDismissed(true);
-                            setManualErrorModalType(null);
-                          }}
-                          className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                          title="Dismiss"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Step-by-Step Instructions */}
-                      <div className="mt-4 bg-[#F8F6FE] dark:bg-slate-800/60 rounded-xl p-3.5 space-y-2.5">
-                        <div className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 font-medium">
-                          <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-[10.5px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                            1
-                          </span>
-                          <p className="leading-snug">
-                            Go to the <span className="font-bold text-slate-950 dark:text-white">top-left</span> of your browser and click the <span className="font-bold text-slate-950 dark:text-white">🔒 lock</span> or{' '}
-                            <span className="font-bold text-slate-950 dark:text-white">{alertIconLabel}</span> icon in the address bar.
-                          </p>
-                        </div>
-                        <div className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 font-medium">
-                          <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-[10.5px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                            2
-                          </span>
-                          <p className="leading-snug">
-                            Set <span className="font-bold text-slate-950 dark:text-white">{alertDeviceName}</span> permission to{' '}
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">Allow</span>.
-                          </p>
-                        </div>
-                        <div className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 font-medium">
-                          <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-[10.5px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                            3
-                          </span>
-                          <p className="leading-snug">
-                            Click <span className="font-bold text-purple-600 dark:text-purple-400">Try Again</span> below to verify.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setErrorModalDismissed(true);
-                            setManualErrorModalType(null);
-                          }}
-                          className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                        >
-                          Dismiss
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setErrorModalDismissed(false);
-                            if (activeType === 'MIC') {
-                              await testMicrophone();
-                            } else if (activeType === 'CAMERA') {
-                              await testCamera();
-                            } else if (activeType === 'SPEAKER') {
-                              await playChimeTone();
-                            } else {
-                              setManualErrorModalType(null);
-                              await runDiagnostics();
-                            }
-                          }}
-                          className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-500/25 active:scale-95 transition-all cursor-pointer"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Try Again</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-
-                const portalTarget = getPortalTarget();
-                return portalTarget ? createPortal(modalContent, portalTarget) : modalContent;
-              })()}
-
-              {/* Main Workspace 2-Column Grid (Reference Design) */}
-              <div className="grid grid-cols-12 gap-5 sm:gap-6 lg:gap-8 items-start lg:items-center w-full max-w-full mx-auto my-auto">
-                {/* Left Column: Video Frame & Hardware Selectors */}
-                <div className="col-span-12 lg:col-span-7 xl:col-span-8 flex flex-col space-y-2.5">
-
-                  {/* Header: Check Your Devices */}
-                  <div>
-                    <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
-                      {!videoEnabled ? 'Check Your Audio Devices' : 'Check Your Video & Audio Devices'}
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                      {!videoEnabled
-                        ? 'Make sure your microphone and speaker are working properly.'
-                        : 'Make sure your camera, microphone, and speaker are working properly.'}
-                    </p>
-                  </div>
-
+              {/* Main Workspace 2-Column Grid */}
+              <div className="grid grid-cols-12 gap-5 sm:gap-6 items-stretch w-full max-w-full mx-auto my-auto flex-1">
+                <div className="col-span-12 lg:col-span-7 xl:col-span-8 flex flex-col justify-between h-full space-y-3">
                   {/* Video Viewport Frame / Audio-Only Card */}
-                  <div className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center ${!videoEnabled ? 'h-[270px] sm:h-[290px] lg:h-[300px] bg-[#F7F9FE] dark:bg-slate-900/90' : 'aspect-[16/9] min-h-[260px] max-h-[300px] bg-slate-950'}`}>
+                  <div className={`relative w-full rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center flex-1 ${!videoEnabled ? (((micTested && micOk === false) || (internetStatus === 'unstable' || internetStatus === 'failed')) ? 'min-h-[200px] max-h-[240px]' : 'min-h-[240px] sm:min-h-[270px] max-h-[320px]') + ' bg-[#F7F9FE] dark:bg-slate-900/90' : (((micTested && micOk === false) || (internetStatus === 'unstable' || internetStatus === 'failed')) ? 'aspect-[16/9] min-h-[210px] max-h-[260px]' : 'aspect-[16/9] min-h-[250px] sm:min-h-[285px] lg:min-h-[310px] max-h-[340px]') + ' bg-slate-950'}`}>
                     {!videoEnabled ? (
-                      <div className="flex flex-col items-center justify-center gap-3 p-6 text-center select-none w-full h-full">
-                        {/* Concentric ripple rings matching exact reference screenshot */}
-                        <div className="relative flex items-center justify-center my-1">
-                          <div className="w-28 h-28 rounded-full border border-blue-200/50 dark:border-blue-900/40 flex items-center justify-center bg-blue-50/30 dark:bg-blue-950/20">
-                            <div className="w-20 h-20 rounded-full border border-blue-200/70 dark:border-blue-900/60 flex items-center justify-center bg-blue-50/50 dark:bg-blue-950/40">
-                              <div className="w-13 h-13 rounded-full border border-blue-300/80 dark:border-blue-800/60 flex items-center justify-center bg-white dark:bg-slate-900 shadow-xs">
-                                <Mic className="w-6 h-6 text-[#4A6CF7] dark:text-blue-400 stroke-[2.2]" />
+                      <div className="flex flex-col items-center justify-center gap-2 p-4 text-center select-none w-full h-full">
+                        {speakerTested && speakerOk === false ? (
+                          <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
+                            {/* Concentric Pulsing Red Rings with Speaker icon */}
+                            <div className="relative flex items-center justify-center">
+                              <div className="w-18 h-18 rounded-full bg-rose-50/90 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 flex items-center justify-center animate-pulse">
+                                <div className="w-13 h-13 rounded-full bg-rose-100/90 border border-rose-200/90 dark:bg-rose-900/50 dark:border-rose-800 flex items-center justify-center">
+                                  <div className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">
+                                    <VolumeX className="w-4 h-4" />
+                                  </div>
+                                </div>
                               </div>
                             </div>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white mt-2">
+                              Unable to play test sound
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                              We couldn&apos;t play the test sound from your speakers.
+                            </p>
                           </div>
-                        </div>
-                        <div>
-                          <span className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-white uppercase tracking-wider block">
-                            AUDIO-ONLY MODE
-                          </span>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
-                            Microphone and speaker diagnostics active.
-                          </p>
-                        </div>
+                        ) : micTested && micOk === false ? (
+                          <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
+                            {/* Concentric Pulsing Red Rings */}
+                            <div className="relative flex items-center justify-center">
+                              <div className="w-18 h-18 rounded-full bg-rose-50/90 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 flex items-center justify-center animate-pulse">
+                                <div className="w-13 h-13 rounded-full bg-rose-100/90 border border-rose-200/90 dark:bg-rose-900/50 dark:border-rose-800 flex items-center justify-center">
+                                  <div className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">
+                                    <MicOff className="w-4 h-4" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <h3 className="text-sm font-bold text-rose-600 dark:text-rose-400 mt-2">
+                              Microphone not found
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                              No microphone detected or no audio input found.
+                            </p>
+                            {/* Segmented Level Visualizer */}
+                            <div className="flex items-center gap-1 mt-2.5 px-3 py-1 bg-white/80 dark:bg-slate-800/80 rounded-full border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
+                              {Array.from({ length: 22 }).map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`w-1 rounded-full transition-all duration-75 ${
+                                    micTesting && micLevel > (i / 22) * 100
+                                      ? 'bg-rose-500 h-3.5'
+                                      : i === 0
+                                      ? 'bg-rose-500 h-3'
+                                      : 'bg-slate-200 dark:bg-slate-700 h-1.5'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : micTesting ? (
+                          <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
+                            <div className="w-15 h-15 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center animate-pulse">
+                              <Mic className="w-6 h-6 text-[#4A6CF7]" />
+                            </div>
+                            <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white mt-2">Listening to microphone...</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Please speak now to test your audio levels.</p>
+                            <div className="flex items-center gap-1 mt-2.5 px-3 py-1 bg-white/80 dark:bg-slate-800/80 rounded-full border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
+                              {Array.from({ length: 22 }).map((_, i) => (
+                                <div key={i} className={`w-1 rounded-full transition-all duration-75 ${micLevel > (i / 22) * 100 ? 'bg-emerald-500 h-3.5' : 'bg-slate-200 dark:bg-slate-700 h-1.5'}`} />
+                              ))}
+                            </div>
+                          </div>
+                        ) : micTested && micOk ? (
+                          <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
+                            <div className="w-15 h-15 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center">
+                              <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                            </div>
+                            <h3 className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 mt-2">Microphone Working</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Audio input successfully detected.</p>
+                            <div className="flex items-center gap-1 mt-2.5 px-3 py-1 bg-white/80 dark:bg-slate-800/80 rounded-full border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
+                              {Array.from({ length: 22 }).map((_, i) => (
+                                <div key={i} className={`w-1 rounded-full transition-all duration-75 ${i < 14 ? 'bg-emerald-500 h-3' : 'bg-slate-200 dark:bg-slate-700 h-1.5'}`} />
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-2.5 p-5 text-center select-none w-full h-full">
+                            <div className="w-14 h-14 rounded-full border border-blue-200 flex items-center justify-center bg-blue-50/50">
+                              <Mic className="w-6 h-6 text-[#4A6CF7]" />
+                            </div>
+                            <div>
+                              <span className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-white uppercase tracking-wider block">AUDIO-ONLY MODE</span>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Microphone and speaker diagnostics active.</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : (!cameraStream && cameraOk === false) ? (
-                      <div className="flex flex-col items-center justify-center gap-2 p-5 text-center w-full h-full select-none bg-slate-900">
-                        <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center justify-center">
-                          <XCircle className="w-4 h-4" />
+                    ) : (!cameraStream || (cameraTested && cameraOk === false)) ? (
+                      <div className="flex flex-col items-center justify-center gap-2.5 p-5 text-center select-none w-full h-full bg-[#F8FAFC] dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 animate-in fade-in duration-200">
+                        <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shadow-2xs ${
+                          cameraTested && cameraOk === false
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50 text-rose-500'
+                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200/70 dark:border-slate-700/60 text-slate-400 dark:text-slate-500'
+                        }`}>
+                          {cameraTested && cameraOk === false ? (
+                            <VideoOff className="w-7 h-7 stroke-[1.8]" />
+                          ) : (
+                            <Video className="w-7 h-7 stroke-[1.8] text-[#4A6CF7]" />
+                          )}
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-100">
-                            Camera is off or unavailable.
-                          </p>
-                          <p className="text-[10.5px] text-slate-400 mt-0.5 font-medium">
-                            Allow camera permissions in browser settings.
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                            {cameraTested && cameraOk === false ? 'No camera found' : 'Camera Preview'}
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm font-medium leading-relaxed">
+                            {cameraTested && cameraOk === false
+                              ? 'Please check camera permissions in browser settings to proceed with AI proctoring.'
+                              : 'Click "Test Camera" below to verify video feed.'}
                           </p>
                         </div>
                       </div>
@@ -1363,728 +1221,686 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         <video
                           ref={(el) => {
                             videoRef.current = el;
-                            if (el && cameraStream && el.srcObject !== cameraStream) {
-                              el.srcObject = cameraStream;
-                              el.play().catch(() => { });
-                            }
+                            if (el && cameraStream && el.srcObject !== cameraStream) { el.srcObject = cameraStream; el.play().catch(() => { }); }
                           }}
-                          autoPlay
-                          playsInline
-                          muted
-                          className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${cameraStream ? 'opacity-100' : 'opacity-0'
-                            }`}
+                          autoPlay playsInline muted
+                          className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${cameraStream ? 'opacity-100' : 'opacity-0'}`}
                         />
+                        <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/80 text-white text-[11px] font-medium backdrop-blur-md shadow-sm pointer-events-none">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Camera preview {cameraDetails ? `• ${cameraDetails.resolution}${cameraDetails.frameRate ? ` @ ${cameraDetails.frameRate}fps` : ''}` : ''}</span>
+                        </div>
+
+                        {/* Alignment Bounding Box */}
+                        {cameraStream && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                            {isFaceDetected && isCentered ? (
+                              <div className="w-[160px] sm:w-[185px] lg:w-[200px] h-[180px] sm:h-[210px] lg:h-[230px] rounded-2xl border-2 border-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.35)] transition-all duration-200 transform -translate-y-1.5" />
+                            ) : (
+                              <div className="w-[160px] sm:w-[185px] lg:w-[200px] h-[180px] sm:h-[210px] lg:h-[230px] rounded-2xl border-2 border-dashed border-amber-400/70 shadow-[0_0_15px_rgba(251,191,36,0.2)] transition-all duration-200 transform -translate-y-1.5 flex items-center justify-center">
+                                <span className="px-2 py-0.5 rounded bg-slate-900/80 text-amber-300 text-[10.5px] font-bold backdrop-blur-xs">
+                                  Align face in frame
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
 
-                  {/* 3. Hardware Selectors (Horizontal Grid matching reference mockup) */}
-                  <div className={`grid gap-3 sm:gap-4 pt-2 ${videoEnabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 max-w-2xl'}`}>
-                    
-                    {/* Column 1: Camera (When Video Enabled) */}
-                    {videoEnabled && (
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white mb-1.5">
-                          Camera
-                        </span>
-
-                        {/* Camera Dropdown */}
-                        <div className="relative w-full">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                            <Video className="w-4 h-4" />
+                  {/* Internet Troubleshooting Alert Card (Shown whenever internet is offline or unstable) */}
+                  {(internetStatus === 'unstable' || internetStatus === 'failed') && (
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-3.5 sm:p-4 text-left space-y-3 animate-in fade-in duration-200 shadow-2xs">
+                      {/* 3 Metric Cards */}
+                      <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full">
+                        {/* Download */}
+                        <div className="flex items-center gap-2.5 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-rose-200/80 dark:border-slate-700 shadow-2xs">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900/50 flex items-center justify-center shrink-0 text-rose-600 dark:text-rose-400 shadow-2xs">
+                            <ArrowDown className="w-4 h-4 stroke-[2.5]" />
                           </div>
-                          {videoDevices.length > 0 ? (
-                            <select
-                              value={selectedVideoDevice}
-                              onChange={(e) => setSelectedVideoDevice(e.target.value)}
-                              className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-purple-500 appearance-none cursor-pointer truncate shadow-2xs"
-                            >
-                              {videoDevices.map((dev, idx) => (
-                                <option key={dev.deviceId || idx} value={dev.deviceId}>
-                                  {cleanDeviceLabel(dev.label, `FaceTime HD Camera`)}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="w-full h-9 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-7 text-xs font-medium text-slate-700 dark:text-slate-300 shadow-2xs truncate">
-                              FaceTime HD Camera
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs sm:text-[13.5px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                              {internetStatus === 'failed' ? '0.0 Mbps' : `${((bandwidthKbps || 300) / 1024).toFixed(1)} Mbps`}
                             </div>
-                          )}
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">Download</div>
+                          </div>
                         </div>
 
-                        {/* Test Camera Button */}
-                        <div className="mt-2 flex items-center">
+                        {/* Upload */}
+                        <div className="flex items-center gap-2.5 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-rose-200/80 dark:border-slate-700 shadow-2xs">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-100 dark:border-amber-900/50 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400 shadow-2xs">
+                            <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs sm:text-[13.5px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                              {internetStatus === 'failed' ? '0.0 Mbps' : `${(((bandwidthKbps || 300) * 0.5) / 1024).toFixed(1)} Mbps`}
+                            </div>
+                            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">Upload</div>
+                          </div>
+                        </div>
+
+                        {/* Latency */}
+                        <div className="flex items-center gap-2.5 sm:gap-3 p-2 sm:p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-rose-200/80 dark:border-slate-700 shadow-2xs">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900/50 flex items-center justify-center shrink-0 text-rose-600 dark:text-rose-400 shadow-2xs">
+                            <Activity className="w-4 h-4 stroke-[2.5]" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs sm:text-[13.5px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                              {internetStatus === 'failed' ? 'Offline' : `${networkPingMs || 420} ms`}
+                            </div>
+                            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">Latency</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Alert Card Header & Advice List with Try Again button */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                            <WifiOff className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </div>
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                              {internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}
+                            </h4>
+                            <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                              <li className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                <span>Switch to a wired Ethernet connection if possible.</span>
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                <span>Move closer to your Wi-Fi router.</span>
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                <span>Stop other downloads or video streaming.</span>
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                <span>Try a different network or mobile hotspot.</span>
+                              </li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Try Again Button placed in card */}
+                        <div className="self-end sm:self-center shrink-0">
                           <button
                             type="button"
-                            onClick={() => testCamera()}
-                            disabled={testingCamera}
-                            className="h-9 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] dark:text-blue-400 text-xs font-bold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                            onClick={() => {
+                              setBandwidthChecking(true);
+                              checkRealInternet().finally(() => setBandwidthChecking(false));
+                            }}
+                            disabled={bandwidthChecking}
+                            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
                           >
-                            <Video className="w-4 h-4 shrink-0 text-[#4A6CF7] dark:text-blue-400" />
-                            <span>{testingCamera ? 'Testing...' : 'Test Camera'}</span>
+                            <RefreshCw className={`w-3.5 h-3.5 ${bandwidthChecking ? 'animate-spin' : ''}`} />
+                            <span>{bandwidthChecking ? 'Checking...' : 'Try Again'}</span>
                           </button>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Column 2: Microphone */}
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white mb-1.5">
-                        Microphone
-                      </span>
-
-                      {/* Mic Dropdown */}
-                      <div className="relative w-full">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                          <Mic className="w-4 h-4" />
-                        </div>
-                        {audioDevices.length > 0 ? (
-                          <select
-                            value={selectedAudioDevice}
-                            onChange={(e) => setSelectedAudioDevice(e.target.value)}
-                            className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-purple-500 appearance-none cursor-pointer truncate shadow-2xs"
-                          >
-                            {audioDevices.map((dev, idx) => (
-                              <option key={dev.deviceId || idx} value={dev.deviceId}>
-                                {cleanDeviceLabel(dev.label, `MacBook Pro Microphone`)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="w-full h-9 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-7 text-xs font-medium text-slate-700 dark:text-slate-300 shadow-2xs truncate">
-                            MacBook Pro Microphone
-                          </div>
-                        )}
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-
-                      {/* Combined Test Mic Button + Live Equalizer Meter */}
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => testMicrophone()}
-                          disabled={micTesting}
-                          className={`h-9 px-4 rounded-lg border text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 ${micTesting
-                            ? 'bg-[#4A6CF7] text-white border-[#4A6CF7] animate-pulse'
-                            : 'bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] dark:text-blue-400 border-slate-200 dark:border-slate-700'
-                            }`}
-                        >
-                          <Mic className={`w-4 h-4 shrink-0 ${micTesting ? 'text-white' : 'text-[#4A6CF7] dark:text-blue-400'}`} />
-                          <span>{micTesting ? 'Listening...' : 'Test Mic'}</span>
-                        </button>
-
-                        {/* Equalizer Live Level Meter Bars (Inline) */}
-                        <div className="flex items-center gap-1 px-1 py-1 shrink-0">
-                          {Array.from({ length: 9 }).map((_, i) => {
-                            const threshold = (i / 9) * 100;
-                            const active = micTesting ? micLevel > threshold : micTested && micOk ? i < 7 : false;
-                            return (
-                              <div
-                                key={i}
-                                className={`w-1 rounded-full transition-all duration-75 ${active
-                                  ? 'bg-emerald-500 h-4 shadow-xs'
-                                  : 'bg-slate-200 dark:bg-slate-700 h-1.5'
-                                  }`}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Column 3: Speaker */}
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white mb-1.5">
-                        Speaker
-                      </span>
-
-                      {/* Speaker Dropdown */}
-                      <div className="relative w-full">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                          <Volume2 className="w-4 h-4" />
-                        </div>
-                        <div className="w-full h-9 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 shadow-2xs truncate">
-                          MacBook Pro Speakers
-                        </div>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-
-                      {/* Test Sound Button or Heard? [Yes] [No] */}
-                      <div className="mt-2 flex items-center">
-                        {speakerTestState === 'confirming' ? (
-                          <div className="h-9 inline-flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 shadow-2xs animate-in fade-in">
-                            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                              Heard?
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSpeakerTestState('idle');
-                                  setSpeakerTested(true);
-                                  setSpeakerOk(true);
-                                }}
-                                className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-0.5 shadow-2xs cursor-pointer transition-colors"
-                              >
-                                <Check className="w-3 h-3 stroke-[3]" />
-                                <span>Yes</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSpeakerTestState('idle');
-                                  setSpeakerTested(true);
-                                  setSpeakerOk(false);
-                                }}
-                                className="px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold flex items-center gap-0.5 shadow-2xs cursor-pointer transition-colors"
-                              >
-                                <X className="w-3 h-3 stroke-[3]" />
-                                <span>No</span>
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => playChimeTone()}
-                            className={`h-9 px-4 rounded-lg border text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs ${speakerTestState === 'playing'
-                              ? 'bg-[#4A6CF7] text-white border-[#4A6CF7] animate-pulse'
-                              : 'bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] dark:text-blue-400 border-slate-200 dark:border-slate-700'
-                              }`}
-                          >
-                            <Volume2 className={`w-4 h-4 shrink-0 ${speakerTestState === 'playing' ? 'text-white' : 'text-[#4A6CF7] dark:text-blue-400'}`} />
-                            <span>
-                              {speakerTestState === 'playing' ? 'Playing...' : 'Test Sound'}
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Right Column: System Checklist + CTA */}
-                <div className="col-span-12 lg:col-span-5 xl:col-span-4 flex flex-col justify-center space-y-4 my-auto self-center">
-
-                  {/* 1. Device Status Card */}
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
-
-                    {/* Clean Header: Device Status */}
-                    <div className="px-5 pt-4 pb-2">
-                      <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
-                        Device Status
-                      </h3>
-                    </div>
-
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                      {/* Item 1: Browser support */}
-                      <div className="flex items-center justify-between px-5 py-2.5 sm:py-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                            <Globe className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                            Browser support
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                            <span>Passed</span>
-                          </span>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        </div>
-                      </div>
-
-                      {/* Item 2: Internet connection */}
-                      <div className="flex items-center justify-between px-5 py-2.5 sm:py-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${bandwidthChecking
-                            ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400'
-                            : bandwidthKbps > 0
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400'
-                            }`}>
-                            <Wifi className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                            Internet connection
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {bandwidthChecking ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                              <span>Testing...</span>
-                            </span>
-                          ) : bandwidthKbps > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                              <span>Passed</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Failed</span>
-                            </span>
-                          )}
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        </div>
-                      </div>
-
-                      {/* Item 3: Camera */}
-                      {videoEnabled && (
-                        <div
-                          onClick={() => {
-                            if (cameraOk === false) {
-                              setErrorModalDismissed(false);
-                              setManualErrorModalType('CAMERA');
-                            }
-                          }}
-                          className="flex items-center justify-between px-5 py-2.5 sm:py-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${cameraOk === true
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
-                              : cameraOk === false
-                                ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400'
-                                : 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400'
-                              }`}>
-                              <Video className="w-3.5 h-3.5" />
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                              Camera
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {cameraOk === true ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                                <span>Passed</span>
-                              </span>
-                            ) : cameraOk === false ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                                <XCircle className="w-3.5 h-3.5" />
-                                <span>Failed</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                                <span>Testing...</span>
-                              </span>
-                            )}
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Item 4: Microphone */}
-                      <div
-                        onClick={() => {
-                          if (micOk === false) {
-                            setErrorModalDismissed(false);
-                            setManualErrorModalType('MIC');
-                          } else {
-                            testMicrophone();
-                          }
-                        }}
-                        className="flex items-center justify-between px-5 py-2.5 sm:py-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${micTesting
-                            ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400'
-                            : (micTested && micOk === true)
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
-                              : micOk === false
-                                ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                            }`}>
-                            <Mic className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                            Microphone
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {micTesting ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" />
-                              <span>Testing...</span>
-                            </span>
-                          ) : (micTested && micOk === true) ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                              <span>Passed</span>
-                            </span>
-                          ) : micOk === false ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Failed</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                              <span>Click to test</span>
-                            </span>
-                          )}
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        </div>
-                      </div>
-
-                      {/* Item 5: Speaker */}
-                      <div
-                        onClick={() => playChimeTone()}
-                        className="flex items-center justify-between px-5 py-2.5 sm:py-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${speakerTestState === 'playing' || speakerTestState === 'confirming'
-                            ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400'
-                            : speakerTested && speakerOk === false
-                              ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400'
-                              : speakerTested && speakerOk === true
-                                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                            }`}>
-                            <Volume2 className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
-                            Speaker
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {speakerTestState === 'playing' || speakerTestState === 'confirming' ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
-                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" />
-                              <span>{speakerTestState === 'playing' ? 'Playing...' : 'Awaiting...'}</span>
-                            </span>
-                          ) : speakerTested && speakerOk === true ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                              <span>Passed</span>
-                            </span>
-                          ) : speakerTested && speakerOk === false ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Failed</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                              <span>Click to test</span>
-                            </span>
-                          )}
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* 2. All Checks Passed Notification Banner (Exact reference mockup match) */}
-                  {allChecksPass && (
-                    <div className="bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800/40 rounded-2xl p-3.5 sm:p-4 flex items-center gap-3.5 shadow-2xs animate-in fade-in duration-200">
-                      <div className="w-8 h-8 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0 shadow-xs">
-                        <Check className="w-4 h-4 stroke-[3]" />
-                      </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-bold text-[#6D28D9] dark:text-purple-300 leading-tight">
-                          {!videoEnabled
-                            ? 'All audio devices are working correctly!'
-                            : 'All video and audio devices are working correctly!'}
-                        </p>
-                        <p className="text-[11.5px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                          You&apos;re ready to continue.
-                        </p>
                       </div>
                     </div>
                   )}
 
+                  {/* Camera Troubleshooting Alert Card (Shown when camera failed and internet is not completely offline) */}
+                  {(videoEnabled && cameraTested && cameraOk === false && internetStatus !== 'failed') && (
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3.5 sm:p-4 text-left flex items-start justify-between gap-3.5 animate-in fade-in duration-200 shadow-2xs">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          <VideoOff className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </div>
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                            Camera not detected or access blocked. Please check:
+                          </h4>
+                          <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Your webcam is plugged in and lens cover is open.</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Browser permission is allowed (click the lock 🔒 icon in your URL bar).</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Select your preferred device from the Camera dropdown below.</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => testCamera()}
+                          disabled={testingCamera}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${testingCamera ? 'animate-spin' : ''}`} />
+                          <span>{testingCamera ? 'Testing...' : 'Try Again'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Microphone Troubleshooting Alert Card (Shown when mic failed and internet is not completely offline) */}
+                  {(micTested && micOk === false && internetStatus !== 'failed') && (
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3.5 sm:p-4 text-left flex items-start justify-between gap-3.5 animate-in fade-in duration-200 shadow-2xs">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          <MicOff className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </div>
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                            Microphone not detected or no audio received. Please check:
+                          </h4>
+                          <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Your microphone is plugged in and hardware mute switch is off.</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Browser permission is allowed (click the lock 🔒 icon in your URL bar).</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Select your preferred device from the Microphone dropdown below.</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => testMicrophone()}
+                          disabled={micTesting}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${micTesting ? 'animate-spin' : ''}`} />
+                          <span>{micTesting ? 'Testing...' : 'Try Again'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Speaker Troubleshooting Alert Card (Shown when speaker failed and internet is not completely offline) */}
+                  {(speakerTested && speakerOk === false && internetStatus !== 'failed') && (
+                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl p-3.5 sm:p-4 text-left flex items-start justify-between gap-3.5 animate-in fade-in duration-200 shadow-2xs">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                          <VolumeX className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </div>
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                            We couldn&apos;t play the test sound. Please check:
+                          </h4>
+                          <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Your speakers are connected and volume is up.</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Your browser is allowed to play sound.</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              <span>Try a different speaker or device.</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => playChimeTone()}
+                          disabled={speakerTestState === 'playing'}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${speakerTestState === 'playing' ? 'animate-spin' : ''}`} />
+                          <span>{speakerTestState === 'playing' ? 'Playing...' : 'Try Again'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hardware Selectors (Bottom) */}
+                  {(() => {
+                    const activeVideoValue = videoDevices.some((d) => d.deviceId === selectedVideoDevice)
+                      ? selectedVideoDevice
+                      : (videoDevices[0]?.deviceId || 'default');
+                    const activeAudioValue = audioDevices.some((d) => d.deviceId === selectedAudioDevice)
+                      ? selectedAudioDevice
+                      : (audioDevices[0]?.deviceId || 'default');
+
+                    return (
+                      <div className={`grid gap-3.5 sm:gap-4 pt-2.5 mt-auto ${videoEnabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 max-w-2xl'}`}>
+                        {videoEnabled && (
+                          <div className="flex flex-col">
+                            <span className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white mb-1.5">Camera</span>
+                            <div className="relative w-full">
+                              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-4 h-4" /></div>
+                              <select
+                                value={activeVideoValue}
+                                onChange={(e) => {
+                                  setSelectedVideoDevice(e.target.value);
+                                  setCameraOk(null);
+                                  setCameraTested(false);
+                                  cleanup('VIDEO_ONLY');
+                                }}
+                                className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-9 text-xs sm:text-[12.5px] font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              >
+                                {videoDevices.length > 0 ? (
+                                  videoDevices.map((d, i) => (
+                                    <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
+                                      {d.label || `Camera ${i + 1}`}
+                                    </option>
+                                  ))
+                                ) : (
+                                  <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Integrated Webcam</option>
+                                )}
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                            <div className="mt-2 flex items-center">
+                              <button type="button" onClick={() => testCamera()} disabled={testingCamera} className="h-9 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs">
+                                <Video className="w-4 h-4 text-[#4A6CF7]" />
+                                <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
+                              </button>
+                            </div>
+                            {(cameraTested && cameraOk === false) && (
+                              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
+                                <VideoOff className="w-3.5 h-3.5 shrink-0 text-rose-500 dark:text-rose-400" />
+                                <span>No camera detected. Please check permissions or select another camera.</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col">
+                          <span className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white mb-1.5">Microphone</span>
+                          <div className="relative w-full">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Mic className="w-4 h-4" /></div>
+                            <select
+                              value={activeAudioValue}
+                              onChange={(e) => {
+                                setSelectedAudioDevice(e.target.value);
+                                setMicOk(null);
+                                setMicTested(false);
+                                cleanup('AUDIO_ONLY');
+                              }}
+                              className="w-full h-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-9 text-xs sm:text-[12.5px] font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            >
+                              {audioDevices.length > 0 ? (
+                                audioDevices.map((d, i) => (
+                                  <option key={d.deviceId || `mic-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
+                                    {d.label || `Microphone ${i + 1}`}
+                                  </option>
+                                ))
+                              ) : (
+                                <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Default Microphone</option>
+                              )}
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                          <div className="mt-2 flex items-center gap-2.5">
+                            <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`h-9 px-4 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}>
+                              <Mic className={`w-4 h-4 ${micTesting ? 'text-white' : 'text-[#4A6CF7]'}`} />
+                              <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest Mic' : 'Test Mic'}</span>
+                            </button>
+                            <div className="flex items-center gap-1 px-1.5 py-0.5">
+                              {Array.from({ length: 14 }).map((_, i) => (
+                                <div key={i} className={`w-1 rounded-full transition-all duration-75 ${(micTesting ? micLevel > (i / 14) * 100 : micTested && micOk ? i < 10 : micTested && micOk === false ? i === 0 : false) ? (micTested && micOk === false ? 'bg-rose-500 h-3' : 'bg-emerald-500 h-3.5') : 'bg-slate-200 dark:bg-slate-700 h-1.5'}`} />
+                              ))}
+                            </div>
+                          </div>
+                          {micTested && micOk === false && (
+                            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
+                              <MicOff className="w-3.5 h-3.5 shrink-0 text-rose-500 dark:text-rose-400" />
+                              <span>No microphone detected. Please check permissions or select another mic.</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col">
+                          <span className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white mb-1.5">Speaker</span>
+                          <div className="relative w-full">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Volume2 className="w-4 h-4" /></div>
+                            <div className="w-full h-10 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 text-xs sm:text-[12.5px] font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs">Default Speaker</div>
+                          </div>
+                          <div className="mt-2">
+                            {speakerTestState === 'confirming' ? (
+                              <div className="h-9 inline-flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 shadow-2xs">
+                                <span className="text-xs font-semibold">Heard?</span>
+                                <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors">Yes</button>
+                                <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors">No</button>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => playChimeTone()} className="h-9 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs">
+                                <Volume2 className="w-4 h-4 text-[#4A6CF7]" />
+                                <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest Sound' : 'Test Sound'}</span>
+                              </button>
+                            )}
+                          </div>
+                          {speakerTested && speakerOk === false && (
+                            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
+                              <VolumeX className="w-3.5 h-3.5 shrink-0 text-rose-500 dark:text-rose-400" />
+                              <span>Unable to play sound. Please check speaker output.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Right Column: Device Status Card OR Permission Guide Card */}
+                <div className="col-span-12 lg:col-span-5 xl:col-span-4 flex flex-col space-y-3">
+                  {showPermissionGuide ? (
+                    /* Browser Permissions Required Notice Card (Camera / Microphone) */
+                    <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-5 space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                            <ShieldAlert className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                              {permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : 'Browser Permissions Required'}
+                            </h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+                              {permissionGuideTarget === 'mic' 
+                                ? 'Your browser blocked microphone access. Please allow permission to capture your voice during the assessment.' 
+                                : permissionGuideTarget === 'camera' 
+                                ? 'Your browser blocked camera access. Please allow permission for AI video proctoring.' 
+                                : 'Please allow camera and microphone access in your browser to continue.'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowPermissionGuide(false)}
+                          className="w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center shrink-0 cursor-pointer shadow-xs transition-colors"
+                          title="Back to Device Status"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 pt-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                        <div className="flex items-start gap-3">
+                          <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">1</span>
+                          <span>Click the <strong>lock 🔒</strong> or <strong>site settings ⚙️</strong> icon in your address bar (next to URL).</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">2</span>
+                          <span>Find <strong>{permissionGuideTarget === 'mic' ? 'Microphone' : permissionGuideTarget === 'camera' ? 'Camera' : 'Camera and Microphone'}</strong> and set permission to <strong>Allow</strong>.</span>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">3</span>
+                          <span>Click <strong>Try Again</strong> below to re-verify your device.</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 flex items-center justify-end gap-2 border-t border-rose-200/60 dark:border-rose-900/40">
+                        <button
+                          type="button"
+                          onClick={() => setShowPermissionGuide(false)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        >
+                          Dismiss
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPermissionGuide(false);
+                            runDiagnostics();
+                          }}
+                          className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Try Again</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Default Device Status Card */
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200">
+                      <div className="px-5 pt-3.5 pb-2"><h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">Device Status</h3></div>
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                        <div className="flex items-center justify-between px-5 py-2.5">
+                          <div className="flex items-center gap-3"><div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><Globe className="w-3.5 h-3.5" /></div><span className="text-xs sm:text-sm font-semibold">Browser support</span></div>
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></span>
+                        </div>
+                        <div onClick={() => { if (internetStatus === 'unstable' || internetStatus === 'failed') { setBandwidthChecking(true); checkRealInternet().finally(() => setBandwidthChecking(false)); } }} className={`flex items-center justify-between px-5 py-2.5 transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' :
+                                internetStatus === 'unstable' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' :
+                                  internetStatus === 'checking' ? 'bg-blue-50 text-blue-600' :
+                                    'bg-rose-50 text-rose-600'
+                              }`}>
+                              {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                            </div>
+                            <span className="text-xs sm:text-sm font-semibold">Internet connection</span>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${internetStatus === 'passed' ? 'text-emerald-600' :
+                              internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' :
+                                internetStatus === 'checking' ? 'text-purple-600' :
+                                  'text-rose-600'
+                            }`}>
+                            {internetStatus === 'checking' ? (
+                              'Testing...'
+                            ) : internetStatus === 'passed' ? (
+                              <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            ) : internetStatus === 'unstable' ? (
+                              <><AlertTriangle className="w-3.5 h-3.5" /> Unstable <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            ) : (
+                              <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            )}
+                          </span>
+                        </div>
+                        {videoEnabled && (
+                          <div
+                            onClick={() => {
+                              if (cameraTested && cameraOk === false) {
+                                setPermissionGuideTarget('camera');
+                                setShowPermissionGuide(true);
+                              } else {
+                                testCamera();
+                              }
+                            }}
+                            className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${
+                              cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                                cameraTested && cameraOk === false
+                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                  : cameraTested && cameraOk
+                                  ? 'bg-emerald-50 text-emerald-600'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                              }`}>
+                                {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                              </div>
+                              <span className="text-xs sm:text-sm font-semibold">Camera</span>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                              testingCamera
+                                ? 'text-purple-600'
+                                : cameraTested && cameraOk
+                                ? 'text-emerald-600'
+                                : cameraTested && cameraOk === false
+                                ? 'text-rose-600'
+                                : 'text-slate-500'
+                            }`}>
+                              {testingCamera ? (
+                                'Testing...'
+                              ) : cameraTested && cameraOk ? (
+                                <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                              ) : cameraTested && cameraOk === false ? (
+                                <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                              ) : (
+                                'Click to test'
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        <div
+                          onClick={() => {
+                            if (micTested && micOk === false) {
+                              setPermissionGuideTarget('mic');
+                              setShowPermissionGuide(true);
+                            } else {
+                              testMicrophone();
+                            }
+                          }}
+                          className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${
+                            micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                              micTested && micOk === false
+                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                : micTested && micOk
+                                ? 'bg-emerald-50 text-emerald-600'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                            }`}>
+                              {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                            </div>
+                            <span className="text-xs sm:text-sm font-semibold">Microphone</span>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                            micTesting
+                              ? 'text-purple-600'
+                              : micTested && micOk
+                              ? 'text-emerald-600'
+                              : micTested && micOk === false
+                              ? 'text-rose-600'
+                              : 'text-slate-500'
+                          }`}>
+                            {micTesting ? (
+                              'Testing...'
+                            ) : micTested && micOk ? (
+                              <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            ) : micTested && micOk === false ? (
+                              <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            ) : (
+                              'Click to test'
+                            )}
+                          </span>
+                        </div>
+                        <div
+                          onClick={() => playChimeTone()}
+                          className={`flex items-center justify-between px-5 py-2.5 cursor-pointer transition-colors ${
+                            speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                              speakerTested && speakerOk === false
+                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                : speakerTested && speakerOk
+                                ? 'bg-emerald-50 text-emerald-600'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                            }`}>
+                              {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                            </div>
+                            <span className="text-xs sm:text-sm font-semibold">Speaker</span>
+                          </div>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                            speakerTestState === 'playing'
+                              ? 'text-purple-600'
+                              : speakerTestState === 'confirming'
+                              ? 'text-amber-600'
+                              : speakerTested && speakerOk
+                              ? 'text-emerald-600'
+                              : speakerTested && speakerOk === false
+                              ? 'text-rose-600'
+                              : 'text-slate-500'
+                          }`}>
+                            {speakerTestState === 'playing' ? (
+                              'Playing...'
+                            ) : speakerTestState === 'confirming' ? (
+                              <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <span className="text-[11px] text-slate-500">Heard?</span>
+                                <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
+                                <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
+                              </span>
+                            ) : speakerTested && speakerOk ? (
+                              <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            ) : speakerTested && speakerOk === false ? (
+                              <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                            ) : (
+                              'Click to test'
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {allChecksPass && (
+                    <div className="bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl p-3 flex items-center gap-3">
+                      <div className="w-7.5 h-7.5 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0"><Check className="w-4 h-4 stroke-[3]" /></div>
+                      <div>
+                        <p className="text-xs sm:text-sm font-bold text-[#6D28D9] dark:text-purple-300">All devices are working correctly!</p>
+                        <p className="text-[11.5px] text-slate-500 font-medium">You&apos;re ready to continue.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* 3. Bottom Full-Width Navigation Bar */}
+              {/* Bottom Nav */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80 w-full mt-2">
-                {/* Left Bottom End: Back */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    cleanup();
-                    changeStep('CONSENT');
-                  }}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>← Back</span>
+                <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm">
+                  ← Back
                 </button>
-
-                {/* Right Bottom End: Next: Confirmation */}
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!allChecksPass}
-                  className={`px-7 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 ${allChecksPass
-                    ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-75'
-                    }`}
-                >
+                <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-7 py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
                   {!allChecksPass && <Lock className="w-3.5 h-3.5" />}
                   <span>Next: Confirmation</span>
                   <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
-
             </div>
           )}
 
-          {/* ═══════════════ STEP 4: CONFIRMATION ═══════════════ */}
+          {/* STEP 4: CONFIRMATION */}
           {step === 'CONFIRMATION' && (
-            <div className="w-full max-w-5xl mx-auto my-auto px-4 sm:px-6 py-3 space-y-3 animate-in fade-in duration-200">
-
-              {/* System Check Complete Header Banner */}
-              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-1.5 sm:py-2 shadow-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-tight">System Check Complete</p>
-                      <p className="text-[10.5px] text-slate-400 font-medium">All tests passed · Ready to start</p>
-                    </div>
-                  </div>
-                  {isConfirmingFromBackend && !confirmedFromBackend ? (
-                    <span className="text-[10.5px] text-slate-400 flex items-center gap-1 animate-pulse font-semibold">
-                      <RefreshCw className="w-3 h-3 animate-spin" /> Verifying…
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      Ready
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Loading Skeleton */}
-              {isConfirmingFromBackend && !confirmedFromBackend && (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-2 animate-pulse">
-                      <div className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700" />
-                        <div className="h-3 w-28 bg-slate-200 dark:bg-slate-700 rounded-full" />
-                      </div>
-                      <div className="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded-full" />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Device Checked Items List */}
-              {(confirmedFromBackend || !isConfirmingFromBackend) && (() => {
-                const isVideo = confirmedFromBackend
-                  ? confirmedFromBackend.media_type === 'VIDEO'
-                  : videoEnabled;
-                const micPass = micOk;
-                const camPass = cameraOk;
-                const aiPass = videoAnalyticsEnabled;
-                const bw = bandwidthKbps;
-                const scenario = (confirmedFromBackend?.assessment_type ?? assessmentType).replace(/_/g, ' ');
-                const inputMode = isVideo ? 'Video & Audio' : 'Audio Only';
-
-                type CheckItem = {
-                  icon: React.ReactNode;
-                  label: string;
-                  value: string;
-                  passed: boolean;
-                  highlight?: 'purple' | 'indigo' | 'amber';
-                };
-
-                const items: CheckItem[] = [
-                  {
-                    icon: <Briefcase className="w-3.5 h-3.5" />,
-                    label: 'Scenario',
-                    value: scenario,
-                    passed: true,
-                    highlight: 'purple',
-                  },
-                  {
-                    icon: <Video className="w-3.5 h-3.5" />,
-                    label: 'Input Mode',
-                    value: inputMode,
-                    passed: true,
-                    highlight: 'indigo',
-                  },
-                  {
-                    icon: <Mic className="w-3.5 h-3.5" />,
-                    label: 'Microphone',
-                    value: micPass ? 'Passed' : 'Not Ready',
-                    passed: !!micPass,
-                  },
-                  ...(isVideo
-                    ? [
-                      {
-                        icon: <Wifi className="w-3.5 h-3.5" />,
-                        label: 'Network Bandwidth',
-                        value: bw ? `${bw.toLocaleString()} Kbps` : 'Verified',
-                        passed: true,
-                      },
-                      {
-                        icon: <Camera className="w-3.5 h-3.5" />,
-                        label: 'Webcam',
-                        value: camPass ? 'Passed' : 'Not Ready',
-                        passed: !!camPass,
-                      },
-                      {
-                        icon: <Eye className="w-3.5 h-3.5" />,
-                        label: 'AI Vision Analytics',
-                        value: aiPass ? 'Enabled' : 'Disabled',
-                        passed: !!aiPass,
-                      },
-                    ]
-                    : []),
-                  {
-                    icon: <Volume2 className="w-3.5 h-3.5" />,
-                    label: 'Speaker Test',
-                    value: speakerOk === null ? 'Skipped' : speakerOk ? 'Passed' : 'Not Ready',
-                    passed: speakerOk === null ? true : !!speakerOk,
-                  },
-                  {
-                    icon: <FileText className="w-3.5 h-3.5" />,
-                    label: 'Transcript Storage',
-                    value: consentSaveTranscript ? 'Enabled' : 'Disabled',
-                    passed: true,
-                  },
-                  ...(jdText
-                    ? [
-                      {
-                        icon: <FileText className="w-3.5 h-3.5" />,
-                        label: 'Job Description',
-                        value: 'Added',
-                        passed: true,
-                        highlight: 'amber' as const,
-                      },
-                    ]
-                    : []),
-                ];
-
-                return (
-                  <div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
-                      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Device Checked Items List</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Status</span>
-                      </div>
-
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800/70">
-                        {items.map((item, idx) => (
-                          <div key={idx} className="flex items-center justify-between px-4 py-1.5 sm:py-2 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                            <div className="flex items-center gap-2.5">
-                              <div
-                                className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${item.passed
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                  }`}
-                              >
-                                {item.passed ? <Check className="w-3 h-3 stroke-[3]" /> : <XCircle className="w-3.5 h-3.5" />}
-                              </div>
-                              <div className={`flex items-center gap-1.5 text-xs font-semibold ${item.passed ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400'}`}>
-                                <span className="text-slate-400">{item.icon}</span>
-                                <span>{item.label}</span>
-                              </div>
-                            </div>
-
-                            <span
-                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${!item.passed
-                                ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20'
-                                : item.highlight === 'purple'
-                                  ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800/50'
-                                  : item.highlight === 'indigo'
-                                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/50'
-                                    : item.highlight === 'amber'
-                                      ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
-                                      : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                                }`}
-                            >
-                              {item.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Step 4 Action Buttons */}
-                    <div className="flex justify-between items-center p-2.5 sm:p-3 mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-                      <button
-                        onClick={handlePrevious}
-                        className="px-4 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all shadow-xs cursor-pointer"
-                      >
-                        ← Back
-                      </button>
-
-                      <button
-                        onClick={handleNext}
-                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 transition-all duration-200 shadow-md shadow-purple-500/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-                      >
-                        <span>Start Assessment</span>
-                        <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+            <div></div>
           )}
         </div>
       </div>
 
-      {/* JOB DESCRIPTION UPLOAD MODAL DIALOG */}
+      {/* JD Modal */}
       {showJdModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-xs transition-opacity" onClick={() => setShowJdModal(false)} />
-          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setShowJdModal(false)} />
+          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Briefcase className="w-4 h-4 text-amber-500" />
                 <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Add Job Description</h3>
               </div>
-              <button onClick={() => setShowJdModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                ✕
-              </button>
+              <button onClick={() => setShowJdModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              Paste the target job description details (title, responsibilities, skills, requirements) below. Our AI uses this data to customize your interview questions.
-            </p>
-
             <textarea
-              value={jdText}
-              onChange={(e) => setJdText(e.target.value)}
-              placeholder="Paste target job description content here..."
-              rows={6}
-              className="w-full rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all resize-none font-medium"
+              value={jdText} onChange={(e) => setJdText(e.target.value)}
+              placeholder="Paste target job description content here..." rows={6}
+              className="w-full rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3.5 text-xs focus:outline-none focus:border-indigo-600 resize-none font-medium"
             />
-
             <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setJdText('');
-                  setShowJdModal(false);
-                }}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
-              >
-                Clear
-              </button>
-              <button
-                onClick={() => setShowJdModal(false)}
-                className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md cursor-pointer"
-              >
-                Save &amp; Continue
-              </button>
+              <button onClick={() => { setJdText(''); setShowJdModal(false); }} className="px-4 py-2 border border-slate-200 text-xs font-bold rounded-xl">Clear</button>
+              <button onClick={() => setShowJdModal(false)} className="px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl shadow-md">Save &amp; Continue</button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };

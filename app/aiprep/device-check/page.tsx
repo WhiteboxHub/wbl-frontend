@@ -85,10 +85,7 @@ export default function DeviceCheckPage() {
   useEffect(() => {
     const embedded = window.self !== window.top || window.location.search.includes('embed=true');
     setIsEmbedded(embedded);
-    if (!embedded) {
-      router.replace('/user_dashboard/ai-prep/device-check');
-    }
-  }, [router]);
+  }, []);
 
   // Load assessment mode if assessmentId is provided on mount
   useEffect(() => {
@@ -307,7 +304,7 @@ export default function DeviceCheckPage() {
             assessmentType={effectiveType}
             assessmentMode={effectiveMode}
             audioOnly={effectiveMode === 'AUDIO_ONLY'}
-            initialStep={(sessionStorage.getItem('aiprep_wizard_step') as any) || (activeAssessmentId ? 'DEVICE_CHECK' : 'CONFIGURATION')}
+            initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'DEVICE_CHECK'}
             onPrepareConfirmation={handlePrepareConfirmation}
             onComplete={handleCheckComplete}
             onCancel={handleCancel}
