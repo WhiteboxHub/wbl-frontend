@@ -153,11 +153,9 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'The Intro Assessment is a 3–5 minute AI-powered interview where you introduce yourself and share your professional journey, technical expertise, and career goals in a clear and structured format.',
     purposeBullets: [
       'Build a clear, confident, and well-structured self-introduction',
-      'Highlight your educational background, professional experience, and career journey',
-      'Showcase your technical knowledge, projects, and relevant experience',
-      'Clearly communicate your key skills, strengths, and areas of expertise',
-      'Help interviewers quickly understand your background and professional profile',
-      'Create a strong first impression and prepare you for future interview discussions',
+      'Highlight your educational background, experience, and career journey',
+      'Showcase your technical knowledge, projects, and key strengths',
+      'Create a strong first impression and prepare for future interview discussions',
     ],
     coverCategories: [
       {
@@ -169,7 +167,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
           'Key projects, achievements & impact',
           'Professional journey and career milestones',
           'Strengths and alignment with target roles',
-          'Educational background and qualifications',
+
         ],
       },
       {
@@ -181,7 +179,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
           'AI/ML, Generative AI, or specialized domain skills',
           'System architecture, APIs & design patterns',
           'Testing, DevOps, cloud & quality practices',
-          'Technical strengths and continuous learning',
+
         ],
       },
       {
@@ -193,7 +191,6 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
           'Cross-functional collaboration & teamwork',
           'Delivering value under changing requirements',
           'Continuous learning and career goals',
-          'Clear articulation of future trajectory',
         ],
       },
     ],
@@ -257,11 +254,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     overview:
       'A Job Description (JD) outlines what a company expects from a candidate. This assessment helps you understand those requirements, connect them with your background, and clearly explain how you contribute to the role.',
     purposeBullets: [
-      'Understand the key responsibilities and expectations of the role',
+      'Understand key responsibilities and expectations of the role',
       'Connect your skills, experience, and projects directly to the JD',
-      'Highlight the qualifications and technologies relevant to the position',
+      'Highlight relevant qualifications and core technologies',
       'Explain how you contribute value and solve role-related challenges',
-      'Demonstrate strong interview preparation and role alignment',
     ],
     coverCategories: [
       {
@@ -364,7 +360,6 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Explain your motivation and interest in the opportunity',
       'Highlight relevant skills, experience, and achievements',
       'Demonstrate clear, confident, and professional communication',
-      'Discuss availability, compensation, and work preferences confidently',
     ],
     coverCategories: [
       {
@@ -466,7 +461,6 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Showcase structured problem-solving using the STAR method',
       'Explain how you handle challenges, ambiguity, and deadlines',
       'Highlight cross-functional collaboration, leadership, and adaptability',
-      'Connect past experience directly to the team\'s current goals',
     ],
     coverCategories: [
       {
@@ -573,7 +567,6 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Solve problems using structured, step-by-step logic',
       'Explain design patterns, complexity, and performance trade-offs',
       'Show clean architecture, testing, and production quality',
-      'Communicate technical thought processes clearly while coding',
     ],
     coverCategories: [
       {
@@ -685,7 +678,6 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Define component interactions, APIs, and data models',
       'Choose suitable databases, caching, and message queues',
       'Analyze trade-offs in scalability, latency, cost, and resilience',
-      'Design for failure scenarios, observability, and high availability',
     ],
     coverCategories: [
       {

@@ -17,33 +17,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  MessageSquare,
-  FileText,
-  UserCheck,
-  Code2,
-  Users,
-  Layers,
-  Clock,
-  Lock,
-  ArrowRight,
-} from 'lucide-react';
+import { MessageSquare, FileText, UserCheck, Code2, Users, Layers, Clock, Lock, ArrowRight } from 'lucide-react';
 import { AssessmentType } from '@/types/aiprep';
-import {
-  AssessmentCardMeta,
-  buildAssessmentCardMetadata,
-  ASSESSMENT_INFO_DETAILS,
-} from './assessment-details';
+import { ASSESSMENT_INFO_DETAILS } from './assessment-details';
 import { AssessmentInfoModal } from './AssessmentInfoModal';
 
-export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = [
-  'INTRO',
-  'JD_INTRO',
-  'RECRUITER',
-  'TECHNICAL',
-  'HIRING_MANAGER',
-  'SYSTEM_DESIGN',
-];
+export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO', 'JD_INTRO', 'RECRUITER', 'TECHNICAL', 'HIRING_MANAGER', 'SYSTEM_DESIGN'];
 
 interface DisplayAssessmentCard {
   type: AssessmentType;
@@ -56,106 +35,62 @@ interface DisplayAssessmentCard {
   icon: React.ReactNode;
 }
 
-const DISPLAY_CARDS: DisplayAssessmentCard[] = [
-  {
-    type: 'INTRO',
-    title: 'Intro',
-    subtitle: 'Tell Me About Yourself',
-    description: 'Background & Experience',
-    duration: '3–5 mins',
-    isLocked: false,
-    icon: <MessageSquare className="w-5 h-5 stroke-[1.8]" />,
-  },
-  {
-    type: 'JD_INTRO',
-    title: 'JD Walkthrough',
-    subtitle: 'Understand the Job & Fit',
-    description: 'Job & Role Alignment',
-    duration: '3–5 mins',
-    isLocked: true,
-    lockBadge: 'Coming Soon',
-    icon: <FileText className="w-5 h-5 stroke-[1.8]" />,
-  },
-  {
-    type: 'RECRUITER',
-    title: 'Recruiter',
-    subtitle: 'Recruiter Interview',
-    description: 'Screening & Overview',
-    duration: '~15 mins',
-    isLocked: true,
-    lockBadge: 'Coming Soon',
-    icon: <UserCheck className="w-5 h-5 stroke-[1.8]" />,
-  },
-  {
-    type: 'TECHNICAL',
-    title: 'Technical',
-    subtitle: 'Technical Interview',
-    description: 'Core Skills & Concepts',
-    duration: '~15 mins',
-    isLocked: true,
-    lockBadge: 'Coming Soon',
-    icon: <Code2 className="w-5 h-5 stroke-[1.8]" />,
-  },
-  {
-    type: 'HIRING_MANAGER',
-    title: 'Hiring Manager',
-    subtitle: 'Role Fit & Experience',
-    description: 'Projects & Leadership',
-    duration: '~15 mins',
-    isLocked: true,
-    lockBadge: 'Coming Soon',
-    icon: <Users className="w-5 h-5 stroke-[1.8]" />,
-  },
-  {
-    type: 'SYSTEM_DESIGN',
-    title: 'System Design',
-    subtitle: 'Design a Scalable System',
-    description: 'Architecture & Design',
-    duration: '~15 mins',
-    isLocked: true,
-    lockBadge: 'Coming Soon',
-    icon: <Layers className="w-5 h-5 stroke-[1.8]" />,
-  },
-];
+const CARD_ICONS: Record<AssessmentType, React.ReactNode> = {
+  INTRO: <MessageSquare className="w-5 h-5 stroke-[1.8]" />, JD_INTRO: <FileText className="w-5 h-5 stroke-[1.8]" />,
+  RECRUITER: <UserCheck className="w-5 h-5 stroke-[1.8]" />, TECHNICAL: <Code2 className="w-5 h-5 stroke-[1.8]" />,
+  HIRING_MANAGER: <Users className="w-5 h-5 stroke-[1.8]" />, SYSTEM_DESIGN: <Layers className="w-5 h-5 stroke-[1.8]" />,
+};
+
+const SHORT_TITLES: Record<AssessmentType, string> = {
+  INTRO: 'Intro', JD_INTRO: 'JD Walkthrough', RECRUITER: 'Recruiter',
+  TECHNICAL: 'Technical', HIRING_MANAGER: 'Hiring Manager', SYSTEM_DESIGN: 'System Design',
+};
+
+const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
+  INTRO: 'Background & Experience', JD_INTRO: 'Job & Role Alignment', RECRUITER: 'Screening & Overview',
+  TECHNICAL: 'Core Skills & Concepts', HIRING_MANAGER: 'Projects & Leadership', SYSTEM_DESIGN: 'Architecture & Design',
+};
+
+const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
+  const details = ASSESSMENT_INFO_DETAILS[type];
+  const isIntro = type === 'INTRO';
+  return {
+    type,
+    title: SHORT_TITLES[type] || details?.title || type,
+    subtitle: details?.subtitle || 'Interview Assessment',
+    description: SHORT_DESCRIPTIONS[type] || details?.shortDescription || '',
+    duration: details?.duration || '3–5 mins',
+    isLocked: !isIntro,
+    lockBadge: isIntro ? undefined : 'Coming Soon',
+    icon: CARD_ICONS[type] || <MessageSquare className="w-5 h-5 stroke-[1.8]" />,
+  };
+});
 
 /* ── AssessmentConfig Container Component for Step 1 ── */
 interface AssessmentConfigProps {
   assessmentType: AssessmentType;
   setAssessmentType: (type: AssessmentType) => void;
-  videoEnabled: boolean;
-  setVideoEnabled: (enabled: boolean) => void;
-  videoAnalyticsEnabled: boolean;
-  setVideoAnalyticsEnabled: (enabled: boolean) => void;
-  jdText: string;
-  setJdText?: (text: string) => void;
-  setShowJdModal?: (show: boolean) => void;
   onNext?: () => void;
   onCancel?: () => void;
-  dbQuestionCounts?: Record<string, number>;
-  dbAvgSeconds?: Record<string, number>;
 }
 
 export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   assessmentType,
   setAssessmentType,
-  videoEnabled,
-  setVideoEnabled,
-  videoAnalyticsEnabled,
-  setVideoAnalyticsEnabled,
-  jdText,
-  setJdText,
-  setShowJdModal,
   onNext,
   onCancel,
 }) => {
   const [infoModalType, setInfoModalType] = useState<AssessmentType | null>(null);
 
   const handleTypeSelect = (type: AssessmentType, isLocked?: boolean) => {
-    if (!isLocked) {
-      setAssessmentType(type);
-    } else {
-      setInfoModalType(type);
+    if (!isLocked && type === 'INTRO') {
+      setAssessmentType('INTRO');
     }
+  };
+
+  const handleNextClick = () => {
+    setAssessmentType('INTRO');
+    if (onNext) onNext();
   };
 
   return (
@@ -174,13 +109,16 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
       {/* ── Responsive 1-col (mobile) -> 2-col (tablet) -> 3-col (desktop) Grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {DISPLAY_CARDS.map((card) => {
-          const isSelected = assessmentType === card.type;
+          const isSelected = assessmentType === card.type && card.type === 'INTRO';
+          const isClickable = !card.isLocked && card.type === 'INTRO';
 
           return (
             <div
               key={card.type}
               onClick={() => handleTypeSelect(card.type, card.isLocked)}
-              className={`relative rounded-xl p-3 sm:p-4 transition-all duration-200 cursor-pointer select-none flex flex-col justify-between min-h-[140px] sm:min-h-[154px] ${
+              className={`relative rounded-xl p-3 sm:p-4 transition-all duration-200 select-none flex flex-col justify-between min-h-[140px] sm:min-h-[154px] ${
+                isClickable ? 'cursor-pointer' : 'cursor-default'
+              } ${
                 isSelected
                   ? 'bg-white dark:bg-slate-900 border-2 border-[#7C3AED] dark:border-purple-500 ring-2 ring-purple-500/10 shadow-xs'
                   : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs'
@@ -267,7 +205,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         {onNext && (
           <button
             type="button"
-            onClick={onNext}
+            onClick={handleNextClick}
             className="w-full sm:w-auto px-7 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>Next</span>
@@ -282,7 +220,9 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         type={infoModalType}
         onClose={() => setInfoModalType(null)}
         onSelect={(type) => {
-          setAssessmentType(type);
+          if (type === 'INTRO') {
+            setAssessmentType('INTRO');
+          }
           setInfoModalType(null);
         }}
       />

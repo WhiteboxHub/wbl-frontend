@@ -212,6 +212,9 @@ export interface AssessmentDetailResponse {
   assessment_type: AssessmentType;
   media_type: MediaType;
   assessment_mode?: string;
+  track_title?: string | null;
+  job_description?: string | null;
+  job_description_text?: string | null;
   status: AssessmentStatus;
   youtube_url?: string | null;
   job_description?: string | null;
