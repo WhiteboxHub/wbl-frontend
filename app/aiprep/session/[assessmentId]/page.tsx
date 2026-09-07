@@ -56,7 +56,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
       if (audioContextRef.current) {
         try {
           audioContextRef.current.close();
-        } catch (_) {}
+        } catch (_) { }
         audioContextRef.current = null;
       }
       setAudioLevels(Array(20).fill(3));
@@ -103,7 +103,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
       if (audioContextRef.current) {
         try {
           audioContextRef.current.close();
-        } catch (_) {}
+        } catch (_) { }
         audioContextRef.current = null;
       }
     };
@@ -232,7 +232,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
-      } catch (_) {}
+      } catch (_) { }
     }
     setIsAiSpeaking(false);
   }, []);
@@ -306,7 +306,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           const details = await aiprepApi.getAssessment(Number(assessmentId));
           if (details?.assessment_type) resolvedType = details.assessment_type;
           if (details?.media_type) resolvedMode = details.media_type;
-        } catch (_) {}
+        } catch (_) { }
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'VIDEO';
@@ -416,7 +416,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           if (isRecording && !isPaused && !isAudioMuted && recognitionRef.current === recognition) {
             try {
               recognition.start();
-            } catch (_) {}
+            } catch (_) { }
           }
         };
 
@@ -427,7 +427,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     } else if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_) {}
+      } catch (_) { }
       recognitionRef.current = null;
     }
 
@@ -435,7 +435,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch (_) {}
+        } catch (_) { }
       }
     };
   }, [isRecording, isPaused, isAudioMuted]);
@@ -666,9 +666,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${
-                mediaType !== 'AUDIO' && !isVideoMuted ? 'opacity-100' : 'opacity-0 pointer-events-none'
-              }`}
+              className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${mediaType !== 'AUDIO' && !isVideoMuted ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
             />
 
             {/* Camera Muted or Audio-Only State */}
@@ -686,9 +685,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             {/* Top-Left Live REC Badge */}
             <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/85 border border-slate-700/80 text-xs font-bold text-white px-3.5 py-1.5 rounded-xl backdrop-blur-md shadow-lg">
               <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  isPaused ? 'bg-amber-400 animate-pulse' : isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-500'
-                }`}
+                className={`w-2.5 h-2.5 rounded-full ${isPaused ? 'bg-amber-400 animate-pulse' : isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-500'
+                  }`}
               />
               <span className="text-red-400 uppercase font-extrabold text-[11px]">REC</span>
               <span className="text-slate-300 text-xs">Live •</span>
@@ -724,11 +722,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <button
                   type="button"
                   onClick={toggleAudio}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${
-                    isAudioMuted
-                      ? 'bg-rose-600 border-rose-500 text-white shadow-rose-600/30'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                  }`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${isAudioMuted
+                    ? 'bg-rose-600 border-rose-500 text-white shadow-rose-600/30'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
                   title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
                 >
                   {isAudioMuted ? <IconMicrophoneOff size={19} stroke={2} /> : <IconMicrophone size={19} stroke={2} />}
@@ -739,11 +736,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   <button
                     type="button"
                     onClick={toggleVideo}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${
-                      isVideoMuted
-                        ? 'bg-rose-600 border-rose-500 text-white shadow-rose-600/30'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                    }`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${isVideoMuted
+                      ? 'bg-rose-600 border-rose-500 text-white shadow-rose-600/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                      }`}
                     title={isVideoMuted ? 'Turn Camera On' : 'Turn Camera Off'}
                   >
                     {isVideoMuted ? <IconVideoOff size={19} stroke={2} /> : <IconVideo size={19} stroke={2} />}
@@ -771,11 +767,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   <button
                     type="button"
                     onClick={handleStartOrPause}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${
-                      isPaused
-                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                    }`}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border ${isPaused
+                      ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                      }`}
                     title={isPaused ? 'Resume Session' : 'Pause Session'}
                   >
                     {isPaused ? <IconPlayerPlay size={19} stroke={2} fill="currentColor" /> : <IconPlayerPause size={19} stroke={2} />}

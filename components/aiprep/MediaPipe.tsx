@@ -61,7 +61,7 @@ export function MediaPipeVisionAnalyzer({
   }, [activeRecording, videoRef, isReady, detectVideoFrame]);
 
   const faceDetected = realtimeTelemetry
-    ? (realtimeTelemetry.face_visibility_pct ?? 0) > 0
+    ? (realtimeTelemetry.face_visible_pct ?? 0) > 0 || (realtimeTelemetry.face_visibility_pct ?? 0) > 0
     : false;
   const isProperlySeated = faceDetected && (realtimeTelemetry?.is_instant_straight ?? false);
 

@@ -25,8 +25,11 @@ import { AlertCircle, ArrowLeft, ShieldAlert } from 'lucide-react';
 export default function DeviceCheckPage() {
   const router = useRouter();
 
-  // Route Security Guard: Ensure candidate is logged in using existing apiFetch helper
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  // Route Security Guard: Fast token-first auth initialization + background verification
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token'));
+  });
 
   useEffect(() => {
     async function verifyAuth() {
@@ -82,10 +85,7 @@ export default function DeviceCheckPage() {
   useEffect(() => {
     const embedded = window.self !== window.top || window.location.search.includes('embed=true');
     setIsEmbedded(embedded);
-    if (!embedded) {
-      router.replace('/user_dashboard/ai-prep/device-check');
-    }
-  }, [router]);
+  }, []);
 
   // Load assessment mode if assessmentId is provided on mount
   useEffect(() => {
@@ -243,14 +243,14 @@ export default function DeviceCheckPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200">
+    <div className="fixed inset-0 z-[99999] w-screen h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
 
       {/* Decorative gradients */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
 
       {/* Full screen container */}
-      <div className="w-full flex-1 flex flex-col z-10">
+      <div className="w-full h-full flex-1 flex flex-col z-10 p-2 sm:p-4 min-h-0 overflow-hidden">
         {/* Main Content Layout */}
         {errorMsg ? (
           <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
@@ -299,18 +299,16 @@ export default function DeviceCheckPage() {
             </p>
           </div>
         ) : (
-          <div className="p-6">
-            <DeviceCheckWizard
-              assessmentId={activeAssessmentId || 0}
-              assessmentType={effectiveType}
-              assessmentMode={effectiveMode}
-              audioOnly={effectiveMode === 'AUDIO_ONLY'}
-              initialStep={(sessionStorage.getItem('aiprep_wizard_step') as any) || (activeAssessmentId ? 'DEVICE_CHECK' : 'CONFIGURATION')}
-              onPrepareConfirmation={handlePrepareConfirmation}
-              onComplete={handleCheckComplete}
-              onCancel={handleCancel}
-            />
-          </div>
+          <DeviceCheckWizard
+            assessmentId={activeAssessmentId || 0}
+            assessmentType={effectiveType}
+            assessmentMode={effectiveMode}
+            audioOnly={effectiveMode === 'AUDIO_ONLY'}
+            initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'DEVICE_CHECK'}
+            onPrepareConfirmation={handlePrepareConfirmation}
+            onComplete={handleCheckComplete}
+            onCancel={handleCancel}
+          />
         )}
       </div>
     </div>
