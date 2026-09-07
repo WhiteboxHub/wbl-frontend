@@ -129,7 +129,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-export default function AssessmentSessionPage() {
+export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();

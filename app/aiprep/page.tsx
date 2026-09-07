@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
+import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
 import { AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 
 
@@ -80,9 +81,10 @@ export default function AIPrepPage() {
   // Redirect standalone access to /aiprep so it opens inside Candidate Dashboard layout
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isEmbedded = window.self !== window.top || searchParams.get('embed') === 'true';
-      if (!isEmbedded) {
-        router.replace('/user_dashboard/ai-prep');
+      const isIframe = window.self !== window.top;
+      if (!isIframe) {
+        const startParam = searchParams.get('start') === 'true' ? '?start=true' : '';
+        router.replace(`/user_dashboard/ai-prep${startParam}`);
       }
     }
   }, [searchParams, router]);
@@ -238,6 +240,12 @@ export default function AIPrepPage() {
   }
 
   const isEmbedded = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+
+  // The candidate dashboard renders the portal directly. This route is used
+  // for device checks when an assessment is started.
+  if (searchParams.get('start') !== 'true' && !isSaving && !errorMsg) {
+    return <AIPrepDashboard onStartAssessment={() => router.push('/aiprep?embed=true&start=true')} />;
+  }
 
   return (
     <div className={`w-full bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 ${isEmbedded ? 'h-screen max-h-screen overflow-hidden p-2 sm:p-3' : 'min-h-screen p-4 sm:p-5'}`}>

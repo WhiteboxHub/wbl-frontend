@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
@@ -11,6 +11,9 @@ import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
 import { normalizeResume } from "@/utils/resumeNormalizer";
 import { validateResumeStructure } from "@/utils/resumeValidator";
 import AiSetupTab from "./setup/AiSetupTab";
+import AIPrepDashboard from "./aiprep/AIPrepDashboard";
+import { DeviceCheckWizard } from "./aiprep/DeviceCheckWizard";
+import { aiprepApi, AssessmentType } from "@/lib/aiprep-api";
 import {
     Mail,
     Upload,
@@ -421,6 +424,90 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [hasDismissedJobBoardWarning, setHasDismissedJobBoardWarning] = useState(false);
 
     const [totalJobBoardClickCount, setTotalJobBoardClickCount] = useState<number>(0);
+
+    const searchParams = useSearchParams();
+    const [isAiPrepWizardActive, setIsAiPrepWizardActive] = useState<boolean>(() => {
+        return searchParams?.get('start') === 'true';
+    });
+    const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem('aiprep_active_id');
+            if (stored) return parseInt(stored, 10);
+        }
+        return null;
+    });
+    useEffect(() => {
+        const rId = searchParams?.get('reportId');
+        if (rId) {
+            router.push(`/aiprep/reports/${rId}`);
+        }
+    }, [searchParams, router]);
+
+    useEffect(() => {
+        if (searchParams?.get('start') === 'true' && (activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')) {
+            setIsAiPrepWizardActive(true);
+        }
+    }, [searchParams, activeTab]);
+
+    const handlePrepareConfirmation = async (results: {
+        browser_info: string;
+        os_info: string;
+        camera_permission: boolean;
+        mic_permission: boolean;
+        speaker_ok: boolean;
+        bandwidth_kbps: number;
+        yolo_consent: boolean;
+        assessment_type: string;
+        audio_enabled: boolean;
+        video_enabled: boolean;
+        jd_text: string;
+    }): Promise<number> => {
+        const targetCandidateId = candidateId || userProfile?.candidate_id || (data as any)?.basic_info?.id;
+        const assessment = await aiprepApi.createAssessment({
+            assessment_type: results.assessment_type as AssessmentType,
+            assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+            candidate_id: targetCandidateId,
+            job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+            user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
+        });
+
+        if (!assessment || !assessment.id) {
+            throw new Error('Failed to initialize assessment session on server.');
+        }
+        const targetId = assessment.id;
+        setActiveAssessmentId(targetId);
+        sessionStorage.setItem('aiprep_active_id', String(targetId));
+        sessionStorage.setItem('aiprep_active_type', results.assessment_type);
+        sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+        return targetId;
+    };
+
+    const handleCheckComplete = async (_results: any) => {
+        try {
+            let targetId = activeAssessmentId;
+            if (!targetId) {
+                targetId = await handlePrepareConfirmation(_results);
+            }
+            const statusRes = await aiprepApi.updateAssessmentStatus(targetId, 'IN_PROGRESS');
+            if (!statusRes || statusRes.status !== 'IN_PROGRESS') {
+                throw new Error('Failed to launch practice assessment room.');
+            }
+            sessionStorage.removeItem('aiprep_active_id');
+            sessionStorage.removeItem('aiprep_wizard_step');
+            router.push(`/aiprep/session/${targetId}`);
+        } catch (err: any) {
+            console.error('[Session Setup Error] Creation pipeline failed:', err);
+            toast.error(err.message || 'Setup pipeline failed. Please try again.');
+        }
+    };
+
+    const handleCancelWizard = () => {
+        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.removeItem('aiprep_active_type');
+        sessionStorage.removeItem('aiprep_active_mode');
+        sessionStorage.removeItem('aiprep_active_id');
+        setIsAiPrepWizardActive(false);
+    };
 
     const loadTodayClickSummary = useCallback(async () => {
         try {
@@ -1181,99 +1268,29 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
 
     const loadSetupStatus = async () => {
-        let hasValidDefaultKey = false;
-        let hasAnyKeyInBackend = false;
         try {
-            const keys: any = await apiFetch("coderpad/me/llm-keys");
-            hasAnyKeyInBackend = Array.isArray(keys) && keys.length > 0;
-            const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
-
-            if (defaultKey) {
-                if (defaultKey.validation_status === "active") {
-                    hasValidDefaultKey = true;
-                }
+            const apiStatus = await aiprepApi.getSetupStatus();
+            let summaryData: any = null;
+            try {
+                summaryData = await setupApi.getStatus();
+            } catch {
+                // ignore
             }
-        } catch {
-            // fallback
-        }
-
-        let hasResumeDirect = false;
-        let candidateIdVal: number | undefined;
-        let userEmailVal: string | undefined;
-
-        try {
-            const dash: any = await apiFetch("user_dashboard");
-            candidateIdVal = dash?.candidate_id || dash?.basic_info?.id;
-            userEmailVal = dash?.email || dash?.basic_info?.email;
-
-            if (
-                dash?.has_resume === true ||
-                Boolean(dash?.resume_filename) ||
-                Boolean(dash?.binary_resume_filename) ||
-                Boolean(dash?.resume_url) ||
-                dash?.resume_json != null ||
-                dash?.resume_data != null
-            ) {
-                hasResumeDirect = true;
-            }
-
-            if (candidateIdVal || userEmailVal) {
-                try {
-                    const prepToken = typeof window !== 'undefined' ? localStorage.getItem("prep_token") : null;
-                    const summaryData: any = await apiFetch("setup/init-and-summary", {
-                        method: "POST",
-                        body: JSON.stringify({
-                            candidate_id: candidateIdVal,
-                            candidate_email: userEmailVal,
-                            wbl_email: userEmailVal,
-                            name: userEmailVal,
-                            prep_token: prepToken,
-                        }),
-                    });
-                    const s = summaryData?.summary || summaryData;
-                    if (s) {
-                        if (
-                            s.resume_text === "Exists" ||
-                            s.has_resume === true ||
-                            s.has_binary_resume === true ||
-                            s.resume_uploaded === true ||
-                            (s.resume_json != null && typeof s.resume_json === "object" && Object.keys(s.resume_json).length > 0)
-                        ) {
-                            hasResumeDirect = true;
-                        }
-                        if (s.has_api_key === true || (Array.isArray(s.llm_keys) && s.llm_keys.length > 0)) {
-                            hasAnyKeyInBackend = true;
-                        }
-                        if (summaryData?.session_id && typeof window !== 'undefined') {
-                            localStorage.setItem("prep_token", String(summaryData.session_id));
-                        }
-                    }
-                } catch {
-                    // note
-                }
-            }
-        } catch {
-            // fallback
-        }
-
-        try {
-            const d: any = await setupApi.getStatus();
-            const isResumeUploaded = hasResumeDirect || d.resume_uploaded || d.has_binary_resume || d.has_resume || d.resume_text === "Exists";
-            const isConfigured = hasValidDefaultKey || hasAnyKeyInBackend || d.api_keys_configured || d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0);
-            const resolvedStatus = {
-                ...d,
-                resume_uploaded: isResumeUploaded,
-                api_keys_configured: isConfigured,
-                setup_complete: isResumeUploaded && isConfigured
-            };
-            return resolvedStatus;
-        } catch {
-            const isResumeUploaded = hasResumeDirect;
-            const isConfigured = hasValidDefaultKey || hasAnyKeyInBackend;
             return {
-                resume_uploaded: isResumeUploaded,
-                api_keys_configured: isConfigured,
-                setup_complete: isResumeUploaded && isConfigured
+                resume_uploaded: apiStatus.resume_uploaded,
+                api_keys_configured: apiStatus.api_keys_configured,
+                setup_complete: apiStatus.setup_complete,
+                has_binary_resume: apiStatus.resume_uploaded || summaryData?.has_binary_resume,
+                binary_resume_filename: summaryData?.binary_resume_filename || null,
+            };
+        } catch (e) {
+            console.warn("loadSetupStatus error:", e);
+            return {
+                resume_uploaded: false,
+                api_keys_configured: false,
+                setup_complete: false,
+                has_binary_resume: false,
+                binary_resume_filename: null,
             };
         }
     };
@@ -2172,12 +2189,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             localStorage.setItem("prep_token", sid);
                             setPrefetchedSession({ sessionId: sid, summaryData });
 
-                            const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
-                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                            const apiStatus = await aiprepApi.getSetupStatus();
                             setSetupStatus({
-                                resume_uploaded: hasResume,
-                                api_keys_configured: hasKeys,
-                                setup_complete: hasResume && hasKeys,
+                                resume_uploaded: apiStatus.resume_uploaded,
+                                api_keys_configured: apiStatus.api_keys_configured,
+                                setup_complete: apiStatus.setup_complete,
                                 has_binary_resume: !!summaryData.has_binary_resume,
                                 binary_resume_filename: summaryData.binary_resume_filename || null,
                             });
@@ -2331,14 +2347,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                             <button
                                 onClick={() => goToTab('wbl-smartprep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'wbl-smartprep'
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>AI PrepTool</span>
-                                {activeTab === 'wbl-smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                                {(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
 
 
@@ -2436,7 +2452,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                     <button
                         onClick={() => goToTab('wbl-smartprep')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'wbl-smartprep'
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
                             ? "bg-indigo-600 text-white shadow-sm"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                             }`}
@@ -3353,145 +3369,32 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'wbl-smartprep' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-
-                                        {/* AI Profile Setup Card */}
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className="flex items-center gap-2.5">
-                                                    <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                                                        <Settings className="w-4 h-4 text-violet-500" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-sm font-bold text-gray-800 dark:text-white">Manage AI Profile</span>
-                                                        <p className="text-[11px] text-gray-400 mt-0.5">Configure your resume and API keys for AI interviews</p>
-                                                    </div>
-                                                </div>
-                                                {setupStatus?.setup_complete && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSetupWizardManageMode(true);
-                                                            setSetupWizardOpen(true);
-                                                        }}
-                                                        className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
-                                                    >
-                                                        Manage
-                                                        <ChevronRight className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
+                                {(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') && (
+                                    <div className="flex-1 min-h-0 flex flex-col overflow-y-auto p-4 lg:p-6">
+                                        {isAiPrepWizardActive ? (
+                                            <div className="flex-1 flex flex-col min-h-0 w-full animate-in fade-in duration-200">
+                                                <DeviceCheckWizard
+                                                    assessmentId={activeAssessmentId || 0}
+                                                    assessmentType="INTRO"
+                                                    assessmentMode="VIDEO_AUDIO"
+                                                    audioOnly={false}
+                                                    onPrepareConfirmation={handlePrepareConfirmation}
+                                                    onComplete={handleCheckComplete}
+                                                    onCancel={handleCancelWizard}
+                                                />
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                {/* Resume Status */}
-                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                                    ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                                    : setupStatus.resume_uploaded
-                                                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                        : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                                    }`}>
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.resume_uploaded ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
-                                                        {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.resume_uploaded ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
-                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Added" : "Not added"}
-                                                        </p>
-                                                    </div>
-                                                    {setupStatus?.resume_uploaded && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setViewResumeOpen(true)}
-                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
-                                                        >
-                                                            <Eye className="w-3.5 h-3.5" />
-                                                            View Resume
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                {/* API Keys Status */}
-                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                                    ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                                    : setupStatus.api_keys_configured
-                                                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                        : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                                    }`}>
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.api_keys_configured ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
-                                                        {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.api_keys_configured ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
-                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-                                                            {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Added" : "Not added"}
-                                                        </p>
-                                                    </div>
-                                                    {setupStatus && !setupStatus.api_keys_configured && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => goToTab('my-llm-setup')}
-                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200 transition-colors px-2.5 py-1.5 bg-amber-100 dark:bg-amber-900/40 rounded-lg"
-                                                        >
-                                                            <Plus className="w-3.5 h-3.5" />
-                                                            Add Key
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Start Preparation / Complete Setup Button */}
-                                            {setupStatus && !setupWizardOpen && (
-                                                <div className="flex-1 flex items-center justify-center mt-8">
-                                                    {setupStatus.setup_complete ? (
-                                                        <button
-                                                            onClick={() => {
-                                                                goToTab('ai-prep');
-                                                            }}
-                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap cursor-pointer"
-                                                        >
-                                                            <PlayCircle className="w-4 h-4" />
-                                                            Open AI PrepTool
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (setupStatus?.api_keys_configured) {
-                                                                    goToTab('my-resume');
-                                                                } else {
-                                                                    goToTab('my-llm-setup');
-                                                                }
-                                                            }}
-                                                            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-br from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                        >
-                                                            {!setupStatus.api_keys_configured ? (
-                                                                <>
-                                                                    <Plus className="w-4 h-4" />
-                                                                    Add Key
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Sparkles className="w-4 h-4" />
-                                                                    Complete Setup
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                    </div>
-                                )}
-
-                                {activeTab === 'ai-prep' && (
-                                    <div className="w-full h-full min-h-[calc(100vh-100px)] relative overflow-hidden bg-slate-50 dark:bg-gray-950 flex flex-col">
-                                        <iframe
-                                            src="/aiprep?embed=true"
-                                            className="w-full flex-1 border-0 min-h-[calc(100vh-100px)]"
-                                            style={{ display: 'block' }}
-                                            allow="camera; microphone"
-                                        />
+                                        ) : (
+                                            <AIPrepDashboard
+                                                onStartAssessment={() => setIsAiPrepWizardActive(true)}
+                                                onViewReport={(rId) => {
+                                                    router.push(`/aiprep/reports/${rId}`);
+                                                }}
+                                                setupStatus={setupStatus}
+                                                candidateId={candidateId || userProfile?.candidate_id || undefined}
+                                                onNavigateTab={(tab) => goToTab(tab as TabType)}
+                                                embedded={true}
+                                            />
+                                        )}
                                     </div>
                                 )}
 
