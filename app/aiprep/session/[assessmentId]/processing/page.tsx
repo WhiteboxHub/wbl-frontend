@@ -74,10 +74,8 @@ export default function AssessmentProcessingPage() {
   } = useProcessingStatus({
     assessmentId: isNaN(assessmentId) || !assessmentId ? null : assessmentId,
     onCompleted: () => {
-      // Auto-redirect to candidate's detailed report page
-      const targetUrl = isEmbedded
-        ? `/aiprep/reports/${assessmentId}?embed=true`
-        : `/aiprep/reports/${assessmentId}`;
+      // Auto-redirect to candidate's standalone full-page report
+      const targetUrl = `/aiprep/reports/${assessmentId}`;
       setTimeout(() => {
         router.push(targetUrl);
       }, 1200);
@@ -116,15 +114,15 @@ export default function AssessmentProcessingPage() {
               {isCompleted
                 ? 'Evaluation Complete!'
                 : isFailed
-                ? 'Evaluation Stalled'
-                : 'AI Evaluation in Progress'}
+                  ? 'Evaluation Stalled'
+                  : 'AI Evaluation in Progress'}
             </h1>
             <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
               {isCompleted
                 ? 'Your coaching insights have been generated. Loading your report now…'
                 : isFailed
-                ? (errorMessage || 'We encountered a delay analyzing your response.')
-                : `Pure evaluation engines are grading your assessment (Session #${assessmentId}).`}
+                  ? (errorMessage || 'We encountered a delay analyzing your response.')
+                  : `Pure evaluation engines are grading your assessment (Session #${assessmentId}).`}
             </p>
           </div>
         </div>
@@ -137,13 +135,12 @@ export default function AssessmentProcessingPage() {
           </div>
           <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
             <div
-              className={`h-full rounded-full transition-all duration-500 ease-out ${
-                isCompleted
+              className={`h-full rounded-full transition-all duration-500 ease-out ${isCompleted
                   ? 'bg-emerald-500'
                   : isFailed
-                  ? 'bg-rose-500'
-                  : 'bg-gradient-to-r from-indigo-500 to-purple-500'
-              }`}
+                    ? 'bg-rose-500'
+                    : 'bg-gradient-to-r from-indigo-500 to-purple-500'
+                }`}
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -162,26 +159,24 @@ export default function AssessmentProcessingPage() {
             return (
               <div
                 key={step.key}
-                className={`flex items-start gap-3.5 p-3 rounded-2xl border transition-all duration-200 ${
-                  isStepCompleted
+                className={`flex items-start gap-3.5 p-3 rounded-2xl border transition-all duration-200 ${isStepCompleted
                     ? 'bg-emerald-950/20 border-emerald-500/20'
                     : isStepRunning
-                    ? 'bg-indigo-950/30 border-indigo-500/40 shadow-sm'
-                    : isStepFailed
-                    ? 'bg-rose-950/20 border-rose-500/30'
-                    : 'bg-slate-950/40 border-slate-800/60 opacity-60'
-                }`}
+                      ? 'bg-indigo-950/30 border-indigo-500/40 shadow-sm'
+                      : isStepFailed
+                        ? 'bg-rose-950/20 border-rose-500/30'
+                        : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                  }`}
               >
                 <div
-                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                    isStepCompleted
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${isStepCompleted
                       ? 'bg-emerald-500/20 text-emerald-400'
                       : isStepRunning
-                      ? 'bg-indigo-500/20 text-indigo-400'
-                      : isStepFailed
-                      ? 'bg-rose-500/20 text-rose-400'
-                      : 'bg-slate-800 text-slate-500'
-                  }`}
+                        ? 'bg-indigo-500/20 text-indigo-400'
+                        : isStepFailed
+                          ? 'bg-rose-500/20 text-rose-400'
+                          : 'bg-slate-800 text-slate-500'
+                    }`}
                 >
                   {isStepCompleted ? (
                     <IconCheck size={16} stroke={3} />
@@ -195,24 +190,22 @@ export default function AssessmentProcessingPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <h3
-                      className={`text-xs font-bold ${
-                        isStepCompleted
+                      className={`text-xs font-bold ${isStepCompleted
                           ? 'text-emerald-300'
                           : isStepRunning
-                          ? 'text-indigo-300'
-                          : 'text-slate-400'
-                      }`}
+                            ? 'text-indigo-300'
+                            : 'text-slate-400'
+                        }`}
                     >
                       {step.title}
                     </h3>
                     <span
-                      className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
-                        isStepCompleted
+                      className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${isStepCompleted
                           ? 'text-emerald-400'
                           : isStepRunning
-                          ? 'text-indigo-400'
-                          : 'text-slate-600'
-                      }`}
+                            ? 'text-indigo-400'
+                            : 'text-slate-600'
+                        }`}
                     >
                       {stepStatus}
                     </span>
@@ -232,10 +225,7 @@ export default function AssessmentProcessingPage() {
             <button
               type="button"
               onClick={() => {
-                const targetUrl = isEmbedded
-                  ? `/aiprep/reports/${assessmentId}?embed=true`
-                  : `/aiprep/reports/${assessmentId}`;
-                router.push(targetUrl);
+                router.push(`/aiprep/reports/${assessmentId}`);
               }}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
             >

@@ -16,6 +16,7 @@ import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/AssessmentCard';
+import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
 import { AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 
 export default function AIPrepPage() {
@@ -77,6 +78,8 @@ export default function AIPrepPage() {
   }, [isUserAuthenticated, router]);
 
   const [isEmbedded, setIsEmbedded] = useState(false);
+  const [started, setStarted] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const embedded = window.self !== window.top || searchParams.get('embed') === 'true';
@@ -188,11 +191,18 @@ export default function AIPrepPage() {
     }
   };
 
+  const handleStartAssessment = () => {
+    setStarted(true);
+    const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+    router.push(isEmbeddedCheck ? '/aiprep?embed=true&start=true' : '/aiprep?start=true');
+  };
+
   const handleCancel = () => {
     sessionStorage.removeItem('aiprep_wizard_step');
     sessionStorage.removeItem('aiprep_active_type');
     sessionStorage.removeItem('aiprep_active_mode');
     sessionStorage.removeItem('aiprep_active_id');
+    setStarted(false);
     const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
     router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
@@ -235,6 +245,17 @@ export default function AIPrepPage() {
     );
   }
 
+  // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
+  const showWizard = started || searchParams.get('start') === 'true';
+
+  if (!showWizard && !isSaving && !errorMsg) {
+    return (
+      <AIPrepDashboard
+        embedded={isEmbedded}
+        onStartAssessment={handleStartAssessment}
+      />
+    );
+  }
   return (
     <div className="w-full h-full min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
       {errorMsg ? (

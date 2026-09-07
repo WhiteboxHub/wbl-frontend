@@ -1,0 +1,191 @@
+npm notice run startup-nextjs-template@0.1.0 dev
+npm notice run next dev
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env
+  - Experiments (use with caution):
+    · missingSuspenseWithCSRBailout
+
+ ✓ Starting...
+ ✓ Ready in 2.1s
+ ○ Compiling /api/sw.js ...
+ ✓ Compiled /api/sw.js in 524ms (58 modules)
+ GET /api/sw.js 200 in 1925ms
+ ○ Compiling /user_dashboard/[[...tab]] ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Browserslist: browsers data (caniuse-lite) is 12 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ Compiled /user_dashboard/[[...tab]] in 9.6s (2183 modules)
+ GET /user_dashboard 200 in 10139ms
+ ✓ Compiled in 1000ms (1046 modules)
+ GET /user_dashboard 200 in 74ms
+ ○ Compiling /aiprep ...
+ ✓ Compiled /aiprep in 1512ms (1969 modules)
+ GET /aiprep?embed=true 200 in 2063ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1241ms (1973 modules)
+ GET / 200 in 1671ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 874ms (1976 modules)
+ GET /_next/static/css/app/layout.css?v=1788722985910 404 in 1220ms
+ GET /_next/static/chunks/main-app.js?v=1788722985910 404 in 913ms
+ GET /_next/static/chunks/app/layout.js 404 in 912ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 910ms
+ GET /_next/static/chunks/app/not-found.js 404 in 886ms
+ ⚠ The "images.domains" configuration is deprecated. Please use "images.remotePatterns" configuration instead.
+ GET /_next/static/media/wbl-light.a7f8eab3.png 404 in 117ms
+ ⨯ The requested resource isn't a valid image for /_next/static/media/wbl-light.a7f8eab3.png received null
+ ✓ Compiled /api/sw.js in 144ms (916 modules)
+ GET /api/sw.js 200 in 1708ms
+ ✓ Compiled in 1349ms (1104 modules)
+ ✓ Compiled in 2.7s (1108 modules)
+ ✓ Compiled in 1753ms (1108 modules)
+ ○ Compiling /user_dashboard/[[...tab]] ...
+ ✓ Compiled /user_dashboard/[[...tab]] in 2.1s (1112 modules)
+ GET /user_dashboard/ai-prep 200 in 3937ms
+ ✓ Compiled in 1921ms (1104 modules)
+ ✓ Compiled in 463ms (1104 modules)
+ ✓ Compiled in 588ms (1104 modules)
+ ✓ Compiled in 547ms (1104 modules)
+ ✓ Compiled in 503ms (1104 modules)
+ ✓ Compiled in 466ms (1104 modules)
+ ✓ Compiled in 777ms (1104 modules)
+ ✓ Compiled in 664ms (1090 modules)
+ ✓ Compiled in 2.4s (1108 modules)
+ ✓ Compiled in 782ms (1108 modules)
+ ✓ Compiled in 835ms (1108 modules)
+ ✓ Compiled in 382ms (1094 modules)
+ ✓ Compiled in 2.6s (1108 modules)
+ ✓ Compiled in 673ms (1108 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\Innovapath\WBL\wbl-frontend\.next\cache\webpack\client-development\2.pack.gz_' -> 'C:\Users\Innovapath\WBL\wbl-frontend\.next\cache\webpack\client-development\2.pack.gz'
+ ✓ Compiled in 1096ms (1108 modules)
+ ✓ Compiled in 3.5s (1108 modules)
+RangeError: Failed to allocate memory
+    at createUnsafeBuffer (node:internal/buffer:1104:25)
+    at allocate (node:buffer:491:10)
+    at Buffer.allocUnsafe (node:buffer:454:10)
+    at Gzip.ZlibBase (node:zlib:264:28)
+    at Gzip.Zlib (node:zlib:683:12)
+    at new Gzip (node:zlib:744:8)
+    at value (node:zlib:962:14)
+    at C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215843
+    at new Promise (<anonymous>)
+    at writeFile (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215751)
+    at serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1213615)
+    at async Promise.all (index 7)
+    at async serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1212754)
+    at async C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:540196 {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+RangeError: Failed to allocate memory
+    at createUnsafeBuffer (node:internal/buffer:1104:25)
+    at allocate (node:buffer:491:10)
+    at Buffer.allocUnsafe (node:buffer:454:10)
+    at Gzip.ZlibBase (node:zlib:264:28)
+    at Gzip.Zlib (node:zlib:683:12)
+    at new Gzip (node:zlib:744:8)
+    at value (node:zlib:962:14)
+    at C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215843
+    at new Promise (<anonymous>)
+    at writeFile (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215751)
+    at serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1213615)
+    at async Promise.all (index 11)
+    at async serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1212754)
+    at async C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:540196 {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection: RangeError: Failed to allocate memory
+    at createUnsafeBuffer (node:internal/buffer:1104:25)
+    at allocate (node:buffer:491:10)
+    at Buffer.allocUnsafe (node:buffer:454:10)
+    at Gzip.ZlibBase (node:zlib:264:28)
+    at Gzip.Zlib (node:zlib:683:12)
+    at new Gzip (node:zlib:744:8)
+    at value (node:zlib:962:14)
+    at C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215843
+    at new Promise (<anonymous>)
+    at writeFile (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215751)
+    at serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1213615)
+    at async Promise.all (index 7)
+    at async serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1212754)
+    at async C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:540196 {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection: RangeError: Failed to allocate memory
+    at createUnsafeBuffer (node:internal/buffer:1104:25)
+    at allocate (node:buffer:491:10)
+    at Buffer.allocUnsafe (node:buffer:454:10)
+    at Gzip.ZlibBase (node:zlib:264:28)
+    at Gzip.Zlib (node:zlib:683:12)
+    at new Gzip (node:zlib:744:8)
+    at value (node:zlib:962:14)
+    at C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215843
+    at new Promise (<anonymous>)
+    at writeFile (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215751)
+    at serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1213615)
+    at async Promise.all (index 7)
+    at async serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1212754)
+    at async C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:540196 {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection: RangeError: Failed to allocate memory
+    at createUnsafeBuffer (node:internal/buffer:1104:25)
+    at allocate (node:buffer:491:10)
+    at Buffer.allocUnsafe (node:buffer:454:10)
+    at Gzip.ZlibBase (node:zlib:264:28)
+    at Gzip.Zlib (node:zlib:683:12)
+    at new Gzip (node:zlib:744:8)
+    at value (node:zlib:962:14)
+    at C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215843
+    at new Promise (<anonymous>)
+    at writeFile (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215751)
+    at serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1213615)
+    at async Promise.all (index 11)
+    at async serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1212754)
+    at async C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:540196 {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+ ⨯ unhandledRejection: RangeError: Failed to allocate memory
+    at createUnsafeBuffer (node:internal/buffer:1104:25)
+    at allocate (node:buffer:491:10)
+    at Buffer.allocUnsafe (node:buffer:454:10)
+    at Gzip.ZlibBase (node:zlib:264:28)
+    at Gzip.Zlib (node:zlib:683:12)
+    at new Gzip (node:zlib:744:8)
+    at value (node:zlib:962:14)
+    at C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215843
+    at new Promise (<anonymous>)
+    at writeFile (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1215751)
+    at serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1213615)
+    at async Promise.all (index 11)
+    at async serialize (C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:1212754)
+    at async C:\Users\Innovapath\WBL\wbl-frontend\node_modules\next\dist\compiled\webpack\bundle5.js:28:540196 {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+
+<--- Last few GCs --->
+
+[1232:000002A64A472000]  3258977 ms: Mark-Compact (reduce) 441.8 (453.7) -> 441.8 (452.7) MB, pooled: 0 MB, 136.31 / 0.00 ms  (average mu = 0.158, current mu = 0.216) external memory pressure; GC in old space requested
+[1232:000002A64A472000]  3259338 ms: Mark-Compact (reduce) 441.8 (452.7) -> 441.8 (452.7) MB, pooled: 0 MB, 361.10 / 0.00 ms  (average mu = 0.057, current mu = 0.000) external memory pressure; GC in old space requested
+
+FATAL ERROR: Committing semi space failed. Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF79BE23D9F 
+ 2: 00007FF79AA6DCB7 
+ 3: 00007FF79A86E4F7 
+ 4: 00007FF79A806AEB 
+ 5: 00007FF79A82F06A 
+ 6: 00007FF79A8708D6 
+ 7: 00007FF79A86FF26 
+ 8: 00007FF79A880E82 
+ 9: 00007FF79A8809AB 
+10: 00007FF79C1524AD 
+11: 00007FF79A86BFC0 
+12: 00007FF79A873EE0 
+13: 00007FF79A6E8CC4 
+14: 00007FF79AA9544E 
+15: 00007FF79BE68C00 
+16: 000002A61FDCF77E 
+[?25h
