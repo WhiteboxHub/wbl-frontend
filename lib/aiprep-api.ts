@@ -566,10 +566,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         theme: 'blue',
         icon: 'user',
         items: [
-          'High-level summary of your professional journey',
-          'Reasons for transitions between companies or roles',
+          'Brief overview of your professional journey',
+          'Reasons for changing roles or exploring new opportunities',
           'Current employment status and availability',
-          'Industries and business domains you understand well',
+          'Relevant industries, domains, and experience',
         ],
       },
       {
