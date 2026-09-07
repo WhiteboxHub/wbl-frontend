@@ -653,11 +653,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     overview:
       'A Hiring Manager Interview evaluates your experience, ownership, problem-solving, decision-making, and ability to handle role-related challenges. This assessment helps you practice discussing real-world situations, demonstrate your approach to complex problems, and show how you can contribute effectively to the team.',
     purposeBullets: [
-      'Prove your capability to operate effectively at the target level',
-      'Demonstrate ownership, decision-making, and critical thinking',
-      'Showcase how you handle ambiguity, conflict, and tight deadlines',
-      'Illustrate technical leadership, mentorship, and collaboration',
-      'Build confidence that you will deliver immediate value to the team',
+      'Demonstrate ownership and effective decision-making',
+      'Showcase your problem-solving and critical-thinking skills',
+      'Explain how you handle challenges, ambiguity, and deadlines',
+      'Highlight collaboration, leadership, and communication skills',
     ],
     coverCategories: [
       {
