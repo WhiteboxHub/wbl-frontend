@@ -30,12 +30,12 @@ import {
   Info,
   CheckCircle2,
 } from 'lucide-react';
+import { AssessmentType } from '@/types/aiprep';
 import {
-  AssessmentType,
   AssessmentCardMeta,
   buildAssessmentCardMetadata,
   ASSESSMENT_INFO_DETAILS,
-} from '@/lib/aiprep-api';
+} from './assessment-details';
 import { AssessmentInfoModal } from './AssessmentInfoModal';
 
 export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = [

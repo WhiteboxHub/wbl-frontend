@@ -31,10 +31,8 @@ import {
   Sparkles,
   CheckCircle2,
 } from 'lucide-react';
-import {
-  AssessmentType,
-  ASSESSMENT_INFO_DETAILS,
-} from '@/lib/aiprep-api';
+import { AssessmentType } from '@/types/aiprep';
+import { ASSESSMENT_INFO_DETAILS } from './assessment-details';
 
 interface AssessmentInfoModalProps {
   isOpen: boolean;
