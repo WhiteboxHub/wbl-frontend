@@ -217,9 +217,25 @@ export interface AssessmentDetailResponse {
   job_description_text?: string | null;
   status: AssessmentStatus;
   youtube_url?: string | null;
+  job_description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
   data?: AssessmentDataPayload;
   report?: MasterReportSchema;
   created_at?: string;
+}
+
+export interface AssessmentListItem {
+  id: number;
+  candidate_id?: number;
+  assessment_type: AssessmentType;
+  media_type: MediaType;
+  status: AssessmentStatus;
+  job_description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string;
+  youtube_url?: string | null;
 }
 
 export interface AssessmentDetails extends AssessmentDetailResponse {}

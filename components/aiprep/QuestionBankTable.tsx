@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
-  Edit2,
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -20,12 +19,10 @@ import {
   GridReadyEvent,
   GridSizeChangedEvent,
   RowClickedEvent,
-  RowDoubleClickedEvent,
 } from "ag-grid-community";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import { QuestionBankItem, QuestionFiltersState } from "@/types/aiprep";
-import { Badge } from "@/components/admin_ui/badge";
 import { createPortal } from "react-dom";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -608,9 +605,6 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const gridApiRef = useRef<any>(null);
 
-  const displayedQuestions = useMemo(() => {
-    return questions;
-  }, [questions]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
@@ -662,7 +656,7 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [displayedQuestions, hiddenColumns]);
+  }, [questions, hiddenColumns]);
 
   const toggleColumnVisibility = (field: string) => {
     setHiddenColumns((prev) => {
@@ -1282,7 +1276,7 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
         style={{ height: "600px" }}
       >
         <AgGridReact
-          rowData={displayedQuestions}
+          rowData={questions}
           columnDefs={columnDefs}
           context={{ onToggleStatus }}
           defaultColDef={{
