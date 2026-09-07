@@ -294,7 +294,7 @@ export function buildAssessmentCardMetadata(
     description: descMap[type] || '',
     timeLimit,
     questionCount: '',
-    pauseAllowed: !isNoPause,
+    pauseAllowed: false,
     requiresJd,
   };
 }

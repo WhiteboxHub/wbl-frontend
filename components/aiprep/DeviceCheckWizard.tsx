@@ -39,10 +39,11 @@ import {
 import { YOLOAnalyzer } from './MediaPipe';
 import { AssessmentConfig } from './AssessmentCard';
 import { ConsentStep } from './ConsentModal';
+import { PracticeStep } from './PracticeStep';
 import { aiprepApi, AssessmentDetails, AssessmentType } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 
-export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'CONFIRMATION';
+export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START' | 'CONFIRMATION';
 
 interface DeviceCheckWizardProps {
   assessmentId: number;
@@ -298,6 +299,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     CONFIGURATION: 'assessment-type',
     CONSENT: 'consent',
     DEVICE_CHECK: 'device-check',
+    PRACTICE_START: 'practice',
     CONFIRMATION: 'confirmation',
   };
 
@@ -305,6 +307,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     'assessment-type': 'CONFIGURATION',
     'consent': 'CONSENT',
     'device-check': 'DEVICE_CHECK',
+    'practice': 'PRACTICE_START',
     'confirmation': 'CONFIRMATION',
   };
 
@@ -524,7 +527,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   useEffect(() => {
     if (step === 'DEVICE_CHECK') {
       runDiagnostics();
-    } else {
+    } else if (step !== 'PRACTICE_START') {
       cleanup();
     }
   }, [step, videoEnabled, selectedVideoDevice, selectedAudioDevice]);
@@ -558,6 +561,22 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const allChecksPass = micOk === true && (cameraOk === true || !videoEnabled);
 
   // 6. Navigation Handlers
+  const handleCompleteAssessment = () => {
+    onComplete({
+      browser_info: browserResult?.name || 'Standard Browser',
+      os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
+      camera_permission: !!cameraOk,
+      mic_permission: !!micOk,
+      speaker_ok: speakerOk !== false,
+      bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
+      yolo_consent: videoAnalyticsEnabled,
+      assessment_type: assessmentType,
+      audio_enabled: true,
+      video_enabled: videoEnabled,
+      jd_text: jdText,
+    });
+  };
+
   const handleNext = async () => {
     if (step === 'CONFIGURATION') {
       changeStep('CONSENT');
@@ -565,21 +584,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       changeStep('DEVICE_CHECK');
     } else if (step === 'DEVICE_CHECK') {
       setIsConfirmingFromBackend(false);
-      changeStep('CONFIRMATION');
+      changeStep('PRACTICE_START');
+    } else if (step === 'PRACTICE_START') {
+      handleCompleteAssessment();
     } else if (step === 'CONFIRMATION') {
-      onComplete({
-        browser_info: browserResult?.name || 'Standard Browser',
-        os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-        camera_permission: !!cameraOk,
-        mic_permission: !!micOk,
-        speaker_ok: speakerOk !== false,
-        bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
-        yolo_consent: videoAnalyticsEnabled,
-        assessment_type: assessmentType,
-        audio_enabled: true,
-        video_enabled: videoEnabled,
-        jd_text: jdText,
-      });
+      handleCompleteAssessment();
     }
   };
 
@@ -589,8 +598,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } else if (step === 'DEVICE_CHECK') {
       cleanup();
       changeStep('CONSENT');
-    } else if (step === 'CONFIRMATION') {
+    } else if (step === 'PRACTICE_START') {
       changeStep('DEVICE_CHECK');
+    } else if (step === 'CONFIRMATION') {
+      changeStep('PRACTICE_START');
     }
   };
 
@@ -608,7 +619,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 { key: 'CONFIGURATION', num: 1, label: 'Assessment Type' },
                 { key: 'CONSENT', num: 2, label: 'Consent' },
                 { key: 'DEVICE_CHECK', num: 3, label: 'Device Check' },
-                { key: 'CONFIRMATION', num: 4, label: 'Confirmation' },
+                { key: 'PRACTICE_START', num: 4, label: 'Practice & Start' },
+                { key: 'CONFIRMATION', num: 5, label: 'Confirmation' },
               ].map(({ key, num, label }, idx, arr) => {
                 const isActive = step === key;
                 const isDone = arr.findIndex((s) => s.key === step) > idx;
@@ -653,8 +665,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     changeStep('CONFIGURATION');
                   } else if (step === 'DEVICE_CHECK') {
                     changeStep('CONSENT');
-                  } else if (step === 'CONFIRMATION') {
+                  } else if (step === 'PRACTICE_START') {
                     changeStep('DEVICE_CHECK');
+                  } else if (step === 'CONFIRMATION') {
+                    changeStep('PRACTICE_START');
                   } else {
                     onCancel();
                   }
@@ -964,14 +978,35 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     disabled={!allChecksPass}
                     className="flex items-center gap-1.5 px-5 py-1.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-[#6C5CE7]/25 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                   >
-                    <span>Next: Confirmation</span>
+                    <span>Next: Practice &amp; Start</span>
                     <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ═══════════════ STEP 4: CONFIRMATION ═══════════════ */}
+            {/* ═══════════════ STEP 4: PRACTICE & START (Interactive Sandbox) ═══════════════ */}
+            {step === 'PRACTICE_START' && (
+              <div className="flex-1 flex flex-col h-full">
+                <PracticeStep
+                  videoEnabled={videoEnabled}
+                  videoAnalyticsEnabled={videoAnalyticsEnabled}
+                  cameraStream={cameraStream}
+                  selectedAudioLabel={
+                    audioDevices.find((d) => d.deviceId === selectedAudioDevice)?.label ||
+                    'MacBook Pro Microphone (Built-in)'
+                  }
+                  selectedVideoLabel={
+                    videoDevices.find((d) => d.deviceId === selectedVideoDevice)?.label ||
+                    'FaceTime HD Camera (Built-in)'
+                  }
+                  onBack={handlePrevious}
+                  onStartAssessment={handleCompleteAssessment}
+                />
+              </div>
+            )}
+
+            {/* ═══════════════ STEP 5: CONFIRMATION ═══════════════ */}
             {step === 'CONFIRMATION' && (
               <div className="w-full px-4 sm:px-6 py-3 space-y-3 animate-in fade-in duration-200">
 
