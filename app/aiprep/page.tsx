@@ -16,12 +16,15 @@ import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 
-
 export default function AIPrepPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Authentication & Hydration validation
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  // Authentication & Hydration validation (Fast token-first initialization)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token'));
+  });
   const [isMounted, setIsMounted] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -30,10 +33,6 @@ export default function AIPrepPage() {
     setIsMounted(true);
 
     async function verifyAuthAndInitSession() {
-      const isEmbedded = typeof window !== 'undefined' && (
-        window.self !== window.top || window.location.search.includes('embed=true')
-      );
-
       try {
         const userDash: any = await apiFetch("user_dashboard");
         setIsAuthenticated(true);
@@ -75,17 +74,13 @@ export default function AIPrepPage() {
     verifyAuthAndInitSession();
   }, [router]);
 
-  const searchParams = useSearchParams();
-
-  // Redirect standalone access to /aiprep so it opens inside Candidate Dashboard layout
+  const [isEmbedded, setIsEmbedded] = useState(false);
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isEmbedded = window.self !== window.top || searchParams.get('embed') === 'true';
-      if (!isEmbedded) {
-        router.replace('/user_dashboard/ai-prep');
-      }
+      const embedded = window.self !== window.top || searchParams.get('embed') === 'true';
+      setIsEmbedded(embedded);
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   // Active preferences
   const queryType = searchParams.get('type') as AssessmentType | null;
@@ -237,55 +232,47 @@ export default function AIPrepPage() {
     );
   }
 
-  const isEmbedded = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
-
   return (
-    <div className={`w-full bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 ${isEmbedded ? 'h-screen max-h-screen overflow-hidden p-2 sm:p-3' : 'min-h-screen p-4 sm:p-5'}`}>
-
-      {/* Decorative background glows */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
-
-      <div className="w-full flex-1 flex flex-col z-10 min-h-0 overflow-hidden">
-        {errorMsg ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
-            <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
-            <h3 className="text-lg font-black text-slate-905 dark:text-white mb-2">
-              Setup Connection Failed
-            </h3>
-            <p className="text-slate-650 dark:text-slate-400 text-xs leading-relaxed mb-6 font-medium">
-              {errorMsg}
-            </p>
-            <div className="flex items-center gap-3 w-full">
-              <button
-                type="button"
-                onClick={() => setErrorMsg(null)}
-                className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-650 hover:bg-indigo-500 active:scale-95 transition-all shadow-md cursor-pointer"
-              >
-                Retry Setup Flow
-              </button>
-            </div>
+    <div className="w-full h-full min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
+      {errorMsg ? (
+        <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
+          <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
+          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
+            Setup Connection Failed
+          </h3>
+          <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-6 font-medium">
+            {errorMsg}
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-md cursor-pointer"
+            >
+              Retry Setup Flow
+            </button>
           </div>
-        ) : isSaving ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center p-8 animate-in fade-in duration-200">
-            <Loader2 className="w-12 h-12 text-[#4A6CF7] animate-spin mb-6" />
-            <h3 className="text-lg font-black text-slate-905 dark:text-white mb-2">Initializing Assessment Room</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-xs max-w-xs leading-relaxed font-semibold">
-              Registering hardware verification and preparing question prompts. This will only take a moment.
-            </p>
-          </div>
-        ) : (
-          <DeviceCheckWizard
-            assessmentId={activeAssessmentId || 0}
-            assessmentType={effectiveType}
-            assessmentMode={effectiveMode}
-            audioOnly={effectiveMode === 'AUDIO_ONLY'}
-            onPrepareConfirmation={handlePrepareConfirmation}
-            onComplete={handleCheckComplete}
-            onCancel={handleCancel}
-          />
-        )}
-      </div>
+        </div>
+      ) : isSaving ? (
+        <div className="flex flex-col items-center justify-center flex-1 text-center p-8 animate-in fade-in duration-200">
+          <Loader2 className="w-12 h-12 text-[#4A6CF7] animate-spin mb-6" />
+          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Initializing Assessment Room</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-xs max-w-xs leading-relaxed font-semibold">
+            Registering hardware verification and preparing question prompts. This will only take a moment.
+          </p>
+        </div>
+      ) : (
+        <DeviceCheckWizard
+          assessmentId={activeAssessmentId || 0}
+          assessmentType={effectiveType}
+          assessmentMode={effectiveMode}
+          audioOnly={effectiveMode === 'AUDIO_ONLY'}
+          initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'CONFIGURATION'}
+          onPrepareConfirmation={handlePrepareConfirmation}
+          onComplete={handleCheckComplete}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   );
 }
