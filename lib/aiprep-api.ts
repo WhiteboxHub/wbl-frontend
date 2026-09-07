@@ -664,10 +664,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         theme: 'blue',
         icon: 'user',
         items: [
-          'End-to-end projects led from concept to launch',
-          'Difficult technical or architectural decisions made',
-          'Metrics, KPIs, and measurable business impact',
-          'Accountability and learnings from setbacks or bugs',
+          'End-to-end ownership of projects and responsibilities',
+          'Important technical or architectural decisions',
+          'Business impact, results, and measurable outcomes',
+          'Learning from mistakes, setbacks, and failures',
         ],
       },
       {
