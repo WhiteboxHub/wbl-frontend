@@ -238,7 +238,7 @@ export default function DeviceCheckPage() {
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
 
       {/* Full screen container */}
-      <div className="w-full h-full flex-1 flex flex-col z-10 p-2 sm:p-4 min-h-0 overflow-hidden">
+      <div className="w-full h-full flex-1 flex flex-col z-10 p-0 min-h-0 overflow-hidden">
         {/* Main Content Layout */}
         {errorMsg ? (
           <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
