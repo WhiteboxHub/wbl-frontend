@@ -865,11 +865,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
     overview:
       'A System Design Assessment evaluates your ability to design scalable, reliable, and maintainable systems from real-world requirements. It helps you practice breaking down complex problems, designing system architecture and data flows, selecting appropriate technologies, and explaining key trade-offs, scalability, performance, and reliability decisions.',
     purposeBullets: [
-      'Architect large-scale, distributed systems from high-level requirements',
-      'Make justified architectural decisions and trade-offs',
-      'Design robust database schemas, partitioning, and caching layers',
-      'Ensure high availability, disaster recovery, fault tolerance, and security',
-      'Communicate architectural diagrams and systems thinking clearly',
+      'Translate requirements into a clear and scalable system design',
+      'Define system architecture, components, APIs, and data flows',
+      'Choose suitable databases, caching, and messaging solutions',
+      'Address scalability, performance, availability, and fault tolerance',
     ],
     coverCategories: [
       {
