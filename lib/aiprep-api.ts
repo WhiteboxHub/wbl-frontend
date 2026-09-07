@@ -465,10 +465,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         theme: 'blue',
         icon: 'user',
         items: [
-          'Core day-to-day duties from the JD',
-          'Key team deliverables and milestones',
-          'Cross-functional collaboration scope',
-          'Level of ownership and project leadership',
+          'Understand the key responsibilities mentioned in the JD',
+          'Explain the main duties and expected outcomes of the role',
+          'Identify the key goals and deliverables',
+          'Describe the level of ownership and decision-making expected',
         ],
       },
       {
