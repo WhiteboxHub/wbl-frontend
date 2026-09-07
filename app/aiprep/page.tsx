@@ -78,18 +78,16 @@ export default function AIPrepPage() {
   const [isEmbedded, setIsEmbedded] = useState(false);
   useEffect(() => {
     if (typeof window !== 'undefined') {
-<<<<<<< HEAD
+      const embedded = window.self !== window.top || searchParams.get('embed') === 'true';
+      setIsEmbedded(embedded);
+
       const isIframe = window.self !== window.top;
-      if (!isIframe) {
+      if (!isIframe && !searchParams.get('embed')) {
         const startParam = searchParams.get('start') === 'true' ? '?start=true' : '';
         router.replace(`/user_dashboard/ai-prep${startParam}`);
       }
-=======
-      const embedded = window.self !== window.top || searchParams.get('embed') === 'true';
-      setIsEmbedded(embedded);
->>>>>>> origin/aiprep_frontend
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // Active preferences
   const queryType = searchParams.get('type') as AssessmentType | null;
@@ -241,17 +239,11 @@ export default function AIPrepPage() {
     );
   }
 
-<<<<<<< HEAD
-  const isEmbedded = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
-
   // The candidate dashboard renders the portal directly. This route is used
   // for device checks when an assessment is started.
   if (searchParams.get('start') !== 'true' && !isSaving && !errorMsg) {
     return <AIPrepDashboard onStartAssessment={() => router.push('/aiprep?embed=true&start=true')} />;
   }
-
-=======
->>>>>>> origin/aiprep_frontend
   return (
     <div className="w-full h-full min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
       {errorMsg ? (
