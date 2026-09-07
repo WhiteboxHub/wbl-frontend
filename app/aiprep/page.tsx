@@ -11,31 +11,41 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/utils/AuthContext';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
+import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/AssessmentCard';
 import { AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
 
 export default function AIPrepPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
 
-  // Authentication & Hydration validation (Fast token-first initialization)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token'));
-  });
   const [isMounted, setIsMounted] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const hasToken = typeof window !== 'undefined' ? !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token')) : false;
+  const isUserAuthenticated = isAuthenticated || hasToken;
+
   useEffect(() => {
     setIsMounted(true);
+    if (!isUserAuthenticated) {
+      if (typeof window !== 'undefined') {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = '/login';
+        } else {
+          router.replace('/login');
+        }
+      }
+      return;
+    }
 
-    async function verifyAuthAndInitSession() {
+    async function initSession() {
       try {
         const userDash: any = await apiFetch("user_dashboard");
-        setIsAuthenticated(true);
         const candidateId = userDash?.candidate_id || userDash?.basic_info?.id;
         const userEmail = userDash?.email || userDash?.basic_info?.email;
 
@@ -60,19 +70,11 @@ export default function AIPrepPage() {
           }
         }
       } catch (err) {
-        console.warn('[Security Guard]: Unauthenticated candidate session attempt.');
-        setIsAuthenticated(false);
-        if (typeof window !== 'undefined') {
-          if (window.top && window.top !== window.self) {
-            window.top.location.href = '/login';
-          } else {
-            router.replace('/login');
-          }
-        }
+        console.warn('[Session init note]:', err);
       }
     }
-    verifyAuthAndInitSession();
-  }, [router]);
+    initSession();
+  }, [isUserAuthenticated, router]);
 
   const [isEmbedded, setIsEmbedded] = useState(false);
   useEffect(() => {
@@ -89,8 +91,8 @@ export default function AIPrepPage() {
   const storedType = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_type') as AssessmentType | null) : null;
   const storedMode = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_mode') as AssessmentMode | null) : null;
 
-  const effectiveType = queryType || storedType || 'INTRO';
-  const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
+  const effectiveType = queryType || storedType || SUPPORTED_ASSESSMENT_TYPES[0];
+  const effectiveMode = queryMode || storedMode || '';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
@@ -122,11 +124,12 @@ export default function AIPrepPage() {
       console.error("Failed to retrieve candidate profile details:", err);
     }
 
+    const targetType: AssessmentType = 'INTRO';
     const assessment = await aiprepApi.createAssessment({
-      assessment_type: results.assessment_type as AssessmentType,
+      assessment_type: targetType,
       assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
       candidate_id: candidateId,
-      job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+      job_description_text: null,
       user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
     });
 
@@ -136,7 +139,7 @@ export default function AIPrepPage() {
     const targetId = assessment.id;
     setActiveAssessmentId(targetId);
     sessionStorage.setItem('aiprep_active_id', String(targetId));
-    sessionStorage.setItem('aiprep_active_type', results.assessment_type);
+    sessionStorage.setItem('aiprep_active_type', 'INTRO');
 
     sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
 
@@ -194,7 +197,7 @@ export default function AIPrepPage() {
     router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
 
-  if (!isMounted || isAuthenticated === null) {
+  if (!isMounted) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
@@ -203,7 +206,7 @@ export default function AIPrepPage() {
     );
   }
 
-  if (isAuthenticated === false) {
+  if (!isUserAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">

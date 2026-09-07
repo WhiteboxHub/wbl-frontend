@@ -269,17 +269,17 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
 
                 const themeStyles = isBlue
                   ? {
-                      container: 'bg-[#F0F7FF] dark:bg-blue-950/25 border-[#DBEAFE] dark:border-blue-900/40',
-                      headerText: 'text-slate-900 dark:text-slate-100',
-                      iconText: 'text-[#2563EB] dark:text-blue-400',
-                    }
+                    container: 'bg-[#F0F7FF] dark:bg-blue-950/25 border-[#DBEAFE] dark:border-blue-900/40',
+                    headerText: 'text-slate-900 dark:text-slate-100',
+                    iconText: 'text-[#2563EB] dark:text-blue-400',
+                  }
                   : isGreen
-                  ? {
+                    ? {
                       container: 'bg-[#F0FDF4] dark:bg-emerald-950/25 border-[#DCFCE7] dark:border-emerald-900/40',
                       headerText: 'text-slate-900 dark:text-slate-100',
                       iconText: 'text-[#16A34A] dark:text-emerald-400',
                     }
-                  : {
+                    : {
                       container: 'bg-[#FFFBEB] dark:bg-amber-950/25 border-[#FEF08A] dark:border-amber-900/40',
                       headerText: 'text-slate-900 dark:text-slate-100',
                       iconText: 'text-[#D97706] dark:text-amber-400',
@@ -359,7 +359,9 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
                 </p>
                 <button
                   type="button"
-                  onClick={() => onSelect && onSelect(type)}
+                  onClick={() => {
+                    if (type === 'INTRO' && onSelect) onSelect(type);
+                  }}
                   className="text-xs font-semibold text-[#7C3AED] hover:text-[#6D28D9] dark:text-purple-300 flex items-center gap-1 shrink-0 cursor-pointer whitespace-nowrap py-0.5"
                 >
                   <PlayCircle className="w-3.5 h-3.5" />
@@ -376,7 +378,7 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (onSelect) onSelect(type);
+              if (type === 'INTRO' && onSelect) onSelect(type);
               onClose();
             }}
             className="w-full sm:w-auto px-8 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer"

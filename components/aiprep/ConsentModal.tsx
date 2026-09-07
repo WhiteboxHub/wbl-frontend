@@ -17,20 +17,65 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Mic,
-  Video,
-  FileText,
-  Info,
-  Check,
-  X,
-  ChevronRight,
-  ArrowRight,
-} from 'lucide-react';
+import { Mic, Video, FileText, Info, Check, X, ArrowRight } from 'lucide-react';
 
 export type ConsentInfoModalType = 'MIC' | 'CAMERA' | 'ANALYTICS' | 'RECORDING' | 'TRANSCRIPT' | null;
 
-interface ConsentStepProps {
+export interface ConsentState {
+  videoEnabled: boolean;
+  consentMic: boolean;
+  consentCamera: boolean;
+  videoAnalyticsEnabled: boolean;
+  consentSaveRecording: boolean;
+  consentSaveTranscript: boolean;
+}
+
+export const getInitialConsentState = (audioOnly = false): ConsentState => {
+  if (typeof window === 'undefined') {
+    return {
+      videoEnabled: !audioOnly,
+      consentMic: true,
+      consentCamera: !audioOnly,
+      videoAnalyticsEnabled: true,
+      consentSaveRecording: true,
+      consentSaveTranscript: true,
+    };
+  }
+  const savedMode = sessionStorage.getItem('aiprep_active_mode');
+  const isVideo = audioOnly ? false : savedMode !== 'AUDIO_ONLY';
+  return {
+    videoEnabled: isVideo,
+    consentMic: sessionStorage.getItem('aiprep_consent_mic') !== 'false',
+    consentCamera: isVideo && sessionStorage.getItem('aiprep_consent_camera') !== 'false',
+    videoAnalyticsEnabled: sessionStorage.getItem('aiprep_consent_yolo') !== 'false',
+    consentSaveRecording: sessionStorage.getItem('aiprep_consent_recording') !== 'false',
+    consentSaveTranscript: sessionStorage.getItem('aiprep_consent_transcript') !== 'false',
+  };
+};
+
+export const syncConsentToSessionStorage = (state: Partial<ConsentState>) => {
+  if (typeof window === 'undefined') return;
+  if (state.videoEnabled !== undefined) {
+    sessionStorage.setItem('aiprep_active_mode', state.videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+  }
+  if (state.consentMic !== undefined) {
+    sessionStorage.setItem('aiprep_consent_mic', String(state.consentMic));
+  }
+  if (state.consentCamera !== undefined) {
+    sessionStorage.setItem('aiprep_consent_camera', String(state.consentCamera));
+  }
+  if (state.videoAnalyticsEnabled !== undefined) {
+    sessionStorage.setItem('aiprep_consent_yolo', String(state.videoAnalyticsEnabled));
+  }
+  if (state.consentSaveRecording !== undefined) {
+    sessionStorage.setItem('aiprep_consent_recording', String(state.consentSaveRecording));
+  }
+  if (state.consentSaveTranscript !== undefined) {
+    sessionStorage.setItem('aiprep_consent_transcript', String(state.consentSaveTranscript));
+  }
+};
+
+export interface ConsentStepProps {
   videoEnabled: boolean;
   setVideoEnabled: (v: boolean) => void;
   consentMic?: boolean;
