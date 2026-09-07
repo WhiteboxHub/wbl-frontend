@@ -223,19 +223,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
     const slug = STEP_TO_SLUG[step] || 'assessment-type';
 
-    // 1. Update address bar of top window (if inside iframe) or self window
+    // 1. Update address bar of top window (if inside iframe) or self window without ?step= query param
     try {
       const newPath = `/user_dashboard/ai-prep/${slug}`;
       if (window.top && window.top !== window) {
         try {
-          const topSearch = window.top.location.search;
-          if (window.top.location.pathname !== newPath) {
+          const topUrl = new URL(window.top.location.href);
+          topUrl.searchParams.delete('step');
+          const topSearch = topUrl.search;
+          if (window.top.location.pathname !== newPath || window.top.location.search !== topSearch) {
             window.top.history.replaceState(null, '', `${newPath}${topSearch}`);
           }
         } catch {}
       } else {
-        const search = window.location.search;
-        if (window.location.pathname !== newPath) {
+        const selfUrl = new URL(window.location.href);
+        selfUrl.searchParams.delete('step');
+        const search = selfUrl.search;
+        if (window.location.pathname !== newPath || window.location.search !== search) {
           window.history.replaceState(null, '', `${newPath}${search}`);
         }
       }
@@ -243,11 +247,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       console.warn('[DeviceCheckWizard] Address bar sync error:', e);
     }
 
-    // 2. Keep iframe internal url searchParams in sync
+    // 2. Keep internal url clean without step searchParam
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('step') !== step) {
-        url.searchParams.set('step', step);
+      if (url.searchParams.has('step')) {
+        url.searchParams.delete('step');
         window.history.replaceState(null, '', url.toString());
       }
     } catch {}
@@ -1438,7 +1442,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               { key: 'CONSENT', num: 2, label: 'Consent', shortLabel: 'Consent' },
               { key: 'DEVICE_CHECK', num: 3, label: 'Device Check', shortLabel: 'Device' },
               { key: 'PRACTICE_START', num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
-              { key: 'CONFIRMATION', num: 5, label: 'Confirmation', shortLabel: 'Confirm' },
             ].map(({ key, num, label, shortLabel }, idx, arr) => {
               const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
               return (
