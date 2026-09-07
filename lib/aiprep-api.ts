@@ -476,10 +476,11 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         theme: 'green',
         icon: 'cpu',
         items: [
-          'Direct alignment with required languages',
-          'Cloud platforms (AWS, GCP, Azure)',
-          'AI/ML, data pipelines, or specialized tools',
-          'Architecture, testing, and CI/CD competencies',
+          'Programming languages and core technologies required for the role',
+          'Frameworks, libraries, and development tools listed in the JD',
+          'Cloud platforms and other relevant technical skills',
+          'Architecture, databases, testing, and development practices',
+          'AI/ML and other role-specific technologies',
         ],
       },
       {
