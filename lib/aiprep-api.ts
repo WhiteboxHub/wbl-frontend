@@ -651,7 +651,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Connect your past experience to the problems the hiring manager\'s team is solving.',
     ],
     overview:
-      'The Hiring Manager assessment evaluates your operational leadership, ownership mindset, situational judgment, and problem-solving execution through deep-dive behavioral scenarios.',
+      'A Hiring Manager Interview evaluates your experience, ownership, problem-solving, decision-making, and ability to handle role-related challenges. This assessment helps you practice discussing real-world situations, demonstrate your approach to complex problems, and show how you can contribute effectively to the team.',
     purposeBullets: [
       'Prove your capability to operate effectively at the target level',
       'Demonstrate ownership, decision-making, and critical thinking',
