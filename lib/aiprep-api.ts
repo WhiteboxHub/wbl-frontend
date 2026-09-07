@@ -589,9 +589,9 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         icon: 'settings',
         items: [
           'Salary and total compensation expectations',
-          'Work authorization and relocation preferences',
-          'Remote, hybrid, or on-site flexibility',
-          'Thoughtful reverse questions to ask recruiters',
+          'Availability and potential start date',
+          'Work authorization and sponsorship requirements',
+          'Remote, hybrid, onsite, or relocation preferences',
         ],
       },
     ],
