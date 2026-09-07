@@ -24,7 +24,6 @@ import {
   Info,
   Check,
   X,
-  ChevronRight,
   ArrowRight,
 } from 'lucide-react';
 
@@ -68,6 +67,9 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
   useEffect(() => {
     setMounted(true);
+    // Reset selection to Video + Audio whenever this component mounts
+    setVideoEnabled(true);
+    if (setConsentCamera) setConsentCamera(true);
   }, []);
 
   const getPortalTarget = () => {
@@ -120,7 +122,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col justify-start text-left space-y-2.5 sm:space-y-3">
-      {/* ── Header Title & Subtitle ── */}
+      {/* Header Title & Subtitle */}
       <div className="space-y-0.5">
         <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
           Media &amp; Consent
@@ -130,7 +132,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         </p>
       </div>
 
-      {/* ── Media Selection Cards (Audio Only vs Video + Audio) ── */}
+      {/* Media Selection Cards (Audio Only vs Video + Audio) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
         {/* Card 1: Audio Only */}
         <div
@@ -203,7 +205,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         </div>
       </div>
 
-      {/* ── Consent Options Section ── */}
+      {/* Consent Options Section */}
       <div className="space-y-2 pt-0.5">
         <div>
           <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
@@ -215,7 +217,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         </div>
 
         <div className="space-y-1.5">
-          {/* Checkbox 1: Combined Media Consent (Camera & Microphone when video enabled, Microphone only when audio only) */}
+          {/* Checkbox 1: Combined Media Consent */}
           <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3">
             <label className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none">
               <input
@@ -267,7 +269,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
             </label>
           </div>
 
-          {/* Checkbox 2: AI Video Analytics (Shown if Video + Audio is selected) */}
+          {/* Checkbox 2: AI Video Analytics */}
           {videoEnabled && (
             <div className="p-2.5 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3 animate-in fade-in duration-200">
               <label className="flex items-start sm:items-center gap-3 flex-1 cursor-pointer select-none">
@@ -385,7 +387,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         </div>
       </div>
 
-      {/* ── Footer Navigation Buttons ── */}
+      {/* Footer Navigation Buttons */}
       <div className="pt-2.5 sm:pt-3 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 mt-auto">
         <button
           type="button"
@@ -410,13 +412,11 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         </button>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* INFO MODALS POPUP (Mounted via Portal over Full Page)               */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* INFO MODALS POPUP */}
       {portalTarget && activeModal && createPortal(
         <div className="fixed inset-0 z-[99999999] bg-slate-950/45 dark:bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-[450px] max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-none p-5 sm:p-7 space-y-4 animate-in zoom-in-95 duration-150 relative text-left">
-            {/* Close 'X' Button */}
+            {/* Close Button */}
             <button
               type="button"
               onClick={() => setActiveModal(null)}
@@ -443,7 +443,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               </h3>
             </div>
 
-            {/* ── MODAL: About Microphone & Audio Recording ── */}
+            {/* MODAL: About Microphone & Audio Recording */}
             {activeModal === 'MIC' && (
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
@@ -480,7 +480,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               </div>
             )}
 
-            {/* ── MODAL: About Camera & Microphone Recording ── */}
+            {/* MODAL: About Camera & Microphone Recording */}
             {activeModal === 'CAMERA' && (
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
@@ -517,7 +517,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               </div>
             )}
 
-            {/* ── MODAL 1: About AI Video Analytics ── */}
+            {/* MODAL 1: About AI Video Analytics */}
             {activeModal === 'ANALYTICS' && (
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
@@ -562,7 +562,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               </div>
             )}
 
-            {/* ── MODAL 2: About Interview Recording ── */}
+            {/* MODAL 2: About Interview Recording */}
             {activeModal === 'RECORDING' && (
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
@@ -603,7 +603,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               </div>
             )}
 
-            {/* ── MODAL 3: About Interview Transcript ── */}
+            {/* MODAL 3: About Interview Transcript */}
             {activeModal === 'TRANSCRIPT' && (
               <div className="space-y-4 text-left">
                 <div className="space-y-2">
@@ -616,19 +616,15 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                   <div className="bg-[#F8F5FE] dark:bg-purple-950/30 rounded-xl p-3.5 sm:p-4 space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
                     <div className="flex items-center gap-2.5">
                       <Check className="w-3.5 h-3.5 text-[#6D28D9] dark:text-purple-400 shrink-0 stroke-[2.5]" />
-                      <span>Complete question and answer transcript</span>
+                      <span>Full text transcript of all questions and responses</span>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <Check className="w-3.5 h-3.5 text-[#6D28D9] dark:text-purple-400 shrink-0 stroke-[2.5]" />
-                      <span>AI-generated evaluation and feedback</span>
+                      <span>Detailed AI evaluation report &amp; scoring insights</span>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <Check className="w-3.5 h-3.5 text-[#6D28D9] dark:text-purple-400 shrink-0 stroke-[2.5]" />
-                      <span>Stored securely in your account</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <Check className="w-3.5 h-3.5 text-[#6D28D9] dark:text-purple-400 shrink-0 stroke-[2.5]" />
-                      <span>Used to track progress and improve your experience</span>
+                      <span>Stored securely and linked to your candidate dashboard</span>
                     </div>
                   </div>
                 </div>
@@ -638,18 +634,18 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                     Your control
                   </h4>
                   <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    You can change this setting at any time in Settings. If you do not consent, the transcript will not be saved, though the assessment will still proceed.
+                    You can manage or delete your stored transcript history directly from your account privacy settings at any time.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Footer Button: Got it */}
+            {/* Modal Close CTA */}
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#6D28D9] hover:bg-[#5B21B6] transition-all shadow-sm active:scale-95 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-sm"
               >
                 Got it
               </button>
@@ -661,5 +657,3 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     </div>
   );
 };
-
-export default ConsentStep;
