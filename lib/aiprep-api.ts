@@ -863,7 +863,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Be prepared to explain why you made each major design decision.',
     ],
     overview:
-      'The System Design assessment evaluates your ability to design robust, scalable, distributed architectures from ambiguous requirements down to component interactions, data models, and trade-offs.',
+      'A System Design Assessment evaluates your ability to design scalable, reliable, and maintainable systems from real-world requirements. It helps you practice breaking down complex problems, designing system architecture and data flows, selecting appropriate technologies, and explaining key trade-offs, scalability, performance, and reliability decisions.',
     purposeBullets: [
       'Architect large-scale, distributed systems from high-level requirements',
       'Make justified architectural decisions and trade-offs',
