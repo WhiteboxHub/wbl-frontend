@@ -53,7 +53,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
       if (audioContextRef.current) {
         try {
           audioContextRef.current.close();
-        } catch (_) {}
+        } catch (_) { }
         audioContextRef.current = null;
       }
       setAudioLevels(Array(20).fill(3));
@@ -100,7 +100,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
       if (audioContextRef.current) {
         try {
           audioContextRef.current.close();
-        } catch (_) {}
+        } catch (_) { }
         audioContextRef.current = null;
       }
     };
@@ -126,7 +126,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-export default function AssessmentSessionPage() {
+export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -139,7 +139,7 @@ export default function AssessmentSessionPage() {
         if (storedTheme && storedTheme !== theme) {
           setTheme(storedTheme);
         }
-      } catch (_) {}
+      } catch (_) { }
     };
     window.addEventListener('storage', syncTheme);
     return () => window.removeEventListener('storage', syncTheme);
@@ -234,7 +234,7 @@ export default function AssessmentSessionPage() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
-      } catch (_) {}
+      } catch (_) { }
     }
     setIsAiSpeaking(false);
   }, []);
@@ -308,7 +308,7 @@ export default function AssessmentSessionPage() {
           const details = await aiprepApi.getAssessment(Number(assessmentId));
           if (details?.assessment_type) resolvedType = details.assessment_type;
           if (details?.media_type) resolvedMode = details.media_type;
-        } catch (_) {}
+        } catch (_) { }
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'VIDEO';
@@ -321,12 +321,12 @@ export default function AssessmentSessionPage() {
         try {
           const qResponse = await aiprepApi.getQuestions(finalType);
           if (qResponse?.items && qResponse.items.length > 0) {
-            loadedQuestions = qResponse.items;
+            loadedQuestions = qResponse.items as unknown as QuestionBankItem[];
           }
         } catch (qErr) {
           console.warn('Failed to fetch category questions, fetching default list:', qErr);
           const fallbackRes = await aiprepApi.getQuestions();
-          loadedQuestions = fallbackRes?.items || [];
+          loadedQuestions = (fallbackRes?.items || []) as unknown as QuestionBankItem[];
         }
 
         // For INTRO track, use a dedicated sample question for UI/UX testing & presentation
@@ -334,12 +334,11 @@ export default function AssessmentSessionPage() {
           loadedQuestions = [
             {
               id: 999,
-              assessment_type: 'INTRO',
-              category: 'Professional Introduction',
+              category: 'INTRO',
               question_text:
                 'Please walk me through your professional background, highlighting your core technical competencies, the most impactful software projects you have built, and what unique strengths you bring to the team.',
               difficulty_level: 'MEDIUM',
-              time_limit_seconds: 240,
+              is_active: true,
               created_at: new Date().toISOString(),
             },
           ];
@@ -431,7 +430,7 @@ export default function AssessmentSessionPage() {
           if (isRecording && recognitionRef.current === recognition) {
             try {
               recognition.start();
-            } catch (_) {}
+            } catch (_) { }
           }
         };
 
@@ -442,7 +441,7 @@ export default function AssessmentSessionPage() {
     } else if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (_) {}
+      } catch (_) { }
       recognitionRef.current = null;
     }
 
@@ -450,7 +449,7 @@ export default function AssessmentSessionPage() {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch (_) {}
+        } catch (_) { }
       }
     };
   }, [isRecording]);
@@ -607,11 +606,10 @@ export default function AssessmentSessionPage() {
           <button
             type="button"
             onClick={toggleAiVoiceMute}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-              isSpeechMuted
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${isSpeechMuted
                 ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
-            }`}
+              }`}
             title="Toggle AI Question Narration"
           >
             {isSpeechMuted ? <IconVolumeOff size={15} /> : <IconVolume size={15} />}
@@ -655,7 +653,9 @@ export default function AssessmentSessionPage() {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 opacity-100"
+              className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${
+                mediaType !== 'AUDIO' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
             />
 
             {/* Top-Left Live REC Badge */}

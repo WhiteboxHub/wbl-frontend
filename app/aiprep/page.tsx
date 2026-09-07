@@ -11,32 +11,42 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/utils/AuthContext';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
+import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/AssessmentCard';
+import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
 import { AlertCircle, Loader2, ShieldAlert } from 'lucide-react';
-
 
 export default function AIPrepPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
 
-  // Authentication & Hydration validation
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const hasToken = typeof window !== 'undefined' ? !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token')) : false;
+  const isUserAuthenticated = isAuthenticated || hasToken;
+
   useEffect(() => {
     setIsMounted(true);
+    if (!isUserAuthenticated) {
+      if (typeof window !== 'undefined') {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = '/login';
+        } else {
+          router.replace('/login');
+        }
+      }
+      return;
+    }
 
-    async function verifyAuthAndInitSession() {
-      const isEmbedded = typeof window !== 'undefined' && (
-        window.self !== window.top || window.location.search.includes('embed=true')
-      );
-
+    async function initSession() {
       try {
         const userDash: any = await apiFetch("user_dashboard");
-        setIsAuthenticated(true);
         const candidateId = userDash?.candidate_id || userDash?.basic_info?.id;
         const userEmail = userDash?.email || userDash?.basic_info?.email;
 
@@ -61,31 +71,21 @@ export default function AIPrepPage() {
           }
         }
       } catch (err) {
-        console.warn('[Security Guard]: Unauthenticated candidate session attempt.');
-        setIsAuthenticated(false);
-        if (typeof window !== 'undefined') {
-          if (window.top && window.top !== window.self) {
-            window.top.location.href = '/login';
-          } else {
-            router.replace('/login');
-          }
-        }
+        console.warn('[Session init note]:', err);
       }
     }
-    verifyAuthAndInitSession();
-  }, [router]);
+    initSession();
+  }, [isUserAuthenticated, router]);
 
-  const searchParams = useSearchParams();
+  const [isEmbedded, setIsEmbedded] = useState(false);
+  const [started, setStarted] = useState(false);
 
-  // Redirect standalone access to /aiprep so it opens inside Candidate Dashboard layout
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isEmbedded = window.self !== window.top || searchParams.get('embed') === 'true';
-      if (!isEmbedded) {
-        router.replace('/user_dashboard/ai-prep');
-      }
+      const embedded = window.self !== window.top || searchParams.get('embed') === 'true';
+      setIsEmbedded(embedded);
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   // Active preferences
   const queryType = searchParams.get('type') as AssessmentType | null;
@@ -94,8 +94,8 @@ export default function AIPrepPage() {
   const storedType = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_type') as AssessmentType | null) : null;
   const storedMode = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_mode') as AssessmentMode | null) : null;
 
-  const effectiveType = queryType || storedType || 'INTRO';
-  const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
+  const effectiveType = queryType || storedType || SUPPORTED_ASSESSMENT_TYPES[0];
+  const effectiveMode = queryMode || storedMode || '';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
@@ -127,11 +127,12 @@ export default function AIPrepPage() {
       console.error("Failed to retrieve candidate profile details:", err);
     }
 
+    const targetType: AssessmentType = 'INTRO';
     const assessment = await aiprepApi.createAssessment({
-      assessment_type: results.assessment_type as AssessmentType,
+      assessment_type: targetType,
       assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
       candidate_id: candidateId,
-      job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+      job_description_text: null,
       user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
     });
 
@@ -141,7 +142,7 @@ export default function AIPrepPage() {
     const targetId = assessment.id;
     setActiveAssessmentId(targetId);
     sessionStorage.setItem('aiprep_active_id', String(targetId));
-    sessionStorage.setItem('aiprep_active_type', results.assessment_type);
+    sessionStorage.setItem('aiprep_active_type', 'INTRO');
 
     sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
 
@@ -190,16 +191,23 @@ export default function AIPrepPage() {
     }
   };
 
+  const handleStartAssessment = () => {
+    setStarted(true);
+    const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+    router.push(isEmbeddedCheck ? '/aiprep?embed=true&start=true' : '/aiprep?start=true');
+  };
+
   const handleCancel = () => {
     sessionStorage.removeItem('aiprep_wizard_step');
     sessionStorage.removeItem('aiprep_active_type');
     sessionStorage.removeItem('aiprep_active_mode');
     sessionStorage.removeItem('aiprep_active_id');
+    setStarted(false);
     const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
     router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
 
-  if (!isMounted || isAuthenticated === null) {
+  if (!isMounted) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
@@ -208,7 +216,7 @@ export default function AIPrepPage() {
     );
   }
 
-  if (isAuthenticated === false) {
+  if (!isUserAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
@@ -237,55 +245,58 @@ export default function AIPrepPage() {
     );
   }
 
-  const isEmbedded = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+  // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
+  const showWizard = started || searchParams.get('start') === 'true';
 
+  if (!showWizard && !isSaving && !errorMsg) {
+    return (
+      <AIPrepDashboard
+        embedded={isEmbedded}
+        onStartAssessment={handleStartAssessment}
+      />
+    );
+  }
   return (
-    <div className={`w-full bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 ${isEmbedded ? 'h-screen max-h-screen overflow-hidden p-2 sm:p-3' : 'min-h-screen p-4 sm:p-5'}`}>
-
-      {/* Decorative background glows */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
-
-      <div className="w-full flex-1 flex flex-col z-10 min-h-0 overflow-hidden">
-        {errorMsg ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
-            <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
-            <h3 className="text-lg font-black text-slate-905 dark:text-white mb-2">
-              Setup Connection Failed
-            </h3>
-            <p className="text-slate-650 dark:text-slate-400 text-xs leading-relaxed mb-6 font-medium">
-              {errorMsg}
-            </p>
-            <div className="flex items-center gap-3 w-full">
-              <button
-                type="button"
-                onClick={() => setErrorMsg(null)}
-                className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-650 hover:bg-indigo-500 active:scale-95 transition-all shadow-md cursor-pointer"
-              >
-                Retry Setup Flow
-              </button>
-            </div>
+    <div className="w-full h-full min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
+      {errorMsg ? (
+        <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
+          <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
+          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">
+            Setup Connection Failed
+          </h3>
+          <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-6 font-medium">
+            {errorMsg}
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-md cursor-pointer"
+            >
+              Retry Setup Flow
+            </button>
           </div>
-        ) : isSaving ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center p-8 animate-in fade-in duration-200">
-            <Loader2 className="w-12 h-12 text-[#4A6CF7] animate-spin mb-6" />
-            <h3 className="text-lg font-black text-slate-905 dark:text-white mb-2">Initializing Assessment Room</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-xs max-w-xs leading-relaxed font-semibold">
-              Registering hardware verification and preparing question prompts. This will only take a moment.
-            </p>
-          </div>
-        ) : (
-          <DeviceCheckWizard
-            assessmentId={activeAssessmentId || 0}
-            assessmentType={effectiveType}
-            assessmentMode={effectiveMode}
-            audioOnly={effectiveMode === 'AUDIO_ONLY'}
-            onPrepareConfirmation={handlePrepareConfirmation}
-            onComplete={handleCheckComplete}
-            onCancel={handleCancel}
-          />
-        )}
-      </div>
+        </div>
+      ) : isSaving ? (
+        <div className="flex flex-col items-center justify-center flex-1 text-center p-8 animate-in fade-in duration-200">
+          <Loader2 className="w-12 h-12 text-[#4A6CF7] animate-spin mb-6" />
+          <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">Initializing Assessment Room</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-xs max-w-xs leading-relaxed font-semibold">
+            Registering hardware verification and preparing question prompts. This will only take a moment.
+          </p>
+        </div>
+      ) : (
+        <DeviceCheckWizard
+          assessmentId={activeAssessmentId || 0}
+          assessmentType={effectiveType}
+          assessmentMode={effectiveMode}
+          audioOnly={effectiveMode === 'AUDIO_ONLY'}
+          initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'CONFIGURATION'}
+          onPrepareConfirmation={handlePrepareConfirmation}
+          onComplete={handleCheckComplete}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   );
 }

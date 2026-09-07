@@ -17,36 +17,33 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/utils/AuthContext';
 import { aiprepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
-import { AlertCircle, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/AssessmentCard';
+import { AlertCircle, ShieldAlert } from 'lucide-react';
 
 export default function DeviceCheckPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Route Security Guard: Ensure candidate is logged in using existing apiFetch helper
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const hasToken = typeof window !== 'undefined' ? !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token')) : false;
+  const isUserAuthenticated = isAuthenticated || hasToken;
 
   useEffect(() => {
-    async function verifyAuth() {
-      try {
-        await apiFetch("user_dashboard");
-        setIsAuthenticated(true);
-      } catch (err) {
-        console.warn('[Security Guard]: Unauthenticated access attempt to /aiprep/device-check.');
-        setIsAuthenticated(false);
-        if (typeof window !== 'undefined') {
-          if (window.top && window.top !== window.self) {
-            window.top.location.href = '/login';
-          } else {
-            router.replace('/login');
-          }
+    setIsMounted(true);
+    if (!isUserAuthenticated) {
+      if (typeof window !== 'undefined') {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = '/login';
+        } else {
+          router.replace('/login');
         }
       }
     }
-    verifyAuth();
-  }, [router]);
+  }, [isUserAuthenticated, router]);
 
   const searchParams = useSearchParams();
 
@@ -61,31 +58,21 @@ export default function DeviceCheckPage() {
   const storedIdStr = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_id') : null;
   const storedId = storedIdStr ? parseInt(storedIdStr, 10) : null;
 
-  const effectiveType = queryType || storedType || 'INTRO';
-  const effectiveMode = queryMode || storedMode || 'VIDEO_AUDIO';
-
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(
     queryAssessmentId ? parseInt(queryAssessmentId, 10) : storedId
   );
   const [assessmentMode, setAssessmentMode] = useState<AssessmentMode | null>(queryMode || storedMode);
+  const effectiveType = queryType || storedType || SUPPORTED_ASSESSMENT_TYPES[0];
+  const effectiveMode = assessmentMode || queryMode || storedMode || '';
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Embedded detection
-  // Hydration state
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   const [isEmbedded, setIsEmbedded] = useState(false);
   useEffect(() => {
     const embedded = window.self !== window.top || window.location.search.includes('embed=true');
     setIsEmbedded(embedded);
-    if (!embedded) {
-      router.replace('/user_dashboard/ai-prep/device-check');
-    }
-  }, [router]);
+  }, []);
 
   // Load assessment mode if assessmentId is provided on mount
   useEffect(() => {
@@ -138,18 +125,19 @@ export default function DeviceCheckPage() {
     }
 
     if (!targetId) {
-      // Create assessment
+      // Create assessment - strictly INTRO type only
+      const targetType: AssessmentType = 'INTRO';
       const assessment = await aiprepApi.createAssessment({
-        assessment_type: results.assessment_type as AssessmentType,
+        assessment_type: targetType,
         assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
         candidate_id: candidateId,
-        job_description_text: results.assessment_type === 'JD_INTRO' ? results.jd_text : null,
+        job_description_text: null,
         user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
       });
       targetId = assessment.id;
       setActiveAssessmentId(targetId);
       sessionStorage.setItem('aiprep_active_id', String(targetId));
-      sessionStorage.setItem('aiprep_active_type', results.assessment_type);
+      sessionStorage.setItem('aiprep_active_type', 'INTRO');
     }
 
     // Store local hardware check results in sessionStorage
@@ -204,7 +192,7 @@ export default function DeviceCheckPage() {
     router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep');
   };
 
-  if (!isMounted || isAuthenticated === null) {
+  if (!isMounted) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
@@ -213,7 +201,7 @@ export default function DeviceCheckPage() {
     );
   }
 
-  if (isAuthenticated === false) {
+  if (!isUserAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl flex flex-col items-center animate-in fade-in zoom-in-95 duration-300">
@@ -243,14 +231,14 @@ export default function DeviceCheckPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200">
+    <div className="fixed inset-0 z-[99999] w-screen h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
 
       {/* Decorative gradients */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#4A6CF7]/5 dark:bg-[#4A6CF7]/2 blur-3xl pointer-events-none -z-10" />
 
       {/* Full screen container */}
-      <div className="w-full flex-1 flex flex-col z-10">
+      <div className="w-full h-full flex-1 flex flex-col z-10 p-2 sm:p-4 min-h-0 overflow-hidden">
         {/* Main Content Layout */}
         {errorMsg ? (
           <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
@@ -299,18 +287,16 @@ export default function DeviceCheckPage() {
             </p>
           </div>
         ) : (
-          <div className="p-6">
-            <DeviceCheckWizard
-              assessmentId={activeAssessmentId || 0}
-              assessmentType={effectiveType}
-              assessmentMode={effectiveMode}
-              audioOnly={effectiveMode === 'AUDIO_ONLY'}
-              initialStep={(sessionStorage.getItem('aiprep_wizard_step') as any) || (activeAssessmentId ? 'DEVICE_CHECK' : 'CONFIGURATION')}
-              onPrepareConfirmation={handlePrepareConfirmation}
-              onComplete={handleCheckComplete}
-              onCancel={handleCancel}
-            />
-          </div>
+          <DeviceCheckWizard
+            assessmentId={activeAssessmentId || 0}
+            assessmentType={effectiveType}
+            assessmentMode={effectiveMode}
+            audioOnly={effectiveMode === 'AUDIO_ONLY'}
+            initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'DEVICE_CHECK'}
+            onPrepareConfirmation={handlePrepareConfirmation}
+            onComplete={handleCheckComplete}
+            onCancel={handleCancel}
+          />
         )}
       </div>
     </div>

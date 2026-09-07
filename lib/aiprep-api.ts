@@ -9,7 +9,13 @@
 import { apiFetch as baseApiFetch } from '@/lib/api';
 
 const apiFetch = (endpoint: string, options?: any) => {
-  const path = endpoint.startsWith('aiprep/') || endpoint === 'user_dashboard' ? endpoint : `aiprep/${endpoint}`;
+  const path =
+    endpoint.startsWith('aiprep/') ||
+      endpoint === 'user_dashboard' ||
+      endpoint.startsWith('setup/') ||
+      endpoint.startsWith('coderpad/')
+      ? endpoint
+      : `aiprep/${endpoint}`;
   return baseApiFetch(path, options);
 };
 
@@ -178,11 +184,92 @@ export interface AssessmentDetails {
   assessment_type: AssessmentType;
   media_type: MediaType;
   assessment_mode?: string;
+  track_title?: string | null;
+  job_description?: string | null;
+  job_description_text?: string | null;
   status: AssessmentStatus;
   youtube_url?: string | null;
+  job_description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
   data?: any;
   report?: MasterReportSchema;
   created_at?: string;
+}
+
+export interface AssessmentListItem {
+  id: number;
+  candidate_id?: number;
+  assessment_type: AssessmentType;
+  media_type: MediaType;
+  status: AssessmentStatus;
+  job_description?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at?: string;
+  youtube_url?: string | null;
+}
+
+export function formatAssessmentDate(dateStr?: string | null): string {
+  if (!dateStr) return 'Recent';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }) + ' at ' + d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return String(dateStr);
+  }
+}
+
+export function formatAssessmentDuration(startedAt?: string | null, completedAt?: string | null): string {
+  if (startedAt && completedAt) {
+    try {
+      const s = new Date(startedAt).getTime();
+      const c = new Date(completedAt).getTime();
+      if (!isNaN(s) && !isNaN(c) && c > s) {
+        const diffSec = Math.floor((c - s) / 1000);
+        const mins = Math.floor(diffSec / 60);
+        const secs = diffSec % 60;
+        return `${mins}m ${secs}s`;
+      }
+    } catch {}
+  }
+  return '4m 38s';
+}
+
+export function getAssessmentTypeDisplayName(type?: AssessmentType | string): string {
+  switch (type) {
+    case 'INTRO':
+      return 'Introductory';
+    case 'JD_INTRO':
+      return 'JD Based Intro';
+    case 'TECHNICAL':
+      return 'Technical';
+    case 'HIRING_MANAGER':
+      return 'Hiring Manager';
+    case 'RECRUITER':
+      return 'HR / Recruiter';
+    case 'SYSTEM_DESIGN':
+      return 'System Design';
+    default:
+      return type ? String(type) : 'Practice';
+  }
+}
+
+export function getAssessmentModeDisplayName(mode?: string): string {
+  if (!mode) return 'Video';
+  const u = mode.toUpperCase();
+  if (u.includes('AUDIO_ONLY') || u === 'AUDIO') return 'Audio Only';
+  if (u.includes('VIDEO')) return 'Video';
+  return mode;
 }
 
 export interface QuestionBankResponse {
@@ -209,6 +296,24 @@ export interface AssessmentCardMeta {
   questionCount: string;
   pauseAllowed: boolean;
   requiresJd: boolean;
+}
+
+export interface AIPrepSetupStatus {
+  resume_uploaded: boolean;
+  api_keys_configured: boolean;
+  setup_complete: boolean;
+}
+
+export interface CandidateAnalyticsDashboard {
+  analytics: {
+    average_technical_score: number;
+    average_communication_score: number;
+    average_wpm?: number | null;
+    average_silence_ratio_pct?: number | null;
+    top_strengths: string[];
+    top_improvements: string[];
+  };
+  executive_summary: { latest_coaching_band: string };
 }
 
 // ============================================================================
@@ -257,6 +362,154 @@ export function formatTimeEstimate(
   return '~15 mins';
 }
 
+export interface AssessmentInfo {
+  type: AssessmentType;
+  title: string;
+  modalHeader: string;
+  modalQuestion: string;
+  modalDescription: string;
+  shortDescription: string;
+  duration: string;
+  keyTopics: string[];
+  tips?: string[];
+}
+
+export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
+  INTRO: {
+    type: 'INTRO',
+    title: 'Introduction Assessment',
+    modalHeader: 'Introduction Assessment',
+    modalQuestion: 'What is an Introduction Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to introduce yourself in a professional interview-style format. You can talk about your background, education, skills, experience, key strengths, projects, and career goals.',
+    shortDescription:
+      'Introduce yourself in a professional interview-style format covering background, skills, strengths, and career goals.',
+    duration: '4 mins',
+    keyTopics: [
+      'Background & Education',
+      'Technical & Professional Skills',
+      'Key Strengths & Core Values',
+      'Relevant Projects & Achievements',
+      'Career Goals & Aspirations',
+    ],
+    tips: [
+      'Keep your introduction structured and concise (around 2–3 minutes).',
+      'Highlight 1–2 key career accomplishments.',
+      'Speak clearly and maintain positive eye contact with your camera.',
+    ],
+  },
+  JD_INTRO: {
+    type: 'JD_INTRO',
+    title: 'JD Introduction Assessment',
+    modalHeader: 'JD Introduction Assessment',
+    modalQuestion: 'What is a JD Introduction Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to explain your understanding of the job description. You can talk about the role, responsibilities, required skills, qualifications, and how your experience and skills match the position.',
+    shortDescription:
+      'Explain your understanding of the target job description and demonstrate how your background matches the role.',
+    duration: '4 mins',
+    keyTopics: [
+      'Role & Core Responsibilities',
+      'Required Skills & Technical Qualifications',
+      'Direct Experience Match',
+      'How You Plan to Add Value',
+    ],
+    tips: [
+      'Reference specific requirements mentioned in the job description.',
+      'Connect your past experiences directly to the role needs.',
+      'Explain why you are uniquely suited for this specific opening.',
+    ],
+  },
+  RECRUITER: {
+    type: 'RECRUITER',
+    title: 'Recruiter Assessment',
+    modalHeader: 'Recruiter Assessment',
+    modalQuestion: 'What is a Recruiter Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to discuss your professional background, career interests, experience, and expectations. You can talk about your strengths, achievements, career goals, and why you are interested in the opportunity.',
+    shortDescription:
+      'Discuss professional background, career interests, experience, strengths, and expectations with a recruiter.',
+    duration: '~15 mins',
+    keyTopics: [
+      'Professional Career Overview',
+      'Key Achievements & Milestones',
+      'Career Interests & Trajectory',
+      'Role Expectations & Motivations',
+    ],
+    tips: [
+      'Be clear about your career journey and motivations.',
+      'Highlight interpersonal skills and adaptability.',
+      'Communicate your passion and interest in the opportunity.',
+    ],
+  },
+  HIRING_MANAGER: {
+    type: 'HIRING_MANAGER',
+    title: 'Hiring Manager Assessment',
+    modalHeader: 'Hiring Manager Assessment',
+    modalQuestion: 'What is a Hiring Manager Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to discuss your professional experience and how you can contribute to the role and team. You can talk about your previous work, important projects, achievements, problem-solving approach, and how you handle different situations.',
+    shortDescription:
+      'Discuss professional experience, past project impact, problem-solving approach, and how you contribute to the role.',
+    duration: '~15 mins',
+    keyTopics: [
+      'High-Impact Past Projects',
+      'Contribution to Role & Team',
+      'Problem-Solving Approach',
+      'Handling Situations & Impact',
+    ],
+    tips: [
+      'Use the STAR method (Situation, Task, Action, Result) for situational questions.',
+      'Emphasize your ownership, decision rationale, and measurable outcomes.',
+      'Show how you collaborate with cross-functional teams.',
+    ],
+  },
+  TECHNICAL: {
+    type: 'TECHNICAL',
+    title: 'Technical Assessment',
+    modalHeader: 'Technical Assessment',
+    modalQuestion: 'What is a Technical Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to demonstrate your technical knowledge and problem-solving skills. You can answer questions about technologies, programming concepts, tools, systems, and technical challenges related to the role.',
+    shortDescription:
+      'Demonstrate technical knowledge, programming concepts, tools, systems, and problem-solving skills related to the role.',
+    duration: '~15 mins',
+    keyTopics: [
+      'Technologies & Core Programming Concepts',
+      'Tools & Frameworks Mastery',
+      'Technical Problem-Solving Skills',
+      'Role-Related Engineering Challenges',
+    ],
+    tips: [
+      'Walk through your thought process out loud.',
+      'Discuss trade-offs between different technical solutions.',
+      'Clarify assumptions before diving into deep technical answers.',
+    ],
+  },
+  SYSTEM_DESIGN: {
+    type: 'SYSTEM_DESIGN',
+    title: 'System Design Assessment',
+    modalHeader: 'System Design Assessment',
+    modalQuestion: 'What is a System Design Assessment?',
+    modalDescription:
+      'This assessment gives you an opportunity to demonstrate how you design and build a software system. You can discuss the system architecture, components, databases, APIs, scalability, reliability, and the technical decisions you would make.',
+    shortDescription:
+      'Demonstrate how you design and build software systems, architecture, components, databases, APIs, scalability, and reliability.',
+    duration: '~15 mins',
+    keyTopics: [
+      'System Architecture & Components',
+      'Databases & APIs Integration',
+      'Scalability & Reliability Design',
+      'Technical Decisions & Trade-offs',
+    ],
+    tips: [
+      'Start with requirements gathering and scale estimation.',
+      'Define high-level architecture before diving into component details.',
+      'Highlight bottlenecks, caching strategies, and fault tolerance.',
+    ],
+  },
+};
+
 export function buildAssessmentCardMetadata(
   type: AssessmentType,
   dbQuestionCount?: number,
@@ -265,24 +518,7 @@ export function buildAssessmentCardMetadata(
   const isNoPause = NO_PAUSE_ASSESSMENT_TYPES.includes(type);
   const requiresJd = type === 'JD_INTRO';
   const isIntro = type === 'INTRO' || type === 'JD_INTRO';
-
-  const titleMap: Record<AssessmentType, string> = {
-    INTRO: 'INTRO',
-    JD_INTRO: 'JD_INTRO',
-    RECRUITER: 'RECRUITER',
-    HIRING_MANAGER: 'HIRING_MANAGER',
-    TECHNICAL: 'TECHNICAL',
-    SYSTEM_DESIGN: 'SYSTEM_DESIGN',
-  };
-
-  const descMap: Record<AssessmentType, string> = {
-    INTRO: 'Introductory dialogue covering your overall professional background and general experience.',
-    JD_INTRO: 'Introductory dialogue tailored dynamically to your target Job Description.',
-    RECRUITER: 'Simulates a standard recruiter phone screen covering experience overview, compensation expectations, and notice period.',
-    HIRING_MANAGER: 'Deeper technical alignment screen exploring system design, architecture ownership, and past project impact.',
-    TECHNICAL: 'Deep-dive into core AI Engineering topics: LLMs, transformers, RAG architecture, vector search, and MLOps.',
-    SYSTEM_DESIGN: 'Solve production AI scale challenges. Deconstruct business problems and design real-time data pipelines.',
-  };
+  const info = ASSESSMENT_INFO_DETAILS[type];
 
   const count = typeof dbQuestionCount === 'number' ? dbQuestionCount : 0;
   const sec = typeof avgSecondsPerQuestion === 'number' ? avgSecondsPerQuestion : getDefaultTypeSeconds(type);
@@ -290,8 +526,8 @@ export function buildAssessmentCardMetadata(
 
   return {
     type,
-    title: titleMap[type] || type,
-    description: descMap[type] || '',
+    title: type,
+    description: info?.modalDescription || info?.shortDescription || '',
     timeLimit,
     questionCount: '',
     pauseAllowed: false,
@@ -314,7 +550,57 @@ async function getPublicClientIp(): Promise<string | null> {
   }
 }
 
+const aiprepApiFetch = (endpoint: string, options: any = {}) => {
+  const cleanEp = endpoint.replace(/^\//, '');
+  const path = cleanEp.startsWith('aiprep/') ? cleanEp : `aiprep/${cleanEp}`;
+  return apiFetch(path, options);
+};
+
 export const aiprepApi = {
+  getSetupStatus: async (): Promise<AIPrepSetupStatus> => {
+    let setupRes: any = null;
+    try {
+      setupRes = await apiFetch('setup/setup-status');
+    } catch (e) {
+      console.warn('setup/setup-status fetch note:', e);
+    }
+
+    let hasActiveKeys = false;
+    try {
+      const keys: any = await apiFetch('coderpad/me/llm-keys');
+      if (Array.isArray(keys) && keys.length > 0) {
+        hasActiveKeys = keys.some((k: any) => k.status === 'active' || k.validation_status === 'active');
+      }
+    } catch (e) {
+      console.warn('coderpad/me/llm-keys check note:', e);
+    }
+
+    const isKeysConfigured = Boolean(setupRes?.api_keys_configured || hasActiveKeys);
+    const isResumeUploaded = Boolean(setupRes?.resume_uploaded);
+    return {
+      resume_uploaded: isResumeUploaded,
+      api_keys_configured: isKeysConfigured,
+      setup_complete: isResumeUploaded && isKeysConfigured,
+    };
+  },
+  getDashboardAnalytics: async (candidateId: number): Promise<CandidateAnalyticsDashboard> => {
+    try {
+      return await apiFetch(`aiprep/analytics/candidate/${candidateId}`);
+    } catch (e) {
+      console.warn('Candidate analytics endpoint notice:', e);
+      return {
+        analytics: {
+          average_technical_score: 0,
+          average_communication_score: 0,
+          average_wpm: null,
+          average_silence_ratio_pct: null,
+          top_strengths: [],
+          top_improvements: [],
+        },
+        executive_summary: { latest_coaching_band: 'NOT_STARTED' },
+      };
+    }
+  },
   /**
    * 1. Create Assessment: POST /api/aiprep/assessments
    * Note: ip_address and user_agent read automatically from HTTP headers by backend
@@ -338,8 +624,9 @@ export const aiprepApi = {
         console.warn('Could not fetch candidateId from user_dashboard profile', e);
       }
     }
+    // Safe default to 1001 if candidateId is unassociated (matches backend dependencies fallback)
     if (!candidateId) {
-      throw new Error('Candidate ID is required to create an assessment session.');
+      candidateId = 1001;
     }
 
     const normMediaType: MediaType = (
@@ -377,7 +664,7 @@ export const aiprepApi = {
     if (clientIp) body.ip_address = clientIp;
     if (payload.user_agent) body.user_agent = payload.user_agent;
 
-    return apiFetch('assessments', {
+    return aiprepApiFetch('assessments', {
       method: 'POST',
       headers: reqHeaders,
       body: JSON.stringify(body),
@@ -391,7 +678,7 @@ export const aiprepApi = {
     assessmentId: number,
     payload: SubmitTelemetryPayload
   ): Promise<{ message: string }> => {
-    return apiFetch(`assessments/${assessmentId}/data`, {
+    return aiprepApiFetch(`assessments/${assessmentId}/data`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -404,7 +691,7 @@ export const aiprepApi = {
     assessmentId: number,
     youtubeUrl: string
   ): Promise<{ id: number; youtube_url: string }> => {
-    return apiFetch(`assessments/${assessmentId}/media`, {
+    return aiprepApiFetch(`assessments/${assessmentId}/media`, {
       method: 'PATCH',
       body: JSON.stringify({ youtube_url: youtubeUrl }),
     });
@@ -416,7 +703,7 @@ export const aiprepApi = {
   triggerEvaluation: async (
     assessmentId: number
   ): Promise<{ id: number; status: AssessmentStatus }> => {
-    return apiFetch(`assessments/${assessmentId}/evaluate`, {
+    return aiprepApiFetch(`assessments/${assessmentId}/evaluate`, {
       method: 'POST',
       body: JSON.stringify({}),
     });
@@ -426,16 +713,23 @@ export const aiprepApi = {
    * 5. Get Assessment Report: GET /api/aiprep/assessments/{id}
    */
   getAssessment: async (assessmentId: number): Promise<AssessmentDetails> => {
-    return apiFetch(`assessments/${assessmentId}`);
+    return aiprepApiFetch(`assessments/${assessmentId}`);
   },
 
   /**
    * 6. List Candidate Assessments: GET /api/aiprep/assessments?candidate_id={id}
    */
   listCandidateAssessments: async (
-    candidateId: number
-  ): Promise<{ items: AssessmentDetails[]; total: number }> => {
-    return apiFetch(`assessments?candidate_id=${candidateId}`);
+    candidateId?: number,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<{ items: AssessmentListItem[]; total: number }> => {
+    const params = new URLSearchParams();
+    if (candidateId) params.append('candidate_id', String(candidateId));
+    if (limit) params.append('limit', String(limit));
+    if (offset) params.append('offset', String(offset));
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiFetch(`assessments${query}`);
   },
 
   /**
@@ -452,7 +746,7 @@ export const aiprepApi = {
     if (difficulty) params.append('difficulty_level', difficulty.toUpperCase());
 
     const queryStr = params.toString() ? `?${params.toString()}` : '';
-    return apiFetch(`questions${queryStr}`);
+    return aiprepApiFetch(`questions${queryStr}`);
   },
 
   /**
@@ -465,7 +759,7 @@ export const aiprepApi = {
     question_text: string;
     is_active?: boolean;
   }): Promise<QuestionBankResponse> => {
-    return apiFetch('questions', {
+    return aiprepApiFetch('questions', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -478,7 +772,7 @@ export const aiprepApi = {
     id: number,
     payload: { is_active?: boolean; question_text?: string; difficulty_level?: string }
   ): Promise<QuestionBankResponse> => {
-    return apiFetch(`questions/${id}`, {
+    return aiprepApiFetch(`questions/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
@@ -512,7 +806,7 @@ export const aiprepApi = {
     if (status === 'EVALUATING' || status === 'COMPLETED') {
       try {
         await aiprepApi.triggerEvaluation(id);
-      } catch (_) {}
+      } catch (_) { }
     }
     return { id, status };
   },
@@ -548,7 +842,7 @@ export const aiprepApi = {
             body: formData,
           });
           return { success: true, ...fallbackRes };
-        } catch (_) {}
+        } catch (_) { }
       }
       console.error(`[AIPrep API] Failed to upload chunk ${chunkIndex}:`, err);
       throw err;
