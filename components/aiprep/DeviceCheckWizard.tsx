@@ -1418,23 +1418,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     <div
       className={
         step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-100/80 dark:bg-[#070b14] flex items-center justify-center p-0 sm:p-2 md:p-3 overflow-hidden select-none"
-          : "w-full h-full flex-1 flex flex-col p-1 sm:p-2 select-none"
+          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-50 dark:bg-[#070b14] flex flex-col overflow-hidden select-none"
+          : "-m-4 lg:-m-6 w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] min-h-[calc(100%+2rem)] lg:min-h-[calc(100%+3rem)] flex-1 flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden"
       }
     >
-      <div
-        className={
-          step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-            ? "w-full max-w-[100vw] sm:max-w-[98vw] 2xl:max-w-[1650px] h-full sm:h-[93.5vh] sm:max-h-[93.5vh] bg-white dark:bg-slate-900 border-0 sm:border sm:border-slate-200 dark:sm:border-slate-800 rounded-none sm:rounded-3xl shadow-xl shadow-slate-200/60 dark:shadow-black/70 overflow-hidden flex flex-col my-auto transition-all animate-in fade-in duration-200"
-            : "w-full flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col transition-all animate-in fade-in duration-200"
-        }
-      >
+      <div className="w-full h-full flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">
 
         {/* MAIN CONTENT WORKSPACE */}
         <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
 
         {/* Top Bar Header */}
-        <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/90 flex items-center justify-between shrink-0">
+        <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
           <div className="w-12 sm:w-20 hidden md:block shrink-0" />
           <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
             {[
@@ -1462,16 +1456,28 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           </div>
 
           <div className="w-auto sm:w-20 flex justify-end shrink-0">
-            {step !== 'CONFIGURATION' && step !== 'CONSENT' && (
+            {step === 'CONFIGURATION' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  cleanup();
+                  onCancel();
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10.5px] sm:text-[11.5px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back</span>
+              </button>
+            ) : (
               <button
                 type="button"
                 onClick={() => {
                   cleanup();
                   handlePrevious();
                 }}
-                className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10.5px] sm:text-[11.5px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer shadow-2xs"
               >
-                <ArrowLeft className="w-3 h-3" />
+                <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back</span>
               </button>
             )}
@@ -1690,8 +1696,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     )}
                   </div>
 
-                  {/* Telemetry Status Bar (Only if video is enabled & camera ok) */}
-                  {videoEnabled && cameraOk && (
+                  {/* Telemetry Status Bar (Only if video & analytics are enabled and camera is OK) */}
+                  {videoEnabled && videoAnalyticsEnabled && cameraOk && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
                       <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
                         <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isFaceDetected ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>

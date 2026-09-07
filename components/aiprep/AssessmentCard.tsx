@@ -17,7 +17,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MessageSquare, FileText, UserCheck, Code2, Users, Layers, Clock, Lock, ArrowRight } from 'lucide-react';
+import { MessageSquare, FileText, UserCheck, Code2, Users, Layers, Clock, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { AssessmentType } from '@/types/aiprep';
 import { ASSESSMENT_INFO_DETAILS } from './assessment-details';
 import { AssessmentInfoModal } from './AssessmentInfoModal';
@@ -200,13 +200,24 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         })}
       </div>
 
-      {/* ── Bottom Right Action Button ── */}
-      <div className="mt-3 sm:mt-4 pt-1 flex items-center justify-end">
+      {/* ── Bottom Navigation Action Buttons ── */}
+      <div className="mt-3 sm:mt-4 pt-1 flex items-center justify-between gap-3">
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs flex items-center gap-1.5 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </button>
+        ) : <div />}
+
         {onNext && (
           <button
             type="button"
             onClick={handleNextClick}
-            className="w-full sm:w-auto px-7 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+            className="px-7 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>Next</span>
             <ArrowRight className="w-3.5 h-3.5" />
