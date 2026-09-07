@@ -577,10 +577,10 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
         theme: 'green',
         icon: 'cpu',
         items: [
-          'What attracts you to target companies and roles',
-          'Preferred team dynamics and management styles',
-          'Handling collaboration, feedback, and autonomy',
-          'Long-term career aspirations and growth areas',
+          'Why you are interested in the company and role',
+          'What you are looking for in your next opportunity',
+          'How you approach collaboration, feedback, and ownership',
+          'Career goals, learning interests, and growth plans',
         ],
       },
       {
