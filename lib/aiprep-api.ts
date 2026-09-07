@@ -530,7 +530,7 @@ export function buildAssessmentCardMetadata(
     description: info?.modalDescription || info?.shortDescription || '',
     timeLimit,
     questionCount: '',
-    pauseAllowed: !isNoPause,
+    pauseAllowed: false,
     requiresJd,
   };
 }

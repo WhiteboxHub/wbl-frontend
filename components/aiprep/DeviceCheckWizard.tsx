@@ -6,22 +6,70 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff,
-  AlertCircle, AlertTriangle, RefreshCw, Briefcase, FileText, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowLeft, ArrowDown, ArrowUp, Activity } from 'lucide-react';
+import {
+  Camera,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Check,
+  ChevronRight,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  Wifi,
+  WifiOff,
+  Video,
+  VideoOff,
+  AlertCircle,
+  AlertTriangle,
+  RefreshCw,
+  Briefcase,
+  FileText,
+  Eye,
+  Lock,
+  ShieldAlert,
+  X,
+  ChevronDown,
+  Globe,
+  ArrowLeft,
+  ArrowDown,
+  ArrowUp,
+  Activity,
+  Monitor,
+  ListChecks,
+  Zap,
+} from 'lucide-react';
+import { YOLOAnalyzer } from './MediaPipe';
 import { AssessmentConfig, SUPPORTED_ASSESSMENT_TYPES } from './AssessmentCard';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
-import { AssessmentType } from '@/lib/aiprep-api';
+import { PracticeStep } from './PracticeStep';
+import { aiprepApi, AssessmentDetails, AssessmentType } from '@/lib/aiprep-api';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 import { useAuth } from '@/utils/AuthContext';
+import { apiFetch } from '@/lib/api';
 
-export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'CONFIRMATION';
+export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START' | 'CONFIRMATION';
 interface MediaDev { deviceId: string; label: string; }
 
-const STEP_TO_SLUG: Record<WizardStep, string> = { CONFIGURATION: 'assessment-type', CONSENT: 'consent', DEVICE_CHECK: 'device-check', CONFIRMATION: 'confirmation' };
+const STEP_TO_SLUG: Record<WizardStep, string> = {
+  CONFIGURATION: 'assessment-type',
+  CONSENT: 'consent',
+  DEVICE_CHECK: 'device-check',
+  PRACTICE_START: 'practice',
+  CONFIRMATION: 'confirmation',
+};
 
 const SLUG_TO_STEP: Record<string, WizardStep> = {
-  'assesment-type': 'CONFIGURATION', 'assessment-type': 'CONFIGURATION', 'configuration': 'CONFIGURATION',
-  'consent': 'CONSENT', 'device-check': 'DEVICE_CHECK', 'devicecheck': 'DEVICE_CHECK', 'confirmation': 'CONFIRMATION',
+  'assesment-type': 'CONFIGURATION',
+  'assessment-type': 'CONFIGURATION',
+  'configuration': 'CONFIGURATION',
+  'consent': 'CONSENT',
+  'device-check': 'DEVICE_CHECK',
+  'devicecheck': 'DEVICE_CHECK',
+  'practice': 'PRACTICE_START',
+  'practice-start': 'PRACTICE_START',
+  'confirmation': 'CONFIRMATION',
 };
 
 const cleanLabel = (label: string, fallback: string) => {
@@ -175,19 +223,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
     const slug = STEP_TO_SLUG[step] || 'assessment-type';
 
-    // 1. Update address bar of top window (if inside iframe) or self window
+    // 1. Update address bar of top window (if inside iframe) or self window without ?step= query param
     try {
       const newPath = `/user_dashboard/ai-prep/${slug}`;
       if (window.top && window.top !== window) {
         try {
-          const topSearch = window.top.location.search;
-          if (window.top.location.pathname !== newPath) {
+          const topUrl = new URL(window.top.location.href);
+          topUrl.searchParams.delete('step');
+          const topSearch = topUrl.search;
+          if (window.top.location.pathname !== newPath || window.top.location.search !== topSearch) {
             window.top.history.replaceState(null, '', `${newPath}${topSearch}`);
           }
         } catch {}
       } else {
-        const search = window.location.search;
-        if (window.location.pathname !== newPath) {
+        const selfUrl = new URL(window.location.href);
+        selfUrl.searchParams.delete('step');
+        const search = selfUrl.search;
+        if (window.location.pathname !== newPath || window.location.search !== search) {
           window.history.replaceState(null, '', `${newPath}${search}`);
         }
       }
@@ -195,11 +247,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       console.warn('[DeviceCheckWizard] Address bar sync error:', e);
     }
 
-    // 2. Keep iframe internal url searchParams in sync
+    // 2. Keep internal url clean without step searchParam
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('step') !== step) {
-        url.searchParams.set('step', step);
+      if (url.searchParams.has('step')) {
+        url.searchParams.delete('step');
         window.history.replaceState(null, '', url.toString());
       }
     } catch {}
@@ -1174,6 +1226,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   // Navigation handlers
   const allChecksPass = internetStatus !== 'checking' && internetStatus !== 'failed' && micOk === true && micTested === true && speakerOk === true && speakerTested === true && (!videoEnabled || (cameraOk === true && cameraTested === true && (!videoAnalyticsEnabled || (analyticsOk === true && analyticsTested === true))));
 
+  // 6. Navigation Handlers
+  const handleCompleteAssessment = () => {
+    onComplete({
+      browser_info: browserResult?.name || 'Standard Browser',
+      os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
+      camera_permission: !!cameraOk,
+      mic_permission: !!micOk,
+      speaker_ok: speakerOk !== false,
+      bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
+      yolo_consent: videoAnalyticsEnabled,
+      assessment_type: assessmentType,
+      audio_enabled: true,
+      video_enabled: videoEnabled,
+      jd_text: jdText,
+    });
+  };
+
   const handleNext = async () => {
     if (step === 'CONFIGURATION') {
       if (!audioOnly) {
@@ -1182,8 +1251,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
       syncConsentToSessionStorage({ videoEnabled: !audioOnly, consentCamera: !audioOnly });
       setStep('CONSENT');
-    } else if (step === 'CONSENT') setStep('DEVICE_CHECK');
-    else if (step === 'DEVICE_CHECK') {
+    } else if (step === 'CONSENT') {
+      setStep('DEVICE_CHECK');
+    } else if (step === 'DEVICE_CHECK') {
       // Live Pre-flight Hardware Verification: ensure microphone and camera are still physically connected and live
       try {
         const netCheck = await checkRealInternet();
@@ -1268,21 +1338,25 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           await onPrepareConfirmation({
             browser_info: browserResult?.name || 'Standard Browser',
             os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-            camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: !!speakerOk,
-            bandwidth_kbps: bandwidthKbps, yolo_consent: videoAnalyticsEnabled, assessment_type: assessmentType,
-            audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
+            camera_permission: !!cameraOk,
+            mic_permission: !!micOk,
+            speaker_ok: !!speakerOk,
+            bandwidth_kbps: bandwidthKbps,
+            yolo_consent: videoAnalyticsEnabled,
+            assessment_type: assessmentType,
+            audio_enabled: true,
+            video_enabled: videoEnabled,
+            jd_text: jdText,
           });
-        } catch { } finally { setIsConfirmingFromBackend(false); }
+        } catch { } finally {
+          setIsConfirmingFromBackend(false);
+        }
       }
-      setStep('CONFIRMATION');
+      setStep('PRACTICE_START');
+    } else if (step === 'PRACTICE_START') {
+      handleCompleteAssessment();
     } else if (step === 'CONFIRMATION') {
-      onComplete({
-        browser_info: browserResult?.name || 'Standard Browser',
-        os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-        camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: speakerOk !== false,
-        bandwidth_kbps: bandwidthKbps, yolo_consent: videoAnalyticsEnabled, assessment_type: assessmentType,
-        audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
-      });
+      handleCompleteAssessment();
     }
   };
 
@@ -1294,9 +1368,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
       syncConsentToSessionStorage({ videoEnabled: !audioOnly, consentCamera: !audioOnly });
       setStep('CONFIGURATION');
+    } else if (step === 'DEVICE_CHECK') {
+      cleanup();
+      setStep('CONSENT');
+    } else if (step === 'PRACTICE_START') {
+      setStep('DEVICE_CHECK');
+    } else if (step === 'CONFIRMATION') {
+      setStep('PRACTICE_START');
     }
-    else if (step === 'DEVICE_CHECK') { cleanup(); setStep('CONSENT'); }
-    else if (step === 'CONFIRMATION') setStep('DEVICE_CHECK');
   };
 
   // Vision Telemetry status metrics
@@ -1345,6 +1424,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     >
       <div className="w-full h-full flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">
 
+        {/* MAIN CONTENT WORKSPACE */}
+        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
+
         {/* Top Bar Header */}
         <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
           <div className="w-12 sm:w-20 hidden md:block shrink-0" />
@@ -1353,7 +1435,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
               { key: 'CONSENT', num: 2, label: 'Consent', shortLabel: 'Consent' },
               { key: 'DEVICE_CHECK', num: 3, label: 'Device Check', shortLabel: 'Device' },
-              { key: 'CONFIRMATION', num: 4, label: 'Confirmation', shortLabel: 'Confirm' },
+              { key: 'PRACTICE_START', num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
             ].map(({ key, num, label, shortLabel }, idx, arr) => {
               const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
               return (
@@ -2301,14 +2383,35 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 </button>
                 <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
                   {!allChecksPass && <Lock className="w-3.5 h-3.5" />}
-                  <span>Next: Confirmation</span>
+                  <span>Next: Practice &amp; Start</span>
                   <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 4: CONFIRMATION / PRACTICE ROOM PLACEHOLDER */}
+          {/* STEP 4: PRACTICE & START (Interactive Sandbox) */}
+          {step === 'PRACTICE_START' && (
+            <div className="flex-1 flex flex-col h-full w-full">
+              <PracticeStep
+                videoEnabled={videoEnabled}
+                videoAnalyticsEnabled={videoAnalyticsEnabled}
+                cameraStream={cameraStream}
+                selectedAudioLabel={
+                  audioDevices.find((d) => d.deviceId === selectedAudioDevice)?.label ||
+                  'Microphone'
+                }
+                selectedVideoLabel={
+                  videoDevices.find((d) => d.deviceId === selectedVideoDevice)?.label ||
+                  'Camera'
+                }
+                onBack={handlePrevious}
+                onStartAssessment={handleCompleteAssessment}
+              />
+            </div>
+          )}
+
+          {/* STEP 5: CONFIRMATION */}
           {step === 'CONFIRMATION' && (
             <div className="w-full h-full flex-1 flex flex-col items-center justify-center">
               {/* Assessment practice room code will be placed here */}
@@ -2316,6 +2419,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           )}
         </div>
       </div>
+    </div>
 
       {/* JD Modal */}
       {showJdModal && (

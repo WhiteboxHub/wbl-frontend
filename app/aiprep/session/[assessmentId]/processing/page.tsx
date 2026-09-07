@@ -13,6 +13,7 @@ import {
   IconEyeCheck,
   IconFileText,
 } from '@tabler/icons-react';
+import { useTheme } from 'next-themes';
 import { useProcessingStatus, type ProcessingPipelineSteps } from '@/hooks/useProcessingStatus';
 
 interface StepConfig {
@@ -59,6 +60,20 @@ export default function AssessmentProcessingPage() {
   const router = useRouter();
   const routeParams = useParams();
   const searchParams = useSearchParams();
+  const { theme, setTheme } = useTheme();
+
+  React.useEffect(() => {
+    const syncTheme = () => {
+      try {
+        const storedTheme = localStorage.getItem('theme');
+        if (storedTheme && storedTheme !== theme) {
+          setTheme(storedTheme);
+        }
+      } catch (_) { }
+    };
+    window.addEventListener('storage', syncTheme);
+    return () => window.removeEventListener('storage', syncTheme);
+  }, [theme, setTheme]);
 
   const rawId = routeParams?.assessmentId;
   const assessmentId = Array.isArray(rawId) ? Number(rawId[0]) : Number(rawId);
@@ -83,12 +98,12 @@ export default function AssessmentProcessingPage() {
   });
 
   return (
-    <main className="min-h-screen w-full bg-[#090d16] text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 select-none relative overflow-hidden">
+    <main className="min-h-screen w-full bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 select-none relative overflow-hidden">
       {/* Background glow effects */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-indigo-600/5 dark:bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-purple-600/5 dark:bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-xl bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10 space-y-6">
+      <div className="w-full max-w-xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl backdrop-blur-xl relative z-10 space-y-6">
         {/* Header with glowing animated icon */}
         <div className="text-center space-y-3">
           <div className="relative inline-flex items-center justify-center">
@@ -110,14 +125,14 @@ export default function AssessmentProcessingPage() {
           </div>
 
           <div>
-            <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {isCompleted
                 ? 'Evaluation Complete!'
                 : isFailed
                   ? 'Evaluation Stalled'
                   : 'AI Evaluation in Progress'}
             </h1>
-            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
               {isCompleted
                 ? 'Your coaching insights have been generated. Loading your report now…'
                 : isFailed
@@ -130,16 +145,16 @@ export default function AssessmentProcessingPage() {
         {/* Progress Bar & Percentage */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-slate-400">Processing Progress</span>
-            <span className="text-indigo-400 font-mono font-bold">{progressPercent}%</span>
+            <span className="text-slate-500 dark:text-slate-400">Processing Progress</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{progressPercent}%</span>
           </div>
-          <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-700/50">
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700/50">
             <div
               className={`h-full rounded-full transition-all duration-500 ease-out ${isCompleted
-                  ? 'bg-emerald-500'
-                  : isFailed
-                    ? 'bg-rose-500'
-                    : 'bg-gradient-to-r from-indigo-500 to-purple-500'
+                ? 'bg-emerald-500'
+                : isFailed
+                  ? 'bg-rose-500'
+                  : 'bg-gradient-to-r from-indigo-500 to-purple-500'
                 }`}
               style={{ width: `${progressPercent}%` }}
             />
@@ -160,28 +175,28 @@ export default function AssessmentProcessingPage() {
               <div
                 key={step.key}
                 className={`flex items-start gap-3.5 p-3 rounded-2xl border transition-all duration-200 ${isStepCompleted
-                    ? 'bg-emerald-950/20 border-emerald-500/20'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-500/20'
                     : isStepRunning
-                      ? 'bg-indigo-950/30 border-indigo-500/40 shadow-sm'
+                      ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-500/40 shadow-xs'
                       : isStepFailed
-                        ? 'bg-rose-950/20 border-rose-500/30'
-                        : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                        ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-500/30'
+                        : 'bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800/60 opacity-60'
                   }`}
               >
                 <div
                   className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${isStepCompleted
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                      ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                       : isStepRunning
-                        ? 'bg-indigo-500/20 text-indigo-400'
+                        ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
                         : isStepFailed
-                          ? 'bg-rose-500/20 text-rose-400'
-                          : 'bg-slate-800 text-slate-500'
+                          ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
                     }`}
                 >
                   {isStepCompleted ? (
                     <IconCheck size={16} stroke={3} />
                   ) : isStepRunning ? (
-                    <IconLoader2 size={16} className="animate-spin text-indigo-400" />
+                    <IconLoader2 size={16} className="animate-spin text-indigo-600 dark:text-indigo-400" />
                   ) : (
                     <StepIcon size={16} />
                   )}
@@ -191,26 +206,26 @@ export default function AssessmentProcessingPage() {
                   <div className="flex items-center justify-between">
                     <h3
                       className={`text-xs font-bold ${isStepCompleted
-                          ? 'text-emerald-300'
+                          ? 'text-emerald-700 dark:text-emerald-300'
                           : isStepRunning
-                            ? 'text-indigo-300'
-                            : 'text-slate-400'
+                            ? 'text-indigo-700 dark:text-indigo-300'
+                            : 'text-slate-700 dark:text-slate-400'
                         }`}
                     >
                       {step.title}
                     </h3>
                     <span
                       className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${isStepCompleted
-                          ? 'text-emerald-400'
+                          ? 'text-emerald-600 dark:text-emerald-400'
                           : isStepRunning
-                            ? 'text-indigo-400'
-                            : 'text-slate-600'
+                            ? 'text-indigo-600 dark:text-indigo-400'
+                            : 'text-slate-400 dark:text-slate-600'
                         }`}
                     >
                       {stepStatus}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {step.description}
                   </p>
                 </div>
@@ -227,7 +242,7 @@ export default function AssessmentProcessingPage() {
               onClick={() => {
                 router.push(`/aiprep/reports/${assessmentId}`);
               }}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md hover:shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
             >
               <span>View Coaching Report</span>
               <IconArrowRight size={16} />
@@ -244,13 +259,13 @@ export default function AssessmentProcessingPage() {
               <button
                 type="button"
                 onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
               >
                 Back to Portal
               </button>
             </div>
           ) : (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
               Please keep this tab open. You will be automatically redirected once evaluation finishes.
             </p>
           )}
