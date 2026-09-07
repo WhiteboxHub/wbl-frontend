@@ -552,7 +552,7 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       'Prepare 1–2 thoughtful questions to ask.',
     ],
     overview:
-      'The Recruiter assessment simulates an initial screening conversation with a talent acquisition specialist. It prepares you to articulate your career narrative, transitions, motivations, compensation expectations, and culture fit in a confident, professional manner.',
+      'A Recruiter Interview is an initial conversation that helps the recruiter understand your professional background, career goals, motivation, availability, and overall fit for the role. It focuses on your experience, what you are looking for in your next opportunity, and important job-related expectations.',
     purposeBullets: [
       'Master the critical initial recruiter screening conversation',
       'Communicate your career narrative concisely and engagingly',
