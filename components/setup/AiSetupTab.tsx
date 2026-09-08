@@ -55,7 +55,7 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
         if (onFinishSetup) {
           await onFinishSetup();
         } else {
-          router.push("/user_dashboard/wbl-smartprep");
+          router.push("/user_dashboard/ai-prep");
         }
       } else {
         toast.error("Please add and validate an active LLM key before completing setup.");

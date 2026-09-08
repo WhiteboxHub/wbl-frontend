@@ -2346,7 +2346,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             })}
 
                             <button
-                                onClick={() => goToTab('wbl-smartprep')}
+                                onClick={() => goToTab('ai-prep')}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
@@ -2451,7 +2451,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     })}
 
                     <button
-                        onClick={() => goToTab('wbl-smartprep')}
+                        onClick={() => goToTab('ai-prep')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
                             ? "bg-indigo-600 text-white shadow-sm"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
@@ -2483,7 +2483,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         // Invalidate prefetch so next open re-fetches fresh data
                                         setPrefetchDone(false);
                                         setPrefetchedSession(null);
-                                        goToTab("wbl-smartprep");
+                                        goToTab("ai-prep");
                                     }}
                                 />
                             </div>
@@ -2495,7 +2495,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             candidateId={candidateId ?? undefined}
                                             onFinishSetup={async () => {
                                                 await refreshSetupStatus();
-                                                goToTab('wbl-smartprep');
+                                                goToTab('ai-prep');
                                             }}
                                         />
                                     </div>
