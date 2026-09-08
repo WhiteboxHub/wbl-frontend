@@ -29,7 +29,7 @@ export function MediaPipeVisionAnalyzer({
   showOverlay = false,
 }: MediaPipeVisionAnalyzerProps) {
   const activeRecording = isRecording || enabled;
-  const { isReady, detectVideoFrame, realtimeTelemetry, getFinalTelemetry } = useMediaPipeVision(videoRef);
+  const { isReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision(videoRef);
   const animFrameIdRef = useRef<number | null>(null);
 
   useEffect(() => {
