@@ -38,6 +38,7 @@ import {
     Video,
     Check,
     ChevronRight,
+    ChevronLeft,
     LogOut,
     Settings,
     LayoutDashboard,
@@ -427,8 +428,19 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const searchParams = useSearchParams();
     const [isAiPrepWizardActive, setIsAiPrepWizardActive] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const path = window.location.pathname.toLowerCase();
+            if (path.includes('assessment-type') || path.includes('consent') || path.includes('device-check') || path.includes('practice')) {
+                return true;
+            }
+        }
         return searchParams?.get('start') === 'true';
     });
+    const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+    const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false);
+    const autoCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const hasAutoCollapsedRef = useRef<boolean>(false);
+
     const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
         if (typeof window !== 'undefined') {
             const stored = sessionStorage.getItem('aiprep_active_id');
@@ -436,6 +448,97 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
         return null;
     });
+
+    useEffect(() => {
+        if (isAiPrepWizardActive) {
+            if (!hasAutoCollapsedRef.current) {
+                // Show both sidebar and header initially
+                setSidebarCollapsed(false);
+                setHeaderCollapsed(false);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+                        detail: {
+                            active: true,
+                            fullscreen: false,
+                            headerCollapsed: false,
+                            sidebarCollapsed: false,
+                        }
+                    }));
+                }
+
+                // Wait 2 seconds, then smoothly collapse both
+                autoCollapseTimerRef.current = setTimeout(() => {
+                    hasAutoCollapsedRef.current = true;
+                    setSidebarCollapsed(true);
+                    setHeaderCollapsed(true);
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+                            detail: {
+                                active: true,
+                                fullscreen: true,
+                                headerCollapsed: true,
+                                sidebarCollapsed: true,
+                            }
+                        }));
+                    }
+                }, 2000);
+            }
+        } else {
+            if (autoCollapseTimerRef.current) {
+                clearTimeout(autoCollapseTimerRef.current);
+                autoCollapseTimerRef.current = null;
+            }
+            hasAutoCollapsedRef.current = false;
+            setSidebarCollapsed(false);
+            setHeaderCollapsed(false);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+                    detail: {
+                        active: false,
+                        fullscreen: false,
+                        headerCollapsed: false,
+                        sidebarCollapsed: false,
+                    }
+                }));
+            }
+        }
+
+        return () => {
+            if (autoCollapseTimerRef.current) {
+                clearTimeout(autoCollapseTimerRef.current);
+            }
+        };
+    }, [isAiPrepWizardActive]);
+
+    // Listen for header toggle events dispatched from layout.tsx
+    useEffect(() => {
+        const handleExternalLayout = (e: any) => {
+            if (typeof e?.detail?.headerCollapsed === 'boolean') {
+                setHeaderCollapsed(e.detail.headerCollapsed);
+                if (e?.detail?.userInitiated && autoCollapseTimerRef.current) {
+                    clearTimeout(autoCollapseTimerRef.current);
+                    hasAutoCollapsedRef.current = true;
+                }
+            }
+        };
+        window.addEventListener('aiprep-layout-mode', handleExternalLayout);
+        return () => window.removeEventListener('aiprep-layout-mode', handleExternalLayout);
+    }, []);
+
+    useEffect(() => {
+        const checkWizardPath = () => {
+            if (typeof window !== 'undefined') {
+                const path = window.location.pathname.toLowerCase();
+                const isWiz = path.includes('assessment-type') || path.includes('consent') || path.includes('device-check') || path.includes('practice');
+                if (isWiz && !isAiPrepWizardActive) {
+                    setIsAiPrepWizardActive(true);
+                }
+            }
+        };
+        window.addEventListener('popstate', checkWizardPath);
+        return () => window.removeEventListener('popstate', checkWizardPath);
+    }, [isAiPrepWizardActive]);
+
     useEffect(() => {
         const rId = searchParams?.get('reportId');
         if (rId) {
@@ -502,11 +605,24 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     const handleCancelWizard = () => {
+        if (autoCollapseTimerRef.current) {
+            clearTimeout(autoCollapseTimerRef.current);
+            autoCollapseTimerRef.current = null;
+        }
+        hasAutoCollapsedRef.current = false;
+        setSidebarCollapsed(false);
+        setHeaderCollapsed(false);
         sessionStorage.removeItem('aiprep_wizard_step');
         sessionStorage.removeItem('aiprep_active_type');
         sessionStorage.removeItem('aiprep_active_mode');
         sessionStorage.removeItem('aiprep_active_id');
         setIsAiPrepWizardActive(false);
+        if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/user_dashboard/ai-prep');
+            window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+                detail: { active: false, fullscreen: false, headerCollapsed: false, sidebarCollapsed: false }
+            }));
+        }
     };
 
     const loadTodayClickSummary = useCallback(async () => {
@@ -2301,76 +2417,119 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     ];
 
     return (
-        <div className="flex h-screen bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
+        <div className={`relative flex ${isAiPrepWizardActive && (activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') ? 'h-full w-full' : 'h-screen'} bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden`}>
             {/* Hidden identity tag for browser extension telemetry */}
             {data?.basic_info?.email && (
                 <div id="wbl-user-identity" data-email={data.basic_info.email} style={{ display: 'none' }} />
             )}
 
             {/* ==================== SIDEBAR ==================== */}
-            <aside className="hidden lg:flex w-60 flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm">
-                {/* Logo */}
-                <div className="p-5 pb-4 border-b border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
-                            <Briefcase className="w-5 h-5" />
+            <aside className={`transition-all duration-700 ease-in-out flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm overflow-hidden ${
+                isAiPrepWizardActive && (activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
+                    ? sidebarCollapsed
+                        ? 'w-0 border-transparent opacity-0 pointer-events-none'
+                        : 'w-60 opacity-100'
+                    : 'hidden lg:flex w-60'
+            }`}>
+                <div className="w-60 h-full flex flex-col shrink-0">
+                    {/* Logo */}
+                    <div className="p-5 pb-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
+                                <Briefcase className="w-5 h-5" />
+                            </div>
+                            <span className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-white">Whitebox</span>
                         </div>
-                        <span className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-white">Whitebox</span>
                     </div>
+
+                    {/* Navigation */}
+                    <nav className="flex-1 overflow-y-auto p-4 space-y-6">
+                        <div>
+                            <p className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navigation</p>
+                            <div className="space-y-0.5">
+                                {tabs.map((tab) => {
+                                    const Icon = tab.icon;
+                                    const isActive = activeTab === tab.id;
+                                    return (
+                                        <React.Fragment key={tab.id}>
+                                            <button
+                                                onClick={() => goToTab(tab.id)}
+                                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
+                                                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                                    }`}
+                                            >
+                                                <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
+                                                <span>{tab.name}</span>
+                                                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                                            </button>
+
+                                        </React.Fragment>
+                                    );
+                                })}
+
+                                <button
+                                    onClick={() => goToTab('wbl-smartprep')}
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
+                                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                                        : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                        }`}
+                                >
+                                    <Sparkles className={`w-4 h-4 flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                    <span>AI PrepTool</span>
+                                    {(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
                 </div>
-
-                {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-6">
-                    <div>
-                        <p className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navigation</p>
-                        <div className="space-y-0.5">
-                            {tabs.map((tab) => {
-                                const Icon = tab.icon;
-                                const isActive = activeTab === tab.id;
-                                return (
-                                    <React.Fragment key={tab.id}>
-                                        <button
-                                            onClick={() => goToTab(tab.id)}
-                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
-                                                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                                }`}
-                                        >
-                                            <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
-                                            <span>{tab.name}</span>
-                                            {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                        </button>
-
-                                    </React.Fragment>
-                                );
-                            })}
-
-                            <button
-                                onClick={() => goToTab('wbl-smartprep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
-                                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                    }`}
-                            >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
-                                <span>AI PrepTool</span>
-                                {(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
-                            </button>
-
-
-
-                        </div>
-                    </div>
-
-                </nav>
-
             </aside>
+
+            {/* Unified Navigation Toggle Button (Controls both Left Sidebar and Top Header) */}
+            {isAiPrepWizardActive && (activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        if (autoCollapseTimerRef.current) {
+                            clearTimeout(autoCollapseTimerRef.current);
+                            autoCollapseTimerRef.current = null;
+                        }
+                        hasAutoCollapsedRef.current = true;
+                        const isCurrentlyCollapsed = sidebarCollapsed || headerCollapsed;
+                        const next = !isCurrentlyCollapsed;
+                        setSidebarCollapsed(next);
+                        setHeaderCollapsed(next);
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+                                detail: {
+                                    active: true,
+                                    fullscreen: next,
+                                    headerCollapsed: next,
+                                    sidebarCollapsed: next,
+                                    userInitiated: true,
+                                }
+                            }));
+                        }
+                    }}
+                    className={`absolute top-[18px] z-50 transition-all duration-700 ease-in-out flex items-center justify-center w-6 h-10 rounded-r-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-l-0 border-slate-200 dark:border-slate-700 shadow-md text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 cursor-pointer group ${
+                        sidebarCollapsed ? 'left-0' : 'left-[240px]'
+                    }`}
+                    title={sidebarCollapsed ? "Expand Whitebox navigation" : "Collapse Whitebox navigation"}
+                    aria-label={sidebarCollapsed ? "Expand Whitebox navigation" : "Collapse Whitebox navigation"}
+                >
+                    {sidebarCollapsed ? (
+                        <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    ) : (
+                        <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+                    )}
+                </button>
+            )}
 
             {/* ==================== MAIN CONTENT ==================== */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'lg:hidden min-h-[56px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
+                <header className={`${isAiPrepWizardActive && (activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') ? 'hidden' : activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'lg:hidden min-h-[56px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -3370,9 +3529,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep') && (
-                                    <div className="flex-1 min-h-0 flex flex-col overflow-y-auto p-4 lg:p-6">
+                                    <div className={`flex-1 min-h-0 flex flex-col ${isAiPrepWizardActive ? 'p-0 overflow-hidden w-full h-full' : 'overflow-y-auto p-4 lg:p-6'}`}>
                                         {isAiPrepWizardActive ? (
-                                            <div className="flex-1 flex flex-col min-h-0 w-full animate-in fade-in duration-200">
+                                            <div className="flex-1 flex flex-col min-h-0 w-full h-full animate-in fade-in duration-200 overflow-hidden">
                                                 <DeviceCheckWizard
                                                     assessmentId={activeAssessmentId || 0}
                                                     assessmentType="INTRO"
@@ -3385,7 +3544,26 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             </div>
                                         ) : (
                                             <AIPrepDashboard
-                                                onStartAssessment={() => setIsAiPrepWizardActive(true)}
+                                                onStartAssessment={() => {
+                                                    if (autoCollapseTimerRef.current) {
+                                                        clearTimeout(autoCollapseTimerRef.current);
+                                                        autoCollapseTimerRef.current = null;
+                                                    }
+                                                    hasAutoCollapsedRef.current = false;
+                                                    setSidebarCollapsed(false);
+                                                    setHeaderCollapsed(false);
+                                                    if (typeof window !== 'undefined') {
+                                                        window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+                                                            detail: {
+                                                                active: true,
+                                                                fullscreen: false,
+                                                                headerCollapsed: false,
+                                                                sidebarCollapsed: false,
+                                                            }
+                                                        }));
+                                                    }
+                                                    setIsAiPrepWizardActive(true);
+                                                }}
                                                 onViewReport={(rId) => {
                                                     router.push(`/aiprep/reports/${rId}`);
                                                 }}

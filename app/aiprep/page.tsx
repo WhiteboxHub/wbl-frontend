@@ -191,18 +191,94 @@ export default function AIPrepPage() {
     }
   };
 
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const autoCollapseTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const hasAutoCollapsedRef = React.useRef(false);
+
+  useEffect(() => {
+    const handleExternalLayout = (e: any) => {
+      if (typeof e?.detail?.headerCollapsed === 'boolean') {
+        setHeaderCollapsed(e.detail.headerCollapsed);
+        if (e?.detail?.userInitiated && autoCollapseTimerRef.current) {
+          clearTimeout(autoCollapseTimerRef.current);
+          hasAutoCollapsedRef.current = true;
+        }
+      }
+    };
+    window.addEventListener('aiprep-layout-mode', handleExternalLayout);
+    return () => window.removeEventListener('aiprep-layout-mode', handleExternalLayout);
+  }, []);
+
+  const showWizard = started || searchParams.get('start') === 'true';
+
+  useEffect(() => {
+    if (showWizard) {
+      if (!hasAutoCollapsedRef.current) {
+        setHeaderCollapsed(false);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+            detail: { active: true, fullscreen: false, headerCollapsed: false }
+          }));
+        }
+        autoCollapseTimerRef.current = setTimeout(() => {
+          hasAutoCollapsedRef.current = true;
+          setHeaderCollapsed(true);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+              detail: { active: true, fullscreen: true, headerCollapsed: true }
+            }));
+          }
+        }, 2000);
+      }
+    } else {
+      if (autoCollapseTimerRef.current) {
+        clearTimeout(autoCollapseTimerRef.current);
+        autoCollapseTimerRef.current = null;
+      }
+      hasAutoCollapsedRef.current = false;
+      setHeaderCollapsed(false);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+          detail: { active: false, fullscreen: false, headerCollapsed: false }
+        }));
+      }
+    }
+    return () => {
+      if (autoCollapseTimerRef.current) {
+        clearTimeout(autoCollapseTimerRef.current);
+      }
+    };
+  }, [showWizard]);
+
   const handleStartAssessment = () => {
+    if (autoCollapseTimerRef.current) {
+      clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = null;
+    }
+    hasAutoCollapsedRef.current = false;
+    setHeaderCollapsed(false);
     setStarted(true);
     const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
     router.push(isEmbeddedCheck ? '/aiprep?embed=true&start=true' : '/aiprep?start=true');
   };
 
   const handleCancel = () => {
+    if (autoCollapseTimerRef.current) {
+      clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = null;
+    }
+    hasAutoCollapsedRef.current = false;
+    setHeaderCollapsed(false);
     sessionStorage.removeItem('aiprep_wizard_step');
     sessionStorage.removeItem('aiprep_active_type');
     sessionStorage.removeItem('aiprep_active_mode');
     sessionStorage.removeItem('aiprep_active_id');
     setStarted(false);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+        detail: { active: false, fullscreen: false, headerCollapsed: false }
+      }));
+    }
     const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
     router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
@@ -224,7 +300,7 @@ export default function AIPrepPage() {
             <ShieldAlert className="w-8 h-8" />
           </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Login Required</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+          <p className="text-xs text-slate-550 dark:text-slate-400 mb-6 leading-relaxed">
             Please log in to your Whitebox candidate account to access AI Practice Assessments.
           </p>
           <button
@@ -246,18 +322,20 @@ export default function AIPrepPage() {
   }
 
   // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
-  const showWizard = started || searchParams.get('start') === 'true';
-
   if (!showWizard && !isSaving && !errorMsg) {
     return (
-      <AIPrepDashboard
-        embedded={isEmbedded}
-        onStartAssessment={handleStartAssessment}
-      />
+      <div className={isEmbedded ? "min-h-screen bg-slate-50 dark:bg-[#0b0f19]" : "pt-24 pb-12 min-h-screen bg-slate-50 dark:bg-[#0b0f19]"}>
+        <AIPrepDashboard
+          embedded={isEmbedded}
+          onStartAssessment={handleStartAssessment}
+        />
+      </div>
     );
   }
   return (
-    <div className="w-full h-full min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-200 overflow-hidden select-none">
+    <div className={`w-full h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${
+      !isEmbedded && !headerCollapsed ? 'pt-[72px] lg:pt-[76px]' : 'pt-0'
+    }`}>
       {errorMsg ? (
         <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
           <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
