@@ -102,11 +102,11 @@ export default function AssessmentReportPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleBack = () => {
-    router.push('/user_dashboard/wbl-smartprep');
+    router.push('/user_dashboard/ai-prep');
   };
 
   const handleStartAssessment = () => {
-    router.push('/user_dashboard/wbl-smartprep?start=true');
+    router.push('/user_dashboard/ai-prep?start=true');
   };
 
   // Main data fetch & authorization validation

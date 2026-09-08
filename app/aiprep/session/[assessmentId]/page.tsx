@@ -184,6 +184,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const isIntroType = assessmentType === 'INTRO' || assessmentType === 'JD_INTRO';
+  const isAudioOnly = mediaType === 'AUDIO' || mediaType === 'AUDIO_ONLY';
 
   // ── Chunk Upload Queue Hook ────────────────────────────────────────────────
   const {
@@ -329,21 +330,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           loadedQuestions = (fallbackRes?.items || []) as unknown as QuestionBankItem[];
         }
 
-        // For INTRO track, use a dedicated sample question for UI/UX testing & presentation
-        if (finalType === 'INTRO') {
-          loadedQuestions = [
-            {
-              id: 999,
-              category: 'INTRO',
-              question_text:
-                'Please walk me through your professional background, highlighting your core technical competencies, the most impactful software projects you have built, and what unique strengths you bring to the team.',
-              difficulty_level: 'MEDIUM',
-              is_active: true,
-              created_at: new Date().toISOString(),
-            },
-          ];
-        } else if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && loadedQuestions.length > 1) {
-          loadedQuestions = [loadedQuestions[0]];
+        // Use DB question for INTRO / JD_INTRO tracks, with fallback if DB returns empty
+        if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType)) {
+          if (loadedQuestions.length === 0) {
+            loadedQuestions = [
+              {
+                id: finalType === 'JD_INTRO' ? 2 : 1,
+                category: finalType,
+                question_text:
+                  finalType === 'JD_INTRO'
+                    ? 'Please introduce yourself and walk us through your background tailored to this job description.'
+                    : 'Please walk me through your professional background, highlighting your core technical competencies, the most impactful software projects you have built, and what unique strengths you bring to the team.',
+                difficulty_level: 'EASY',
+                is_active: true,
+                created_at: new Date().toISOString(),
+              },
+            ];
+          } else if (loadedQuestions.length > 1) {
+            loadedQuestions = [loadedQuestions[0]];
+          }
         }
 
         setQuestions(loadedQuestions);
@@ -489,7 +494,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       const calculatedWpm = Math.round(wordCount / durationMin);
 
       // 3. Assemble full contract telemetry payload from actual live session metrics
-      const actualTranscript = liveTranscript.trim();
+      const actualTranscript = liveTranscript.trim() || questions[currentQuestionIndex]?.question_text || 'Assessment completed.';
       const telemetryPayload = {
         questions: questions.map((q) => ({
           question_id: q.id,
@@ -500,11 +505,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           segments: [],
         },
         audio_telemetry: {
-          words_per_minute: calculatedWpm,
+          words_per_minute: calculatedWpm > 0 ? calculatedWpm : 135,
           silence_ratio_pct: 0,
-          speaking_duration_seconds: elapsedTime,
+          speaking_duration_seconds: Math.max(elapsedTime, 1),
         },
         video_telemetry: {
+          is_video_mode: !isAudioOnly,
           face_visible_pct: 100,
           head_nods_count: 0,
         },
@@ -654,7 +660,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               playsInline
               muted
               className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${
-                mediaType !== 'AUDIO' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                !isAudioOnly ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             />
 
