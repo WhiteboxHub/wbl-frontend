@@ -75,9 +75,14 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
   const { userRole, isAuthenticated } = useAuth();
   const router = useRouter();
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
-  const [loading, setLoading] = React.useState(false);
-
-  const currentTab = params.tab?.[0] || "overview";
+  const [loading, setLoading] = React.useState(true);
+  let currentTab = params?.tab?.[0] || "overview";
+  if (typeof window !== "undefined") {
+    const path = window.location.pathname.toLowerCase();
+    if (path.includes("/user_dashboard/ai-prep") || path.includes("/user_dashboard/wbl-smartprep")) {
+      currentTab = "ai-prep";
+    }
+  }
 
   React.useEffect(() => {
     // If regular user (not candidate/employee), load profile
