@@ -7,7 +7,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Camera,
   Mic,
   MicOff,
   Volume2,
@@ -21,35 +20,25 @@ import {
   WifiOff,
   Video,
   VideoOff,
-  AlertCircle,
   AlertTriangle,
   RefreshCw,
-  Briefcase,
-  FileText,
   Eye,
   Lock,
   ShieldAlert,
   X,
   ChevronDown,
   Globe,
-  ArrowLeft,
   ArrowDown,
-  ArrowUp,
   Activity,
-  Monitor,
-  ListChecks,
-  Zap,
 } from 'lucide-react';
-import { YOLOAnalyzer } from './MediaPipe';
-import { AssessmentConfig, SUPPORTED_ASSESSMENT_TYPES } from './AssessmentCard';
+import { AssessmentConfig } from './AssessmentCard';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
 import { PracticeStep } from './PracticeStep';
-import { aiprepApi, AssessmentDetails, AssessmentType } from '@/lib/aiprep-api';
+import { AssessmentType } from '@/lib/aiprep-api';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 import { useAuth } from '@/utils/AuthContext';
-import { apiFetch } from '@/lib/api';
 
-export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START' | 'CONFIRMATION';
+export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START';
 interface MediaDev { deviceId: string; label: string; }
 
 const STEP_TO_SLUG: Record<WizardStep, string> = {
@@ -57,7 +46,6 @@ const STEP_TO_SLUG: Record<WizardStep, string> = {
   CONSENT: 'consent',
   DEVICE_CHECK: 'device-check',
   PRACTICE_START: 'practice',
-  CONFIRMATION: 'confirmation',
 };
 
 const SLUG_TO_STEP: Record<string, WizardStep> = {
@@ -69,7 +57,6 @@ const SLUG_TO_STEP: Record<string, WizardStep> = {
   'devicecheck': 'DEVICE_CHECK',
   'practice': 'PRACTICE_START',
   'practice-start': 'PRACTICE_START',
-  'confirmation': 'CONFIRMATION',
 };
 
 const cleanLabel = (label: string, fallback: string) => {
@@ -154,13 +141,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       // Check query param ?step=
       const urlParams = new URLSearchParams(window.location.search);
       const urlStep = urlParams.get('step') as WizardStep | null;
-      if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'CONFIRMATION'].includes(urlStep)) {
+      if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(urlStep)) {
         return urlStep;
       }
 
       // Check sessionStorage fallback
       const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
-      if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'CONFIRMATION'].includes(savedStep)) {
+      if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
         return savedStep;
       }
     }
@@ -190,7 +177,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
     return '';
   });
-  const [showJdModal, setShowJdModal] = useState<boolean>(false);
   const { isAuthenticated } = useAuth();
   const hasToken = typeof window !== 'undefined' ? !!(localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('bearer_token')) : false;
   const isUserAuthenticated = isAuthenticated || hasToken;
@@ -279,7 +265,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     const handleMsg = (e: MessageEvent) => {
       if (e.data && e.data.type === 'AIPREP_SET_STEP' && e.data.step) {
         const nextStep = e.data.step as WizardStep;
-        if (['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'CONFIRMATION'].includes(nextStep)) {
+        if (['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(nextStep)) {
           setStep(nextStep);
         }
       }
@@ -315,11 +301,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     };
   }, []);
 
-  // Fullscreen container behavior (expands parent iframe ONLY during DEVICE_CHECK / CONFIRMATION)
+  // Fullscreen container behavior (expands parent iframe ONLY during DEVICE_CHECK)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const isFullscreenStep = step === 'DEVICE_CHECK' || step === 'CONFIRMATION';
+    const isFullscreenStep = step === 'DEVICE_CHECK';
     const origOverflow = document.body.style.overflow;
     if (isFullscreenStep) {
       document.body.style.overflow = 'hidden';
@@ -413,18 +399,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const [analyticsOk, setAnalyticsOk] = useState<boolean | null>(null);
   const [analyticsTested, setAnalyticsTested] = useState<boolean>(false);
   const [analyticsTesting, setAnalyticsTesting] = useState<boolean>(false);
-  const [cameraDetails, setCameraDetails] = useState<{ label: string; resolution: string; frameRate?: number } | null>(null);
 
   const [bandwidthKbps, setBandwidthKbps] = useState<number>(0);
   const [networkPingMs, setNetworkPingMs] = useState<number>(0);
   const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [bandwidthChecking, setBandwidthChecking] = useState<boolean>(false);
   const [browserResult, setBrowserResult] = useState<{ ok: boolean; name: string } | null>(null);
-  const [errorModalDismissed, setErrorModalDismissed] = useState<boolean>(false);
-  const [manualErrorModalType, setManualErrorModalType] = useState<'MIC' | 'CAMERA' | 'SPEAKER' | 'ALL' | null>(null);
   const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
   const [permissionGuideTarget, setPermissionGuideTarget] = useState<'camera' | 'mic' | 'network' | 'all'>('camera');
-  const [guideType, setGuideType] = useState<'permission' | 'audio'>('permission');
 
   // Real Internet Connectivity Probe (Probes external endpoints to verify real WAN reachability)
   const checkRealInternet = useCallback(async (): Promise<{ online: boolean; kbps: number; latencyMs: number }> => {
@@ -668,19 +650,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     cameraStreamRef.current = stream;
     setCameraStream(stream);
 
-    const videoTrack = stream.getVideoTracks()[0];
-    if (videoTrack) {
-      try {
-        const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
-        const width = settings.width;
-        const height = settings.height;
-        const fps = settings.frameRate ? Math.round(settings.frameRate) : undefined;
-        const label = cleanLabel(videoTrack.label || 'Integrated Webcam', 'Integrated Webcam');
-        const resStr = width && height ? `${width}x${height}` : '720p HD';
-        setCameraDetails({ label, resolution: resStr, frameRate: fps });
-      } catch { }
-    }
-
     stream.getVideoTracks().forEach((track) => {
       const handleEnded = () => {
         console.warn('[DeviceCheckWizard] Camera disconnected or video track ended');
@@ -688,8 +657,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setCameraTested(true);
         setCameraStream(null);
         cleanup('VIDEO_ONLY');
-        setErrorModalDismissed(false);
-        setManualErrorModalType(micOkRef.current === false ? 'ALL' : 'CAMERA');
       };
       track.onended = handleEnded;
       track.onmute = () => {
@@ -702,7 +669,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // Diagnostics Runner
   const runDiagnostics = useCallback(async () => {
-    setErrorModalDismissed(false);
     setShowPermissionGuide(false);
     cleanup('AUDIO_ONLY');
 
@@ -863,8 +829,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             setCameraTested(true);
             setCameraStream(null);
             cleanup('VIDEO_ONLY');
-            setErrorModalDismissed(false);
-            setManualErrorModalType(micOkRef.current === false ? 'ALL' : 'CAMERA');
             if (vDevs.length > 0 && vDevs[0].deviceId) {
               setSelectedVideoDevice(vDevs[0].deviceId);
             }
@@ -885,7 +849,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const testCamera = async () => {
     if (testingCamera || !videoEnabled) return;
     setTestingCamera(true);
-    setManualErrorModalType(null);
     try {
       cleanup('VIDEO_ONLY');
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -905,8 +868,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setCameraOk(false);
       setCameraTested(true);
       setCameraStream(null);
-      setErrorModalDismissed(false);
-      setManualErrorModalType(micOk === false ? 'ALL' : 'CAMERA');
     } finally {
       setTestingCamera(false);
     }
@@ -971,7 +932,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     micTestingRef.current = true;
     maxLevelSeenRef.current = 0;
     setMicTesting(true);
-    setManualErrorModalType(null);
     try {
       let stream = micStreamRef.current;
       if (!stream?.active || !stream.getAudioTracks().length || stream.getAudioTracks()[0].readyState !== 'live') {
@@ -1025,8 +985,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setMicOk(false);
       setMicTested(true);
       setShowPermissionGuide(false);
-      setErrorModalDismissed(false);
-      setManualErrorModalType(videoEnabled && cameraOk === false ? 'ALL' : 'MIC');
     } finally {
       micTestingRef.current = false;
       setMicLevel(0);
@@ -1364,8 +1322,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setStep('PRACTICE_START');
     } else if (step === 'PRACTICE_START') {
       handleCompleteAssessment();
-    } else if (step === 'CONFIRMATION') {
-      handleCompleteAssessment();
     }
   };
 
@@ -1382,8 +1338,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setStep('CONSENT');
     } else if (step === 'PRACTICE_START') {
       setStep('DEVICE_CHECK');
-    } else if (step === 'CONFIRMATION') {
-      setStep('PRACTICE_START');
     }
   };
 
@@ -1392,7 +1346,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const isCentered = isFaceDetected && (realtimeTelemetry?.sitting_position === 'Upright Centered' || realtimeTelemetry?.sitting_position === 'Centered' || !!realtimeTelemetry?.is_instant_straight);
   const isEyesOnScreen = isFaceDetected && (realtimeTelemetry?.is_instant_eyes_attentive === true || (realtimeTelemetry?.screen_attention_pct ?? 0) >= 20 || (realtimeTelemetry?.eye_contact_pct ?? 0) >= 15 || !!realtimeTelemetry?.is_instant_straight);
   const hasGoodLighting = !!cameraStream && isGoodLighting;
-  const isHeadPoseStraight = isFaceDetected && !!realtimeTelemetry?.is_instant_straight;
 
   if (!isUserAuthenticated) {
     return (
@@ -1426,1153 +1379,1117 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   return (
     <div
       className={
-        step === 'DEVICE_CHECK' || step === 'CONFIRMATION'
-          ? "fixed inset-0 z-[99999] w-screen h-screen bg-slate-50 dark:bg-[#070b14] flex flex-col overflow-hidden select-none"
+        step === 'DEVICE_CHECK'
+          ? "fixed inset-0 z-[99999] w-screen h-[95] bg-slate-50 dark:bg-[#070b14] flex flex-col overflow-hidden select-none"
           : "-m-4 lg:-m-6 w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] min-h-[calc(100%+2rem)] lg:min-h-[calc(100%+3rem)] flex-1 flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden"
       }
     >
-      <div className="w-full h-full flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">
+      <div className="w-full h-[90%] flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">
 
         {/* MAIN CONTENT WORKSPACE */}
         <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
 
-        {/* Top Bar Header */}
-        <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
-          <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
-            {[
-              { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
-              { key: 'CONSENT', num: 2, label: 'Consent', shortLabel: 'Consent' },
-              { key: 'DEVICE_CHECK', num: 3, label: 'Device Check', shortLabel: 'Device' },
-              { key: 'PRACTICE_START', num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
-            ].map(({ key, num, label, shortLabel }, idx, arr) => {
-              const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
-              return (
-                <div key={key} className="flex items-center gap-1 sm:gap-2">
-                  <div className="flex items-center gap-1 sm:gap-1.5">
-                    <span className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
-                      {isDone ? <Check className="w-3 h-3 stroke-[3]" /> : num}
-                    </span>
-                    <span className={`text-[11px] sm:text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
-                      <span className="hidden md:inline">{label}</span>
-                      <span className="inline md:hidden">{shortLabel}</span>
-                    </span>
+          {/* Top Bar Header */}
+          <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
+              {[
+                { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
+                { key: 'CONSENT', num: 2, label: 'Consent', shortLabel: 'Consent' },
+                { key: 'DEVICE_CHECK', num: 3, label: 'Device Check', shortLabel: 'Device' },
+                { key: 'PRACTICE_START', num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
+              ].map(({ key, num, label, shortLabel }, idx, arr) => {
+                const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
+                return (
+                  <div key={key} className="flex items-center gap-1 sm:gap-2">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <span className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
+                        {isDone ? <Check className="w-3 h-3 stroke-[3]" /> : num}
+                      </span>
+                      <span className={`text-[11px] sm:text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
+                        <span className="hidden md:inline">{label}</span>
+                        <span className="inline md:hidden">{shortLabel}</span>
+                      </span>
+                    </div>
+                    {idx < arr.length - 1 && <div className={`w-2 sm:w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
                   </div>
-                  {idx < arr.length - 1 && <div className={`w-2 sm:w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* Content Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-4 md:px-6 md:py-3 flex flex-col items-center w-full">
+          {/* Content Body */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-4 md:px-6 md:py-3 flex flex-col items-center w-[90%]">
 
-          {/* STEP 1: CONFIGURATION */}
-          {step === 'CONFIGURATION' && (
-            <div className="w-full max-w-6xl xl:max-w-7xl mx-auto mt-0 mb-auto flex flex-col pt-0 pb-1">
-              <AssessmentConfig
-                assessmentType={assessmentType} setAssessmentType={setAssessmentType}
-                onNext={handleNext} onCancel={() => { cleanup(); onCancel(); }}
-              />
-            </div>
-          )}
 
-          {/* STEP 2: CONSENT */}
-          {step === 'CONSENT' && (
-            <div className="w-full max-w-6xl mx-auto mt-0 mb-auto flex flex-col py-0">
-              <ConsentStep
-                videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled}
-                consentMic={consentMic} setConsentMic={setConsentMic}
-                consentCamera={consentCamera} setConsentCamera={setConsentCamera}
-                videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
-                consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording}
-                consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
-                onBack={handlePrevious} onNext={handleNext}
-              />
-            </div>
-          )}
+            {/* STEP 1: CONFIGURATION */}
+            {step === 'CONFIGURATION' && (
+              <div className="w-full max-w-6xl xl:max-w-7xl mx-auto mt-0 mb-auto flex flex-col pt-0 pb-1">
+                <AssessmentConfig
+                  assessmentType={assessmentType} setAssessmentType={setAssessmentType}
+                  onNext={handleNext} onCancel={() => { cleanup(); onCancel(); }}
+                />
+              </div>
+            )}
 
-          {/* STEP 3: DEVICE CHECK */}
-          {step === 'DEVICE_CHECK' && (() => {
-            const activeErrorCount = (
-              (internetStatus === 'unstable' || internetStatus === 'failed' ? 1 : 0) +
-              (videoEnabled && cameraTested && cameraOk === false && internetStatus !== 'failed' ? 1 : 0) +
-              (micTested && micOk === false && internetStatus !== 'failed' ? 1 : 0) +
-              (speakerTested && speakerOk === false && internetStatus !== 'failed' ? 1 : 0)
-            );
+            {/* STEP 2: CONSENT */}
+            {step === 'CONSENT' && (
+              <div className="w-full max-w-6xl mx-auto mt-0 mb-auto flex flex-col py-0">
+                <ConsentStep
+                  videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled}
+                  consentMic={consentMic} setConsentMic={setConsentMic}
+                  consentCamera={consentCamera} setConsentCamera={setConsentCamera}
+                  videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
+                  consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording}
+                  consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
+                  onBack={handlePrevious} onNext={handleNext}
+                />
+              </div>
+            )}
 
-            return (
-              <div className="w-full max-w-7xl mx-auto flex flex-col justify-between flex-1 min-h-full space-y-3 animate-in fade-in duration-200">
+            {/* STEP 3: DEVICE CHECK */}
+            {step === 'DEVICE_CHECK' && (() => {
+              const activeErrorCount = (
+                (internetStatus === 'unstable' || internetStatus === 'failed' ? 1 : 0) +
+                (videoEnabled && cameraTested && cameraOk === false && internetStatus !== 'failed' ? 1 : 0) +
+                (micTested && micOk === false && internetStatus !== 'failed' ? 1 : 0) +
+                (speakerTested && speakerOk === false && internetStatus !== 'failed' ? 1 : 0)
+              );
 
-                {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-5 items-start w-full mx-auto flex-1">
-                  <div className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col space-y-2.5 sm:space-y-3">
-                    {/* Video Viewport Frame / Audio-Only Card */}
-                    <div
-                      style={{
-                        minHeight: !videoEnabled
-                          ? activeErrorCount >= 2
-                            ? '170px'
-                            : activeErrorCount === 1
-                            ? '300px'
-                            : '280px'
-                          : activeErrorCount >= 2
-                          ? '190px'
-                          : activeErrorCount === 1
-                            ? '280px'
-                            : '310px',
-                        height: !videoEnabled
-                          ? activeErrorCount >= 2
-                            ? '170px'
-                            : activeErrorCount === 1
-                            ? '300px'
-                            : '280px'
-                          : activeErrorCount >= 2
-                          ? '190px'
-                          : activeErrorCount === 1
-                            ? '280px'
-                            : '310px',
-                      }}
-                      className={`relative w-full shrink-0 rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-200 ${
-                        !videoEnabled ? 'bg-[#F7F9FE] dark:bg-slate-900/90' : 'bg-slate-950 max-w-3xl mx-auto'
-                      }`}
-                    >
-                    {!videoEnabled ? (
-                      <div className={`flex flex-col items-center justify-center text-center select-none w-full h-full ${activeErrorCount >= 2 ? 'gap-1.5 p-3 sm:p-3.5' : 'gap-2.5 p-5 sm:p-6'}`}>
-                        {speakerTested && speakerOk === false ? (
-                          <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
-                            {/* Concentric Pulsing Red Rings with Speaker icon */}
-                            <div className={`relative flex items-center justify-center ${activeErrorCount >= 2 ? 'mb-1' : 'mb-2.5'}`}>
-                              <div className={`${activeErrorCount >= 2 ? 'w-11 h-11' : 'w-16 h-16 sm:w-18 sm:h-18'} rounded-full bg-rose-50/90 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 flex items-center justify-center animate-pulse`}>
-                                <div className={`${activeErrorCount >= 2 ? 'w-8 h-8' : 'w-11 h-11 sm:w-12 sm:h-12'} rounded-full bg-rose-100/90 border border-rose-200/90 dark:bg-rose-900/50 dark:border-rose-800 flex items-center justify-center`}>
-                                  <div className={`${activeErrorCount >= 2 ? 'w-6 h-6' : 'w-8 h-8 sm:w-9 sm:h-9'} rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm`}>
-                                    <VolumeX className={`${activeErrorCount >= 2 ? 'w-3 h-3' : 'w-4 h-4 sm:w-5 sm:h-5'}`} />
+              return (
+                <div className="w-full max-w-7xl mx-auto flex flex-col justify-between flex-1 min-h-[90%] space-y-3 animate-in fade-in duration-200">
+                  {/* Top Left Header (Shown when no error cards) */}
+                  {activeErrorCount === 0 && (
+                    <div className="space-y-0.5 text-left w-full">
+                      <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                        Device Check
+                      </h2>
+                      <h5 className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-slate-400">
+                        Check and verify your equipment settings before continuing.
+                      </h5>
+                    </div>
+                  )}
+
+                  {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-5 items-start w-full mx-auto flex-1">
+                    <div className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col space-y-2.5 sm:space-y-3">
+                      {/* Video Viewport Frame / Audio-Only Card */}
+                      <div
+                        style={{
+                          minHeight: !videoEnabled
+                            ? activeErrorCount >= 2
+                              ? '170px'
+                              : activeErrorCount === 1
+                                ? '300px'
+                                : '280px'
+                            : activeErrorCount >= 2
+                              ? '190px'
+                              : activeErrorCount === 1
+                                ? '280px'
+                                : '310px',
+                          height: !videoEnabled
+                            ? activeErrorCount >= 2
+                              ? '170px'
+                              : activeErrorCount === 1
+                                ? '300px'
+                                : '280px'
+                            : activeErrorCount >= 2
+                              ? '190px'
+                              : activeErrorCount === 1
+                                ? '280px'
+                                : '310px',
+                        }}
+                        className={`relative w-full shrink-0 rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-200 ${!videoEnabled ? 'bg-[#F7F9FE] dark:bg-slate-900/90' : 'bg-slate-950 max-w-3xl mx-auto'
+                          }`}
+                      >
+                        {!videoEnabled ? (
+                          <div className={`flex flex-col items-center justify-center text-center select-none w-full h-full ${activeErrorCount >= 2 ? 'gap-1.5 p-3 sm:p-3.5' : 'gap-2.5 p-5 sm:p-6'}`}>
+                            {speakerTested && speakerOk === false ? (
+                              <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
+                                {/* Concentric Pulsing Red Rings with Speaker icon */}
+                                <div className={`relative flex items-center justify-center ${activeErrorCount >= 2 ? 'mb-1' : 'mb-2.5'}`}>
+                                  <div className={`${activeErrorCount >= 2 ? 'w-11 h-11' : 'w-16 h-16 sm:w-18 sm:h-18'} rounded-full bg-rose-50/90 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 flex items-center justify-center animate-pulse`}>
+                                    <div className={`${activeErrorCount >= 2 ? 'w-8 h-8' : 'w-11 h-11 sm:w-12 sm:h-12'} rounded-full bg-rose-100/90 border border-rose-200/90 dark:bg-rose-900/50 dark:border-rose-800 flex items-center justify-center`}>
+                                      <div className={`${activeErrorCount >= 2 ? 'w-6 h-6' : 'w-8 h-8 sm:w-9 sm:h-9'} rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm`}>
+                                        <VolumeX className={`${activeErrorCount >= 2 ? 'w-3 h-3' : 'w-4 h-4 sm:w-5 sm:h-5'}`} />
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
+                                <h3 className={`${activeErrorCount >= 2 ? 'text-xs sm:text-[13px] font-bold mt-0.5' : 'text-sm sm:text-base font-bold mt-1.5'} text-slate-900 dark:text-white`}>
+                                  Unable to play test sound
+                                </h3>
+                                <p className={`${activeErrorCount >= 2 ? 'text-[10.5px] sm:text-[11.5px] mt-0.5' : 'text-xs sm:text-sm mt-1'} text-slate-500 dark:text-slate-400 font-medium max-w-md`}>
+                                  We couldn&apos;t play the test sound from your speakers.
+                                </p>
                               </div>
-                            </div>
-                            <h3 className={`${activeErrorCount >= 2 ? 'text-xs sm:text-[13px] font-bold mt-0.5' : 'text-sm sm:text-base font-bold mt-1.5'} text-slate-900 dark:text-white`}>
-                              Unable to play test sound
-                            </h3>
-                            <p className={`${activeErrorCount >= 2 ? 'text-[10.5px] sm:text-[11.5px] mt-0.5' : 'text-xs sm:text-sm mt-1'} text-slate-500 dark:text-slate-400 font-medium max-w-md`}>
-                              We couldn&apos;t play the test sound from your speakers.
-                            </p>
-                          </div>
-                        ) : micTested && micOk === false ? (
-                          <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
-                            {/* Concentric Pulsing Red Rings */}
-                            <div className={`relative flex items-center justify-center ${activeErrorCount >= 2 ? 'mb-1' : 'mb-2'}`}>
-                              <div className={`${activeErrorCount >= 2 ? 'w-10 h-10' : 'w-14 h-14'} rounded-full bg-rose-50/90 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 flex items-center justify-center animate-pulse`}>
-                                <div className={`${activeErrorCount >= 2 ? 'w-7 h-7' : 'w-10 h-10'} rounded-full bg-rose-100/90 border border-rose-200/90 dark:bg-rose-900/50 dark:border-rose-800 flex items-center justify-center`}>
-                                  <div className={`${activeErrorCount >= 2 ? 'w-5 h-5' : 'w-7 h-7'} rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm`}>
-                                    <MicOff className={`${activeErrorCount >= 2 ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`} />
+                            ) : micTested && micOk === false ? (
+                              <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
+                                {/* Concentric Pulsing Red Rings */}
+                                <div className={`relative flex items-center justify-center ${activeErrorCount >= 2 ? 'mb-1' : 'mb-2'}`}>
+                                  <div className={`${activeErrorCount >= 2 ? 'w-10 h-10' : 'w-14 h-14'} rounded-full bg-rose-50/90 border border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/40 flex items-center justify-center animate-pulse`}>
+                                    <div className={`${activeErrorCount >= 2 ? 'w-7 h-7' : 'w-10 h-10'} rounded-full bg-rose-100/90 border border-rose-200/90 dark:bg-rose-900/50 dark:border-rose-800 flex items-center justify-center`}>
+                                      <div className={`${activeErrorCount >= 2 ? 'w-5 h-5' : 'w-7 h-7'} rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm`}>
+                                        <MicOff className={`${activeErrorCount >= 2 ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`} />
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
+                                <h3 className={`${activeErrorCount >= 2 ? 'text-xs font-bold mt-0.5' : 'text-xs sm:text-sm font-bold mt-1.5'} text-rose-600 dark:text-rose-400`}>
+                                  Microphone not found
+                                </h3>
+                                <p className={`${activeErrorCount >= 2 ? 'text-[10px] sm:text-[11px] mt-0.5' : 'text-[11px] sm:text-xs mt-0.5'} text-slate-500 dark:text-slate-400 font-medium`}>
+                                  No microphone detected or no audio input found.
+                                </p>
+                                {/* Segmented Level Visualizer */}
+                                <div className="flex items-center gap-1 mt-1 px-2 py-0.5 bg-white/80 dark:bg-slate-800/80 rounded-full border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
+                                  {Array.from({ length: 20 }).map((_, i) => (
+                                    <div
+                                      key={i}
+                                      className={`w-1 rounded-full transition-all duration-75 ${micTesting && micLevel > (i / 20) * 100
+                                        ? 'bg-rose-500 h-2.5'
+                                        : i === 0
+                                          ? 'bg-rose-500 h-2'
+                                          : 'bg-slate-200 dark:bg-slate-700 h-1'
+                                        }`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                            <h3 className={`${activeErrorCount >= 2 ? 'text-xs font-bold mt-0.5' : 'text-xs sm:text-sm font-bold mt-1.5'} text-rose-600 dark:text-rose-400`}>
-                              Microphone not found
-                            </h3>
-                            <p className={`${activeErrorCount >= 2 ? 'text-[10px] sm:text-[11px] mt-0.5' : 'text-[11px] sm:text-xs mt-0.5'} text-slate-500 dark:text-slate-400 font-medium`}>
-                              No microphone detected or no audio input found.
-                            </p>
-                            {/* Segmented Level Visualizer */}
-                            <div className="flex items-center gap-1 mt-1 px-2 py-0.5 bg-white/80 dark:bg-slate-800/80 rounded-full border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
-                              {Array.from({ length: 20 }).map((_, i) => (
-                                <div
-                                  key={i}
-                                  className={`w-1 rounded-full transition-all duration-75 ${
-                                    micTesting && micLevel > (i / 20) * 100
-                                      ? 'bg-rose-500 h-2.5'
-                                      : i === 0
-                                      ? 'bg-rose-500 h-2'
-                                      : 'bg-slate-200 dark:bg-slate-700 h-1'
-                                  }`}
-                                />
-                              ))}
-                            </div>
+                            ) : (
+                              <>
+                                {/* Actionable Microphone Icon Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => testMicrophone()}
+                                  disabled={micTesting}
+                                  title={micTesting ? 'Listening to microphone...' : micTested && micOk ? 'Click to re-test microphone' : 'Click to test microphone'}
+                                  className="group relative flex items-center justify-center mb-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl transition-all"
+                                >
+                                  {/* Pulsing Ripple rings when testing mic */}
+                                  {micTesting && (
+                                    <div className="absolute inset-0 -m-3 rounded-full bg-blue-500/20 animate-ping pointer-events-none" />
+                                  )}
+                                  {micTesting && (
+                                    <div className="absolute inset-0 -m-1.5 rounded-full bg-blue-500/30 animate-pulse pointer-events-none" />
+                                  )}
+
+                                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center shadow-2xs transition-all duration-200 ${micTesting
+                                    ? 'bg-[#4A6CF7] border-[#4A6CF7] text-white scale-105 shadow-md shadow-blue-500/25'
+                                    : micTested && micOk
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 group-hover:bg-emerald-100/80'
+                                      : 'bg-[#EBF0FE] dark:bg-indigo-950/50 border-indigo-100/80 dark:border-indigo-900/40 text-[#4A6CF7] group-hover:scale-105 group-hover:bg-[#DEE7FD] dark:group-hover:bg-indigo-900/60'
+                                    }`}>
+                                    <Mic className={`w-7 h-7 sm:w-9 sm:h-9 transition-transform duration-200 ${micTesting ? 'animate-bounce' : 'group-hover:scale-110'}`} />
+                                  </div>
+
+                                  {/* Subtle Status Badge */}
+                                  {micTested && micOk && !micTesting && (
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-xs">
+                                      <Check className="w-3 h-3 stroke-[3]" />
+                                    </div>
+                                  )}
+                                </button>
+                                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">Audio-Only Assessment</h3>
+                                <p className="text-xs sm:text-[13.5px] text-slate-500 dark:text-slate-400 max-w-sm mt-0.5">
+                                  {micTesting
+                                    ? 'Listening... speak into your microphone to test.'
+                                    : 'Camera is turned off for this assessment mode.'}
+                                </p>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <>
-                            {/* Actionable Microphone Icon Button */}
-                            <button
-                              type="button"
-                              onClick={() => testMicrophone()}
-                              disabled={micTesting}
-                              title={micTesting ? 'Listening to microphone...' : micTested && micOk ? 'Click to re-test microphone' : 'Click to test microphone'}
-                              className="group relative flex items-center justify-center mb-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl transition-all"
-                            >
-                              {/* Pulsing Ripple rings when testing mic */}
-                              {micTesting && (
-                                <div className="absolute inset-0 -m-3 rounded-full bg-blue-500/20 animate-ping pointer-events-none" />
-                              )}
-                              {micTesting && (
-                                <div className="absolute inset-0 -m-1.5 rounded-full bg-blue-500/30 animate-pulse pointer-events-none" />
-                              )}
-
-                              <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center shadow-2xs transition-all duration-200 ${
-                                micTesting
-                                  ? 'bg-[#4A6CF7] border-[#4A6CF7] text-white scale-105 shadow-md shadow-blue-500/25'
-                                  : micTested && micOk
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 group-hover:bg-emerald-100/80'
-                                  : 'bg-[#EBF0FE] dark:bg-indigo-950/50 border-indigo-100/80 dark:border-indigo-900/40 text-[#4A6CF7] group-hover:scale-105 group-hover:bg-[#DEE7FD] dark:group-hover:bg-indigo-900/60'
-                              }`}>
-                                <Mic className={`w-7 h-7 sm:w-9 sm:h-9 transition-transform duration-200 ${micTesting ? 'animate-bounce' : 'group-hover:scale-110'}`} />
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              onLoadedMetadata={(e) => {
+                                (e.target as HTMLVideoElement).play().catch(() => { });
+                              }}
+                              className={`w-full h-full object-cover scale-x-[-1] ${cameraOk ? '' : 'hidden'}`}
+                            />
+                            {cameraOk && (
+                              <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[11px] font-bold text-white shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span>Live</span>
                               </div>
+                            )}
+                            {/* Real-time Green Face Detection Bounding Box & Status Tag Overlay */}
+                            {cameraOk && isFaceDetected && isFaceLive && realtimeTelemetry?.face_box && (() => {
+                              const rawBox = realtimeTelemetry.face_box;
+                              const padX = rawBox.width * 0.22;
+                              const padY = rawBox.height * 0.32;
+                              const wPct = Math.min(100, (rawBox.width + padX * 2) * 100);
+                              const hPct = Math.min(100, (rawBox.height + padY * 2) * 100);
+                              const leftPct = Math.max(0, Math.min(100 - wPct, (1 - (rawBox.x + rawBox.width + padX)) * 100));
+                              const topPct = Math.max(0, Math.min(100 - hPct, (rawBox.y - padY) * 100));
 
-                              {/* Subtle Status Badge */}
-                              {micTested && micOk && !micTesting && (
-                                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-xs">
-                                  <Check className="w-3 h-3 stroke-[3]" />
+                              return (
+                                <div
+                                  className="absolute pointer-events-none transition-all duration-75 ease-out z-20 border-2 border-emerald-400 bg-transparent rounded-2xl shadow-[0_0_15px_rgba(52,211,153,0.3)]"
+                                  style={{
+                                    left: `${leftPct}%`,
+                                    top: `${topPct}%`,
+                                    width: `${wPct}%`,
+                                    height: `${hPct}%`,
+                                  }}
+                                >
+                                  {/* 4 Glowing Corner Markers */}
+                                  <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-emerald-300 rounded-tl-md shadow-xs" />
+                                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-emerald-300 rounded-tr-md shadow-xs" />
+                                  <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-emerald-300 rounded-bl-md shadow-xs" />
+                                  <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-emerald-300 rounded-br-md shadow-xs" />
+
+                                  {/* Floating Green Pill Card Header on Face */}
+                                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-md border border-emerald-500/60 text-[10px] font-bold text-emerald-400 shadow-md whitespace-nowrap">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                                    <span>{isCentered ? 'Face Centered' : 'Face Detected'}</span>
+                                  </div>
                                 </div>
-                              )}
-                            </button>
-                            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">Audio-Only Assessment</h3>
-                            <p className="text-xs sm:text-[13.5px] text-slate-500 dark:text-slate-400 max-w-sm mt-0.5">
-                              {micTesting
-                                ? 'Listening... speak into your microphone to test.'
-                                : 'Camera is turned off for this assessment mode.'}
-                            </p>
+                              );
+                            })()}
+                            {!cameraOk && (
+                              <div className="flex flex-col items-center justify-center gap-2 p-4 text-center select-none w-full h-full bg-slate-900">
+                                {/* Concentric Pulsing Red Rings */}
+                                <div className="relative flex items-center justify-center">
+                                  <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center animate-pulse">
+                                    <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center">
+                                      <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">
+                                        <VideoOff className="w-3.5 h-3.5" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <h3 className="text-xs sm:text-sm font-bold text-white mt-1">
+                                  Camera unavailable
+                                </h3>
+                                <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
+                                  Camera is blocked or not connected.
+                                </p>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
-                    ) : (
-                      <>
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          onLoadedMetadata={(e) => {
-                            (e.target as HTMLVideoElement).play().catch(() => { });
-                          }}
-                          className={`w-full h-full object-cover scale-x-[-1] ${cameraOk ? '' : 'hidden'}`}
-                        />
-                        {cameraOk && (
-                          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[11px] font-bold text-white shadow-sm">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>Live</span>
-                          </div>
-                        )}
-                        {/* Real-time Green Face Detection Bounding Box & Status Tag Overlay */}
-                        {cameraOk && isFaceDetected && isFaceLive && realtimeTelemetry?.face_box && (() => {
-                          const rawBox = realtimeTelemetry.face_box;
-                          const padX = rawBox.width * 0.22;
-                          const padY = rawBox.height * 0.32;
-                          const wPct = Math.min(100, (rawBox.width + padX * 2) * 100);
-                          const hPct = Math.min(100, (rawBox.height + padY * 2) * 100);
-                          const leftPct = Math.max(0, Math.min(100 - wPct, (1 - (rawBox.x + rawBox.width + padX)) * 100));
-                          const topPct = Math.max(0, Math.min(100 - hPct, (rawBox.y - padY) * 100));
 
-                          return (
-                            <div
-                              className="absolute pointer-events-none transition-all duration-75 ease-out z-20 border-2 border-emerald-400 bg-transparent rounded-2xl shadow-[0_0_15px_rgba(52,211,153,0.3)]"
-                              style={{
-                                left: `${leftPct}%`,
-                                top: `${topPct}%`,
-                                width: `${wPct}%`,
-                                height: `${hPct}%`,
-                              }}
-                            >
-                              {/* 4 Glowing Corner Markers */}
-                              <div className="absolute -top-1 -left-1 w-3.5 h-3.5 border-t-2 border-l-2 border-emerald-300 rounded-tl-md shadow-xs" />
-                              <div className="absolute -top-1 -right-1 w-3.5 h-3.5 border-t-2 border-r-2 border-emerald-300 rounded-tr-md shadow-xs" />
-                              <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-emerald-300 rounded-bl-md shadow-xs" />
-                              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-emerald-300 rounded-br-md shadow-xs" />
-
-                              {/* Floating Green Pill Card Header on Face */}
-                              <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-md border border-emerald-500/60 text-[10px] font-bold text-emerald-400 shadow-md whitespace-nowrap">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                <span>{isCentered ? 'Face Centered' : 'Face Detected'}</span>
-                              </div>
+                      {/* Telemetry Status Bar (Only if video & analytics are enabled and camera is OK) */}
+                      {videoEnabled && videoAnalyticsEnabled && cameraOk && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-3xl mx-auto">
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isFaceDetected ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                              <Eye className="w-3.5 h-3.5" />
                             </div>
-                          );
-                        })()}
-                        {!cameraOk && (
-                          <div className="flex flex-col items-center justify-center gap-2 p-4 text-center select-none w-full h-full bg-slate-900">
-                            {/* Concentric Pulsing Red Rings */}
-                            <div className="relative flex items-center justify-center">
-                              <div className="w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center animate-pulse">
-                                <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center">
-                                  <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-sm">
-                                    <VideoOff className="w-3.5 h-3.5" />
-                                  </div>
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Face Detection</span>
+                              <span className={`text-[11px] font-bold ${isFaceDetected ? 'text-emerald-600' : 'text-rose-500'}`}>{isFaceDetected ? 'Detected' : 'Searching'}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isCentered ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                              <Check className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Position</span>
+                              <span className={`text-[11px] font-bold ${isCentered ? 'text-emerald-600' : 'text-amber-600'}`}>{isCentered ? 'Centered' : 'Adjust Frame'}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${hasGoodLighting ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Lighting</span>
+                              <span className={`text-[11px] font-bold ${hasGoodLighting ? 'text-emerald-600' : 'text-amber-600'}`}>{hasGoodLighting ? 'Optimal' : 'Low Light'}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isEyesOnScreen ? 'bg-emerald-50 text-emerald-600' : 'bg-purple-50 text-purple-600'}`}>
+                              <Activity className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Focus</span>
+                              <span className={`text-[11px] font-bold ${isEyesOnScreen ? 'text-emerald-600' : 'text-purple-600'}`}>{isEyesOnScreen ? 'Engaged' : 'Look at Screen'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Network Quality Troubleshooting Alert Card (Shown when connection is unstable or failed) */}
+                      {(internetStatus === 'unstable' || internetStatus === 'failed') && (
+                        <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left space-y-2 animate-in fade-in duration-200 shadow-2xs">
+                          {/* Metric Badges Header */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pb-1.5 border-b border-rose-200/60 dark:border-rose-900/40">
+                            <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1.5 border border-rose-100 dark:border-rose-900/30">
+                              <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                                <WifiOff className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs sm:text-[13px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                                  {internetStatus === 'failed' ? 'Disconnected' : 'Unstable'}
                                 </div>
+                                <div className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider">Status</div>
                               </div>
                             </div>
-                            <h3 className="text-xs sm:text-sm font-bold text-white mt-1">
-                              Camera unavailable
-                            </h3>
-                            <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
-                              Camera is blocked or not connected.
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
 
-                  {/* Telemetry Status Bar (Only if video & analytics are enabled and camera is OK) */}
-                  {videoEnabled && videoAnalyticsEnabled && cameraOk && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-3xl mx-auto">
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isFaceDetected ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                          <Eye className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1 truncate">
-                          <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Face Detection</span>
-                          <span className={`text-[11px] font-bold ${isFaceDetected ? 'text-emerald-600' : 'text-rose-500'}`}>{isFaceDetected ? 'Detected' : 'Searching'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isCentered ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                          <Check className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1 truncate">
-                          <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Position</span>
-                          <span className={`text-[11px] font-bold ${isCentered ? 'text-emerald-600' : 'text-amber-600'}`}>{isCentered ? 'Centered' : 'Adjust Frame'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${hasGoodLighting ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1 truncate">
-                          <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Lighting</span>
-                          <span className={`text-[11px] font-bold ${hasGoodLighting ? 'text-emerald-600' : 'text-amber-600'}`}>{hasGoodLighting ? 'Optimal' : 'Low Light'}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isEyesOnScreen ? 'bg-emerald-50 text-emerald-600' : 'bg-purple-50 text-purple-600'}`}>
-                          <Activity className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1 truncate">
-                          <span className="text-[10px] text-slate-400 block font-semibold leading-tight">Focus</span>
-                          <span className={`text-[11px] font-bold ${isEyesOnScreen ? 'text-emerald-600' : 'text-purple-600'}`}>{isEyesOnScreen ? 'Engaged' : 'Look at Screen'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Network Quality Troubleshooting Alert Card (Shown when connection is unstable or failed) */}
-                  {(internetStatus === 'unstable' || internetStatus === 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left space-y-2 animate-in fade-in duration-200 shadow-2xs">
-                      {/* Metric Badges Header */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pb-1.5 border-b border-rose-200/60 dark:border-rose-900/40">
-                        <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1.5 border border-rose-100 dark:border-rose-900/30">
-                          <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                            <WifiOff className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs sm:text-[13px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
-                              {internetStatus === 'failed' ? 'Disconnected' : 'Unstable'}
+                            <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1.5 border border-rose-100 dark:border-rose-900/30">
+                              <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                                <ArrowDown className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs sm:text-[13px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                                  {bandwidthKbps > 1000 ? `${(bandwidthKbps / 1000).toFixed(1)} Mbps` : `${bandwidthKbps} Kbps`}
+                                </div>
+                                <div className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider">Speed</div>
+                              </div>
                             </div>
-                            <div className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider">Status</div>
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1.5 border border-rose-100 dark:border-rose-900/30">
-                          <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                            <ArrowDown className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs sm:text-[13px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
-                              {bandwidthKbps > 1000 ? `${(bandwidthKbps / 1000).toFixed(1)} Mbps` : `${bandwidthKbps} Kbps`}
+                            <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1.5 border border-rose-100 dark:border-rose-900/30 col-span-2 sm:col-span-1">
+                              <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                                <Activity className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs sm:text-[13px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                                  {internetStatus === 'failed' ? 'Offline' : `${networkPingMs} ms`}
+                                </div>
+                                <div className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider">Latency</div>
+                              </div>
                             </div>
-                            <div className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider">Speed</div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1.5 border border-rose-100 dark:border-rose-900/30 col-span-2 sm:col-span-1">
-                          <div className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                            <Activity className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs sm:text-[13px] font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
-                              {internetStatus === 'failed' ? 'Offline' : `${networkPingMs} ms`}
+                          {/* Alert Card Header & Advice List with Try Again button */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+                            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                              <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                                <WifiOff className="w-3 h-3 stroke-[2.5]" />
+                              </div>
+                              <div className="space-y-0.5 flex-1 min-w-0">
+                                <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                                  {internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}
+                                </h4>
+                                <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                    <span>Switch to a wired Ethernet connection or move closer to Wi-Fi router.</span>
+                                  </li>
+                                  <li className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                    <span>Stop other downloads or video streaming, or try a mobile hotspot.</span>
+                                  </li>
+                                </ul>
+                              </div>
                             </div>
-                            <div className="text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider">Latency</div>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Alert Card Header & Advice List with Try Again button */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
-                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                          <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                            <WifiOff className="w-3 h-3 stroke-[2.5]" />
-                          </div>
-                          <div className="space-y-0.5 flex-1 min-w-0">
-                            <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
-                              {internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}
-                            </h4>
-                            <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
-                              <li className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                <span>Switch to a wired Ethernet connection or move closer to Wi-Fi router.</span>
-                              </li>
-                              <li className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                <span>Stop other downloads or video streaming, or try a mobile hotspot.</span>
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Try Again Button placed in card */}
-                        <div className="self-end sm:self-center shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBandwidthChecking(true);
-                              checkRealInternet().finally(() => setBandwidthChecking(false));
-                            }}
-                            disabled={bandwidthChecking}
-                            className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
-                          >
-                            <RefreshCw className={`w-3 h-3 ${bandwidthChecking ? 'animate-spin' : ''}`} />
-                            <span>{bandwidthChecking ? 'Checking...' : 'Try Again'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Camera Troubleshooting Alert Card (Shown when camera failed and internet is not completely offline) */}
-                  {(videoEnabled && cameraTested && cameraOk === false && internetStatus !== 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
-                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                        <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                          <VideoOff className="w-3.5 h-3.5 stroke-[2.5]" />
-                        </div>
-                        <div className="space-y-0.5 flex-1 min-w-0">
-                          <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
-                            Camera not detected or access blocked. Please check:
-                          </h4>
-                          <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Your webcam is plugged out or lens cover is closed.</span>
-                            </li>
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
-                            </li>
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Select your preferred device from the Camera dropdown below.</span>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                      <div className="self-end sm:self-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => testCamera()}
-                          disabled={testingCamera}
-                          className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${testingCamera ? 'animate-spin' : ''}`} />
-                          <span>{testingCamera ? 'Testing...' : 'Try Again'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Microphone Troubleshooting Alert Card (Shown when mic failed and internet is not completely offline) */}
-                  {(micTested && micOk === false && internetStatus !== 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
-                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                        <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                          <MicOff className="w-3 h-3 stroke-[2.5]" />
-                        </div>
-                        <div className="space-y-0.5 flex-1 min-w-0">
-                          <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
-                            Microphone not detected or no audio received. Please check:
-                          </h4>
-                          <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Your microphone is plugged out or hardware mute switch is on.</span>
-                            </li>
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
-                            </li>
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Select your preferred device from the Microphone dropdown below.</span>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                      <div className="self-end sm:self-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => testMicrophone()}
-                          disabled={micTesting}
-                          className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${micTesting ? 'animate-spin' : ''}`} />
-                          <span>{micTesting ? 'Testing...' : 'Try Again'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Speaker Troubleshooting Alert Card (Shown when speaker failed and internet is not completely offline) */}
-                  {(speakerTested && speakerOk === false && internetStatus !== 'failed') && (
-                    <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
-                      <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                        <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                          <VolumeX className="w-3 h-3 stroke-[2.5]" />
-                        </div>
-                        <div className="space-y-0.5 flex-1 min-w-0">
-                          <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
-                            We couldn&apos;t play the test sound. Please check:
-                          </h4>
-                          <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Your speakers are plugged out or volume is muted.</span>
-                            </li>
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Browser permission is not allowed to play sound.</span>
-                            </li>
-                            <li className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                              <span>Try selecting a different speaker output device.</span>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                      <div className="self-end sm:self-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => playChimeTone()}
-                          disabled={speakerTestState === 'playing'}
-                          className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${speakerTestState === 'playing' ? 'animate-spin' : ''}`} />
-                          <span>{speakerTestState === 'playing' ? 'Playing...' : 'Try Again'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Hardware Selectors (Bottom) */}
-                  {(() => {
-                    const activeVideoValue = videoDevices.some((d) => d.deviceId === selectedVideoDevice)
-                      ? selectedVideoDevice
-                      : (videoDevices[0]?.deviceId || 'default');
-                    const activeAudioValue = audioDevices.some((d) => d.deviceId === selectedAudioDevice)
-                      ? selectedAudioDevice
-                      : (audioDevices[0]?.deviceId || 'default');
-
-                    const isColumnLayout = videoEnabled || activeErrorCount === 0;
-
-                    return (
-                      <div className={`grid ${videoEnabled ? 'gap-3 pt-2 mt-2 sm:mt-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : `gap-3.5 sm:gap-5 pt-3 sm:pt-4 ${activeErrorCount > 0 ? 'mt-2 sm:mt-3' : 'mt-5 sm:mt-7'} grid-cols-1 sm:grid-cols-2 max-w-2xl`}`}>
-                        {videoEnabled && (
-                          <div className="flex flex-col space-y-1.5">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white mb-0.5">Camera</span>
-                            <div className="relative w-full">
-                              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-3.5 h-3.5" /></div>
-                              <select
-                                value={activeVideoValue}
-                                onChange={(e) => {
-                                  setSelectedVideoDevice(e.target.value);
-                                  setCameraOk(null);
-                                  setCameraTested(false);
-                                  cleanup('VIDEO_ONLY');
+                            {/* Try Again Button placed in card */}
+                            <div className="self-end sm:self-center shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBandwidthChecking(true);
+                                  checkRealInternet().finally(() => setBandwidthChecking(false));
                                 }}
-                                className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                disabled={bandwidthChecking}
+                                className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
                               >
-                                {videoDevices.length > 0 ? (
-                                  videoDevices.map((d, i) => (
-                                    <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
-                                      {d.label || `Camera ${i + 1}`}
-                                    </option>
-                                  ))
-                                ) : (
-                                  <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Integrated Webcam</option>
-                                )}
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <RefreshCw className={`w-3 h-3 ${bandwidthChecking ? 'animate-spin' : ''}`} />
+                                <span>{bandwidthChecking ? 'Checking...' : 'Try Again'}</span>
+                              </button>
                             </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Camera Troubleshooting Alert Card (Shown when camera failed and internet is not completely offline) */}
+                      {(videoEnabled && cameraTested && cameraOk === false && internetStatus !== 'failed') && (
+                        <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
+                          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                            <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                              <VideoOff className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </div>
+                            <div className="space-y-0.5 flex-1 min-w-0">
+                              <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                                Camera not detected or access blocked. Please check:
+                              </h4>
+                              <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Your webcam is plugged out or lens cover is closed.</span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Select your preferred device from the Camera dropdown below.</span>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                          <div className="self-end sm:self-center shrink-0">
                             <button
                               type="button"
                               onClick={() => testCamera()}
                               disabled={testingCamera}
-                              className="w-fit self-start h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] text-xs font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                              className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
                             >
-                              <Video className="w-3.5 h-3.5 text-[#4A6CF7]" />
-                              <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
+                              <RefreshCw className={`w-3 h-3 ${testingCamera ? 'animate-spin' : ''}`} />
+                              <span>{testingCamera ? 'Testing...' : 'Try Again'}</span>
                             </button>
-                            {(cameraTested && cameraOk === false) && (
-                              <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
-                                <VideoOff className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
-                                <span>No camera detected. Please check permissions.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Microphone Troubleshooting Alert Card (Shown when mic failed and internet is not completely offline) */}
+                      {(micTested && micOk === false && internetStatus !== 'failed') && (
+                        <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
+                          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                            <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                              <MicOff className="w-3 h-3 stroke-[2.5]" />
+                            </div>
+                            <div className="space-y-0.5 flex-1 min-w-0">
+                              <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                                Microphone not detected or no audio received. Please check:
+                              </h4>
+                              <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Your microphone is plugged out or hardware mute switch is on.</span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Select your preferred device from the Microphone dropdown below.</span>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                          <div className="self-end sm:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => testMicrophone()}
+                              disabled={micTesting}
+                              className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${micTesting ? 'animate-spin' : ''}`} />
+                              <span>{micTesting ? 'Testing...' : 'Try Again'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Speaker Troubleshooting Alert Card (Shown when speaker failed and internet is not completely offline) */}
+                      {(speakerTested && speakerOk === false && internetStatus !== 'failed') && (
+                        <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
+                          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                            <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                              <VolumeX className="w-3 h-3 stroke-[2.5]" />
+                            </div>
+                            <div className="space-y-0.5 flex-1 min-w-0">
+                              <h4 className="text-[11.5px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                                We couldn&apos;t play the test sound. Please check:
+                              </h4>
+                              <ul className="space-y-0.5 text-[10.5px] sm:text-[11.5px] text-slate-700 dark:text-slate-200 font-medium">
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Your speakers are plugged out or volume is muted.</span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Browser permission is not allowed to play sound.</span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  <span>Try selecting a different speaker output device.</span>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                          <div className="self-end sm:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => playChimeTone()}
+                              disabled={speakerTestState === 'playing'}
+                              className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] sm:text-xs inline-flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${speakerTestState === 'playing' ? 'animate-spin' : ''}`} />
+                              <span>{speakerTestState === 'playing' ? 'Playing...' : 'Try Again'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hardware Selectors (Bottom) */}
+                      {(() => {
+                        const activeVideoValue = videoDevices.some((d) => d.deviceId === selectedVideoDevice)
+                          ? selectedVideoDevice
+                          : (videoDevices[0]?.deviceId || 'default');
+                        const activeAudioValue = audioDevices.some((d) => d.deviceId === selectedAudioDevice)
+                          ? selectedAudioDevice
+                          : (audioDevices[0]?.deviceId || 'default');
+
+                        const isColumnLayout = videoEnabled || activeErrorCount === 0;
+
+                        return (
+                          <div className={`grid ${videoEnabled ? 'gap-3 pt-2 mt-2 sm:mt-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : `gap-3.5 sm:gap-5 pt-3 sm:pt-4 ${activeErrorCount > 0 ? 'mt-2 sm:mt-3' : 'mt-5 sm:mt-7'} grid-cols-1 sm:grid-cols-2 max-w-2xl`}`}>
+                            {videoEnabled && (
+                              <div className="flex flex-col space-y-1.5">
+                                <span className="text-xs font-bold text-slate-900 dark:text-white mb-0.5">Camera</span>
+                                <div className="relative w-full">
+                                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-3.5 h-3.5" /></div>
+                                  <select
+                                    value={activeVideoValue}
+                                    onChange={(e) => {
+                                      setSelectedVideoDevice(e.target.value);
+                                      setCameraOk(null);
+                                      setCameraTested(false);
+                                      cleanup('VIDEO_ONLY');
+                                    }}
+                                    className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                  >
+                                    {videoDevices.length > 0 ? (
+                                      videoDevices.map((d, i) => (
+                                        <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
+                                          {d.label || `Camera ${i + 1}`}
+                                        </option>
+                                      ))
+                                    ) : (
+                                      <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Integrated Webcam</option>
+                                    )}
+                                  </select>
+                                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => testCamera()}
+                                  disabled={testingCamera}
+                                  className="w-fit self-start h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] text-xs font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                                >
+                                  <Video className="w-3.5 h-3.5 text-[#4A6CF7]" />
+                                  <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
+                                </button>
+                                {(cameraTested && cameraOk === false) && (
+                                  <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
+                                    <VideoOff className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
+                                    <span>No camera detected. Please check permissions.</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white`}>Microphone</span>
+                              </div>
+                              {isColumnLayout ? (
+                                <>
+                                  <div className="relative w-full">
+                                    <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
+                                    <select
+                                      value={activeAudioValue}
+                                      onChange={(e) => {
+                                        setSelectedAudioDevice(e.target.value);
+                                        setMicOk(null);
+                                        setMicTested(false);
+                                        cleanup('AUDIO_ONLY');
+                                      }}
+                                      className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-7 text-xs' : 'h-12 pl-10 pr-9 text-xs sm:text-[13.5px]'} bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                                    >
+                                      {audioDevices.length > 0 ? (
+                                        audioDevices.map((d, i) => (
+                                          <option key={d.deviceId || `mic-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
+                                            {d.label || `Microphone ${i + 1}`}
+                                          </option>
+                                        ))
+                                      ) : (
+                                        <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Default Microphone</option>
+                                      )}
+                                    </select>
+                                    <ChevronDown className={`${videoEnabled ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'} text-slate-400 absolute top-1/2 -translate-y-1/2 pointer-events-none`} />
+                                  </div>
+
+                                  {/* Audio input level visualizer waves between select list and button */}
+                                  <div className={`flex items-center justify-between ${videoEnabled ? 'px-2.5 py-1 rounded-xl' : 'px-3.5 py-2.5 rounded-xl'} bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs`}>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`${videoEnabled ? 'text-[10px]' : 'text-[11px]'} font-semibold text-slate-500 dark:text-slate-400`}>Audio Waves</span>
+                                      {micTesting && (
+                                        <span className={`inline-flex items-center px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 ${videoEnabled ? 'text-[9px]' : 'text-[10px]'} font-bold animate-pulse`}>
+                                          Listening
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className={`flex items-center gap-0.5 sm:gap-1 ${videoEnabled ? 'h-3.5' : 'h-4.5'}`}>
+                                      {Array.from({ length: 14 }).map((_, i) => {
+                                        const isLit = micTesting
+                                          ? (micLevel > 0 ? micLevel > (i / 14) * 100 : (i % 3 === 0 || i % 4 === 0))
+                                          : micTested && micOk
+                                            ? i < 9
+                                            : false;
+                                        const waveMultiplier = 0.35 + 0.65 * Math.sin(((i + 0.5) / 14) * Math.PI);
+                                        const maxH = videoEnabled ? 11 : 16;
+                                        const minH = videoEnabled ? 3 : 5;
+                                        const barHeight = isLit ? Math.max(minH, Math.round(maxH * waveMultiplier)) : (videoEnabled ? 2 : 3);
+
+                                        return (
+                                          <div
+                                            key={i}
+                                            style={{ height: `${barHeight}px` }}
+                                            className={`w-1 rounded-full transition-all duration-75 ${isLit
+                                              ? (micTested && micOk === false ? 'bg-rose-500' : 'bg-emerald-500')
+                                              : 'bg-slate-200 dark:bg-slate-700'
+                                              }`}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => testMicrophone()}
+                                    disabled={micTesting}
+                                    className={`w-fit self-start ${videoEnabled ? 'h-10 px-4 rounded-xl text-xs gap-2' : 'h-11 sm:h-12 px-5 sm:px-6 rounded-xl text-xs sm:text-[13.5px] gap-2.5'} border font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}
+                                  >
+                                    <Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+                                    <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest Microphone' : 'Test Microphone'}</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className="relative flex-1 min-w-0">
+                                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Mic className="w-3.5 h-3.5" /></div>
+                                    <select
+                                      value={activeAudioValue}
+                                      onChange={(e) => {
+                                        setSelectedAudioDevice(e.target.value);
+                                        setMicOk(null);
+                                        setMicTested(false);
+                                        cleanup('AUDIO_ONLY');
+                                      }}
+                                      className="w-full h-11 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                    >
+                                      {audioDevices.length > 0 ? (
+                                        audioDevices.map((d, i) => (
+                                          <option key={d.deviceId || `mic-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
+                                            {d.label || `Microphone ${i + 1}`}
+                                          </option>
+                                        ))
+                                      ) : (
+                                        <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Default Microphone</option>
+                                      )}
+                                    </select>
+                                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => testMicrophone()}
+                                    disabled={micTesting}
+                                    className="h-11 px-4 text-xs rounded-xl border font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700"
+                                  >
+                                    <Mic className="w-3.5 h-3.5" />
+                                    <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest' : 'Test'}</span>
+                                  </button>
+                                </div>
+                              )}
+                              {micTested && micOk === false && (
+                                <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
+                                  <MicOff className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
+                                  <span>No microphone detected. Please check permissions.</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
+                              <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white mb-0.5`}>Speaker</span>
+                              {isColumnLayout ? (
+                                <>
+                                  <div className="relative w-full">
+                                    <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
+                                    <div className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-3 text-xs' : 'h-12 pl-10 pr-4 text-xs sm:text-[13.5px]'} flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs`}>Default Speaker</div>
+                                  </div>
+
+                                  {speakerTestState === 'confirming' ? (
+                                    <div className={`w-fit ${videoEnabled ? 'h-10 px-3.5 rounded-xl text-xs gap-2.5' : 'h-11 sm:h-12 px-4 sm:px-5 rounded-xl text-xs sm:text-[13px] gap-3'} inline-flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs`}>
+                                      <span className="font-semibold">Did you hear the chime?</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className={`px-2.5 ${videoEnabled ? 'py-1 text-[11px]' : 'py-1 text-xs'} rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold transition-colors shadow-xs`}>Yes</button>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className={`px-2.5 ${videoEnabled ? 'py-1 text-[11px]' : 'py-1 text-xs'} rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold transition-colors shadow-xs`}>No</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => playChimeTone()}
+                                      className={`w-fit self-start ${videoEnabled ? 'h-10 px-4 rounded-xl text-xs gap-2' : 'h-11 sm:h-12 px-5 sm:px-6 rounded-xl text-xs sm:text-[13.5px] gap-2.5'} border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs`}
+                                    >
+                                      <Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+                                      <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest Speaker' : 'Test Speaker'}</span>
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className="relative flex-1 min-w-0">
+                                    <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Volume2 className="w-3.5 h-3.5" /></div>
+                                    <div className="w-full h-11 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 text-xs font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs">Default Speaker</div>
+                                  </div>
+                                  {speakerTestState === 'confirming' ? (
+                                    <div className="h-11 px-3 inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs shrink-0">
+                                      <span className="text-[11px] font-semibold">Heard?</span>
+                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
+                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
+                                    </div>
+                                  ) : (
+                                    <button type="button" onClick={() => playChimeTone()} className="h-11 px-4 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap">
+                                      <Volume2 className="w-3.5 h-3.5" />
+                                      <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest' : 'Test'}</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {speakerTested && speakerOk === false && (
+                                <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
+                                  <VolumeX className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
+                                  <span>Unable to play sound. Please check speaker output.</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Right Column: Device Status Card OR Permission Guide Card */}
+                    <div className="col-span-1 lg:col-span-5 xl:col-span-5 flex flex-col space-y-3">
+                      {showPermissionGuide ? (
+                        /* Browser Permissions Required Notice Card (Camera / Microphone) */
+                        <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-5 space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                                <ShieldAlert className="w-3.5 h-3.5 stroke-[2.5]" />
+                              </div>
+                              <div>
+                                <h4 className="text-xs sm:text-sm font-bold text-rose-600 dark:text-rose-400 leading-tight">
+                                  {permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : 'Browser Permissions Required'}
+                                </h4>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+                                  {permissionGuideTarget === 'mic'
+                                    ? 'Your browser blocked microphone access. Please allow permission to capture your voice during the assessment.'
+                                    : permissionGuideTarget === 'camera'
+                                      ? 'Your browser blocked camera access. Please allow permission for AI video proctoring.'
+                                      : 'Please allow camera and microphone access in your browser to continue.'}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowPermissionGuide(false)}
+                              className="w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center shrink-0 cursor-pointer shadow-xs transition-colors"
+                              title="Back to Device Status"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3 pt-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                            <div className="flex items-start gap-3">
+                              <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">1</span>
+                              <span>Click the <strong>lock 🔒</strong> or <strong>site settings ⚙️</strong> icon in your address bar (next to URL).</span>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">2</span>
+                              <span>Find <strong>{permissionGuideTarget === 'mic' ? 'Microphone' : permissionGuideTarget === 'camera' ? 'Camera' : 'Camera and Microphone'}</strong> and set permission to <strong>Allow</strong>.</span>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">3</span>
+                              <span>Click <strong>Try Again</strong> below to re-verify your device.</span>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 flex items-center justify-end gap-2 border-t border-rose-200/60 dark:border-rose-900/40">
+                            <button
+                              type="button"
+                              onClick={() => setShowPermissionGuide(false)}
+                              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                            >
+                              Dismiss
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowPermissionGuide(false);
+                                runDiagnostics();
+                              }}
+                              className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              <span>Try Again</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Default Device Status Card */
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200">
+                          <div className="px-5 pt-3.5 pb-2"><h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">Device Status</h3></div>
+                          <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                            <div className="flex items-center justify-between px-5 py-2.5">
+                              <div className="flex items-center gap-3"><div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><Globe className="w-3.5 h-3.5" /></div><span className="text-xs sm:text-sm font-semibold">Browser support</span></div>
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></span>
+                            </div>
+                            <div onClick={() => { if (internetStatus === 'unstable' || internetStatus === 'failed') { setBandwidthChecking(true); checkRealInternet().finally(() => setBandwidthChecking(false)); } }} className={`flex items-center justify-between px-5 py-2.5 transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' :
+                                  internetStatus === 'unstable' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' :
+                                    internetStatus === 'checking' ? 'bg-blue-50 text-blue-600' :
+                                      'bg-rose-50 text-rose-600'
+                                  }`}>
+                                  {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                                </div>
+                                <span className="text-xs sm:text-sm font-semibold">Internet connection</span>
+                              </div>
+                              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${internetStatus === 'passed' ? 'text-emerald-600' :
+                                internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' :
+                                  internetStatus === 'checking' ? 'text-purple-600' :
+                                    'text-rose-600'
+                                }`}>
+                                {internetStatus === 'checking' ? (
+                                  'Testing...'
+                                ) : internetStatus === 'passed' ? (
+                                  <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                ) : internetStatus === 'unstable' ? (
+                                  <><AlertTriangle className="w-3.5 h-3.5" /> Unstable <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                ) : (
+                                  <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                )}
+                              </span>
+                            </div>
+                            {videoEnabled && (
+                              <div
+                                onClick={() => {
+                                  if (cameraTested && cameraOk === false) {
+                                    setPermissionGuideTarget('camera');
+                                    setShowPermissionGuide(true);
+                                  } else {
+                                    testCamera();
+                                  }
+                                }}
+                                className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                                  }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false
+                                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                    : cameraTested && cameraOk
+                                      ? 'bg-emerald-50 text-emerald-600'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                    }`}>
+                                    {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                                  </div>
+                                  <span className="text-xs sm:text-sm font-semibold truncate">Camera</span>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-2 ${testingCamera
+                                  ? 'text-purple-600'
+                                  : cameraTested && cameraOk
+                                    ? 'text-emerald-600'
+                                    : cameraTested && cameraOk === false
+                                      ? 'text-rose-600'
+                                      : 'text-blue-600'
+                                  }`}>
+                                  {testingCamera ? (
+                                    'Testing...'
+                                  ) : cameraTested && cameraOk ? (
+                                    <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  ) : cameraTested && cameraOk === false ? (
+                                    <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  ) : (
+                                    'Click to test'
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                            <div
+                              onClick={() => {
+                                if (micTested && micOk === false) {
+                                  setPermissionGuideTarget('mic');
+                                  setShowPermissionGuide(true);
+                                } else {
+                                  testMicrophone();
+                                }
+                              }}
+                              className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                                }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${micTested && micOk === false
+                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                  : micTested && micOk
+                                    ? 'bg-emerald-50 text-emerald-600'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                  }`}>
+                                  {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                                </div>
+                                <span className="text-xs sm:text-sm font-semibold">Microphone</span>
+                              </div>
+                              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${micTesting
+                                ? 'text-purple-600'
+                                : micTested && micOk
+                                  ? 'text-emerald-600'
+                                  : micTested && micOk === false
+                                    ? 'text-rose-600'
+                                    : 'text-slate-500'
+                                }`}>
+                                {micTesting ? (
+                                  'Testing...'
+                                ) : micTested && micOk ? (
+                                  <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                ) : micTested && micOk === false ? (
+                                  <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                ) : (
+                                  'Click to test'
+                                )}
+                              </span>
+                            </div>
+                            <div
+                              onClick={() => playChimeTone()}
+                              className={`flex items-center justify-between px-5 py-2.5 cursor-pointer transition-colors ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                                }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${speakerTested && speakerOk === false
+                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                  : speakerTested && speakerOk
+                                    ? 'bg-emerald-50 text-emerald-600'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                  }`}>
+                                  {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                </div>
+                                <span className="text-xs sm:text-sm font-semibold">Speaker</span>
+                              </div>
+                              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${speakerTestState === 'playing'
+                                ? 'text-purple-600'
+                                : speakerTestState === 'confirming'
+                                  ? 'text-amber-600'
+                                  : speakerTested && speakerOk
+                                    ? 'text-emerald-600'
+                                    : speakerTested && speakerOk === false
+                                      ? 'text-rose-600'
+                                      : 'text-slate-500'
+                                }`}>
+                                {speakerTestState === 'playing' ? (
+                                  'Playing...'
+                                ) : speakerTestState === 'confirming' ? (
+                                  <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    <span className="text-[11px] text-slate-500">Heard?</span>
+                                    <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
+                                    <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
+                                  </span>
+                                ) : speakerTested && speakerOk ? (
+                                  <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                ) : speakerTested && speakerOk === false ? (
+                                  <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                ) : (
+                                  'Click to test'
+                                )}
+                              </span>
+                            </div>
+                            {videoEnabled && videoAnalyticsEnabled && (
+                              <div
+                                onClick={testAnalytics}
+                                className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${analyticsTested && analyticsOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                                  }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${analyticsTested && analyticsOk === false
+                                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                    : analyticsTested && analyticsOk
+                                      ? 'bg-emerald-50 text-emerald-600'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                    }`}>
+                                    <Activity className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="text-xs sm:text-sm font-semibold truncate">Video analytics</span>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-2 ${analyticsTesting
+                                  ? 'text-purple-600'
+                                  : analyticsTested && analyticsOk
+                                    ? 'text-emerald-600'
+                                    : analyticsTested && analyticsOk === false
+                                      ? 'text-rose-600'
+                                      : 'text-blue-600'
+                                  }`}>
+                                  {analyticsTesting ? (
+                                    'Testing...'
+                                  ) : analyticsTested && analyticsOk ? (
+                                    <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  ) : analyticsTested && analyticsOk === false ? (
+                                    <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  ) : (
+                                    'Click to test'
+                                  )}
+                                </span>
                               </div>
                             )}
                           </div>
-                        )}
-
-                        <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white`}>Microphone</span>
-                          </div>
-                          {isColumnLayout ? (
-                            <>
-                              <div className="relative w-full">
-                                <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
-                                <select
-                                  value={activeAudioValue}
-                                  onChange={(e) => {
-                                    setSelectedAudioDevice(e.target.value);
-                                    setMicOk(null);
-                                    setMicTested(false);
-                                    cleanup('AUDIO_ONLY');
-                                  }}
-                                  className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-7 text-xs' : 'h-12 pl-10 pr-9 text-xs sm:text-[13.5px]'} bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
-                                >
-                                  {audioDevices.length > 0 ? (
-                                    audioDevices.map((d, i) => (
-                                      <option key={d.deviceId || `mic-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
-                                        {d.label || `Microphone ${i + 1}`}
-                                      </option>
-                                    ))
-                                  ) : (
-                                    <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Default Microphone</option>
-                                  )}
-                                </select>
-                                <ChevronDown className={`${videoEnabled ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'} text-slate-400 absolute top-1/2 -translate-y-1/2 pointer-events-none`} />
-                              </div>
-
-                              {/* Audio input level visualizer waves between select list and button */}
-                              <div className={`flex items-center justify-between ${videoEnabled ? 'px-2.5 py-1 rounded-xl' : 'px-3.5 py-2.5 rounded-xl'} bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs`}>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`${videoEnabled ? 'text-[10px]' : 'text-[11px]'} font-semibold text-slate-500 dark:text-slate-400`}>Audio Waves</span>
-                                  {micTesting && (
-                                    <span className={`inline-flex items-center px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 ${videoEnabled ? 'text-[9px]' : 'text-[10px]'} font-bold animate-pulse`}>
-                                      Listening
-                                    </span>
-                                  )}
-                                </div>
-                                <div className={`flex items-center gap-0.5 sm:gap-1 ${videoEnabled ? 'h-3.5' : 'h-4.5'}`}>
-                                  {Array.from({ length: 14 }).map((_, i) => {
-                                    const isLit = micTesting
-                                      ? (micLevel > 0 ? micLevel > (i / 14) * 100 : (i % 3 === 0 || i % 4 === 0))
-                                      : micTested && micOk
-                                      ? i < 9
-                                      : false;
-                                    const waveMultiplier = 0.35 + 0.65 * Math.sin(((i + 0.5) / 14) * Math.PI);
-                                    const maxH = videoEnabled ? 11 : 16;
-                                    const minH = videoEnabled ? 3 : 5;
-                                    const barHeight = isLit ? Math.max(minH, Math.round(maxH * waveMultiplier)) : (videoEnabled ? 2 : 3);
-
-                                    return (
-                                      <div
-                                        key={i}
-                                        style={{ height: `${barHeight}px` }}
-                                        className={`w-1 rounded-full transition-all duration-75 ${
-                                          isLit
-                                            ? (micTested && micOk === false ? 'bg-rose-500' : 'bg-emerald-500')
-                                            : 'bg-slate-200 dark:bg-slate-700'
-                                        }`}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => testMicrophone()}
-                                disabled={micTesting}
-                                className={`w-fit self-start ${videoEnabled ? 'h-10 px-4 rounded-xl text-xs gap-2' : 'h-11.5 px-5 rounded-xl text-xs sm:text-[13px] gap-2'} border font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}
-                              >
-                                <Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
-                                <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest Microphone' : 'Test Microphone'}</span>
-                              </button>
-                            </>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="relative flex-1 min-w-0">
-                                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Mic className="w-3.5 h-3.5" /></div>
-                                <select
-                                  value={activeAudioValue}
-                                  onChange={(e) => {
-                                    setSelectedAudioDevice(e.target.value);
-                                    setMicOk(null);
-                                    setMicTested(false);
-                                    cleanup('AUDIO_ONLY');
-                                  }}
-                                  className="w-full h-11 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                >
-                                  {audioDevices.length > 0 ? (
-                                    audioDevices.map((d, i) => (
-                                      <option key={d.deviceId || `mic-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
-                                        {d.label || `Microphone ${i + 1}`}
-                                      </option>
-                                    ))
-                                  ) : (
-                                    <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Default Microphone</option>
-                                  )}
-                                </select>
-                                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => testMicrophone()}
-                                disabled={micTesting}
-                                className="h-11 px-4 text-xs rounded-xl border font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700"
-                              >
-                                <Mic className="w-3.5 h-3.5" />
-                                <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest' : 'Test'}</span>
-                              </button>
-                            </div>
-                          )}
-                          {micTested && micOk === false && (
-                            <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
-                              <MicOff className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
-                              <span>No microphone detected. Please check permissions.</span>
-                            </div>
-                          )}
                         </div>
+                      )}
 
-                        <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
-                          <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white mb-0.5`}>Speaker</span>
-                          {isColumnLayout ? (
-                            <>
-                              <div className="relative w-full">
-                                <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
-                                <div className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-3 text-xs' : 'h-12 pl-10 pr-4 text-xs sm:text-[13.5px]'} flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs`}>Default Speaker</div>
-                              </div>
-
-                              {speakerTestState === 'confirming' ? (
-                                <div className={`w-fit ${videoEnabled ? 'h-10 px-3.5 rounded-xl text-xs gap-2.5' : 'h-11.5 px-4 rounded-xl text-xs gap-3'} inline-flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs`}>
-                                  <span className="font-semibold">Did you hear the chime?</span>
-                                  <div className="flex items-center gap-1.5">
-                                    <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className={`px-2.5 ${videoEnabled ? 'py-1 text-[11px]' : 'py-1 text-xs'} rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold transition-colors shadow-xs`}>Yes</button>
-                                    <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className={`px-2.5 ${videoEnabled ? 'py-1 text-[11px]' : 'py-1 text-xs'} rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold transition-colors shadow-xs`}>No</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => playChimeTone()}
-                                  className={`w-fit self-start ${videoEnabled ? 'h-10 px-4 rounded-xl text-xs gap-2' : 'h-11.5 px-5 rounded-xl text-xs sm:text-[13px] gap-2'} border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs`}
-                                >
-                                  <Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
-                                  <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest Speaker' : 'Test Speaker'}</span>
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <div className="relative flex-1 min-w-0">
-                                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Volume2 className="w-3.5 h-3.5" /></div>
-                                <div className="w-full h-11 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 text-xs font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs">Default Speaker</div>
-                              </div>
-                              {speakerTestState === 'confirming' ? (
-                                <div className="h-11 px-3 inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs shrink-0">
-                                  <span className="text-[11px] font-semibold">Heard?</span>
-                                  <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
-                                  <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
-                                </div>
-                              ) : (
-                                <button type="button" onClick={() => playChimeTone()} className="h-11 px-4 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap">
-                                  <Volume2 className="w-3.5 h-3.5" />
-                                  <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest' : 'Test'}</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          {speakerTested && speakerOk === false && (
-                            <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
-                              <VolumeX className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
-                              <span>Unable to play sound. Please check speaker output.</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Right Column: Device Status Card OR Permission Guide Card */}
-                <div className="col-span-1 lg:col-span-5 xl:col-span-5 flex flex-col space-y-3">
-                  {showPermissionGuide ? (
-                    /* Browser Permissions Required Notice Card (Camera / Microphone) */
-                    <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-5 space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                            <ShieldAlert className="w-3.5 h-3.5 stroke-[2.5]" />
-                          </div>
+                      {allChecksPass && (
+                        <div className="bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl p-3 flex items-center gap-3">
+                          <div className="w-7.5 h-7.5 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0"><Check className="w-4 h-4 stroke-[3]" /></div>
                           <div>
-                            <h4 className="text-xs sm:text-sm font-bold text-rose-600 dark:text-rose-400 leading-tight">
-                              {permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : 'Browser Permissions Required'}
-                            </h4>
-                            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
-                              {permissionGuideTarget === 'mic' 
-                                ? 'Your browser blocked microphone access. Please allow permission to capture your voice during the assessment.' 
-                                : permissionGuideTarget === 'camera' 
-                                ? 'Your browser blocked camera access. Please allow permission for AI video proctoring.' 
-                                : 'Please allow camera and microphone access in your browser to continue.'}
+                            <p className="text-xs sm:text-sm font-bold text-[#6D28D9] dark:text-purple-300">All checks passed!</p>
+                            <p className="text-[11.5px] text-slate-500 font-medium">
+                              {videoAnalyticsEnabled ? 'Video analytics are working correctly.' : "You're ready to continue."}
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowPermissionGuide(false)}
-                          className="w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center shrink-0 cursor-pointer shadow-xs transition-colors"
-                          title="Back to Device Status"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="space-y-3 pt-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
-                        <div className="flex items-start gap-3">
-                          <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">1</span>
-                          <span>Click the <strong>lock 🔒</strong> or <strong>site settings ⚙️</strong> icon in your address bar (next to URL).</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">2</span>
-                          <span>Find <strong>{permissionGuideTarget === 'mic' ? 'Microphone' : permissionGuideTarget === 'camera' ? 'Camera' : 'Camera and Microphone'}</strong> and set permission to <strong>Allow</strong>.</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">3</span>
-                          <span>Click <strong>Try Again</strong> below to re-verify your device.</span>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 flex items-center justify-end gap-2 border-t border-rose-200/60 dark:border-rose-900/40">
-                        <button
-                          type="button"
-                          onClick={() => setShowPermissionGuide(false)}
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
-                        >
-                          Dismiss
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowPermissionGuide(false);
-                            runDiagnostics();
-                          }}
-                          className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          <span>Try Again</span>
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  ) : (
-                    /* Default Device Status Card */
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200">
-                      <div className="px-5 pt-3.5 pb-2"><h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">Device Status</h3></div>
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                        <div className="flex items-center justify-between px-5 py-2.5">
-                          <div className="flex items-center gap-3"><div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><Globe className="w-3.5 h-3.5" /></div><span className="text-xs sm:text-sm font-semibold">Browser support</span></div>
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></span>
-                        </div>
-                        <div onClick={() => { if (internetStatus === 'unstable' || internetStatus === 'failed') { setBandwidthChecking(true); checkRealInternet().finally(() => setBandwidthChecking(false)); } }} className={`flex items-center justify-between px-5 py-2.5 transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' :
-                                internetStatus === 'unstable' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' :
-                                  internetStatus === 'checking' ? 'bg-blue-50 text-blue-600' :
-                                    'bg-rose-50 text-rose-600'
-                              }`}>
-                              {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold">Internet connection</span>
-                          </div>
-                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${internetStatus === 'passed' ? 'text-emerald-600' :
-                              internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' :
-                                internetStatus === 'checking' ? 'text-purple-600' :
-                                  'text-rose-600'
-                            }`}>
-                            {internetStatus === 'checking' ? (
-                              'Testing...'
-                            ) : internetStatus === 'passed' ? (
-                              <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            ) : internetStatus === 'unstable' ? (
-                              <><AlertTriangle className="w-3.5 h-3.5" /> Unstable <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            ) : (
-                              <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            )}
-                          </span>
-                        </div>
-                        {videoEnabled && (
-                          <div
-                            onClick={() => {
-                              if (cameraTested && cameraOk === false) {
-                                setPermissionGuideTarget('camera');
-                                setShowPermissionGuide(true);
-                              } else {
-                                testCamera();
-                              }
-                            }}
-                            className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${
-                              cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                                cameraTested && cameraOk === false
-                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                                  : cameraTested && cameraOk
-                                  ? 'bg-emerald-50 text-emerald-600'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                              }`}>
-                                {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
-                              </div>
-                              <span className="text-xs sm:text-sm font-semibold truncate">Camera</span>
-                            </div>
-                            <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-2 ${
-                              testingCamera
-                                ? 'text-purple-600'
-                                : cameraTested && cameraOk
-                                ? 'text-emerald-600'
-                                : cameraTested && cameraOk === false
-                                ? 'text-rose-600'
-                                : 'text-blue-600'
-                            }`}>
-                              {testingCamera ? (
-                                'Testing...'
-                              ) : cameraTested && cameraOk ? (
-                                <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                              ) : cameraTested && cameraOk === false ? (
-                                <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                              ) : (
-                                'Click to test'
-                              )}
-                            </span>
-                          </div>
-                        )}
-                        <div
-                          onClick={() => {
-                            if (micTested && micOk === false) {
-                              setPermissionGuideTarget('mic');
-                              setShowPermissionGuide(true);
-                            } else {
-                              testMicrophone();
-                            }
-                          }}
-                          className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${
-                            micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                              micTested && micOk === false
-                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                                : micTested && micOk
-                                ? 'bg-emerald-50 text-emerald-600'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                            }`}>
-                              {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold">Microphone</span>
-                          </div>
-                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                            micTesting
-                              ? 'text-purple-600'
-                              : micTested && micOk
-                              ? 'text-emerald-600'
-                              : micTested && micOk === false
-                              ? 'text-rose-600'
-                              : 'text-slate-500'
-                          }`}>
-                            {micTesting ? (
-                              'Testing...'
-                            ) : micTested && micOk ? (
-                              <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            ) : micTested && micOk === false ? (
-                              <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            ) : (
-                              'Click to test'
-                            )}
-                          </span>
-                        </div>
-                        <div
-                          onClick={() => playChimeTone()}
-                          className={`flex items-center justify-between px-5 py-2.5 cursor-pointer transition-colors ${
-                            speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                              speakerTested && speakerOk === false
-                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                                : speakerTested && speakerOk
-                                ? 'bg-emerald-50 text-emerald-600'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                            }`}>
-                              {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold">Speaker</span>
-                          </div>
-                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                            speakerTestState === 'playing'
-                              ? 'text-purple-600'
-                              : speakerTestState === 'confirming'
-                              ? 'text-amber-600'
-                              : speakerTested && speakerOk
-                              ? 'text-emerald-600'
-                              : speakerTested && speakerOk === false
-                              ? 'text-rose-600'
-                              : 'text-slate-500'
-                          }`}>
-                            {speakerTestState === 'playing' ? (
-                              'Playing...'
-                            ) : speakerTestState === 'confirming' ? (
-                              <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                                <span className="text-[11px] text-slate-500">Heard?</span>
-                                <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
-                                <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
-                              </span>
-                            ) : speakerTested && speakerOk ? (
-                              <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            ) : speakerTested && speakerOk === false ? (
-                              <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                            ) : (
-                              'Click to test'
-                            )}
-                          </span>
-                        </div>
-                        {videoEnabled && videoAnalyticsEnabled && (
-                          <div
-                            onClick={testAnalytics}
-                            className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${
-                              analyticsTested && analyticsOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                                analyticsTested && analyticsOk === false
-                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                                  : analyticsTested && analyticsOk
-                                  ? 'bg-emerald-50 text-emerald-600'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                              }`}>
-                                <Activity className="w-3.5 h-3.5" />
-                              </div>
-                              <span className="text-xs sm:text-sm font-semibold truncate">Video analytics</span>
-                            </div>
-                            <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-2 ${
-                              analyticsTesting
-                                ? 'text-purple-600'
-                                : analyticsTested && analyticsOk
-                                ? 'text-emerald-600'
-                                : analyticsTested && analyticsOk === false
-                                ? 'text-rose-600'
-                                : 'text-blue-600'
-                            }`}>
-                              {analyticsTesting ? (
-                                'Testing...'
-                              ) : analyticsTested && analyticsOk ? (
-                                <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                              ) : analyticsTested && analyticsOk === false ? (
-                                <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
-                              ) : (
-                                'Click to test'
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  </div>
 
-                  {allChecksPass && (
-                    <div className="bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl p-3 flex items-center gap-3">
-                      <div className="w-7.5 h-7.5 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0"><Check className="w-4 h-4 stroke-[3]" /></div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-bold text-[#6D28D9] dark:text-purple-300">All checks passed!</p>
-                        <p className="text-[11.5px] text-slate-500 font-medium">
-                          {videoAnalyticsEnabled ? 'Video analytics are working correctly.' : "You're ready to continue."}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  {/* Bottom Nav */}
+                  <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-100 dark:border-slate-800/80 w-full mt-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0">
+                    <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs">
+                      ← Back
+                    </button>
+                    <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
+                      {!allChecksPass && <Lock className="w-3.5 h-3.5" />}
+                      <span>Next: Practice &amp; Start</span>
+                      <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                    </button>
+                  </div>
                 </div>
+              );
+            })()}
+
+            {/* STEP 4: PRACTICE & START (Interactive Sandbox) */}
+            {step === 'PRACTICE_START' && (
+              <div className="flex-1 flex flex-col h-full w-full">
+                <PracticeStep
+                  videoEnabled={videoEnabled}
+                  videoAnalyticsEnabled={videoAnalyticsEnabled}
+                  cameraStream={cameraStream}
+                  selectedAudioLabel={
+                    audioDevices.find((d) => d.deviceId === selectedAudioDevice)?.label ||
+                    'Microphone'
+                  }
+                  selectedVideoLabel={
+                    videoDevices.find((d) => d.deviceId === selectedVideoDevice)?.label ||
+                    'Camera'
+                  }
+                  onBack={handlePrevious}
+                  onStartAssessment={handleCompleteAssessment}
+                />
               </div>
-
-              {/* Bottom Nav */}
-              <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-100 dark:border-slate-800/80 w-full mt-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0">
-                <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs">
-                  ← Back
-                </button>
-                <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
-                  {!allChecksPass && <Lock className="w-3.5 h-3.5" />}
-                  <span>Next: Practice &amp; Start</span>
-                  <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
-          {/* STEP 4: PRACTICE & START (Interactive Sandbox) */}
-          {step === 'PRACTICE_START' && (
-            <div className="flex-1 flex flex-col h-full w-full">
-              <PracticeStep
-                videoEnabled={videoEnabled}
-                videoAnalyticsEnabled={videoAnalyticsEnabled}
-                cameraStream={cameraStream}
-                selectedAudioLabel={
-                  audioDevices.find((d) => d.deviceId === selectedAudioDevice)?.label ||
-                  'Microphone'
-                }
-                selectedVideoLabel={
-                  videoDevices.find((d) => d.deviceId === selectedVideoDevice)?.label ||
-                  'Camera'
-                }
-                onBack={handlePrevious}
-                onStartAssessment={handleCompleteAssessment}
-              />
-            </div>
-          )}
-
-          {/* STEP 5: CONFIRMATION */}
-          {step === 'CONFIRMATION' && (
-            <div className="w-full h-full flex-1 flex flex-col items-center justify-center">
-              {/* Assessment practice room code will be placed here */}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-
-      {/* JD Modal */}
-      {showJdModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setShowJdModal(false)} />
-          <div className="relative z-10 w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-amber-500" />
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Add Job Description</h3>
-              </div>
-              <button onClick={() => setShowJdModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <textarea
-              value={jdText} onChange={(e) => setJdText(e.target.value)}
-              placeholder="Paste target job description content here..." rows={6}
-              className="w-full rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3.5 text-xs focus:outline-none focus:border-indigo-600 resize-none font-medium"
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => { setJdText(''); setShowJdModal(false); }} className="px-4 py-2 border border-slate-200 text-xs font-bold rounded-xl">Clear</button>
-              <button onClick={() => setShowJdModal(false)} className="px-5 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl shadow-md">Save &amp; Continue</button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
