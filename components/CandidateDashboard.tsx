@@ -400,7 +400,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [onboardingDocSubmittedAt, setOnboardingDocSubmittedAt] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
+    const [activeTab, setActiveTab] = useState<TabType>(() => {
+        if (typeof window !== 'undefined') {
+            const path = window.location.pathname.toLowerCase();
+            if (path.includes('ai-prep') || path.includes('wbl-smartprep')) {
+                return 'ai-prep';
+            }
+        }
+        return defaultTab === 'wbl-smartprep' ? 'ai-prep' : (defaultTab as TabType);
+    });
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
@@ -530,14 +538,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             if (typeof window !== 'undefined') {
                 const path = window.location.pathname.toLowerCase();
                 const isWiz = path.includes('assessment-type') || path.includes('consent') || path.includes('device-check') || path.includes('practice');
-                if (isWiz && !isAiPrepWizardActive) {
+                if (isWiz) {
+                    setActiveTab('ai-prep');
                     setIsAiPrepWizardActive(true);
+                } else if (path.includes('/user_dashboard/ai-prep')) {
+                    setActiveTab('ai-prep');
                 }
             }
         };
+        checkWizardPath();
         window.addEventListener('popstate', checkWizardPath);
         return () => window.removeEventListener('popstate', checkWizardPath);
-    }, [isAiPrepWizardActive]);
+    }, []);
 
     useEffect(() => {
         const rId = searchParams?.get('reportId');
@@ -734,7 +746,21 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [warningStorageKey]);
 
     useEffect(() => {
-        setActiveTab(defaultTab as TabType);
+        if (typeof window !== 'undefined') {
+            const path = window.location.pathname.toLowerCase();
+            if (path.includes('ai-prep') || path.includes('wbl-smartprep')) {
+                setActiveTab('ai-prep');
+                if (path.includes('assessment-type') || path.includes('consent') || path.includes('device-check') || path.includes('practice')) {
+                    setIsAiPrepWizardActive(true);
+                }
+                return;
+            }
+        }
+        if (defaultTab === 'wbl-smartprep' || defaultTab === 'ai-prep') {
+            setActiveTab('ai-prep');
+        } else if (defaultTab) {
+            setActiveTab(defaultTab as TabType);
+        }
     }, [defaultTab]);
 
     const targetClicks = todayClickSummary ? todayClickSummary.target_clicks : 30;
@@ -765,7 +791,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             if (typeof window !== "undefined") {
                 const pathSegments = window.location.pathname.split("/").filter(Boolean);
                 const tabFromUrl = pathSegments[1] as TabType;
-                if (tabFromUrl) {
+                if (tabFromUrl === 'ai-prep' || tabFromUrl === 'wbl-smartprep') {
+                    setActiveTab('ai-prep');
+                } else if (tabFromUrl) {
                     setActiveTab(tabFromUrl);
                 }
             }
@@ -2469,7 +2497,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 })}
 
                                 <button
-                                    onClick={() => goToTab('wbl-smartprep')}
+                                    onClick={() => goToTab('ai-prep')}
                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${(activeTab === 'wbl-smartprep' || activeTab === 'ai-prep')
                                         ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                         : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
@@ -2511,7 +2539,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             }));
                         }
                     }}
-                    className={`absolute top-[18px] z-50 transition-all duration-700 ease-in-out flex items-center justify-center w-6 h-10 rounded-r-xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-l-0 border-slate-200 dark:border-slate-700 shadow-md text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 cursor-pointer group ${
+                    className={`absolute top-1/2 -translate-y-1/2 z-50 transition-all duration-700 ease-in-out flex items-center justify-center w-7 h-12 rounded-r-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-xl border border-l-0 border-white/20 dark:border-indigo-400/30 cursor-pointer group ${
                         sidebarCollapsed ? 'left-0' : 'left-[240px]'
                     }`}
                     title={sidebarCollapsed ? "Expand Whitebox navigation" : "Collapse Whitebox navigation"}
@@ -3537,6 +3565,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     assessmentType="INTRO"
                                                     assessmentMode="VIDEO_AUDIO"
                                                     audioOnly={false}
+                                                    initialStep="CONFIGURATION"
                                                     onPrepareConfirmation={handlePrepareConfirmation}
                                                     onComplete={handleCheckComplete}
                                                     onCancel={handleCancelWizard}
@@ -3562,6 +3591,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             }
                                                         }));
                                                     }
+                                                    setActiveTab('ai-prep');
                                                     setIsAiPrepWizardActive(true);
                                                 }}
                                                 onViewReport={(rId) => {
