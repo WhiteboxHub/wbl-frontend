@@ -547,7 +547,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 totalBrightness += imgData[i] * 0.299 + imgData[i + 1] * 0.587 + imgData[i + 2] * 0.114;
               }
               const avg = totalBrightness / (32 * 32);
-              setIsGoodLighting(avg >= 38);
+              setIsGoodLighting(avg >= 30 && avg <= 240);
             } catch (_) {}
           }
         }
@@ -636,6 +636,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   useEffect(() => () => cleanup(), [cleanup]);
 
+  const selectedVideoDeviceRef = useRef(selectedVideoDevice);
+  selectedVideoDeviceRef.current = selectedVideoDevice;
+  const selectedAudioDeviceRef = useRef(selectedAudioDevice);
+  selectedAudioDeviceRef.current = selectedAudioDevice;
+  const micOkRef = useRef(micOk);
+  micOkRef.current = micOk;
+
   // Bind and attach disconnection listeners to Microphone stream
   const bindMicStream = useCallback((stream: MediaStream) => {
     micStreamRef.current = stream;
@@ -682,7 +689,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setCameraStream(null);
         cleanup('VIDEO_ONLY');
         setErrorModalDismissed(false);
-        setManualErrorModalType((prev) => (micOk === false ? 'ALL' : 'CAMERA'));
+        setManualErrorModalType(micOkRef.current === false ? 'ALL' : 'CAMERA');
       };
       track.onended = handleEnded;
       track.onmute = () => {
@@ -691,7 +698,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       };
     });
-  }, [cleanup, micOk]);
+  }, [cleanup]);
 
   // Diagnostics Runner
   const runDiagnostics = useCallback(async () => {
@@ -750,7 +757,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
         try {
           cleanup('VIDEO_ONLY');
-          const camId = (vDevs.length > 0 ? vDevs[0].deviceId : null) || (selectedVideoDevice !== 'default' ? selectedVideoDevice : null);
+          const camId = (vDevs.length > 0 ? vDevs[0].deviceId : null) || (selectedVideoDeviceRef.current !== 'default' ? selectedVideoDeviceRef.current : null);
           const stream = await navigator.mediaDevices.getUserMedia({
             video: camId ? { deviceId: { exact: camId } } : true,
           });
@@ -769,7 +776,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     // 4. Microphone diagnostics
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
       try {
-        const micId = (aDevs.length > 0 ? aDevs[0].deviceId : null) || (selectedAudioDevice !== 'default' ? selectedAudioDevice : null);
+        const micId = (aDevs.length > 0 ? aDevs[0].deviceId : null) || (selectedAudioDeviceRef.current !== 'default' ? selectedAudioDeviceRef.current : null);
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: micId ? { deviceId: { exact: micId } } : true,
         });
@@ -811,7 +818,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setSpeakerOk(true);
       setSpeakerTested(true);
     }
-  }, [cleanup, videoEnabled, selectedVideoDevice, selectedAudioDevice, bindCameraStream, bindMicStream, checkRealInternet]);
+  }, [cleanup, videoEnabled, bindCameraStream, bindMicStream, checkRealInternet]);
 
   // Listen for audio / video hardware changes (e.g. plug in / unplug headset/mic/webcam)
   useEffect(() => {
@@ -856,13 +863,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             setCameraTested(true);
             setCameraStream(null);
             cleanup('VIDEO_ONLY');
+            setErrorModalDismissed(false);
+            setManualErrorModalType(micOkRef.current === false ? 'ALL' : 'CAMERA');
             if (vDevs.length > 0 && vDevs[0].deviceId) {
               setSelectedVideoDevice(vDevs[0].deviceId);
             }
           }
         }
-      } catch (err) {
-        console.warn('devicechange handler error:', err);
+      } catch (e) {
+        console.warn('[handleDeviceChange] error:', e);
       }
     };
 
@@ -1378,11 +1387,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
   };
 
-  // Vision Telemetry status metrics
-  const isFaceDetected = isFaceLive && ((realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || (realtimeTelemetry?.face_visible_pct ?? 0) > 0 || !!realtimeTelemetry?.face_box);
-  const isEyesOnScreen = isFaceDetected && ((realtimeTelemetry?.screen_attention_pct ?? 0) >= 20 || (realtimeTelemetry?.eye_contact_pct ?? 0) >= 15 || !!realtimeTelemetry?.is_instant_straight);
+  // Vision Telemetry status metrics with real-time instantaneous evaluation
+  const isFaceDetected = isFaceLive && (realtimeTelemetry?.is_instant_face_present === true || (realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || (realtimeTelemetry?.face_visible_pct ?? 0) > 0 || !!realtimeTelemetry?.face_box);
+  const isCentered = isFaceDetected && (realtimeTelemetry?.sitting_position === 'Upright Centered' || realtimeTelemetry?.sitting_position === 'Centered' || !!realtimeTelemetry?.is_instant_straight);
+  const isEyesOnScreen = isFaceDetected && (realtimeTelemetry?.is_instant_eyes_attentive === true || (realtimeTelemetry?.screen_attention_pct ?? 0) >= 20 || (realtimeTelemetry?.eye_contact_pct ?? 0) >= 15 || !!realtimeTelemetry?.is_instant_straight);
   const hasGoodLighting = !!cameraStream && isGoodLighting;
-  const isCentered = isFaceDetected && (realtimeTelemetry?.sitting_position === 'Upright Centered' || !!realtimeTelemetry?.is_instant_straight);
   const isHeadPoseStraight = isFaceDetected && !!realtimeTelemetry?.is_instant_straight;
 
   if (!isUserAuthenticated) {
@@ -1961,84 +1970,46 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       ? selectedAudioDevice
                       : (audioDevices[0]?.deviceId || 'default');
 
+                    const isColumnLayout = videoEnabled || activeErrorCount === 0;
+
                     return (
                       <div className={`grid ${videoEnabled ? 'gap-3 pt-2 mt-2 sm:mt-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : `gap-3.5 sm:gap-5 pt-3 sm:pt-4 ${activeErrorCount > 0 ? 'mt-2 sm:mt-3' : 'mt-5 sm:mt-7'} grid-cols-1 sm:grid-cols-2 max-w-2xl`}`}>
                         {videoEnabled && (
-                          <div className={`flex flex-col ${activeErrorCount === 0 ? 'space-y-1.5' : ''}`}>
+                          <div className="flex flex-col space-y-1.5">
                             <span className="text-xs font-bold text-slate-900 dark:text-white mb-0.5">Camera</span>
-                            {activeErrorCount === 0 ? (
-                              <>
-                                <div className="relative w-full">
-                                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-3.5 h-3.5" /></div>
-                                  <select
-                                    value={activeVideoValue}
-                                    onChange={(e) => {
-                                      setSelectedVideoDevice(e.target.value);
-                                      setCameraOk(null);
-                                      setCameraTested(false);
-                                      cleanup('VIDEO_ONLY');
-                                    }}
-                                    className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                  >
-                                    {videoDevices.length > 0 ? (
-                                      videoDevices.map((d, i) => (
-                                        <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
-                                          {d.label || `Camera ${i + 1}`}
-                                        </option>
-                                      ))
-                                    ) : (
-                                      <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Integrated Webcam</option>
-                                    )}
-                                  </select>
-                                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => testCamera()}
-                                  disabled={testingCamera}
-                                  className="w-fit self-start h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] text-xs font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
-                                >
-                                  <Video className="w-3.5 h-3.5 text-[#4A6CF7]" />
-                                  <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
-                                </button>
-                              </>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <div className="relative flex-1 min-w-0">
-                                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-3.5 h-3.5" /></div>
-                                  <select
-                                    value={activeVideoValue}
-                                    onChange={(e) => {
-                                      setSelectedVideoDevice(e.target.value);
-                                      setCameraOk(null);
-                                      setCameraTested(false);
-                                      cleanup('VIDEO_ONLY');
-                                    }}
-                                    className="w-full h-9.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                  >
-                                    {videoDevices.length > 0 ? (
-                                      videoDevices.map((d, i) => (
-                                        <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
-                                          {d.label || `Camera ${i + 1}`}
-                                        </option>
-                                      ))
-                                    ) : (
-                                      <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Integrated Webcam</option>
-                                    )}
-                                  </select>
-                                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => testCamera()}
-                                  disabled={testingCamera}
-                                  className="h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
-                                >
-                                  <Video className="w-3.5 h-3.5 text-[#4A6CF7]" />
-                                  <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest' : 'Test'}</span>
-                                </button>
-                              </div>
-                            )}
+                            <div className="relative w-full">
+                              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-3.5 h-3.5" /></div>
+                              <select
+                                value={activeVideoValue}
+                                onChange={(e) => {
+                                  setSelectedVideoDevice(e.target.value);
+                                  setCameraOk(null);
+                                  setCameraTested(false);
+                                  cleanup('VIDEO_ONLY');
+                                }}
+                                className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              >
+                                {videoDevices.length > 0 ? (
+                                  videoDevices.map((d, i) => (
+                                    <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">
+                                      {d.label || `Camera ${i + 1}`}
+                                    </option>
+                                  ))
+                                ) : (
+                                  <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Integrated Webcam</option>
+                                )}
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => testCamera()}
+                              disabled={testingCamera}
+                              className="w-fit self-start h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] text-xs font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                            >
+                              <Video className="w-3.5 h-3.5 text-[#4A6CF7]" />
+                              <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
+                            </button>
                             {(cameraTested && cameraOk === false) && (
                               <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-semibold text-rose-500 dark:text-rose-400 animate-in fade-in duration-200">
                                 <VideoOff className="w-3 h-3 shrink-0 text-rose-500 dark:text-rose-400" />
@@ -2048,11 +2019,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           </div>
                         )}
 
-                        <div className={`flex flex-col ${activeErrorCount === 0 ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
+                        <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
                           <div className="flex items-center justify-between mb-0.5">
                             <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white`}>Microphone</span>
                           </div>
-                          {activeErrorCount === 0 ? (
+                          {isColumnLayout ? (
                             <>
                               <div className="relative w-full">
                                 <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
@@ -2138,7 +2109,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     setMicTested(false);
                                     cleanup('AUDIO_ONLY');
                                   }}
-                                  className={`w-full ${videoEnabled ? 'h-9.5' : 'h-11'} bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                                  className="w-full h-11 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                 >
                                   {audioDevices.length > 0 ? (
                                     audioDevices.map((d, i) => (
@@ -2156,7 +2127,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 type="button"
                                 onClick={() => testMicrophone()}
                                 disabled={micTesting}
-                                className={`${videoEnabled ? 'h-10 px-3.5 text-xs' : 'h-11.5 px-4 text-xs'} rounded-xl border font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}
+                                className="h-11 px-4 text-xs rounded-xl border font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700"
                               >
                                 <Mic className="w-3.5 h-3.5" />
                                 <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest' : 'Test'}</span>
@@ -2171,9 +2142,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           )}
                         </div>
 
-                        <div className={`flex flex-col ${activeErrorCount === 0 ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
+                        <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
                           <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white mb-0.5`}>Speaker</span>
-                          {activeErrorCount === 0 ? (
+                          {isColumnLayout ? (
                             <>
                               <div className="relative w-full">
                                 <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
@@ -2203,16 +2174,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             <div className="flex items-center gap-2">
                               <div className="relative flex-1 min-w-0">
                                 <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Volume2 className="w-3.5 h-3.5" /></div>
-                                <div className={`w-full ${videoEnabled ? 'h-9.5' : 'h-11'} flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 text-xs font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs`}>Default Speaker</div>
+                                <div className="w-full h-11 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 text-xs font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs">Default Speaker</div>
                               </div>
                               {speakerTestState === 'confirming' ? (
-                                <div className={`${videoEnabled ? 'h-10 px-2.5' : 'h-11.5 px-3'} inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs shrink-0`}>
+                                <div className="h-11 px-3 inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs shrink-0">
                                   <span className="text-[11px] font-semibold">Heard?</span>
                                   <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
                                   <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
                                 </div>
                               ) : (
-                                <button type="button" onClick={() => playChimeTone()} className={`${videoEnabled ? 'h-10 px-3.5 text-xs' : 'h-11.5 px-4 text-xs'} rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap`}>
+                                <button type="button" onClick={() => playChimeTone()} className="h-11 px-4 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap">
                                   <Volume2 className="w-3.5 h-3.5" />
                                   <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest' : 'Test'}</span>
                                 </button>

@@ -12,9 +12,9 @@
 
 import React, { useRef, useState, useCallback, useEffect, type RefObject } from 'react';
 import {
-  FilesetResolver,
-  FaceLandmarker,
-  PoseLandmarker,
+    FilesetResolver,
+    FaceLandmarker,
+    PoseLandmarker,
 } from '@mediapipe/tasks-vision';
 
 export interface FaceBox {
@@ -42,6 +42,14 @@ export interface VideoTelemetry {
     gaze_direction?: string;
     is_instant_straight?: boolean;
     face_box?: FaceBox;
+    // ============================================================================
+    // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+    // ============================================================================
+    is_instant_face_present?: boolean;
+    is_instant_eyes_attentive?: boolean;
+    // ============================================================================
+    // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+    // ============================================================================
 }
 
 export interface LandmarkPoint {
@@ -100,6 +108,14 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
     const lastPitchRef = useRef<number | null>(null);
     const lastNodTimestampRef = useRef<number>(0);
     const pitchDirectionRef = useRef<'UP' | 'DOWN' | null>(null);
+    // ============================================================================
+    // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+    // ============================================================================
+    const consecutiveNoFaceFramesRef = useRef<number>(0);
+    const lastProcessedTimestampRef = useRef<number>(0);
+    // ============================================================================
+    // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+    // ============================================================================
 
     /**
      * Initializes MediaPipe Face Landmarker & Pose Landmarker WASM models asynchronously
@@ -115,32 +131,83 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
 
                 if (!isMounted) return;
 
-                // Initialize Face Landmarker with 478 face mesh landmarks + 52 facial blendshapes
-                const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-                    baseOptions: {
-                        modelAssetPath:
-                            'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-                        delegate: 'GPU',
-                    },
-                    runningMode: 'VIDEO',
-                    numFaces: 1,
-                    outputFaceBlendshapes: true,
-                });
+                // 1. Initialize Face Landmarker (Attempt GPU first, fallback to CPU if WebGL fails)
+                let faceLandmarker: FaceLandmarker | null = null;
+                try {
+                    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                        baseOptions: {
+                            modelAssetPath:
+                                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+                            delegate: 'GPU',
+                        },
+                        runningMode: 'VIDEO',
+                        numFaces: 1,
+                        outputFaceBlendshapes: true,
+                        // ============================================================================
+                        // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+                        // ============================================================================
+                        minFaceDetectionConfidence: 0.45,
+                        minFacePresenceConfidence: 0.45,
+                        minTrackingConfidence: 0.45,
+                        // ============================================================================
+                        // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+                        // ============================================================================
+                    });
+                } catch (gpuErr) {
+                    console.warn('[useMediaPipeVision] GPU delegate unavailable for FaceLandmarker, falling back to CPU:', gpuErr);
+                    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+                        baseOptions: {
+                            modelAssetPath:
+                                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+                            delegate: 'CPU',
+                        },
+                        runningMode: 'VIDEO',
+                        numFaces: 1,
+                        outputFaceBlendshapes: true,
+                        minFaceDetectionConfidence: 0.45,
+                        minFacePresenceConfidence: 0.45,
+                        minTrackingConfidence: 0.45,
+                    });
+                }
 
-                // Initialize Pose Landmarker with 33 upper body pose landmarks
-                const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-                    baseOptions: {
-                        modelAssetPath:
-                            'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-                        delegate: 'GPU',
-                    },
-                    runningMode: 'VIDEO',
-                    numPoses: 1,
-                });
+                if (isMounted && faceLandmarker) {
+                    faceLandmarkerRef.current = faceLandmarker;
+                }
+
+                // 2. Initialize Pose Landmarker (Attempt GPU first, fallback to CPU if WebGL fails)
+                try {
+                    const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+                        baseOptions: {
+                            modelAssetPath:
+                                'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+                            delegate: 'GPU',
+                        },
+                        runningMode: 'VIDEO',
+                        numPoses: 1,
+                    });
+                    if (isMounted) {
+                        poseLandmarkerRef.current = poseLandmarker;
+                    }
+                } catch (poseGpuErr) {
+                    try {
+                        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+                            baseOptions: {
+                                modelAssetPath:
+                                    'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+                                delegate: 'CPU',
+                            },
+                            runningMode: 'VIDEO',
+                            numPoses: 1,
+                        });
+                        if (isMounted) {
+                            poseLandmarkerRef.current = poseLandmarker;
+                        }
+                    } catch (poseErr) {
+                        console.warn('[useMediaPipeVision] PoseLandmarker init fallback:', poseErr);
+                    }
+                }
 
                 if (isMounted) {
-                    faceLandmarkerRef.current = faceLandmarker;
-                    poseLandmarkerRef.current = poseLandmarker;
                     setIsReady(true);
                 }
             } catch (err) {
@@ -242,8 +309,29 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
 
             if (!faceLandmarks || faceLandmarks.length === 0 || !faceLandmarks[0]) {
                 acc.distractionFrames += 1;
+                // ============================================================================
+                // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+                // ============================================================================
+                consecutiveNoFaceFramesRef.current += 1;
+                // Debounce absence: only clear face state after 4 consecutive missed frames (~160ms)
+                // to prevent single dropped frames or camera auto-focus jitter from falsely triggering "Searching..."
+                if (consecutiveNoFaceFramesRef.current >= 4) {
+                    setRealtimeTelemetry((prev) => ({
+                        ...prev,
+                        is_instant_face_present: false,
+                        is_instant_eyes_attentive: false,
+                        face_box: undefined,
+                        sitting_position: 'No Face Detected',
+                        is_instant_straight: false,
+                    }));
+                }
+                // ============================================================================
+                // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+                // ============================================================================
                 return;
             }
+
+            consecutiveNoFaceFramesRef.current = 0;
 
             // 1. Face Visibility, Bounding Box & Frame Centering Analysis
             acc.faceVisibleFrames += 1;
@@ -283,8 +371,16 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
             const rightInner = landmarks[362];
             const rightOuter = landmarks[263];
 
-            // Centering check: nose x between 0.15 and 0.85, y between 0.10 and 0.85
-            const isCentered = nose ? (nose.x >= 0.15 && nose.x <= 0.85 && nose.y >= 0.10 && nose.y <= 0.85) : false;
+            // ============================================================================
+            // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+            // ============================================================================
+            // Centering check: candidate face must be strictly aligned within the center guide frame
+            const isCentered = nose
+                ? (nose.x >= 0.35 && nose.x <= 0.65 && nose.y >= 0.16 && nose.y <= 0.78 && minX >= 0.22 && maxX <= 0.78)
+                : false;
+            // ============================================================================
+            // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+            // ============================================================================
 
             // Natural Head Pose Orientation Checks (Yaw, Pitch, Roll)
             let isFaceStraight = true;
@@ -314,24 +410,37 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
             }
 
             // 3. Eye Contact & Screen Attention Ratio Calculation
+            // ============================================================================
+            // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+            // ============================================================================
+            let isInstantEyesAttentive = false;
             if (leftPupil && leftInner && leftOuter && rightPupil && rightInner && rightOuter) {
                 const leftRatio = calculateEyeGazeRatio(leftPupil, leftInner, leftOuter);
                 const rightRatio = calculateEyeGazeRatio(rightPupil, rightInner, rightOuter);
                 const avgRatio = (leftRatio + rightRatio) / 2;
 
-                if (avgRatio >= 0.30 && avgRatio <= 0.70 && isCentered) {
+                // Eyes are looking at the screen when gaze ratio is in normal forward bounds
+                isInstantEyesAttentive = avgRatio >= 0.28 && avgRatio <= 0.72;
+
+                if (isInstantEyesAttentive && isCentered) {
                     acc.eyeContactFrames += 1;
                     acc.screenAttentionFrames += 1;
                 } else {
                     acc.distractionFrames += 1;
                 }
             } else {
-                if (isCentered) {
+                // Fallback: If pupil iris landmarks are obstructed (e.g. glasses, reflections), face straight indicates screen attention
+                isInstantEyesAttentive = isFaceStraight;
+                if (isCentered && isFaceStraight) {
+                    acc.eyeContactFrames += 1;
                     acc.screenAttentionFrames += 1;
                 } else {
                     acc.distractionFrames += 1;
                 }
             }
+            // ============================================================================
+            // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+            // ============================================================================
 
             // 4. Facial Engagement & Dynamic Expression Variety (Welford O(1) Running Variance)
             if (blendshapes && blendshapes.length > 0 && blendshapes[0].categories) {
@@ -366,10 +475,10 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
             }
             acc.postureScoreSum += framePostureScore;
 
-            // Update real-time display telemetry every 3 frames
+            // Update real-time display telemetry every 2 frames or on initial face detection
             const currentInstantStraight = isCentered && isFaceStraight && framePostureScore >= 60;
 
-            if (acc.totalFrames % 3 === 0) {
+            if (acc.totalFrames % 2 === 0 || acc.faceVisibleFrames === 1) {
                 const total = Math.max(1, acc.totalFrames);
                 const visible = Math.max(1, acc.faceVisibleFrames);
                 const faceVis = Number(((acc.faceVisibleFrames / total) * 100).toFixed(1));
@@ -382,9 +491,17 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
                     head_nods_count: headNods,
                     acknowledgement_count: headNods,
                     posture_score: Number((acc.postureScoreSum / visible).toFixed(1)),
-                    sitting_position: currentInstantStraight ? 'Upright Centered' : 'Slouched / Offset',
+                    sitting_position: currentInstantStraight ? 'Upright Centered' : (isCentered ? 'Centered' : 'Adjust Frame'),
                     is_instant_straight: currentInstantStraight,
                     face_box: currentFaceBox,
+                    // ============================================================================
+                    // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+                    // ============================================================================
+                    is_instant_face_present: true,
+                    is_instant_eyes_attentive: isInstantEyesAttentive,
+                    // ============================================================================
+                    // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+                    // ============================================================================
                 });
             }
         },
@@ -398,6 +515,19 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
         (videoElement: HTMLVideoElement, timestamp: number) => {
             if (!videoElement || videoElement.readyState < 2) return;
 
+            // ============================================================================
+            // 🔍 PRE-CHECK DIAGNOSTICS MODULE (Face Detection, Position, Lighting, Focus)
+            // ============================================================================
+            // Ensure strictly monotonically increasing timestamp for MediaPipe WebAssembly
+            let safeTimestamp = timestamp;
+            if (!safeTimestamp || isNaN(safeTimestamp) || safeTimestamp <= lastProcessedTimestampRef.current) {
+                safeTimestamp = lastProcessedTimestampRef.current + 33.33;
+            }
+            lastProcessedTimestampRef.current = safeTimestamp;
+            // ============================================================================
+            // 🔍 END OF PRE-CHECK DIAGNOSTICS MODULE
+            // ============================================================================
+
             let faceLandmarks: LandmarkPoint[][] | undefined;
             let blendshapes: BlendshapeResult[] | undefined;
             let poseLandmarks: LandmarkPoint[][] | undefined;
@@ -405,7 +535,7 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
             // Run MediaPipe Face Landmarker
             if (faceLandmarkerRef.current) {
                 try {
-                    const faceRes = faceLandmarkerRef.current.detectForVideo(videoElement, timestamp);
+                    const faceRes = faceLandmarkerRef.current.detectForVideo(videoElement, safeTimestamp);
                     if (faceRes.faceLandmarks && faceRes.faceLandmarks.length > 0) {
                         faceLandmarks = faceRes.faceLandmarks as LandmarkPoint[][];
                     }
@@ -417,13 +547,15 @@ export function useMediaPipeVision(videoRef?: RefObject<HTMLVideoElement | null>
                             })),
                         }));
                     }
-                } catch (_) { }
+                } catch (faceErr) {
+                    console.debug('[useMediaPipeVision] FaceLandmarker frame error:', faceErr);
+                }
             }
 
             // Run MediaPipe Pose Landmarker
             if (poseLandmarkerRef.current) {
                 try {
-                    const poseRes = poseLandmarkerRef.current.detectForVideo(videoElement, timestamp);
+                    const poseRes = poseLandmarkerRef.current.detectForVideo(videoElement, safeTimestamp);
                     if (poseRes.landmarks && poseRes.landmarks.length > 0) {
                         poseLandmarks = poseRes.landmarks as LandmarkPoint[][];
                     }
