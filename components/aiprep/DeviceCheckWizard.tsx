@@ -211,7 +211,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
     // 1. Update address bar of top window (if inside iframe) or self window without ?step= query param
     try {
-      const newPath = `/user_dashboard/ai-prep/${slug}`;
+      const isAiprepBase = typeof window !== 'undefined' && window.location.pathname.startsWith('/aiprep');
+      const basePath = isAiprepBase ? '/aiprep' : '/user_dashboard/ai-prep';
+      const newPath = `${basePath}/${slug}`;
       if (window.top && window.top !== window) {
         try {
           const topUrl = new URL(window.top.location.href);
@@ -229,6 +231,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           window.history.replaceState(null, '', `${newPath}${search}`);
         }
       }
+      window.dispatchEvent(new CustomEvent('aiprep-layout-mode', { detail: { fullscreen: true, step, slug } }));
     } catch (e) {
       console.warn('[DeviceCheckWizard] Address bar sync error:', e);
     }
@@ -301,21 +304,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     };
   }, []);
 
-  // Fullscreen container behavior (expands parent iframe ONLY during DEVICE_CHECK)
+  // Fullscreen container behavior (applies to all wizard steps)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const isFullscreenStep = step === 'DEVICE_CHECK';
+    window.dispatchEvent(new CustomEvent('aiprep-layout-mode', { detail: { fullscreen: true } }));
     const origOverflow = document.body.style.overflow;
-    if (isFullscreenStep) {
-      document.body.style.overflow = 'hidden';
-    }
+    document.body.style.overflow = 'hidden';
 
     let parentIframe: HTMLElement | null = null;
     let origIframeCss = '', origParentOverflow = '';
     const modifiedAncestors: { el: HTMLElement; origCss: string }[] = [];
 
-    if (isFullscreenStep && window.parent && window.parent !== window) {
+    if (window.parent && window.parent !== window) {
       try {
         const parentDoc = window.parent.document;
         origParentOverflow = parentDoc.body.style.overflow;
@@ -357,6 +358,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
     return () => {
       document.body.style.overflow = origOverflow;
+      window.dispatchEvent(new CustomEvent('aiprep-layout-mode', { detail: { fullscreen: false } }));
       if (window.parent && window.parent !== window) {
         try {
           if (parentIframe) parentIframe.style.cssText = origIframeCss;
@@ -366,10 +368,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           if (origParentOverflow) {
             window.parent.document.body.style.overflow = origParentOverflow;
           }
-        } catch { }
+        } catch {}
       }
     };
-  }, [step]);
+  }, []);
 
   // 3. Hardware Diagnostics & Streams (Initialized from sessionStorage for refresh persistence)
   const [cameraOk, setCameraOk] = useState<boolean | null>(() => {
@@ -1377,20 +1379,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   }
 
   return (
-    <div
-      className={
-        step === 'DEVICE_CHECK'
-          ? "fixed inset-0 z-[99999] w-screen h-[95] bg-slate-50 dark:bg-[#070b14] flex flex-col overflow-hidden select-none"
-          : "-m-4 lg:-m-6 w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] min-h-[calc(100%+2rem)] lg:min-h-[calc(100%+3rem)] flex-1 flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden"
-      }
-    >
-      <div className="w-full h-[90%] flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">
+    <div className="w-full h-full flex-1 flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden">
+      <div className="w-full h-full flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">
 
         {/* MAIN CONTENT WORKSPACE */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white dark:bg-slate-900">
 
           {/* Top Bar Header */}
-          <div className="relative w-full px-3 sm:px-6 py-2.5 sm:py-3 min-h-[48px] sm:min-h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
+          <div className="relative w-full px-3 sm:px-6 py-2 sm:py-2.5 min-h-[44px] sm:min-h-[50px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
             <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
               {[
                 { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
@@ -1418,7 +1414,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           </div>
 
           {/* Content Body */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-4 md:px-6 md:py-3 flex flex-col items-center w-[90%]">
+          <div className={`flex-1 min-h-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' ? 'overflow-hidden px-3 sm:px-6 py-1.5 sm:py-2' : 'overflow-y-auto p-2 sm:p-4 md:px-6 md:py-4'}`}>
 
 
             {/* STEP 1: CONFIGURATION */}
@@ -1456,10 +1452,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               );
 
               return (
-                <div className="w-full max-w-7xl mx-auto flex flex-col justify-between flex-1 min-h-[90%] space-y-3 animate-in fade-in duration-200">
+                <div className="w-full max-w-7xl mx-auto flex flex-col justify-between flex-1 min-h-0 space-y-1.5 sm:space-y-2 animate-in fade-in duration-200">
                   {/* Top Left Header (Shown when no error cards) */}
                   {activeErrorCount === 0 && (
-                    <div className="space-y-0.5 text-left w-full">
+                    <div className="space-y-0.5 text-left w-full shrink-0">
                       <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
                         Device Check
                       </h2>
@@ -1470,39 +1466,47 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   )}
 
                   {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-5 items-start w-full mx-auto flex-1">
-                    <div className="col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col space-y-2.5 sm:space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-5 items-start w-full mx-auto flex-1 min-h-0">
+                    <div className={`col-span-1 lg:col-span-7 xl:col-span-7 flex flex-col ${allChecksPass ? 'space-y-2.5 sm:space-y-3' : 'space-y-1.5 sm:space-y-2'}`}>
                       {/* Video Viewport Frame / Audio-Only Card */}
                       <div
                         style={{
                           minHeight: !videoEnabled
                             ? activeErrorCount >= 2
-                              ? '170px'
+                              ? '150px'
                               : activeErrorCount === 1
-                                ? '300px'
-                                : '280px'
+                                ? '260px'
+                                : allChecksPass
+                                  ? '250px'
+                                  : '230px'
                             : activeErrorCount >= 2
-                              ? '190px'
+                              ? '180px'
                               : activeErrorCount === 1
-                                ? '280px'
-                                : '310px',
+                                ? '270px'
+                                : allChecksPass
+                                  ? '290px'
+                                  : '270px',
                           height: !videoEnabled
                             ? activeErrorCount >= 2
-                              ? '170px'
+                              ? '150px'
                               : activeErrorCount === 1
-                                ? '300px'
-                                : '280px'
+                                ? '260px'
+                                : allChecksPass
+                                  ? '250px'
+                                  : '230px'
                             : activeErrorCount >= 2
-                              ? '190px'
+                              ? '180px'
                               : activeErrorCount === 1
-                                ? '280px'
-                                : '310px',
+                                ? '270px'
+                                : allChecksPass
+                                  ? '290px'
+                                  : '270px',
                         }}
                         className={`relative w-full shrink-0 rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-200 ${!videoEnabled ? 'bg-[#F7F9FE] dark:bg-slate-900/90' : 'bg-slate-950 max-w-3xl mx-auto'
                           }`}
                       >
                         {!videoEnabled ? (
-                          <div className={`flex flex-col items-center justify-center text-center select-none w-full h-full ${activeErrorCount >= 2 ? 'gap-1.5 p-3 sm:p-3.5' : 'gap-2.5 p-5 sm:p-6'}`}>
+                          <div className={`flex flex-col items-center justify-center text-center select-none w-full h-full ${activeErrorCount >= 2 ? 'gap-1 p-2.5 sm:p-3' : activeErrorCount === 1 ? 'gap-2.5 p-5 sm:p-6' : allChecksPass ? 'gap-2 p-4 sm:p-5' : 'gap-1.5 p-3 sm:p-4'}`}>
                             {speakerTested && speakerOk === false ? (
                               <div className="flex flex-col items-center justify-center animate-in fade-in duration-200">
                                 {/* Concentric Pulsing Red Rings with Speaker icon */}
@@ -1563,7 +1567,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   onClick={() => testMicrophone()}
                                   disabled={micTesting}
                                   title={micTesting ? 'Listening to microphone...' : micTested && micOk ? 'Click to re-test microphone' : 'Click to test microphone'}
-                                  className="group relative flex items-center justify-center mb-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl transition-all"
+                                  className={`group relative flex items-center justify-center ${allChecksPass ? 'mb-2' : 'mb-1.5'} cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl transition-all`}
                                 >
                                   {/* Pulsing Ripple rings when testing mic */}
                                   {micTesting && (
@@ -1573,24 +1577,24 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     <div className="absolute inset-0 -m-1.5 rounded-full bg-blue-500/30 animate-pulse pointer-events-none" />
                                   )}
 
-                                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center shadow-2xs transition-all duration-200 ${micTesting
+                                  <div className={`${allChecksPass ? 'w-16 h-16 sm:w-18 sm:h-18' : 'w-13 h-13 sm:w-15 sm:h-15'} rounded-2xl border flex items-center justify-center shadow-2xs transition-all duration-200 ${micTesting
                                     ? 'bg-[#4A6CF7] border-[#4A6CF7] text-white scale-105 shadow-md shadow-blue-500/25'
                                     : micTested && micOk
                                       ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 group-hover:bg-emerald-100/80'
                                       : 'bg-[#EBF0FE] dark:bg-indigo-950/50 border-indigo-100/80 dark:border-indigo-900/40 text-[#4A6CF7] group-hover:scale-105 group-hover:bg-[#DEE7FD] dark:group-hover:bg-indigo-900/60'
                                     }`}>
-                                    <Mic className={`w-7 h-7 sm:w-9 sm:h-9 transition-transform duration-200 ${micTesting ? 'animate-bounce' : 'group-hover:scale-110'}`} />
+                                    <Mic className={`${allChecksPass ? 'w-7 h-7 sm:w-8 sm:h-8' : 'w-6 h-6 sm:w-7 sm:h-7'} transition-transform duration-200 ${micTesting ? 'animate-bounce' : 'group-hover:scale-110'}`} />
                                   </div>
 
                                   {/* Subtle Status Badge */}
                                   {micTested && micOk && !micTesting && (
-                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-xs">
-                                      <Check className="w-3 h-3 stroke-[3]" />
+                                    <div className={`absolute -bottom-1 -right-1 ${allChecksPass ? 'w-5 h-5' : 'w-4 h-4'} rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-xs`}>
+                                      <Check className={`${allChecksPass ? 'w-3 h-3' : 'w-2.5 h-2.5'} stroke-[3]`} />
                                     </div>
                                   )}
                                 </button>
-                                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">Audio-Only Assessment</h3>
-                                <p className="text-xs sm:text-[13.5px] text-slate-500 dark:text-slate-400 max-w-sm mt-0.5">
+                                <h3 className={`${allChecksPass ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'} font-bold text-slate-900 dark:text-white ${allChecksPass ? 'mt-1.5' : 'mt-0.5'}`}>Audio-Only Assessment</h3>
+                                <p className={`${allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-[13px]'} text-slate-500 dark:text-slate-400 max-w-sm mt-0.5`}>
                                   {micTesting
                                     ? 'Listening... speak into your microphone to test.'
                                     : 'Camera is turned off for this assessment mode.'}
@@ -1935,9 +1939,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         const isColumnLayout = videoEnabled || activeErrorCount === 0;
 
                         return (
-                          <div className={`grid ${videoEnabled ? 'gap-3 pt-2 mt-2 sm:mt-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : `gap-3.5 sm:gap-5 pt-3 sm:pt-4 ${activeErrorCount > 0 ? 'mt-2 sm:mt-3' : 'mt-5 sm:mt-7'} grid-cols-1 sm:grid-cols-2 max-w-2xl`}`}>
+                          <div className={`grid ${videoEnabled ? 'gap-2.5 pt-1 mt-1.5 sm:mt-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : allChecksPass ? 'gap-3.5 sm:gap-4.5 pt-1.5 sm:pt-2 mt-2.5 sm:mt-3 grid-cols-1 sm:grid-cols-2 max-w-2xl' : `gap-3 sm:gap-4 pt-1 sm:pt-1.5 ${activeErrorCount > 0 ? 'mt-1.5 sm:mt-2' : 'mt-2 sm:mt-2.5'} grid-cols-1 sm:grid-cols-2 max-w-2xl`}`}>
                             {videoEnabled && (
-                              <div className="flex flex-col space-y-1.5">
+                              <div className="flex flex-col space-y-1">
                                 <span className="text-xs font-bold text-slate-900 dark:text-white mb-0.5">Camera</span>
                                 <div className="relative w-full">
                                   <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Video className="w-3.5 h-3.5" /></div>
@@ -1967,7 +1971,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   type="button"
                                   onClick={() => testCamera()}
                                   disabled={testingCamera}
-                                  className="w-fit self-start h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] text-xs font-bold inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+                                  className="w-fit self-start h-9 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                                 >
                                   <Video className="w-3.5 h-3.5 text-[#4A6CF7]" />
                                   <span>{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
@@ -1981,14 +1985,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               </div>
                             )}
 
-                            <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
+                            <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1' : allChecksPass ? 'space-y-2 sm:space-y-2.5' : 'space-y-1.5') : ''}`}>
                               <div className="flex items-center justify-between mb-0.5">
-                                <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white`}>Microphone</span>
+                                <span className={`${videoEnabled ? 'text-xs' : allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white`}>Microphone</span>
                               </div>
                               {isColumnLayout ? (
                                 <>
                                   <div className="relative w-full">
-                                    <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
+                                    <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Mic className={videoEnabled ? 'w-3.5 h-3.5' : allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'} /></div>
                                     <select
                                       value={activeAudioValue}
                                       onChange={(e) => {
@@ -1997,7 +2001,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         setMicTested(false);
                                         cleanup('AUDIO_ONLY');
                                       }}
-                                      className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-7 text-xs' : 'h-12 pl-10 pr-9 text-xs sm:text-[13.5px]'} bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                                      className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-7 text-xs' : allChecksPass ? 'h-10 sm:h-11 pl-10 pr-9 text-xs sm:text-[13.5px]' : 'h-9 sm:h-9.5 pl-10 pr-9 text-xs sm:text-[13px]'} bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                                     >
                                       {audioDevices.length > 0 ? (
                                         audioDevices.map((d, i) => (
@@ -2009,20 +2013,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         <option value="default" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1">Default Microphone</option>
                                       )}
                                     </select>
-                                    <ChevronDown className={`${videoEnabled ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3.5'} text-slate-400 absolute top-1/2 -translate-y-1/2 pointer-events-none`} />
+                                    <ChevronDown className={`${videoEnabled ? 'w-3.5 h-3.5 right-2.5' : 'w-4 h-4 right-3'} text-slate-400 absolute top-1/2 -translate-y-1/2 pointer-events-none`} />
                                   </div>
 
                                   {/* Audio input level visualizer waves between select list and button */}
-                                  <div className={`flex items-center justify-between ${videoEnabled ? 'px-2.5 py-1 rounded-xl' : 'px-3.5 py-2.5 rounded-xl'} bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs`}>
+                                  <div className={`flex items-center justify-between ${videoEnabled ? 'px-2.5 py-1 rounded-xl' : allChecksPass ? 'px-3.5 py-2 sm:py-2.5 rounded-xl' : 'px-3 py-1.5 rounded-xl'} bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs`}>
                                     <div className="flex items-center gap-1.5">
-                                      <span className={`${videoEnabled ? 'text-[10px]' : 'text-[11px]'} font-semibold text-slate-500 dark:text-slate-400`}>Audio Waves</span>
+                                      <span className={`${videoEnabled ? 'text-[10px]' : allChecksPass ? 'text-[11.5px] sm:text-xs' : 'text-[11px]'} font-semibold text-slate-500 dark:text-slate-400`}>Audio Waves</span>
                                       {micTesting && (
                                         <span className={`inline-flex items-center px-1.5 py-0.2 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 ${videoEnabled ? 'text-[9px]' : 'text-[10px]'} font-bold animate-pulse`}>
                                           Listening
                                         </span>
                                       )}
                                     </div>
-                                    <div className={`flex items-center gap-0.5 sm:gap-1 ${videoEnabled ? 'h-3.5' : 'h-4.5'}`}>
+                                    <div className={`flex items-center gap-0.5 sm:gap-1 ${videoEnabled ? 'h-3.5' : allChecksPass ? 'h-4.5' : 'h-4'}`}>
                                       {Array.from({ length: 14 }).map((_, i) => {
                                         const isLit = micTesting
                                           ? (micLevel > 0 ? micLevel > (i / 14) * 100 : (i % 3 === 0 || i % 4 === 0))
@@ -2030,8 +2034,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                             ? i < 9
                                             : false;
                                         const waveMultiplier = 0.35 + 0.65 * Math.sin(((i + 0.5) / 14) * Math.PI);
-                                        const maxH = videoEnabled ? 11 : 16;
-                                        const minH = videoEnabled ? 3 : 5;
+                                        const maxH = videoEnabled ? 11 : allChecksPass ? 18 : 16;
+                                        const minH = videoEnabled ? 3 : allChecksPass ? 5 : 4;
                                         const barHeight = isLit ? Math.max(minH, Math.round(maxH * waveMultiplier)) : (videoEnabled ? 2 : 3);
 
                                         return (
@@ -2052,9 +2056,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     type="button"
                                     onClick={() => testMicrophone()}
                                     disabled={micTesting}
-                                    className={`w-fit self-start ${videoEnabled ? 'h-10 px-4 rounded-xl text-xs gap-2' : 'h-11 sm:h-12 px-5 sm:px-6 rounded-xl text-xs sm:text-[13.5px] gap-2.5'} border font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}
+                                    className={`w-fit self-start ${videoEnabled ? 'h-9 px-3.5 rounded-xl text-xs gap-1.5' : allChecksPass ? 'h-10 sm:h-11 px-4.5 sm:px-5.5 rounded-xl text-xs sm:text-[13.5px] gap-2' : 'h-9 sm:h-9.5 px-4 sm:px-5 rounded-xl text-xs sm:text-[13px] gap-2'} border font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs ${micTesting ? 'bg-[#4A6CF7] text-white border-[#4A6CF7]' : 'bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] border-slate-200 dark:border-slate-700'}`}
                                   >
-                                    <Mic className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+                                    <Mic className={videoEnabled ? 'w-3.5 h-3.5' : allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'} />
                                     <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest Microphone' : 'Test Microphone'}</span>
                                   </button>
                                 </>
@@ -2070,7 +2074,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         setMicTested(false);
                                         cleanup('AUDIO_ONLY');
                                       }}
-                                      className="w-full h-11 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                      className="w-full h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-200 appearance-none cursor-pointer truncate shadow-2xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                     >
                                       {audioDevices.length > 0 ? (
                                         audioDevices.map((d, i) => (
@@ -2088,7 +2092,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     type="button"
                                     onClick={() => testMicrophone()}
                                     disabled={micTesting}
-                                    className="h-11 px-4 text-xs rounded-xl border font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700"
+                                    className="h-9 px-3.5 text-xs rounded-xl border font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] border-slate-200 dark:border-slate-700"
                                   >
                                     <Mic className="w-3.5 h-3.5" />
                                     <span>{micTesting ? 'Listening...' : micTested && micOk ? 'Retest' : 'Test'}</span>
@@ -2103,30 +2107,30 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               )}
                             </div>
 
-                            <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1.5' : 'space-y-2.5') : ''}`}>
-                              <span className={`${videoEnabled ? 'text-xs' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white mb-0.5`}>Speaker</span>
+                            <div className={`flex flex-col ${isColumnLayout ? (videoEnabled ? 'space-y-1' : allChecksPass ? 'space-y-2 sm:space-y-2.5' : 'space-y-1.5') : ''}`}>
+                              <span className={`${videoEnabled ? 'text-xs' : allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-[13px]'} font-bold text-slate-900 dark:text-white mb-0.5`}>Speaker</span>
                               {isColumnLayout ? (
                                 <>
                                   <div className="relative w-full">
-                                    <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} /></div>
-                                    <div className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-3 text-xs' : 'h-12 pl-10 pr-4 text-xs sm:text-[13.5px]'} flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs`}>Default Speaker</div>
+                                    <div className={`absolute ${videoEnabled ? 'left-2.5' : 'left-3'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`}><Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'} /></div>
+                                    <div className={`w-full ${videoEnabled ? 'h-9 pl-8 pr-3 text-xs' : allChecksPass ? 'h-10 sm:h-11 pl-10 pr-4 text-xs sm:text-[13.5px]' : 'h-9 sm:h-9.5 pl-10 pr-4 text-xs sm:text-[13px]'} flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs`}>Default Speaker</div>
                                   </div>
 
                                   {speakerTestState === 'confirming' ? (
-                                    <div className={`w-fit ${videoEnabled ? 'h-10 px-3.5 rounded-xl text-xs gap-2.5' : 'h-11 sm:h-12 px-4 sm:px-5 rounded-xl text-xs sm:text-[13px] gap-3'} inline-flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs`}>
+                                    <div className={`w-fit ${videoEnabled ? 'h-9 px-3 rounded-xl text-xs gap-2' : allChecksPass ? 'h-10 sm:h-11 px-4 sm:px-4.5 rounded-xl text-xs sm:text-[13.5px] gap-3' : 'h-9 sm:h-9.5 px-3.5 sm:px-4 rounded-xl text-xs sm:text-[13px] gap-2.5'} inline-flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs`}>
                                       <span className="font-semibold">Did you hear the chime?</span>
                                       <div className="flex items-center gap-1.5">
-                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className={`px-2.5 ${videoEnabled ? 'py-1 text-[11px]' : 'py-1 text-xs'} rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold transition-colors shadow-xs`}>Yes</button>
-                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className={`px-2.5 ${videoEnabled ? 'py-1 text-[11px]' : 'py-1 text-xs'} rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold transition-colors shadow-xs`}>No</button>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className={`px-2.5 ${videoEnabled ? 'py-0.5 text-[11px]' : allChecksPass ? 'py-1 text-xs' : 'py-0.5 text-xs'} rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold transition-colors shadow-xs`}>Yes</button>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className={`px-2.5 ${videoEnabled ? 'py-0.5 text-[11px]' : allChecksPass ? 'py-1 text-xs' : 'py-0.5 text-xs'} rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold transition-colors shadow-xs`}>No</button>
                                       </div>
                                     </div>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={() => playChimeTone()}
-                                      className={`w-fit self-start ${videoEnabled ? 'h-10 px-4 rounded-xl text-xs gap-2' : 'h-11 sm:h-12 px-5 sm:px-6 rounded-xl text-xs sm:text-[13.5px] gap-2.5'} border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs`}
+                                      className={`w-fit self-start ${videoEnabled ? 'h-9 px-3.5 rounded-xl text-xs gap-1.5' : allChecksPass ? 'h-10 sm:h-11 px-4.5 sm:px-5.5 rounded-xl text-xs sm:text-[13.5px] gap-2' : 'h-9 sm:h-9.5 px-4 sm:px-5 rounded-xl text-xs sm:text-[13px] gap-2'} border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 active:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-[#4A6CF7] font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-2xs`}
                                     >
-                                      <Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+                                      <Volume2 className={videoEnabled ? 'w-3.5 h-3.5' : allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'} />
                                       <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest Speaker' : 'Test Speaker'}</span>
                                     </button>
                                   )}
@@ -2135,16 +2139,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 <div className="flex items-center gap-2">
                                   <div className="relative flex-1 min-w-0">
                                     <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Volume2 className="w-3.5 h-3.5" /></div>
-                                    <div className="w-full h-11 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 text-xs font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs">Default Speaker</div>
+                                    <div className="w-full h-9 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 text-xs font-medium text-slate-800 dark:text-slate-200 truncate shadow-2xs">Default Speaker</div>
                                   </div>
                                   {speakerTestState === 'confirming' ? (
-                                    <div className="h-11 px-3 inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs shrink-0">
+                                    <div className="h-9 px-2.5 inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs shrink-0">
                                       <span className="text-[11px] font-semibold">Heard?</span>
                                       <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition-colors">Yes</button>
                                       <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
                                     </div>
                                   ) : (
-                                    <button type="button" onClick={() => playChimeTone()} className="h-11 px-4 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap">
+                                    <button type="button" onClick={() => playChimeTone()} className="h-9 px-3.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 text-[#4A6CF7] font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 whitespace-nowrap">
                                       <Volume2 className="w-3.5 h-3.5" />
                                       <span>{speakerTestState === 'playing' ? 'Playing...' : speakerTested && speakerOk ? 'Retest' : 'Test'}</span>
                                     </button>
@@ -2164,10 +2168,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                     </div>
 
                     {/* Right Column: Device Status Card OR Permission Guide Card */}
-                    <div className="col-span-1 lg:col-span-5 xl:col-span-5 flex flex-col space-y-3">
+                    <div className="col-span-1 lg:col-span-5 xl:col-span-5 flex flex-col space-y-1.5 sm:space-y-2">
                       {showPermissionGuide ? (
                         /* Browser Permissions Required Notice Card (Camera / Microphone) */
-                        <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-5 space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
+                        <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-4 sm:p-5 space-y-2.5 sm:space-y-3.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               <div className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
@@ -2196,7 +2200,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             </button>
                           </div>
 
-                          <div className="space-y-3 pt-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
+                          <div className="space-y-2.5 pt-1 text-xs text-slate-700 dark:text-slate-200 font-medium">
                             <div className="flex items-start gap-3">
                               <span className="w-5 h-5 rounded-full bg-[#5E48E8] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-2xs mt-0.5">1</span>
                               <span>Click the <strong>lock 🔒</strong> or <strong>site settings ⚙️</strong> icon in your address bar (next to URL).</span>
@@ -2211,7 +2215,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             </div>
                           </div>
 
-                          <div className="pt-3 flex items-center justify-end gap-2 border-t border-rose-200/60 dark:border-rose-900/40">
+                          <div className="pt-2.5 flex items-center justify-end gap-2 border-t border-rose-200/60 dark:border-rose-900/40">
                             <button
                               type="button"
                               onClick={() => setShowPermissionGuide(false)}
@@ -2235,24 +2239,26 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       ) : (
                         /* Default Device Status Card */
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200">
-                          <div className="px-5 pt-3.5 pb-2"><h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">Device Status</h3></div>
+                          <div className={allChecksPass ? 'px-5 pt-3.5 pb-2.5' : 'px-4.5 pt-2.5 pb-1.5'}>
+                            <h3 className={`font-bold text-slate-900 dark:text-white leading-tight ${allChecksPass ? 'text-base sm:text-[17px]' : 'text-sm sm:text-base'}`}>Device Status</h3>
+                          </div>
                           <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                            <div className="flex items-center justify-between px-5 py-2.5">
-                              <div className="flex items-center gap-3"><div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><Globe className="w-3.5 h-3.5" /></div><span className="text-xs sm:text-sm font-semibold">Browser support</span></div>
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></span>
+                            <div className={`flex items-center justify-between ${allChecksPass ? 'px-5 py-2.5 sm:py-3' : 'px-4.5 py-2 sm:py-2.5'}`}>
+                              <div className="flex items-center gap-3"><div className={`${allChecksPass ? 'w-8 h-8' : 'w-7 h-7'} rounded-full bg-blue-50 text-blue-600 flex items-center justify-center`}><Globe className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /></div><span className={`${allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-sm'} font-semibold`}>Browser support</span></div>
+                              <span className={`inline-flex items-center gap-1 ${allChecksPass ? 'text-xs sm:text-[13px]' : 'text-xs'} font-semibold text-emerald-600`}><CheckCircle2 className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></span>
                             </div>
-                            <div onClick={() => { if (internetStatus === 'unstable' || internetStatus === 'failed') { setBandwidthChecking(true); checkRealInternet().finally(() => setBandwidthChecking(false)); } }} className={`flex items-center justify-between px-5 py-2.5 transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}>
+                            <div onClick={() => { if (internetStatus === 'unstable' || internetStatus === 'failed') { setBandwidthChecking(true); checkRealInternet().finally(() => setBandwidthChecking(false)); } }} className={`flex items-center justify-between ${allChecksPass ? 'px-5 py-2.5 sm:py-3' : 'px-4.5 py-2 sm:py-2.5'} transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}>
                               <div className="flex items-center gap-3">
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' :
+                                <div className={`${allChecksPass ? 'w-8 h-8' : 'w-7 h-7'} rounded-full flex items-center justify-center ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' :
                                   internetStatus === 'unstable' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' :
                                     internetStatus === 'checking' ? 'bg-blue-50 text-blue-600' :
                                       'bg-rose-50 text-rose-600'
                                   }`}>
-                                  {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                                  {internetStatus === 'failed' ? <WifiOff className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> : <Wifi className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
                                 </div>
-                                <span className="text-xs sm:text-sm font-semibold">Internet connection</span>
+                                <span className={`${allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-sm'} font-semibold`}>Internet connection</span>
                               </div>
-                              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${internetStatus === 'passed' ? 'text-emerald-600' :
+                              <span className={`inline-flex items-center gap-1 ${allChecksPass ? 'text-xs sm:text-[13px]' : 'text-xs'} font-semibold ${internetStatus === 'passed' ? 'text-emerald-600' :
                                 internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' :
                                   internetStatus === 'checking' ? 'text-purple-600' :
                                     'text-rose-600'
@@ -2260,7 +2266,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 {internetStatus === 'checking' ? (
                                   'Testing...'
                                 ) : internetStatus === 'passed' ? (
-                                  <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  <><CheckCircle2 className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                 ) : internetStatus === 'unstable' ? (
                                   <><AlertTriangle className="w-3.5 h-3.5" /> Unstable <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                 ) : (
@@ -2278,21 +2284,21 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     testCamera();
                                   }
                                 }}
-                                className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                                className={`flex items-center justify-between ${allChecksPass ? 'px-5 py-2.5 sm:py-3' : 'px-4.5 py-2 sm:py-2.5'} transition-colors cursor-pointer ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
                                   }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false
+                                  <div className={`${allChecksPass ? 'w-8 h-8' : 'w-7 h-7'} rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false
                                     ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
                                     : cameraTested && cameraOk
                                       ? 'bg-emerald-50 text-emerald-600'
                                       : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                     }`}>
-                                    {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                                    {cameraTested && cameraOk === false ? <VideoOff className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> : <Video className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
                                   </div>
-                                  <span className="text-xs sm:text-sm font-semibold truncate">Camera</span>
+                                  <span className={`${allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-sm'} font-semibold truncate`}>Camera</span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-2 ${testingCamera
+                                <span className={`inline-flex items-center gap-1 ${allChecksPass ? 'text-xs sm:text-[13px]' : 'text-xs'} font-semibold shrink-0 ml-2 ${testingCamera
                                   ? 'text-purple-600'
                                   : cameraTested && cameraOk
                                     ? 'text-emerald-600'
@@ -2303,7 +2309,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   {testingCamera ? (
                                     'Testing...'
                                   ) : cameraTested && cameraOk ? (
-                                    <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                    <><CheckCircle2 className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                   ) : cameraTested && cameraOk === false ? (
                                     <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                   ) : (
@@ -2321,21 +2327,21 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   testMicrophone();
                                 }
                               }}
-                              className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                              className={`flex items-center justify-between ${allChecksPass ? 'px-5 py-2.5 sm:py-3' : 'px-4.5 py-2 sm:py-2.5'} transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
                                 }`}
                             >
                               <div className="flex items-center gap-3">
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${micTested && micOk === false
+                                <div className={`${allChecksPass ? 'w-8 h-8' : 'w-7 h-7'} rounded-full flex items-center justify-center ${micTested && micOk === false
                                   ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
                                   : micTested && micOk
                                     ? 'bg-emerald-50 text-emerald-600'
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                   }`}>
-                                  {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                                  {micTested && micOk === false ? <MicOff className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> : <Mic className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
                                 </div>
-                                <span className="text-xs sm:text-sm font-semibold">Microphone</span>
+                                <span className={`${allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-sm'} font-semibold`}>Microphone</span>
                               </div>
-                              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${micTesting
+                              <span className={`inline-flex items-center gap-1 ${allChecksPass ? 'text-xs sm:text-[13px]' : 'text-xs'} font-semibold ${micTesting
                                 ? 'text-purple-600'
                                 : micTested && micOk
                                   ? 'text-emerald-600'
@@ -2346,7 +2352,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 {micTesting ? (
                                   'Testing...'
                                 ) : micTested && micOk ? (
-                                  <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  <><CheckCircle2 className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                 ) : micTested && micOk === false ? (
                                   <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                 ) : (
@@ -2356,21 +2362,21 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             </div>
                             <div
                               onClick={() => playChimeTone()}
-                              className={`flex items-center justify-between px-5 py-2.5 cursor-pointer transition-colors ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
+                              className={`flex items-center justify-between ${allChecksPass ? 'px-5 py-2.5 sm:py-3' : 'px-4.5 py-2 sm:py-2.5'} cursor-pointer transition-colors ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''
                                 }`}
                             >
                               <div className="flex items-center gap-3">
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center ${speakerTested && speakerOk === false
+                                <div className={`${allChecksPass ? 'w-8 h-8' : 'w-7 h-7'} rounded-full flex items-center justify-center ${speakerTested && speakerOk === false
                                   ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
                                   : speakerTested && speakerOk
                                     ? 'bg-emerald-50 text-emerald-600'
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                   }`}>
-                                  {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                  {speakerTested && speakerOk === false ? <VolumeX className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> : <Volume2 className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
                                 </div>
-                                <span className="text-xs sm:text-sm font-semibold">Speaker</span>
+                                <span className={`${allChecksPass ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-sm'} font-semibold`}>Speaker</span>
                               </div>
-                              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${speakerTestState === 'playing'
+                              <span className={`inline-flex items-center gap-1 ${allChecksPass ? 'text-xs sm:text-[13px]' : 'text-xs'} font-semibold ${speakerTestState === 'playing'
                                 ? 'text-purple-600'
                                 : speakerTestState === 'confirming'
                                   ? 'text-amber-600'
@@ -2389,7 +2395,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10.5px] font-bold transition-colors">No</button>
                                   </span>
                                 ) : speakerTested && speakerOk ? (
-                                  <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
+                                  <><CheckCircle2 className={allChecksPass ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> Passed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                 ) : speakerTested && speakerOk === false ? (
                                   <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3.5 h-3.5 text-slate-400" /></>
                                 ) : (
@@ -2400,7 +2406,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             {videoEnabled && videoAnalyticsEnabled && (
                               <div
                                 onClick={testAnalytics}
-                                className={`flex items-center justify-between px-5 py-2.5 transition-colors cursor-pointer ${analyticsTested && analyticsOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
+                                className={`flex items-center justify-between px-4.5 py-2 sm:py-2.5 transition-colors cursor-pointer ${analyticsTested && analyticsOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'
                                   }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
@@ -2439,11 +2445,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       )}
 
                       {allChecksPass && (
-                        <div className="bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl p-3 flex items-center gap-3">
-                          <div className="w-7.5 h-7.5 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0"><Check className="w-4 h-4 stroke-[3]" /></div>
+                        <div className="bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl p-3 sm:p-3.5 flex items-center gap-3 sm:gap-3.5 shadow-2xs">
+                          <div className="w-8 h-8 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0 shadow-xs"><Check className="w-4.5 h-4.5 stroke-[3]" /></div>
                           <div>
                             <p className="text-xs sm:text-sm font-bold text-[#6D28D9] dark:text-purple-300">All checks passed!</p>
-                            <p className="text-[11.5px] text-slate-500 font-medium">
+                            <p className="text-[11.5px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium">
                               {videoAnalyticsEnabled ? 'Video analytics are working correctly.' : "You're ready to continue."}
                             </p>
                           </div>
@@ -2453,11 +2459,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   </div>
 
                   {/* Bottom Nav */}
-                  <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 pt-3 pb-1 border-t border-slate-100 dark:border-slate-800/80 w-full mt-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0">
-                    <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs">
+                  <div className="sticky bottom-0 z-30 flex items-center justify-between gap-3 pt-1.5 sm:pt-2 pb-1 sm:pb-1.5 border-t border-slate-100 dark:border-slate-800/80 w-full mt-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0">
+                    <button type="button" onClick={() => { cleanup(); setStep('CONSENT'); }} className="px-4 py-1.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs">
                       ← Back
                     </button>
-                    <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
+                    <button type="button" onClick={handleNext} disabled={!allChecksPass} className={`px-5 sm:px-6 py-1.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${allChecksPass ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md cursor-pointer active:scale-95' : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'}`}>
                       {!allChecksPass && <Lock className="w-3.5 h-3.5" />}
                       <span>Next: Practice &amp; Start</span>
                       <ChevronRight className="w-4 h-4 stroke-[2.5]" />

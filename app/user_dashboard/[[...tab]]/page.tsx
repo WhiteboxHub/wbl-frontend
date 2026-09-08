@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useAuth } from "@/utils/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import CandidateDashboard from "@/components/CandidateDashboard";
 import Link from "next/link";
 import { User, Phone, Mail, Activity, Sparkles, AlertTriangle } from "lucide-react";
@@ -19,6 +19,33 @@ interface UserProfile {
 // ── Candidate sub-component with setup-status banner ─────────────────────────
 function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }) {
   const [setupStatus, setSetupStatus] = React.useState<any>(null);
+  const pathname = usePathname() || "";
+  const [isAssessmentActive, setIsAssessmentActive] = React.useState(false);
+  const [headerCollapsed, setHeaderCollapsed] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleLayoutMode = (e: any) => {
+      if (typeof e?.detail?.active === "boolean") {
+        setIsAssessmentActive(e.detail.active);
+      }
+      if (typeof e?.detail?.fullscreen === "boolean") {
+        setIsAssessmentActive(e.detail.fullscreen);
+      }
+      if (typeof e?.detail?.headerCollapsed === "boolean") {
+        setHeaderCollapsed(e.detail.headerCollapsed);
+      }
+    };
+    window.addEventListener("aiprep-layout-mode", handleLayoutMode);
+    return () => window.removeEventListener("aiprep-layout-mode", handleLayoutMode);
+  }, []);
+
+  const isAssessmentRoute =
+    pathname.includes("/assessment-type") ||
+    pathname.includes("/consent") ||
+    pathname.includes("/device-check") ||
+    pathname.includes("/practice");
+
+  const isInAssessment = isAssessmentActive || isAssessmentRoute;
 
   React.useEffect(() => {
     setupApi
@@ -28,7 +55,15 @@ function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }
   }, []);
 
   return (
-    <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div
+      className={`transition-all duration-700 ease-in-out ${
+        isInAssessment
+          ? headerCollapsed
+            ? "w-full h-screen overflow-hidden p-0 m-0 bg-white dark:bg-slate-900"
+            : "w-full h-screen overflow-hidden pt-[72px] lg:pt-[76px] pb-0 px-0 m-0 bg-white dark:bg-slate-900"
+          : "pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen"
+      }`}
+    >
       <Toaster richColors position="top-center" />
       <CandidateDashboard defaultTab={currentTab} />
     </div>

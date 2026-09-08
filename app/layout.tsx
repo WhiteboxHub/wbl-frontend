@@ -33,9 +33,38 @@ export default function RootLayout({
   const pathname = usePathname() || "";
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
-  const isAiprep = pathname.startsWith("/aiprep");
   const isReports = pathname.startsWith("/reports");
   const [isOpen, setIsOpen] = useState(false);
+  const [isAssessmentActive, setIsAssessmentActive] = useState(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+
+  useEffect(() => {
+    const handleLayoutMode = (e: any) => {
+      if (typeof e?.detail?.active === "boolean") {
+        setIsAssessmentActive(e.detail.active);
+      }
+      if (typeof e?.detail?.headerCollapsed === "boolean") {
+        setHeaderCollapsed(e.detail.headerCollapsed);
+      }
+      if (typeof e?.detail?.fullscreen === "boolean") {
+        setIsAssessmentActive(e.detail.fullscreen);
+      }
+    };
+    window.addEventListener("aiprep-layout-mode", handleLayoutMode);
+    return () => window.removeEventListener("aiprep-layout-mode", handleLayoutMode);
+  }, []);
+
+  // Determine if current route is part of the active assessment flow
+  const isAssessmentFlowRoute =
+    pathname.startsWith("/aiprep/session") ||
+    pathname.startsWith("/aiprep/device-check") ||
+    pathname.includes("/assessment-type") ||
+    pathname.includes("/consent") ||
+    pathname.includes("/device-check") ||
+    pathname.includes("/practice");
+
+  const isInAssessment = isAssessmentActive || isAssessmentFlowRoute;
+  const hideGlobalLayout = isAvatarSection || isCoderpad || isReports;
 
   return (
     <html suppressHydrationWarning lang="en">
@@ -67,8 +96,23 @@ export default function RootLayout({
           <AuthProvider>
             <Providers>
               <GlobalServiceWorker />
-              {isAvatarSection || isCoderpad || isAiprep || isReports ? (
+              {hideGlobalLayout ? (
                 <>{children}</>
+              ) : isInAssessment ? (
+                <>
+                  {/* Collapsible Whitebox Header */}
+                  <div
+                    className={`fixed top-0 left-0 w-full z-40 transition-all duration-700 ease-in-out ${
+                      headerCollapsed
+                        ? "-translate-y-full opacity-0 pointer-events-none"
+                        : "translate-y-0 opacity-100"
+                    }`}
+                  >
+                    <Header />
+                  </div>
+
+                  <main className="w-full overflow-x-hidden">{children}</main>
+                </>
               ) : (
                 <>
                   <Header />
