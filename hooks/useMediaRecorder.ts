@@ -1,1 +1,3 @@
-
+export function useMediaRecorder() {
+  return {};
+}
