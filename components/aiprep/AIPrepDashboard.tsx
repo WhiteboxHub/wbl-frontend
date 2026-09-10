@@ -97,8 +97,8 @@ export function getDashboardPermissions(state: DashboardState): DashboardPermiss
       return {
         canStartAssessment: false,
         canViewAssessments: true,
-        canViewAnalytics: true,
-        canViewScores: true,
+        canViewAnalytics: false,
+        canViewScores: false,
       };
   }
 }
@@ -531,13 +531,17 @@ export default function AIPrepDashboard({
     ).then((results) => {
       if (!active) return;
       setAssessmentScoresMap((prev) => {
+        let changed = false;
         const next = { ...prev };
         results.forEach((res) => {
           if (res.status === 'fulfilled' && res.value && res.value.id) {
-            next[res.value.id] = res.value;
+            if (!next[res.value.id]) {
+              next[res.value.id] = res.value;
+              changed = true;
+            }
           }
         });
-        return next;
+        return changed ? next : prev;
       });
     });
 
@@ -707,7 +711,7 @@ export default function AIPrepDashboard({
           label: 'Start Assessment',
           onClick: () => {
             setExplanationModal({ isOpen: false, title: '', message: '' });
-            onStartAssessment();
+    onStartAssessment();
           },
         },
       });
@@ -865,7 +869,7 @@ export default function AIPrepDashboard({
                 {/* Card 1: Start Assessment */}
                 <div
                   onClick={permissions.canStartAssessment ? handleStartClick : () => handleDisabledCardClick('start')}
-                  className={`rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] flex items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canStartAssessment
+                  className={`${dashboardState === 'VIEW_ONLY' ? 'hidden' : 'flex'} rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canStartAssessment
                     ? 'opacity-60 bg-gray-50/50 dark:bg-gray-900/40 border-gray-200/90 dark:border-gray-800'
                     : 'border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-[#faf5ff] dark:hover:bg-purple-950/20 hover:shadow-xs group'
                     }`}
@@ -907,7 +911,7 @@ export default function AIPrepDashboard({
                 {/* Card 2: View Assessments */}
                 <div
                   onClick={permissions.canViewAssessments ? () => setView('assessments') : () => handleDisabledCardClick('assessments')}
-                  className={`rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] flex items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canViewAssessments
+                  className={`${dashboardState === 'VIEW_ONLY' ? 'md:col-span-2' : ''} rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] flex items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canViewAssessments
                     ? 'opacity-60 bg-gray-50/50 dark:bg-gray-900/40 border-gray-200/90 dark:border-gray-800'
                     : 'border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-[#faf5ff] dark:hover:bg-purple-950/20 hover:shadow-xs group'
                     }`}
@@ -947,7 +951,7 @@ export default function AIPrepDashboard({
                 {/* Card 3: Analytics */}
                 <div
                   onClick={permissions.canViewAnalytics ? () => setView('analytics') : () => handleDisabledCardClick('analytics')}
-                  className={`rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] flex items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canViewAnalytics
+                  className={`${dashboardState === 'VIEW_ONLY' ? 'hidden' : 'flex'} rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canViewAnalytics
                     ? 'opacity-60 bg-gray-50/50 dark:bg-gray-900/40 border-gray-200/90 dark:border-gray-800'
                     : 'border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-[#faf5ff] dark:hover:bg-purple-950/20 hover:shadow-xs group'
                     }`}
@@ -987,7 +991,7 @@ export default function AIPrepDashboard({
                 {/* Card 4: Scores */}
                 <div
                   onClick={permissions.canViewScores ? () => setView('scores') : () => handleDisabledCardClick('scores')}
-                  className={`rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] flex items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canViewScores
+                  className={`${dashboardState === 'VIEW_ONLY' ? 'hidden' : 'flex'} rounded-xl border p-3 sm:p-3.5 min-h-[85px] max-h-[100px] items-center gap-3.5 transition-all duration-150 select-none cursor-pointer ${!permissions.canViewScores
                     ? 'opacity-60 bg-gray-50/50 dark:bg-gray-900/40 border-gray-200/90 dark:border-gray-800'
                     : 'border-gray-200/90 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-[#faf5ff] dark:hover:bg-purple-950/20 hover:shadow-xs group'
                     }`}

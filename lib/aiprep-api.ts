@@ -6,7 +6,10 @@
  * Base URL Prefix: /api/aiprep
  */
 
-import { apiFetch as baseApiFetch } from '@/lib/api';
+import { apiFetch as baseApiFetch, setupApi } from '@/lib/api';
+import type { AssessmentDetails, CoachingBand } from '@/types/aiprep';
+
+export type { AssessmentDetails } from '@/types/aiprep';
 
 const apiFetch = (endpoint: string, options?: any) => {
   const path =
@@ -182,22 +185,36 @@ export interface MasterReportSchema {
   transcript_evaluation?: TranscriptEvaluation;
 }
 
-export interface AssessmentDetails {
-  id: number;
-  candidate_id: number;
-  assessment_type: AssessmentType;
-  media_type: MediaType;
-  assessment_mode?: string;
-  track_title?: string | null;
-  job_description?: string | null;
-  job_description_text?: string | null;
-  status: AssessmentStatus;
-  youtube_url?: string | null;
-  started_at?: string | null;
-  completed_at?: string | null;
-  data?: any;
-  report?: MasterReportSchema;
-  created_at?: string;
+type AssessmentDetailsApiResponse = Omit<AssessmentDetails, 'report'> & {
+  report?: Omit<MasterReportSchema, 'coaching_band'> & {
+    coaching_band?: string;
+  };
+};
+
+const COACHING_BANDS: ReadonlySet<string> = new Set([
+  'EXCELLENT',
+  'STRONG',
+  'DEVELOPING',
+  'NEEDS_WORK',
+]);
+
+function isCoachingBand(value: unknown): value is CoachingBand {
+  return typeof value === 'string' && COACHING_BANDS.has(value);
+}
+
+function normalizeAssessmentDetails(response: AssessmentDetailsApiResponse): AssessmentDetails {
+  if (!response.report) {
+    const { report: _report, ...assessment } = response;
+    return assessment;
+  }
+
+  const { coaching_band, ...report } = response.report;
+  const normalizedBand = isCoachingBand(coaching_band) ? coaching_band : undefined;
+
+  return {
+    ...response,
+    report: normalizedBand ? { ...report, coaching_band: normalizedBand } : report,
+  };
 }
 
 export interface AssessmentListItem {
@@ -565,6 +582,13 @@ const aiprepApiFetch = (endpoint: string, options: any = {}) => {
 
 export const aiprepApi = {
   getSetupStatus: async (): Promise<AIPrepSetupStatus> => {
+    let summaryStatus: AIPrepSetupStatus | null = null;
+    try {
+      summaryStatus = await setupApi.getStatus(true);
+    } catch (e) {
+      console.warn('AI Prep setup summary fetch note:', e);
+    }
+
     let setupRes: any = null;
     try {
       setupRes = await apiFetch('setup/setup-status');
@@ -576,14 +600,20 @@ export const aiprepApi = {
     try {
       const keys: any = await apiFetch('coderpad/me/llm-keys');
       if (Array.isArray(keys) && keys.length > 0) {
-        hasActiveKeys = keys.some((k: any) => k.status === 'active' || k.validation_status === 'active');
+        hasActiveKeys = keys.some((k: any) =>
+          [k.status, k.validation_status].some(
+            (status) => typeof status === 'string' && status.toLowerCase() === 'active'
+          )
+        );
       }
     } catch (e) {
       console.warn('coderpad/me/llm-keys check note:', e);
     }
 
-    const isKeysConfigured = Boolean(setupRes?.api_keys_configured || hasActiveKeys);
-    const isResumeUploaded = Boolean(setupRes?.resume_uploaded);
+    const isKeysConfigured = Boolean(
+      summaryStatus?.api_keys_configured || setupRes?.api_keys_configured || hasActiveKeys
+    );
+    const isResumeUploaded = Boolean(summaryStatus?.resume_uploaded || setupRes?.resume_uploaded);
     return {
       resume_uploaded: isResumeUploaded,
       api_keys_configured: isKeysConfigured,
@@ -720,7 +750,8 @@ export const aiprepApi = {
    * 5. Get Assessment Report: GET /api/aiprep/assessments/{id}
    */
   getAssessment: async (assessmentId: number): Promise<AssessmentDetails> => {
-    return aiprepApiFetch(`assessments/${assessmentId}`);
+    const response: AssessmentDetailsApiResponse = await aiprepApiFetch(`assessments/${assessmentId}`);
+    return normalizeAssessmentDetails(response);
   },
 
   /**
@@ -730,7 +761,7 @@ export const aiprepApi = {
     candidateId?: number,
     limit: number = 50,
     offset: number = 0
-  ): Promise<{ items: AssessmentListItem[]; total: number }> => {
+  ): Promise<{ items: AssessmentDetails[]; total: number }> => {
     const params = new URLSearchParams();
     if (candidateId) params.append('candidate_id', String(candidateId));
     if (limit) params.append('limit', String(limit));

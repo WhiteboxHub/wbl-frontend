@@ -1192,9 +1192,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             const defaultKey = (keys as any[]).find((k: any) => k.is_default) || (keys.length === 1 ? keys[0] : null);
 
             if (defaultKey) {
-                // Validation status is now returned directly from the DB via GET /coderpad/me/llm-keys
-                // (V124 migration: status column on candidate_llm_api_keys)
-                if (defaultKey.validation_status === "active") {
+              // Validation status is now returned directly from the DB via GET /coderpad/me/llm-keys
+              // (V124 migration: status column on candidate_llm_api_keys)
+                if ([defaultKey.status, defaultKey.validation_status].some(
+                    (status) => typeof status === "string" && status.toLowerCase() === "active"
+                )) {
                     hasValidDefaultKey = true;
                 }
             }
@@ -1203,9 +1205,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
 
         try {
-            const d: any = await setupApi.getStatus();
-            // Fallback: if cache miss but they have keys in both places, assume AI prep status
-            const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && (d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0)));
+            const d: any = await setupApi.getStatus(true);
+            const isConfigured = Boolean(d.api_keys_configured || hasValidDefaultKey);
             const resolvedStatus = {
                 ...d,
                 api_keys_configured: isConfigured,
@@ -1308,6 +1309,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             await new Promise((r) => setTimeout(r, 150));
         }
     };
+
+    useEffect(() => {
+        if (activeTab === 'wbl-smartprep') {
+            void refreshSetupStatus();
+        }
+    }, [activeTab]);
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -3318,8 +3325,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             embedded={true}
                                             candidateId={candidateId ?? undefined}
                                             setupStatus={setupStatus}
-                                            hasResume={Boolean(setupStatus?.resume_uploaded)}
-                                            hasLLM={Boolean(setupStatus?.api_keys_configured)}
                                             hasCompletedAssessment={hasCompletedAssessment}
                                             onNavigateTab={(tab) => goToTab(tab as TabType)}
                                             onStartAssessment={() => {

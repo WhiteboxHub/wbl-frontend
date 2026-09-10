@@ -15,11 +15,10 @@
  * - TranscriptViewer
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { aiprepApi } from '@/lib/aiprep-api';
+import { aiprepApi, type AssessmentDetails } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
-import type { AssessmentDetails } from '@/types/aiprep';
 import {
   Loader2,
   AlertCircle,
@@ -98,8 +97,6 @@ export default function AssessmentReportPage() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleBack = () => {
     router.push('/user_dashboard/ai-prep');
@@ -208,17 +205,6 @@ export default function AssessmentReportPage() {
 
   const handlePrint = () => {
     if (typeof window !== 'undefined') window.print();
-  };
-
-  const handleSeek = (sec: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = sec;
-      void videoRef.current.play();
-    }
-    if (audioRef.current) {
-      audioRef.current.currentTime = sec;
-      void audioRef.current.play();
-    }
   };
 
   // State: Loading
@@ -414,12 +400,7 @@ export default function AssessmentReportPage() {
           )}
 
           {activeSection === 'interview-evidence' && (
-            <TranscriptViewer
-              assessment={assessment}
-              onSeek={handleSeek}
-              videoRef={videoRef}
-              audioRef={audioRef}
-            />
+            <TranscriptViewer />
           )}
 
           {activeSection === 'coaching' && (

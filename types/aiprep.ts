@@ -139,6 +139,7 @@ export interface AssessmentDataPayload {
   transcript: TranscriptTelemetry;
   audio_telemetry: AudioTelemetry;
   video_telemetry: VideoTelemetry;
+  job_description?: string | null;
 }
 
 export interface SubmitTelemetryPayload extends AssessmentDataPayload {}
