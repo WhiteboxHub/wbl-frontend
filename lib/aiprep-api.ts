@@ -7,9 +7,26 @@
  */
 
 import { apiFetch as baseApiFetch, setupApi } from '@/lib/api';
-import type { AssessmentDetails, CoachingBand } from '@/types/aiprep';
+import type {
+  AIPrepSetupStatus,
+  AssessmentCardAvailability,
+  AssessmentDetails,
+  CandidateAnalyticsDashboard,
+  CoachingBand,
+  DashboardAccessState,
+  DashboardPermissions,
+  DashboardReadiness,
+} from '@/types/aiprep';
 
-export type { AssessmentDetails } from '@/types/aiprep';
+export type {
+  AIPrepSetupStatus,
+  AssessmentCardAvailability,
+  AssessmentDetails,
+  CandidateAnalyticsDashboard,
+  DashboardAccessState,
+  DashboardPermissions,
+  DashboardReadiness,
+} from '@/types/aiprep';
 
 const apiFetch = (endpoint: string, options?: any) => {
   const path =
@@ -318,31 +335,73 @@ export interface AssessmentCardMeta {
   requiresJd: boolean;
 }
 
-export interface AIPrepSetupStatus {
-  resume_uploaded: boolean;
-  api_keys_configured: boolean;
-  setup_complete: boolean;
-}
-
-export interface CandidateAnalyticsDashboard {
-  total_assessments?: number;
-  overall_average_score?: number | null;
-  average_wpm?: number | null;
-  latest_coaching_band?: string | null;
-  analytics: {
-    average_technical_score: number;
-    average_communication_score: number;
-    average_wpm?: number | null;
-    average_silence_ratio_pct?: number | null;
-    top_strengths: string[];
-    top_improvements: string[];
-  };
-  executive_summary: { latest_coaching_band: string };
-}
-
 // ============================================================================
 // Helper Utilities
 // ============================================================================
+
+const EMPTY_DASHBOARD_ANALYTICS: CandidateAnalyticsDashboard = {
+  analytics: {
+    average_technical_score: 0,
+    average_communication_score: 0,
+    average_wpm: null,
+    average_silence_ratio_pct: null,
+    top_strengths: [],
+    top_improvements: [],
+  },
+  executive_summary: { latest_coaching_band: 'NOT_STARTED' },
+};
+
+function createEmptyDashboardAnalytics(): CandidateAnalyticsDashboard {
+  return {
+    ...EMPTY_DASHBOARD_ANALYTICS,
+    analytics: {
+      ...EMPTY_DASHBOARD_ANALYTICS.analytics,
+      top_strengths: [],
+      top_improvements: [],
+    },
+    executive_summary: { ...EMPTY_DASHBOARD_ANALYTICS.executive_summary },
+  };
+}
+
+export function getDashboardAccessState({
+  resume_uploaded,
+  api_keys_configured,
+  has_completed_assessment,
+}: AIPrepSetupStatus & Pick<DashboardReadiness, 'has_completed_assessment'>): DashboardAccessState {
+  const setupComplete = resume_uploaded && api_keys_configured;
+
+  if (!has_completed_assessment) {
+    return setupComplete ? 'READY_FOR_ASSESSMENT' : 'SETUP_REQUIRED';
+  }
+
+  return setupComplete ? 'FULL_ACCESS' : 'VIEW_ONLY';
+}
+
+export function getDashboardPermissions(state: DashboardAccessState): DashboardPermissions {
+  switch (state) {
+    case 'READY_FOR_ASSESSMENT':
+      return { canStartAssessment: true, canViewAssessments: false, canViewAnalytics: false, canViewScores: false };
+    case 'FULL_ACCESS':
+      return { canStartAssessment: true, canViewAssessments: true, canViewAnalytics: true, canViewScores: true };
+    case 'VIEW_ONLY':
+      return { canStartAssessment: false, canViewAssessments: true, canViewAnalytics: false, canViewScores: false };
+    case 'SETUP_REQUIRED':
+    default:
+      return { canStartAssessment: false, canViewAssessments: false, canViewAnalytics: false, canViewScores: false };
+  }
+}
+
+export function getAssessmentCardAvailability(
+  state: DashboardAccessState
+): AssessmentCardAvailability {
+  if (state === 'SETUP_REQUIRED') {
+    return { disabled: true, disabled_reason: 'Upload a resume and configure an LLM API key to start an assessment.' };
+  }
+  if (state === 'VIEW_ONLY') {
+    return { disabled: true, disabled_reason: 'Complete setup to start another assessment.' };
+  }
+  return { disabled: false };
+}
 
 export function getDifficultySeconds(difficulty?: string): number {
   switch (difficulty?.toUpperCase()) {
@@ -620,22 +679,52 @@ export const aiprepApi = {
       setup_complete: isResumeUploaded && isKeysConfigured,
     };
   },
+  getDashboardReadiness: async (candidateId?: number): Promise<DashboardReadiness> => {
+    const setupStatus = await aiprepApi.getSetupStatus();
+    let hasCompletedAssessment = false;
+
+    if (candidateId) {
+      try {
+        const assessments = await aiprepApi.listCandidateAssessments(candidateId);
+        hasCompletedAssessment = assessments.items.some(
+          (assessment) => assessment.status === 'COMPLETED'
+        );
+      } catch (error) {
+        console.warn('Dashboard assessment-completion check note:', error);
+      }
+    }
+
+    return {
+      ...setupStatus,
+      has_completed_assessment: hasCompletedAssessment,
+      access_state: getDashboardAccessState({
+        ...setupStatus,
+        has_completed_assessment: hasCompletedAssessment,
+      }),
+    };
+  },
   getDashboardAnalytics: async (candidateId: number): Promise<CandidateAnalyticsDashboard> => {
     try {
-      return await apiFetch(`aiprep/analytics/candidate/${candidateId}`);
+      const response: Partial<CandidateAnalyticsDashboard> = await apiFetch(
+        `aiprep/analytics/candidate/${candidateId}`
+      );
+      return {
+        ...createEmptyDashboardAnalytics(),
+        ...response,
+        analytics: {
+          ...createEmptyDashboardAnalytics().analytics,
+          ...response.analytics,
+          top_strengths: response.analytics?.top_strengths || [],
+          top_improvements: response.analytics?.top_improvements || [],
+        },
+        executive_summary: {
+          ...createEmptyDashboardAnalytics().executive_summary,
+          ...response.executive_summary,
+        },
+      };
     } catch (e) {
       console.warn('Candidate analytics endpoint notice:', e);
-      return {
-        analytics: {
-          average_technical_score: 0,
-          average_communication_score: 0,
-          average_wpm: null,
-          average_silence_ratio_pct: null,
-          top_strengths: [],
-          top_improvements: [],
-        },
-        executive_summary: { latest_coaching_band: 'NOT_STARTED' },
-      };
+      return createEmptyDashboardAnalytics();
     }
   },
   /**

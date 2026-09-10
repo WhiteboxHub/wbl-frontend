@@ -274,6 +274,55 @@ export interface AssessmentCardMeta {
 }
 
 // ============================================================================
+// AI Prep Dashboard
+// ============================================================================
+
+export type DashboardAccessState =
+  | 'SETUP_REQUIRED'
+  | 'READY_FOR_ASSESSMENT'
+  | 'FULL_ACCESS'
+  | 'VIEW_ONLY';
+
+export interface AIPrepSetupStatus {
+  resume_uploaded: boolean;
+  api_keys_configured: boolean;
+  setup_complete: boolean;
+}
+
+export interface DashboardReadiness extends AIPrepSetupStatus {
+  has_completed_assessment: boolean;
+  access_state: DashboardAccessState;
+}
+
+export interface DashboardPermissions {
+  canStartAssessment: boolean;
+  canViewAssessments: boolean;
+  canViewAnalytics: boolean;
+  canViewScores: boolean;
+}
+
+export interface AssessmentCardAvailability {
+  disabled: boolean;
+  disabled_reason?: string;
+}
+
+export interface CandidateAnalyticsDashboard {
+  total_assessments?: number;
+  overall_average_score?: number | null;
+  average_wpm?: number | null;
+  latest_coaching_band?: string | null;
+  analytics: {
+    average_technical_score: number;
+    average_communication_score: number;
+    average_wpm?: number | null;
+    average_silence_ratio_pct?: number | null;
+    top_strengths: string[];
+    top_improvements: string[];
+  };
+  executive_summary: { latest_coaching_band: string };
+}
+
+// ============================================================================
 // FE2 Recording & Upload Queue Types
 // ============================================================================
 
