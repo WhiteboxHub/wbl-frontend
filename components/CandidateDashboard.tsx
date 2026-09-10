@@ -85,6 +85,7 @@ import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
+import AIPrepDashboard from "@/components/aiprep/AIPrepDashboard";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
@@ -3284,7 +3285,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'wbl-smartprep' && (
+                                {activeTab === 'wbl-smartprep' && <AIPrepDashboard setupStatus={{
+                                    resume_uploaded: Boolean(setupStatus?.resume_uploaded || setupStatus?.has_binary_resume || prefetchedSession?.summaryData?.resume_json || prefetchedSession?.summaryData?.resume_text === "Exists"),
+                                    api_keys_configured: Boolean(setupStatus?.api_keys_configured),
+                                    setup_complete: Boolean(setupStatus?.setup_complete),
+                                }} />}
+
+                                {activeTab === 'wbl-smartprep' && false && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
 
                                         {/* AI Profile Setup Card */}

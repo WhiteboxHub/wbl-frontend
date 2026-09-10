@@ -1,3 +1,5 @@
+import AIPrepDashboard from "@/components/aiprep/AIPrepDashboard";
+
 export default function ReportsDashboardPage() {
-  return null;
+  return <AIPrepDashboard initialView="assessments" />;
 }
