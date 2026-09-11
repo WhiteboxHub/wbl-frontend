@@ -57,77 +57,74 @@ export function useMediaPipeVision() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let isMounted = true;
+    const lifecycle = { cancelled: false };
     setIsLoading(true);
 
-    async function initMediaPipe() {
+    async function createLandmarker() {
+      const visionModule = await import('@mediapipe/tasks-vision');
+      const { FilesetResolver, FaceLandmarker } = visionModule;
+
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+      );
+
+      const modelOptions = {
+        baseOptions: {
+          modelAssetPath:
+            'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate: 'GPU' as const,
+        },
+        runningMode: 'VIDEO' as const,
+        numFaces: 1,
+        outputFaceBlendshapes: true,
+        minFaceDetectionConfidence: 0.55,
+        minFacePresenceConfidence: 0.55,
+        minTrackingConfidence: 0.55,
+      };
+
       try {
-        // Dynamic import ensures zero SSR build errors in Next.js
-        const visionModule = await import('@mediapipe/tasks-vision');
-        const { FilesetResolver, FaceLandmarker } = visionModule;
-
-        if (!isMounted) return;
-
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-        );
-
-        if (!isMounted) return;
-
-        const modelOptions = {
-          baseOptions: {
-            modelAssetPath:
-              'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-            delegate: 'GPU' as const,
-          },
-          runningMode: 'VIDEO' as const,
-          numFaces: 1,
-          outputFaceBlendshapes: true,
-          minFaceDetectionConfidence: 0.55,
-          minFacePresenceConfidence: 0.55,
-          minTrackingConfidence: 0.55,
-        };
-
-        let faceLandmarker: any = null;
-        try {
-          faceLandmarker = await FaceLandmarker.createFromOptions(vision, modelOptions);
-        } catch (gpuErr) {
-          console.warn('[MediaPipe] GPU unavailable, using CPU fallback:', gpuErr);
-          faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-            ...modelOptions,
-            baseOptions: {
-              ...modelOptions.baseOptions,
-              delegate: 'CPU',
-            },
-          });
-        }
-
-        if (isMounted && faceLandmarker) {
-          faceLandmarkerRef.current = faceLandmarker;
-          setIsReady(true);
-          setLoadError(null);
-        }
-      } catch (err: any) {
-        console.warn('[MediaPipe] Initialization warning (graceful fallback active):', err);
-        if (isMounted) {
-          setIsReady(false);
-          setLoadError(err?.message || 'MediaPipe initialization failed');
-        }
-      } finally {
-        if (isMounted) setIsLoading(false);
+        return await FaceLandmarker.createFromOptions(vision, modelOptions);
+      } catch (gpuErr) {
+        console.warn('[MediaPipe] GPU unavailable, using CPU fallback:', gpuErr);
+        return await FaceLandmarker.createFromOptions(vision, {
+          ...modelOptions,
+          baseOptions: { ...modelOptions.baseOptions, delegate: 'CPU' },
+        });
       }
     }
 
-    initMediaPipe();
+    createLandmarker()
+      .then((instance) => {
+        // If unmount happened while we were awaiting, don't adopt the instance —
+        // close it right here instead of leaving it to a cleanup that already ran.
+        if (lifecycle.cancelled) {
+          try { instance.close(); } catch {}
+          return;
+        }
+        faceLandmarkerRef.current = instance;
+        setIsReady(true);
+        setLoadError(null);
+      })
+      .catch((err: any) => {
+        console.warn('[MediaPipe] Initialization warning:', err);
+        if (!lifecycle.cancelled) {
+          setIsReady(false);
+          setLoadError(err?.message || 'MediaPipe initialization failed');
+        }
+      })
+      .finally(() => {
+        if (!lifecycle.cancelled) setIsLoading(false);
+      });
 
     return () => {
-      isMounted = false;
+      lifecycle.cancelled = true;
+      // Handles the case where init already finished before unmount.
       if (faceLandmarkerRef.current) {
-        try {
-          faceLandmarkerRef.current.close();
-        } catch { }
+        try { faceLandmarkerRef.current.close(); } catch {}
         faceLandmarkerRef.current = null;
       }
+      // If init hasn't finished yet, the .then() above will see
+      // lifecycle.cancelled === true and close the instance itself.
     };
   }, []);
 
