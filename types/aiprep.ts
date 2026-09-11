@@ -4,7 +4,8 @@ export type AssessmentType =
   | 'RECRUITER'
   | 'HIRING_MANAGER'
   | 'TECHNICAL'
-  | 'SYSTEM_DESIGN';
+  | 'SYSTEM_DESIGN'
+  | string;
 
 export const NO_PAUSE_ASSESSMENT_TYPES: ReadonlyArray<AssessmentType> = [
   'INTRO',
@@ -25,6 +26,16 @@ export interface AssessmentCardMeta {
   requiresJd: boolean;
 }
 
+export interface AssessmentQuestion {
+  id?: number;
+  question_id?: number;
+  question_text: string;
+  category?: string;
+  sub_category?: string | null;
+  difficulty_level?: string;
+  is_active?: boolean;
+}
+
 export interface CreateAssessmentRequest {
   candidate_id?: number;
   assessment_type: AssessmentType;
@@ -40,6 +51,10 @@ export interface CreateAssessmentResponse {
   id: number;
   status: AssessmentStatus;
   started_at: string;
+  assessment_type?: string;
+  media_type?: string;
+  job_description?: string | null;
+  questions?: AssessmentQuestion[];
 }
 
 export type AssessmentStatus = "IN_PROGRESS" | "EVALUATING" | "COMPLETED" | "FAILED" | string;
@@ -52,6 +67,7 @@ export interface AssessmentSummary {
   status: AssessmentStatus;
   started_at?: string | null;
   created_at?: string | null;
+  job_description?: string | null;
 }
 
 export interface AssessmentDetail extends AssessmentSummary {
@@ -59,8 +75,11 @@ export interface AssessmentDetail extends AssessmentSummary {
   completed_at?: string | null;
   job_description?: string | null;
   youtube_url?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
   data?: Record<string, unknown> | null;
   report?: Record<string, unknown> | null;
+  questions?: AssessmentQuestion[];
 }
 
 export interface ReadinessCheck {
@@ -73,5 +92,23 @@ export interface ReadinessCheck {
 
 export interface AssessmentListResponse {
   items: AssessmentSummary[];
-  total: number;
+  total?: number;
+  count?: number;
 }
+
+export interface HardwareCheckResults {
+  browser_info: string;
+  os_info: string;
+  camera_permission: boolean;
+  mic_permission: boolean;
+  speaker_ok: boolean;
+  bandwidth_kbps: number;
+  analytics_consent: boolean;
+  assessment_type: string;
+  audio_enabled: boolean;
+  video_enabled: boolean;
+  jd_text: string;
+}
+
+
+

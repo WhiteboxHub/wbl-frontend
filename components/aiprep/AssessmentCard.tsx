@@ -254,16 +254,5 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   );
 };
 
-import dynamic from 'next/dynamic';
+export default AssessmentCard;
 
-const DeviceCheckWizardLazy = dynamic(
-  () => import('./DeviceCheckWizard').then((mod) => mod.DeviceCheckWizard),
-  { ssr: false }
-);
-
-export default function DefaultAssessmentCard(props: any) {
-  if (props && props.card) {
-    return <AssessmentCard {...props} />;
-  }
-  return <DeviceCheckWizardLazy onCancel={props?.onBack} />;
-}

@@ -10,7 +10,7 @@ import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckC
 import { AssessmentConfig } from './AssessmentCard';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
 import  PracticeStep  from './PracticeStep';
-import { AssessmentType, aiPrepApi } from '@/lib/aiprep-api';
+import { AssessmentType, aiPrepApi, HardwareCheckResults } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 
@@ -46,8 +46,8 @@ interface DeviceCheckWizardProps {
   assessmentMode?: string;
   audioOnly?: boolean;
   initialStep?: WizardStep;
-  onPrepareConfirmation?: (results: any) => Promise<number>;
-  onComplete?: (results: any) => void;
+  onPrepareConfirmation?: (results: HardwareCheckResults) => Promise<number>;
+  onComplete?: (results: HardwareCheckResults) => void;
   onCancel?: () => void;
 }
 export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
@@ -96,16 +96,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     return initialStep;
   });
   const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
+    if (initialType) return initialType as AssessmentType;
     if (typeof window !== 'undefined') {
       const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
-      if (savedType === 'INTRO') return 'INTRO';
+      if (savedType) return savedType;
     }
     return 'INTRO';
   });
   // 2. Consent State (Centralized in ConsentModal module)
+  const isAudioOnlyMode = audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO';
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(audioOnly);
-  }, [audioOnly]);
+    return getInitialConsentState(isAudioOnlyMode);
+  }, [isAudioOnlyMode]);
   const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
@@ -163,7 +165,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
     } catch { }
     try {
-      if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'AIPREP_STEP_CHANGE', step, slug }, '*');
+      if (window.parent && window.parent !== window) {
+        const targetOrigin = window.location.origin;
+        window.parent.postMessage({ type: 'AIPREP_STEP_CHANGE', step, slug }, targetOrigin);
+      }
     } catch { }
   }, [step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
@@ -201,6 +206,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleMsg = (e: MessageEvent) => {
+      if (typeof window !== 'undefined' && e.origin !== window.location.origin) return;
       if (e.data && e.data.type === 'AIPREP_SET_STEP' && e.data.step) {
         const nextStep = e.data.step as WizardStep;
         if (['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(nextStep)) {
@@ -491,10 +497,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (step !== 'DEVICE_CHECK' || !videoEnabled || !videoAnalyticsEnabled) return;
     if (cameraOk === true && cameraStream?.active) {
       const hasLiveBox = !!realtimeTelemetry?.face_box && (realtimeTelemetry?.face_box?.width ?? 0) > 0;
-      const hasVisibility = (realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || (realtimeTelemetry?.face_visible_pct ?? 0) > 0;
       const hasPresence = realtimeTelemetry?.is_instant_face_present === true || isFaceLive;
 
-      if (hasLiveBox || hasVisibility || hasPresence || isVisionReady) {
+      if (hasLiveBox || hasPresence || isVisionReady) {
         setAnalyticsOk(true);
         setAnalyticsTested(true);
         if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'true');
@@ -890,8 +895,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           } catch { }
         }
         const hasLiveBox = !!realtimeTelemetry?.face_box && (realtimeTelemetry?.face_box?.width ?? 0) > 0;
-        const hasVisibility = (realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || (realtimeTelemetry?.face_visibility_pct ?? 0) > 0;
-        if (hasLiveBox || hasVisibility || realtimeTelemetry?.is_instant_face_present === true) {
+        if (hasLiveBox || realtimeTelemetry?.is_instant_face_present === true) {
           faceFound = true;
           break;
         }
@@ -1204,7 +1208,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       mic_permission: !!micOk,
       speaker_ok: speakerOk !== false,
       bandwidth_kbps: bandwidthKbps || (typeof navigator !== 'undefined' && (navigator as any).connection?.downlink ? Math.round((navigator as any).connection.downlink * 1000) : 0),
-      yolo_consent: videoAnalyticsEnabled,
+      analytics_consent: videoAnalyticsEnabled,
       assessment_type: assessmentType,
       audio_enabled: true,
       video_enabled: videoEnabled,
@@ -1334,14 +1338,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         await handlePrepareConfirmationInternal({
           browser_info: browserResult?.name || 'Standard Browser', os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
           camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: !!speakerOk, bandwidth_kbps: bandwidthKbps,
-          yolo_consent: videoAnalyticsEnabled, assessment_type: assessmentType, audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
+          analytics_consent: videoAnalyticsEnabled, assessment_type: assessmentType, audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
         });
+        setStep('PRACTICE_START');
       } catch (err) {
         console.error('[DeviceCheckWizard] Error preparing session:', err);
       } finally {
         setIsConfirmingFromBackend(false);
       }
-      setStep('PRACTICE_START');
     } else if (step === 'PRACTICE_START') {
       handleCompleteAssessment();
     }
@@ -1364,9 +1368,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   };
 
   // Vision Telemetry status metrics with real-time instantaneous evaluation
-  const isFaceDetected = isFaceLive && (realtimeTelemetry?.is_instant_face_present === true || (realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || (realtimeTelemetry?.face_visibility_pct ?? 0) > 0 || !!realtimeTelemetry?.face_box);
+  const isFaceDetected = isFaceLive && (realtimeTelemetry?.is_instant_face_present === true || !!realtimeTelemetry?.face_box);
   const isCentered = isFaceDetected && (realtimeTelemetry?.sitting_position === 'Upright Centered' || realtimeTelemetry?.sitting_position === 'Centered' || !!realtimeTelemetry?.is_instant_straight);
-  const isEyesOnScreen = isFaceDetected && (realtimeTelemetry?.is_instant_eyes_attentive === true || (realtimeTelemetry?.screen_attention_pct ?? 0) >= 20 || (realtimeTelemetry?.eye_contact_pct ?? 0) >= 15 || !!realtimeTelemetry?.is_instant_straight);
+  const isEyesOnScreen = isFaceDetected && (realtimeTelemetry?.is_instant_eyes_attentive === true);
   const isHeadPoseOk = isFaceDetected && (realtimeTelemetry?.is_instant_straight === true || isCentered);
   const hasGoodLighting = !!cameraStream && isGoodLighting;
 

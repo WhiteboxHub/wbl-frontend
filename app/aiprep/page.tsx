@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/utils/AuthContext';
-import { aiPrepApi, AssessmentType, AssessmentMode } from '@/lib/aiprep-api';
+import { aiPrepApi, AssessmentType, AssessmentMode, HardwareCheckResults } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/AssessmentCard';
@@ -63,19 +63,7 @@ export default function AIPrepPage() {
   });
 
   // Phase 1 — called when transitioning from DEVICE_CHECK → CONFIRMATION
-  const handlePrepareConfirmation = async (results: {
-    browser_info: string;
-    os_info: string;
-    camera_permission: boolean;
-    mic_permission: boolean;
-    speaker_ok: boolean;
-    bandwidth_kbps: number;
-    yolo_consent: boolean;
-    assessment_type: string;
-    audio_enabled: boolean;
-    video_enabled: boolean;
-    jd_text: string;
-  }): Promise<number> => {
+  const handlePrepareConfirmation = async (results: HardwareCheckResults): Promise<number> => {
     let candidateId: number | undefined = undefined;
     try {
       const userResponse = await apiFetch("user_dashboard");
@@ -107,19 +95,7 @@ export default function AIPrepPage() {
   };
 
   // Phase 2 — Wizard final completion ("Start Assessment" button)
-  const handleCheckComplete = async (_results: {
-    browser_info: string;
-    os_info: string;
-    camera_permission: boolean;
-    mic_permission: boolean;
-    speaker_ok: boolean;
-    bandwidth_kbps: number;
-    yolo_consent: boolean;
-    assessment_type: string;
-    audio_enabled: boolean;
-    video_enabled: boolean;
-    jd_text: string;
-  }) => {
+  const handleCheckComplete = async (_results: HardwareCheckResults) => {
     try {
       setIsSaving(true);
       setErrorMsg(null);
@@ -293,7 +269,7 @@ export default function AIPrepPage() {
         </div>
       ) : (
         <DeviceCheckWizard
-          assessmentId={activeAssessmentId }
+          assessmentId={activeAssessmentId}
           assessmentType={effectiveType}
           assessmentMode={effectiveMode}
           audioOnly={effectiveMode === 'AUDIO_ONLY'}
