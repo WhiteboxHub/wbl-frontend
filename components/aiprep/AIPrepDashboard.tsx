@@ -41,15 +41,19 @@ const formatDate = (value?: string | null) =>
 // Component
 // ---------------------------------------------------------------------------
 
-export function AIPrepDashboard({
-  setupStatus,
-}: {
+export interface AIPrepDashboardProps {
+  initialView?: View;
   setupStatus?: {
     resume_uploaded?: boolean;
     api_keys_configured?: boolean;
     setup_complete?: boolean;
   };
-}) {
+}
+
+export function AIPrepDashboard({
+  initialView = "home",
+  setupStatus,
+}: AIPrepDashboardProps) {
   const router = useRouter();
 
   // ── Data state ────────────────────────────────────────────────────────────
@@ -61,7 +65,7 @@ export function AIPrepDashboard({
   const [apiError, setApiError] = useState<string | null>(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
-  const [view, setView] = useState<View>("home");
+  const [view, setView] = useState<View>(initialView);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [starting, setStarting] = useState(false);
 
