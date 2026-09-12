@@ -1,10 +1,9 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { DeviceCheckWizard } from "@/components/aiprep/DeviceCheckWizard";
+import AssessmentCard from "@/components/aiprep/AssessmentCard";
 
 export default function SessionPage() {
   const { assessmentId } = useParams<{ assessmentId: string }>();
-  return <DeviceCheckWizard assessmentId={assessmentId ? Number(assessmentId) : undefined} />;
+  return <AssessmentCard assessmentId={assessmentId} />;
 }
-
