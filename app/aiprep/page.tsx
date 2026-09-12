@@ -225,10 +225,6 @@ export default function AIPrepPage() {
     );
   }
 
-  if (!isUserAuthenticated) {
-    return null;
-  }
-
   // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
   if (!showWizard && !isSaving && !errorMsg) {
     return (
