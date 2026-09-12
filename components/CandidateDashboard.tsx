@@ -61,6 +61,7 @@ import {
     Download,
     X,
     Trash2,
+    ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -185,11 +186,11 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'ai-prep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'ai-prep' | 'aiprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
 
 const normalizeTab = (tab?: string): TabType => {
     if (!tab) return 'overview';
-    if (tab.startsWith('ai-prep') || tab.startsWith('wbl-smartprep')) return 'ai-prep';
+    if (tab.startsWith('ai-prep') || tab.startsWith('aiprep') || tab.startsWith('wbl-smartprep')) return 'ai-prep';
     return tab as TabType;
 };
 
@@ -1024,6 +1025,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             toast.success("Resume uploaded successfully!");
             setResumeFile(fileToUpload);
             setShowTemplates(false);
+            setupApi.clearCache?.();
             setSetupStatus(prev => {
                 const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
                 return {
@@ -1237,7 +1239,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
 
         try {
-            const d: any = await setupApi.getStatus();
+            const d: any = await setupApi.getStatus(true);
             // Fallback: if cache miss but they have keys in both places, assume AI prep status
             const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && (d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0)));
             const resolvedStatus = {
@@ -2304,14 +2306,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                             <button
                                 onClick={() => goToTab('ai-prep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'wbl-smartprep'
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep' || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>AI PrepTool</span>
-                                {(activeTab === 'ai-prep' || activeTab === 'wbl-smartprep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                                {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
                         </div>
                     </div>
@@ -2405,8 +2407,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     })}
 
                     <button
-                        onClick={() => goToTab('wbl-smartprep')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'wbl-smartprep'
+                        onClick={() => goToTab('aiprep')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'aiprep')
                             ? "bg-indigo-600 text-white shadow-sm"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                             }`}
@@ -2446,8 +2448,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         <AiSetupTab
                                             candidateId={candidateId ?? undefined}
                                             onFinishSetup={async () => {
+                                                setupApi.clearCache?.();
                                                 await refreshSetupStatus();
-                                                goToTab('wbl-smartprep');
+                                                goToTab('aiprep');
                                             }}
                                         />
                                     </div>
@@ -3321,7 +3324,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {(activeTab === 'ai-prep' || activeTab === 'wbl-smartprep') && (
+                                {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && (
                                     <div className="flex-1 overflow-y-auto bg-slate-50/70 p-0 dark:bg-slate-950/40">
                                         {isWizardPath() ? (
                                             <div className="w-full min-h-full">
@@ -3615,16 +3618,36 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     )}
 
                                                     {/* Bottom Navigation Buttons */}
-                                                    <div className="flex justify-end items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-6">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setShowTemplates(true)}
-                                                            disabled={!setupStatus?.has_binary_resume || resumeUploadLoading}
-                                                            className="flex items-center gap-1.5 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all"
-                                                        >
-                                                            <span>Next</span>
-                                                            <span>&gt;</span>
-                                                        </button>
+                                                    <div className="flex justify-between items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-6">
+                                                        <div>
+                                                            {(setupStatus?.has_binary_resume || setupStatus?.resume_uploaded) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowTemplates(true)}
+                                                                    disabled={resumeUploadLoading}
+                                                                    className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-700 hover:border-blue-500 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50/50 transition-colors shadow-sm cursor-pointer"
+                                                                >
+                                                                    <span>Customize Template</span>
+                                                                    <span>&gt;</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    setupApi.clearCache?.();
+                                                                    await refreshSetupStatus();
+                                                                    toast.success("Resume setup completed!");
+                                                                    goToTab('aiprep');
+                                                                }}
+                                                                disabled={(!setupStatus?.has_binary_resume && !setupStatus?.resume_uploaded) || resumeUploadLoading}
+                                                                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all cursor-pointer"
+                                                            >
+                                                                <span>Complete Setup</span>
+                                                                <ArrowRight className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ) : isEditingJson ? (
@@ -3807,6 +3830,30 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             </div>
                                                         </div>
                                                     )}
+                                                    {/* Template View Bottom Navigation */}
+                                                    <div className="flex justify-between items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-4">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowTemplates(false)}
+                                                            className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-700 hover:border-gray-400 text-gray-700 dark:text-gray-300 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+                                                        >
+                                                            <span>&lt;</span>
+                                                            <span>Back to Upload</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                setupApi.clearCache?.();
+                                                                await refreshSetupStatus();
+                                                                toast.success("Resume setup completed!");
+                                                                goToTab('aiprep');
+                                                            }}
+                                                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all cursor-pointer"
+                                                        >
+                                                            <span>Complete Setup</span>
+                                                            <ArrowRight className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

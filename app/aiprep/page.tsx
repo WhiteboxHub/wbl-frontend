@@ -6,7 +6,7 @@ import { useAuth } from '@/utils/AuthContext';
 import { aiPrepApi, AssessmentType, AssessmentMode, HardwareCheckResults } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
-import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/AssessmentCard';
+import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
 import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
 import { AlertCircle, Loader2 } from 'lucide-react';
 

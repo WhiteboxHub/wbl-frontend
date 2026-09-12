@@ -7,6 +7,8 @@ import type {
   CreateAssessmentRequest,
   CreateAssessmentResponse,
   AssessmentStatus,
+  LlmKeyStatus,
+  ResumeStatus,
 } from "@/types/aiprep";
 
 export * from "@/types/aiprep";
@@ -14,26 +16,37 @@ export * from "@/types/aiprep";
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
 export const aiPrepApi = {
-  // Pre-check readiness
-  getReadiness: () =>
+  // Pre-flight readiness
+  getReadiness: (): Promise<ReadinessCheck> =>
     apiFetch(endpoint("candidate/pre-check")) as Promise<ReadinessCheck>,
 
+  getLlmKeys: (): Promise<LlmKeyStatus> =>
+    apiFetch(endpoint("candidate/llm-keys")) as Promise<LlmKeyStatus>,
+
+  getResumeStatus: (): Promise<ResumeStatus> =>
+    apiFetch(endpoint("candidate/resume-status")) as Promise<ResumeStatus>,
+
   // List candidate assessments
-  listAssessments: (limit = 20, offset = 0) =>
+  listAssessments: (limit = 20, offset = 0): Promise<AssessmentListResponse> =>
     apiFetch(endpoint(`candidate/assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>,
 
-  // 1. Get single assessment details
-  getAssessment: (assessmentId: string | number) =>
+  // Get single assessment details
+  getAssessment: (assessmentId: string | number): Promise<AssessmentDetail> =>
     apiFetch(endpoint(`candidate/assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
 
-  // 2. Create / Start assessment
-  createAssessment: (payload: string | CreateAssessmentRequest = "INTRO") => {
+  // Create / Start assessment
+  createAssessment: (
+    payload: string | CreateAssessmentRequest = "INTRO",
+    mediaTypeArg: string = "VIDEO",
+    jobDescriptionArg?: string
+  ): Promise<CreateAssessmentResponse & AssessmentSummary> => {
     if (typeof payload === "string") {
       return apiFetch(endpoint("candidate/assessments"), {
         method: "POST",
         body: {
           assessment_type: payload,
-          media_type: "VIDEO",
+          media_type: mediaTypeArg,
+          job_description: jobDescriptionArg ?? null,
         },
       }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
     }
@@ -71,7 +84,7 @@ export const aiPrepApi = {
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
   },
 
-  // 3. Update assessment status
+  // Update assessment status
   updateAssessmentStatus: async (
     assessmentId: number | string,
     status: AssessmentStatus

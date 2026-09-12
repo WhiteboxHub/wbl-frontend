@@ -1,3 +1,8 @@
+/**
+ * AI Prep Tool – Frontend Types
+ * Mirrors the Pydantic schemas in fapi/ai_prep/schemas.py
+ */
+
 export type AssessmentType =
   | 'INTRO'
   | 'JD_INTRO'
@@ -47,48 +52,114 @@ export interface CreateAssessmentRequest {
   user_agent?: string | null;
 }
 
-export interface CreateAssessmentResponse {
-  id: number;
-  status: AssessmentStatus;
-  started_at: string;
-  assessment_type?: string;
-  media_type?: string;
-  job_description?: string | null;
-  questions?: AssessmentQuestion[];
+export type AssessmentStatus =
+  | "IN_PROGRESS"
+  | "EVALUATING"
+  | "COMPLETED"
+  | "FAILED"
+  | string;
+
+export type AssessmentCategory =
+  | "INTRO"
+  | "JD_INTRO"
+  | "RECRUITER"
+  | "HIRING_MANAGER"
+  | "SYSTEM_DESIGN"
+  | "TECHNICAL"
+  | string;
+
+// ---------------------------------------------------------------------------
+// Pre-flight readiness – LLMKeyStatusResponse
+// ---------------------------------------------------------------------------
+
+export type LlmKeyStatus = {
+  status: "valid" | "failure";
+  is_configured: boolean;
+  provider: string | null;
+  model: string | null;
+  voice_enabled?: boolean;
+  message?: string | null;
+  available_models?: string[];
+};
+
+// ---------------------------------------------------------------------------
+// Pre-flight readiness – ResumeStatusResponse
+// ---------------------------------------------------------------------------
+
+export type ResumeStatus = {
+  status: "valid" | "failure";
+  has_resume: boolean;
+  has_parsed_json?: boolean;
+  candidate_name?: string | null;
+  current_title?: string | null;
+  skills?: string[];
+  message?: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Pre-flight readiness – PreAssessmentCheckResponse
+// ---------------------------------------------------------------------------
+
+export interface ReadinessCheck {
+  eligible: boolean;
+  candidate_id?: number;
+  llm_check?: LlmKeyStatus;
+  resume_check?: ResumeStatus;
+  message?: string | null;
 }
 
-export type AssessmentStatus = "IN_PROGRESS" | "EVALUATING" | "COMPLETED" | "FAILED" | string;
+// ---------------------------------------------------------------------------
+// Assessment list item – AssessmentListItem
+// ---------------------------------------------------------------------------
 
 export interface AssessmentSummary {
   id: number;
   assessment_uuid?: string | null;
+  candidate_id?: number | null;
   assessment_type: string;
   media_type: string;
   status: AssessmentStatus;
+  youtube_url?: string | null;
   started_at?: string | null;
   created_at?: string | null;
+  completed_at?: string | null;
   job_description?: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Assessment detail – AssessmentDetailResponse
+// ---------------------------------------------------------------------------
+
 export interface AssessmentDetail extends AssessmentSummary {
-  candidate_id: number;
-  completed_at?: string | null;
+  candidate_id?: number | null;
   job_description?: string | null;
   youtube_url?: string | null;
   ip_address?: string | null;
   user_agent?: string | null;
+  completed_at?: string | null;
   data?: Record<string, unknown> | null;
   report?: Record<string, unknown> | null;
   questions?: AssessmentQuestion[];
 }
 
-export interface ReadinessCheck {
-  eligible: boolean;
-  candidate_id: number;
-  message?: string | null;
-  llm_check: { is_configured: boolean; message?: string | null };
-  resume_check: { has_resume: boolean; has_parsed_json: boolean; message?: string | null };
+// ---------------------------------------------------------------------------
+// Create assessment response – CreateAssessmentResponse
+// ---------------------------------------------------------------------------
+
+export interface CreateAssessmentResponse {
+  id: number;
+  assessment_uuid?: string;
+  status: AssessmentStatus;
+  started_at?: string | null;
+  assessment_type?: string;
+  media_type?: string;
+  job_description?: string | null;
+  questions?: AssessmentQuestion[] | unknown[];
 }
+
+// ---------------------------------------------------------------------------
+// Assessment list response – AssessmentListResponse
+// ---------------------------------------------------------------------------
 
 export interface AssessmentListResponse {
   items: AssessmentSummary[];
@@ -109,6 +180,3 @@ export interface HardwareCheckResults {
   video_enabled: boolean;
   jd_text: string;
 }
-
-
-
