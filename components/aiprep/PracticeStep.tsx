@@ -128,7 +128,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         localStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [cameraStream, videoEnabled, isPlaying, testAudioUrl]);
+  }, [cameraStream, videoEnabled]);
 
   // Clean up recorded blob URL on unmount
   useEffect(() => {
@@ -221,6 +221,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         setTestAudioUrl(url);
         setIsRecording(false);
         setActiveView('PLAYBACK');
+        activeStream.getTracks().forEach((t) => t.stop());
       };
 
       recorder.start(500);
