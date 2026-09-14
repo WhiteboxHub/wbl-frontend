@@ -66,74 +66,132 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [step, setStep] = useState<WizardStep>(() => {
-    if (typeof window !== 'undefined') {
-      const currentPath = window.location.pathname.toLowerCase();
-      let topPath = '';
-      try {
-        if (window.top && window.top.location) {
-          topPath = window.top.location.pathname.toLowerCase();
-        }
-      } catch { }
-      const activePath = topPath || currentPath;
-      // When accessing /aiprep directly or assessment type route, always start at Step 1 (Assessment Type)
-      if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
-        return 'CONFIGURATION';
-      }
-      // Check URL route slugs
-      for (const [slugKey, s] of Object.entries(SLUG_TO_STEP)) {
-        if (activePath.includes(`/${slugKey}`) || activePath.endsWith(`/${slugKey}`)) {
-          return s;
-        }
-      }
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlStep = urlParams.get('step') as WizardStep | null;
-      if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(urlStep)) {
-        return urlStep;
-      }
-      // Check sessionStorage fallback
-      const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
-      if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
-        return savedStep;
-      }
-    }
-    return initialStep;
-  });
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
-    if (initialType) return initialType as AssessmentType;
-    if (typeof window !== 'undefined') {
-      const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
-      if (savedType) return savedType;
-    }
-    return 'INTRO';
-  });
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const [step, setStep] = useState<WizardStep>(initialStep);
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => (initialType as AssessmentType) || 'INTRO');
+
   // 2. Consent State (Centralized in ConsentModal module)
   const isAudioOnlyMode = useMemo(() => {
     if (audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO') return true;
-    if (typeof window !== 'undefined') {
+    if (isMounted && typeof window !== 'undefined') {
       const savedMode = sessionStorage.getItem('aiprep_active_mode');
       const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
       if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false') return true;
     }
     return false;
-  }, [audioOnly, initialMode]);
+  }, [audioOnly, initialMode, isMounted]);
 
   const initialConsent = useMemo(() => {
     return getInitialConsentState(isAudioOnlyMode);
   }, [isAudioOnlyMode]);
+
   const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
   const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
-  const [jdText, setJdText] = useState<string>(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
-    return '';
-  });
+  const [jdText, setJdText] = useState<string>('');
+
+  // Restore persisted state from sessionStorage and URL safely after client mount
+  useEffect(() => {
+    if (!isMounted || typeof window === 'undefined') return;
+
+    // 1. Restore step
+    const currentPath = window.location.pathname.toLowerCase();
+    let topPath = '';
+    try {
+      if (window.top && window.top.location) {
+        topPath = window.top.location.pathname.toLowerCase();
+      }
+    } catch { }
+    const activePath = topPath || currentPath;
+    let matchedStep: WizardStep | null = null;
+    if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
+      matchedStep = 'CONFIGURATION';
+    } else {
+      for (const [slugKey, s] of Object.entries(SLUG_TO_STEP)) {
+        if (activePath.includes(`/${slugKey}`) || activePath.endsWith(`/${slugKey}`)) {
+          matchedStep = s;
+          break;
+        }
+      }
+      if (!matchedStep) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlStep = urlParams.get('step') as WizardStep | null;
+        if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(urlStep)) {
+          matchedStep = urlStep;
+        } else {
+          const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
+          if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
+            matchedStep = savedStep;
+          }
+        }
+      }
+    }
+    if (matchedStep) {
+      setStep(matchedStep);
+    }
+
+    // 2. Restore type
+    if (!initialType) {
+      const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
+      if (savedType) setAssessmentType(savedType);
+    }
+
+    // 3. Restore JD text
+    const savedJd = sessionStorage.getItem('aiprep_jd_text');
+    if (savedJd) setJdText(savedJd);
+
+    // 4. Restore consent preferences
+    const savedAnalytics = sessionStorage.getItem('aiprep_consent_analytics');
+    const savedRecording = sessionStorage.getItem('aiprep_consent_recording');
+    const savedTranscript = sessionStorage.getItem('aiprep_consent_transcript');
+    if (savedAnalytics !== null) setVideoAnalyticsEnabled(savedAnalytics === 'true');
+    if (savedRecording !== null) setConsentSaveRecording(savedRecording === 'true');
+    if (savedTranscript !== null) setConsentSaveTranscript(savedTranscript === 'true');
+
+    const savedMode = sessionStorage.getItem('aiprep_active_mode');
+    const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
+    if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false' || isAudioOnlyMode) {
+      setVideoEnabled(false);
+      setConsentCamera(false);
+    }
+
+    // 5. Restore hardware test results
+    const savedCamOk = sessionStorage.getItem('aiprep_test_camera_ok');
+    if (savedCamOk !== null) {
+      setCameraOk(savedCamOk === 'true');
+      setCameraTested(sessionStorage.getItem('aiprep_test_camera_tested') === 'true');
+    }
+    const savedMicOk = sessionStorage.getItem('aiprep_test_mic_ok');
+    if (savedMicOk !== null) {
+      setMicOk(savedMicOk === 'true');
+      setMicTested(sessionStorage.getItem('aiprep_test_mic_tested') === 'true');
+    }
+    const savedSpkOk = sessionStorage.getItem('aiprep_test_speaker_ok');
+    if (savedSpkOk !== null) {
+      setSpeakerOk(savedSpkOk === 'true');
+      setSpeakerTested(sessionStorage.getItem('aiprep_test_speaker_tested') === 'true');
+    }
+    const savedAnalyticsOk = sessionStorage.getItem('aiprep_test_analytics_ok');
+    if (savedAnalyticsOk !== null) {
+      setAnalyticsOk(savedAnalyticsOk === 'true');
+      setAnalyticsTested(sessionStorage.getItem('aiprep_test_analytics_tested') === 'true');
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsRealInternetOnline(false);
+    }
+  }, [isMounted]);
+
   const isPopStateRef = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!isMounted || typeof window === 'undefined') return;
     sessionStorage.setItem('aiprep_wizard_step', step);
     sessionStorage.setItem('aiprep_active_type', assessmentType);
     syncConsentToSessionStorage({
@@ -183,18 +241,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         window.parent.postMessage({ type: 'AIPREP_STEP_CHANGE', step, slug }, targetOrigin);
       }
     } catch { }
-  }, [step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
+  }, [isMounted, step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
+    if (!isMounted || typeof window === 'undefined') return;
     if (step === 'CONFIGURATION' && !audioOnly) {
-      const savedMode = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_mode') : null;
+      const savedMode = sessionStorage.getItem('aiprep_active_mode');
       if (!savedMode) {
         setVideoEnabled(true);
         setConsentCamera(true);
         syncConsentToSessionStorage({ videoEnabled: true, consentCamera: true });
       }
     }
-  }, [step, audioOnly]);
+  }, [isMounted, step, audioOnly]);
   // Synchronize wizard step with Next.js router pathname
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -334,20 +393,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     };
   }, []);
 
-  // 3. Hardware Diagnostics & Streams (Initialized from sessionStorage for refresh persistence)
-  const [cameraOk, setCameraOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_camera_ok') === 'true' ? true : null);
-  const [micOk, setMicOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_mic_ok') === 'true' ? true : null);
-  const [speakerOk, setSpeakerOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_speaker_ok') === 'true' ? true : null);
-  const [cameraTested, setCameraTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_camera_ok') === 'true');
-  const [micTested, setMicTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_mic_ok') === 'true');
-  const [speakerTested, setSpeakerTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_speaker_ok') === 'true');
-  const [analyticsOk, setAnalyticsOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_analytics_ok') === 'true' ? true : null);
-  const [analyticsTested, setAnalyticsTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_analytics_ok') === 'true');
+  // 3. Hardware Diagnostics & Streams (Initialized safely for SSR and restored after mount)
+  const [cameraOk, setCameraOk] = useState<boolean | null>(null);
+  const [micOk, setMicOk] = useState<boolean | null>(null);
+  const [speakerOk, setSpeakerOk] = useState<boolean | null>(null);
+  const [cameraTested, setCameraTested] = useState<boolean>(false);
+  const [micTested, setMicTested] = useState<boolean>(false);
+  const [speakerTested, setSpeakerTested] = useState<boolean>(false);
+  const [analyticsOk, setAnalyticsOk] = useState<boolean | null>(null);
+  const [analyticsTested, setAnalyticsTested] = useState<boolean>(false);
   const [analyticsTesting, setAnalyticsTesting] = useState<boolean>(false);
 
   const [bandwidthKbps, setBandwidthKbps] = useState<number>(0);
   const [networkPingMs, setNetworkPingMs] = useState<number>(0);
-  const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(true);
   const [bandwidthChecking, setBandwidthChecking] = useState<boolean>(false);
   const [browserResult, setBrowserResult] = useState<{ ok: boolean; name: string } | null>(null);
   const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
@@ -542,7 +601,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // Sync test results with sessionStorage so they persist on page refresh
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!isMounted || typeof window === 'undefined') return;
     if (cameraOk !== null) sessionStorage.setItem('aiprep_test_camera_ok', String(cameraOk));
     else sessionStorage.removeItem('aiprep_test_camera_ok');
     sessionStorage.setItem('aiprep_test_camera_tested', String(cameraTested));
@@ -558,7 +617,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (analyticsOk !== null) sessionStorage.setItem('aiprep_test_analytics_ok', String(analyticsOk));
     else sessionStorage.removeItem('aiprep_test_analytics_ok');
     sessionStorage.setItem('aiprep_test_analytics_tested', String(analyticsTested));
-  }, [cameraOk, cameraTested, micOk, micTested, speakerOk, speakerTested, analyticsOk, analyticsTested]);
+  }, [isMounted, cameraOk, cameraTested, micOk, micTested, speakerOk, speakerTested, analyticsOk, analyticsTested]);
 
   // Cleanup helper
   const cleanup = useCallback((scope: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY' = 'ALL') => {
@@ -1459,7 +1518,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             </div></div>
 
           {/* Content Body */}
-          <div className={`flex-1 min-h-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' ? 'overflow-hidden px-3 sm:px-6 py-1.5 sm:py-2' : 'overflow-y-auto p-2 sm:p-4 md:px-6 md:py-4'}`}>
+          <div className={`flex-1 min-h-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' ? 'overflow-hidden px-3 sm:px-6 py-1.5 sm:py-2' : step === 'CONSENT' ? 'overflow-y-auto px-3 sm:px-6 py-1.5 sm:py-2 md:py-2.5' : 'overflow-y-auto p-2 sm:p-4 md:px-6 md:py-4'}`}>
 
             {/* STEP 1: CONFIGURATION */}
             {step === 'CONFIGURATION' && (
@@ -1472,7 +1531,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
             {/* STEP 2: CONSENT */}
             {step === 'CONSENT' && (
-              <div className="w-full max-w-6xl mx-auto mt-0 mb-auto flex flex-col py-0"><ConsentStep
+              <div className="w-full max-w-4xl xl:max-w-5xl mx-auto my-auto flex flex-col py-0"><ConsentStep
                 videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled} consentMic={consentMic} setConsentMic={setConsentMic}
                 consentCamera={consentCamera} setConsentCamera={setConsentCamera} videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
                 consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording} consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
