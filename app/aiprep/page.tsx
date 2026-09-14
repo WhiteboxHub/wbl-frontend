@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/utils/AuthContext';
-import { aiPrepApi, AssessmentType, AssessmentMode, HardwareCheckResults } from '@/lib/aiprep-api';
+import { aiPrepApi } from '@/lib/aiprep-api';
+import type { AssessmentType, AssessmentMode, HardwareCheckResults } from '@/types/aiprep';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
