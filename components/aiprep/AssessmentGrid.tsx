@@ -12,7 +12,7 @@ import {
   Download,
   Settings,
 } from "lucide-react";
-import { AssessmentGridItem } from "@/types/assessment";
+import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 
 interface AssessmentGridProps {
   assessments: AssessmentGridItem[];
