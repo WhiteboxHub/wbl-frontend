@@ -180,3 +180,14 @@ export interface HardwareCheckResults {
   video_enabled: boolean;
   jd_text: string;
 }
+
+export type AssessmentDetails = AssessmentDetail;
+
+export interface CandidateAnalyticsDashboard {
+  total_assessments?: number;
+  overall_average_score?: number | null;
+  average_wpm?: number | null;
+  latest_coaching_band?: string | null;
+  analytics?: Record<string, unknown>;
+  [key: string]: unknown;
+}

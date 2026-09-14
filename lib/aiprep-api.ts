@@ -1,8 +1,10 @@
 import { apiFetch } from "@/lib/api";
 import type {
   AssessmentDetail,
+  AssessmentDetails,
   AssessmentListResponse,
   AssessmentSummary,
+  CandidateAnalyticsDashboard,
   ReadinessCheck,
   CreateAssessmentRequest,
   CreateAssessmentResponse,
@@ -82,6 +84,19 @@ export const aiPrepApi = {
       method: "POST",
       body,
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
+  },
+
+  // List assessments for candidate (alias supporting both listAssessments and listCandidateAssessments)
+  listCandidateAssessments: (candidateId?: number | string): Promise<AssessmentListResponse> =>
+    apiFetch(endpoint("candidate/assessments")) as Promise<AssessmentListResponse>,
+
+  // Get candidate dashboard analytics
+  getDashboardAnalytics: async (candidateId?: number | string): Promise<CandidateAnalyticsDashboard> => {
+    try {
+      return await apiFetch(endpoint(`candidate/analytics`));
+    } catch {
+      return {};
+    }
   },
 
   // Update assessment status
