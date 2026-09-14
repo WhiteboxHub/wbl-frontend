@@ -41,6 +41,8 @@ export interface AssessmentQuestion {
   is_active?: boolean;
 }
 
+export type QuestionBankItem = AssessmentQuestion;
+
 export interface CreateAssessmentRequest {
   candidate_id?: number;
   assessment_type: AssessmentType;
