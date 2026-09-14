@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, ArrowRight, Sparkles, PlayCircle } from "lucide-react";
 
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CandidateLlmKeysPanel } from "../CandidateLlmKeysPanel";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, setupApi } from "../../lib/api";
 
 type SetupStep = "llm-key" | "done";
 
 export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId?: number, onFinishSetup?: () => void }) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState<SetupStep>("llm-key");
   const [isValidLlm, setIsValidLlm] = useState(false);
 
@@ -20,12 +22,18 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
       const result: any = await apiFetch("coderpad/me/finish-setup", { method: "POST" });
       if (result?.setup_complete) {
         toast.success("Setup Completed!");
+        setupApi.clearCache?.();
+        if (onFinishSetup) {
+          await onFinishSetup();
+        } else {
+          router.push("/user_dashboard/aiprep");
+        }
       } else {
         toast.error(result?.error || "Default API key is not valid. Please validate it first.");
       }
     } catch (err: any) {
-      const msg = err?.body?.detail || "Failed to complete setup. Ensure your default key is active.";
-      toast.error(msg);
+      const msg = err?.body?.detail?.message || err?.body?.detail || err?.message || "Failed to complete setup. Ensure your default key is active.";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setFinishing(false);
     }

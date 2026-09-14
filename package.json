@@ -27,6 +27,7 @@
     "@mantine/dates": "^8.3.2",
     "@mantine/form": "^8.3.2",
     "@mantine/hooks": "^8.3.2",
+    "@mediapipe/tasks-vision": "^0.10.14",
     "@monaco-editor/react": "^4.7.0",
     "@popperjs/core": "^2.11.8",
     "@radix-ui/react-accordion": "^1.2.11",
