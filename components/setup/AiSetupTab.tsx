@@ -26,7 +26,7 @@ export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId
         if (onFinishSetup) {
           await onFinishSetup();
         } else {
-          router.push("/user_dashboard/aiprep");
+          router.push("/aiprep");
         }
       } else {
         toast.error(result?.error || "Default API key is not valid. Please validate it first.");

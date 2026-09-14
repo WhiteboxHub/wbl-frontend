@@ -108,7 +108,7 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         storageState: CANDIDATE_AUTH,
       },
-      testMatch: /candidate-regression\.spec\.ts/,
+      testMatch: ['tests/candidate-regression.spec.ts', 'tests/aiprep-wizard.spec.ts'],
       dependencies: ["setup"],
     },
 
