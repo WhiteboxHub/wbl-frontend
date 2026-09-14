@@ -31,14 +31,19 @@ export interface ConsentState {
 
 export const getInitialConsentState = (audioOnly = false): ConsentState => {
   if (typeof window !== 'undefined') {
+    const savedMode = sessionStorage.getItem('aiprep_active_mode');
+    const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
+    const isSavedAudioOnly = savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false';
+    const effectiveAudioOnly = audioOnly || isSavedAudioOnly;
+
     const savedAnalytics = sessionStorage.getItem('aiprep_consent_analytics');
     const savedRecording = sessionStorage.getItem('aiprep_consent_recording');
     const savedTranscript = sessionStorage.getItem('aiprep_consent_transcript');
 
     return {
-      videoEnabled: !audioOnly,
+      videoEnabled: !effectiveAudioOnly,
       consentMic: true,
-      consentCamera: !audioOnly,
+      consentCamera: !effectiveAudioOnly,
       videoAnalyticsEnabled: savedAnalytics !== null ? savedAnalytics === 'true' : true,
       consentSaveRecording: savedRecording !== null ? savedRecording === 'true' : true,
       consentSaveTranscript: savedTranscript !== null ? savedTranscript === 'true' : true,

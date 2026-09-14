@@ -27,9 +27,13 @@ const SLUG_TO_STEP: Record<string, WizardStep> = {
 
 const cleanLabel = (label: string, fallback: string) => {
   if (!label || !label.trim()) return fallback;
-  let c = label.replace(/^(Default|Communications)\s*-\s*/i, '').replace(/\s*[\(\[\{][^\)\]\}]*[\)\]\}]/g, '').trim();
+  // Strip generic OS prefixes like "Default - " or "Communications - "
+  let c = label.replace(/^(Default|Communications)\s*-\s*/i, '').trim();
+  // Remove trailing parentheticals that are redundant (e.g. device IDs like "(0x...)"), but keep useful ones like "(Built-in)" shortened
+  c = c.replace(/\s*\([0-9a-fx:,\s]+\)$/i, '').trim();
+  // Cap at 5 words to avoid overly long labels
   const words = c.split(/\s+/).filter(Boolean);
-  return (words.length > 2 ? words.slice(0, 2).join(' ') : c) || fallback;
+  return (words.length > 5 ? words.slice(0, 5).join(' ') : c) || fallback;
 };
 const filterDevs = (devs: any[], kind: string, fallback: string): MediaDev[] => {
   const seen = new Set<string>();
@@ -104,7 +108,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     return 'INTRO';
   });
   // 2. Consent State (Centralized in ConsentModal module)
-  const isAudioOnlyMode = audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO';
+  const isAudioOnlyMode = useMemo(() => {
+    if (audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO') return true;
+    if (typeof window !== 'undefined') {
+      const savedMode = sessionStorage.getItem('aiprep_active_mode');
+      const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
+      if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false') return true;
+    }
+    return false;
+  }, [audioOnly, initialMode]);
+
   const initialConsent = useMemo(() => {
     return getInitialConsentState(isAudioOnlyMode);
   }, [isAudioOnlyMode]);
@@ -406,6 +419,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   const [videoDevices, setVideoDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Integrated Webcam' }]);
   const [audioDevices, setAudioDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Default Microphone' }]);
+  const [speakerDevices, setSpeakerDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'System Default Speaker' }]);
   const [selectedVideoDevice, setSelectedVideoDevice] = useState<string>('default');
   const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>('default');
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -650,6 +664,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         rawAudioCount = devs.filter((d) => d.kind === 'audioinput').length;
         vDevs = filterDevs(devs, 'videoinput', 'Integrated Webcam');
         aDevs = filterDevs(devs, 'audioinput', 'Default Microphone');
+        const spDevs = filterDevs(devs, 'audiooutput', 'System Default Speaker');
+        if (spDevs.length > 0) {
+          setSpeakerDevices(spDevs);
+        }
         if (vDevs.length > 0) {
           setVideoDevices(vDevs);
           setSelectedVideoDevice((prev) => (vDevs.some((d) => d.deviceId === prev) ? prev : vDevs[0].deviceId));
@@ -683,6 +701,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           });
           bindCameraStream(stream);
           setShowPermissionGuide(false);
+          // Camera permission granted — re-enumerate to get real device labels
+          const freshDevs = await navigator.mediaDevices.enumerateDevices();
+          const freshVDevs = filterDevs(freshDevs, 'videoinput', 'Integrated Webcam');
+          const freshADevs = filterDevs(freshDevs, 'audioinput', 'Default Microphone');
+          const freshSpDevs = filterDevs(freshDevs, 'audiooutput', 'System Default Speaker');
+          if (freshVDevs.length > 0) {
+            setVideoDevices(freshVDevs);
+            setSelectedVideoDevice((prev) => (freshVDevs.some((d) => d.deviceId === prev) ? prev : freshVDevs[0].deviceId));
+          }
+          if (freshADevs.length > 0) setAudioDevices(freshADevs);
+          if (freshSpDevs.length > 0) setSpeakerDevices(freshSpDevs);
           // If video stream is actively received, mark camera passed
           setCameraOk(true);
           setCameraTested(true);
@@ -702,7 +731,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       try {
         const micId = (aDevs.length > 0 ? aDevs[0].deviceId : null) || (selectedAudioDeviceRef.current !== 'default' ? selectedAudioDeviceRef.current : null);
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: micId ? { deviceId: { exact: micId } } : true,
+          // Don't pass `exact: 'default'` — use plain `true` for default device to avoid browser errors
+          audio: (micId && micId !== 'default') ? { deviceId: { exact: micId } } : true,
         });
         bindMicStream(stream);
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -729,6 +759,21 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
         setMicOk(true);
         setMicTested(true);
+        // Mic permission granted — re-enumerate to get real device labels
+        try {
+          const freshDevs2 = await navigator.mediaDevices.enumerateDevices();
+          const freshADevs2 = filterDevs(freshDevs2, 'audioinput', 'Default Microphone');
+          const freshSpDevs2 = filterDevs(freshDevs2, 'audiooutput', 'System Default Speaker');
+          const freshVDevs2 = filterDevs(freshDevs2, 'videoinput', 'Integrated Webcam');
+          if (freshADevs2.length > 0) {
+            setAudioDevices(freshADevs2);
+            // Always update to the first real device — in audio-only mode selectedAudioDevice
+            // is still 'default' at this point so we must force it to the real deviceId
+            setSelectedAudioDevice(freshADevs2[0].deviceId);
+          }
+          if (freshSpDevs2.length > 0) setSpeakerDevices(freshSpDevs2);
+          if (freshVDevs2.length > 0) setVideoDevices(freshVDevs2);
+        } catch { /* non-critical */ }
       } catch {
         setMicOk(false);
         setMicTested(true);
@@ -773,8 +818,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
         const vDevs = filterDevs(devs, 'videoinput', 'Integrated Webcam');
         const aDevs = filterDevs(devs, 'audioinput', 'Default Microphone');
+        const spDevs = filterDevs(devs, 'audiooutput', 'System Default Speaker');
         if (vDevs.length > 0) setVideoDevices(vDevs);
         if (aDevs.length > 0) setAudioDevices(aDevs);
+        if (spDevs.length > 0) setSpeakerDevices(spDevs);
 
         // Check if Microphone device was disconnected or ended
         const micTracks = micStreamRef.current?.getAudioTracks() || [];
@@ -1258,7 +1305,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       // Live Pre-flight Hardware Verification: ensure microphone and camera are still physically connected and live
       try {
         const netCheck = await checkRealInternet();
-        if (!netCheck.online || netCheck.kbps <= 0) {
+        const isBrowserOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
+        if (!netCheck.online && !isBrowserOnline) {
           setIsRealInternetOnline(false);
           return;
         }
@@ -1323,9 +1371,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       } catch (err) {
         console.error('[handleNext] Hardware pre-flight error:', err);
-        setMicOk(false);
-        setMicTested(true);
-        return;
       }
 
       // Final gate: verify all required states are valid
@@ -1340,11 +1385,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: !!speakerOk, bandwidth_kbps: bandwidthKbps,
           analytics_consent: videoAnalyticsEnabled, assessment_type: assessmentType, audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
         });
-        setStep('PRACTICE_START');
       } catch (err) {
-        console.error('[DeviceCheckWizard] Error preparing session:', err);
+        console.warn('[DeviceCheckWizard] Non-blocking backend session prep warning:', err);
       } finally {
         setIsConfirmingFromBackend(false);
+        setStep('PRACTICE_START');
       }
     } else if (step === 'PRACTICE_START') {
       handleCompleteAssessment();
@@ -2149,6 +2194,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   cameraStream={cameraStream}
                   selectedAudioLabel={audioDevices.find((d) => d.deviceId === selectedAudioDevice)?.label || 'Microphone'}
                   selectedVideoLabel={videoDevices.find((d) => d.deviceId === selectedVideoDevice)?.label || 'Camera'}
+                  selectedSpeakerLabel={speakerDevices[0]?.label || 'System Default Speaker'}
                   onBack={handlePrevious}
                   onStartAssessment={handleCompleteAssessment}
                 />
