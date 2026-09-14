@@ -14,7 +14,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import AssessmentCard from "@/components/aiprep/AssessmentCard";
+import { DeviceCheckWizard } from "./DeviceCheckWizard";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import type {
   AssessmentSummary,
@@ -35,79 +35,49 @@ const formatDate = (value?: string | null) =>
     ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
       new Date(value)
     )
-    : "Not started";
+    : "—";
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-interface AIPrepDashboardProps {
+export interface AIPrepDashboardProps {
   initialView?: View;
   setupStatus?: {
-    resume_uploaded: boolean;
-    api_keys_configured: boolean;
-    setup_complete: boolean;
+    resume_uploaded?: boolean;
+    api_keys_configured?: boolean;
+    setup_complete?: boolean;
   };
 }
 
-export default function AIPrepDashboard({
+export function AIPrepDashboard({
   initialView = "home",
   setupStatus,
 }: AIPrepDashboardProps) {
   const router = useRouter();
 
-  // View state
-  const [view, setView] = useState<View>(initialView);
-
-  // Data state
+  // ── Data state ────────────────────────────────────────────────────────────
   const [readiness, setReadiness] = useState<ReadinessCheck | null>(null);
   const [llmStatus, setLlmStatus] = useState<LlmKeyStatus | null>(null);
   const [resumeStatus, setResumeStatus] = useState<ResumeStatus | null>(null);
   const [assessments, setAssessments] = useState<AssessmentSummary[]>([]);
-
-  // UI state
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [view, setView] = useState<View>(initialView);
   const [showSetupModal, setShowSetupModal] = useState(false);
-  const [apiError, setApiError] = useState("");
+  const [starting, setStarting] = useState(false);
 
-  // ---------------------------------------------------------------------------
-  // Derived readiness flags
-  //
-  // All three backend responses must be present and valid. Unknown is not ready.
-  // ---------------------------------------------------------------------------
-
-  const hasLlmKey: boolean = (() => {
-    return (
-      llmStatus?.status === "valid" && llmStatus.is_configured === true
-    );
-  })();
-
-  const hasResume: boolean = (() => {
-    return (
-      resumeStatus?.status === "valid" && resumeStatus.has_resume === true
-    );
-  })();
-
-  const isReady =
-    readiness?.llm_check?.is_configured === true &&
-    readiness?.resume_check?.has_resume === true &&
-    hasLlmKey &&
-    hasResume;
-
-  // ---------------------------------------------------------------------------
-  // Initial data load
-  // ---------------------------------------------------------------------------
-
+  // ── Fetch all data on mount ───────────────────────────────────────────────
   useEffect(() => {
-    void (async () => {
-      setLoading(true);
-      setApiError("");
+    let isMounted = true;
 
-      // Fire all four AI Prep checks in parallel.
-      // Each is handled independently so a failure in one does not
-      // prevent the others from providing their data.
-      const [preCheck, llmCheck, resumeCheck, assessmentList] =
+    async function loadData() {
+      setLoading(true);
+      setApiError(null);
+
+      const [readinessRes, llmRes, resumeRes, listRes] =
         await Promise.allSettled([
           aiPrepApi.getReadiness(),
           aiPrepApi.getLlmKeys(),
@@ -115,83 +85,118 @@ export default function AIPrepDashboard({
           aiPrepApi.listAssessments(),
         ]);
 
-      if (preCheck.status === "fulfilled") {
-        setReadiness(preCheck.value);
-      }
+      if (!isMounted) return;
 
-      if (llmCheck.status === "fulfilled") {
-        setLlmStatus(llmCheck.value);
-      }
-
-      if (resumeCheck.status === "fulfilled") {
-        setResumeStatus(resumeCheck.value);
-      }
-
-      if (
-        preCheck.status === "rejected" ||
-        llmCheck.status === "rejected" ||
-        resumeCheck.status === "rejected"
-      ) {
-        console.error("[AIPrepDashboard] readiness fetch failed", {
-          preCheck,
-          llmCheck,
-          resumeCheck,
-        });
-        setApiError("Could not load AI Prep readiness data. Please try again.");
-      }
-
-      if (assessmentList.status === "fulfilled") {
-        setAssessments(assessmentList.value.items ?? []);
+      if (readinessRes.status === "fulfilled") {
+        setReadiness(readinessRes.value);
       } else {
-        console.error(
-          "[AIPrepDashboard] assessments fetch failed:",
-          assessmentList.reason
+        console.warn("[AIPrepDashboard] getReadiness failed:", readinessRes.reason);
+      }
+
+      if (llmRes.status === "fulfilled") {
+        setLlmStatus(llmRes.value);
+      } else {
+        console.warn("[AIPrepDashboard] getLlmKeys failed:", llmRes.reason);
+      }
+
+      if (resumeRes.status === "fulfilled") {
+        setResumeStatus(resumeRes.value);
+      } else {
+        console.warn("[AIPrepDashboard] getResumeStatus failed:", resumeRes.reason);
+      }
+
+      if (listRes.status === "fulfilled") {
+        setAssessments(listRes.value?.items ?? []);
+      } else {
+        console.warn("[AIPrepDashboard] listAssessments failed:", listRes.reason);
+        setAssessments([]);
+      }
+
+      const allFailed =
+        readinessRes.status === "rejected" &&
+        llmRes.status === "rejected" &&
+        resumeRes.status === "rejected" &&
+        listRes.status === "rejected";
+
+      if (allFailed) {
+        setApiError(
+          "Could not connect to the AI Prep service. Please refresh the page or try again later."
         );
       }
 
       setLoading(false);
-    })();
+    }
+
+    void loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // ---------------------------------------------------------------------------
-  // Derived data
-  // ---------------------------------------------------------------------------
+  // ── Readiness flags ───────────────────────────────────────────────────────
+  const hasLlmKey = useMemo(() => {
+    if (llmStatus !== null) {
+      return llmStatus.is_configured === true;
+    }
+    if (readiness?.llm_check) {
+      return readiness.llm_check.is_configured === true;
+    }
+    return Boolean(setupStatus?.api_keys_configured);
+  }, [llmStatus, readiness, setupStatus]);
 
-  const completed = useMemo(
-    () => assessments.filter((a) => a.status === "COMPLETED"),
-    [assessments]
-  );
+  const hasResume = useMemo(() => {
+    if (resumeStatus !== null) {
+      return resumeStatus.has_resume === true;
+    }
+    if (readiness?.resume_check) {
+      return readiness.resume_check.has_resume === true;
+    }
+    return Boolean(setupStatus?.resume_uploaded);
+  }, [resumeStatus, readiness, setupStatus]);
 
-  // ---------------------------------------------------------------------------
-  // Readiness banner message
-  // ---------------------------------------------------------------------------
+  const isReady = useMemo(() => {
+    if (readiness !== null) {
+      return readiness.eligible === true;
+    }
+    return hasLlmKey && hasResume;
+  }, [readiness, hasLlmKey, hasResume]);
 
-  const readinessBannerMessage = (() => {
+  const readinessBannerMessage = useMemo(() => {
     if (!hasLlmKey && !hasResume) {
       return {
-        title: "LLM setup and Resume are not configured",
-        body: "Set up your LLM API key and upload your resume to start an assessment.",
+        title: "LLM setup & Resume are required",
+        body: "Configure your LLM API keys and upload your resume to unlock AI Prep practice sessions.",
         fix: "both" as const,
       };
     }
     if (!hasLlmKey) {
       return {
         title: "LLM setup is not configured or has expired",
-        body: "Please set up your LLM API keys to start an assessment.",
+        body:
+          llmStatus?.message ||
+          "Please set up your LLM API keys to start an assessment.",
         fix: "llm" as const,
       };
     }
-    return {
-      title: "Resume is not uploaded",
-      body: "Upload your resume to tailor your interview preparation.",
-      fix: "resume" as const,
-    };
-  })();
+    if (!hasResume) {
+      return {
+        title: "Resume is not uploaded",
+        body:
+          resumeStatus?.message ||
+          "Upload your resume so the AI can tailor assessment questions to your experience.",
+        fix: "resume" as const,
+      };
+    }
+    return null;
+  }, [hasLlmKey, hasResume, llmStatus, resumeStatus]);
 
-  // ---------------------------------------------------------------------------
-  // Navigation helpers
-  // ---------------------------------------------------------------------------
+  const completed = useMemo(
+    () => assessments.filter((a) => a.status === "COMPLETED"),
+    [assessments]
+  );
 
+  // ── Navigation helpers ────────────────────────────────────────────────────
   const goToSetup = (tab: "my-llm-setup" | "my-resume") =>
     router.push(`/user_dashboard/${tab}`);
 
@@ -213,17 +218,7 @@ export default function AIPrepDashboard({
     } else if (name === "View assessments") {
       setView("assessments");
     }
-    // Analytics / Scores: no backend API yet — button is shown but no action
-    // (the lock state is already handled by the !isReady guard above).
   };
-
-  // ---------------------------------------------------------------------------
-  // Dashboard cards
-  //
-  // "Analytics" and "Scores" do not have AI Prep backend endpoints yet.
-  // They are kept in the UI (locked when not ready) but do not connect to any
-  // endpoint — no mock data, no invented API calls.
-  // ---------------------------------------------------------------------------
 
   const cards = [
     { title: "Start an assessment", icon: Play },
@@ -232,15 +227,10 @@ export default function AIPrepDashboard({
     { title: "Scores", icon: FileText },
   ];
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
-
   return (
     <main className="min-h-screen bg-[#f5f7fb] px-4 py-7 sm:px-6">
       <div className="mx-auto max-w-6xl">
-
-        {/* Page header – hidden when inside an assessment session */}
+        {/* Page header */}
         {view !== "assessment" && (
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-[#071d49]">
@@ -253,7 +243,7 @@ export default function AIPrepDashboard({
         )}
 
         {/* Readiness banner */}
-        {!loading && !isReady && (
+        {!loading && !isReady && readinessBannerMessage && (
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
             <AlertBadge />
             <div className="min-w-0 flex-1">
@@ -264,13 +254,13 @@ export default function AIPrepDashboard({
               <div className="flex gap-2">
                 <button
                   onClick={() => goToSetup("my-llm-setup")}
-                  className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600"
+                  className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 cursor-pointer"
                 >
                   LLM Setup →
                 </button>
                 <button
                   onClick={() => goToSetup("my-resume")}
-                  className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600"
+                  className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 cursor-pointer"
                 >
                   Resume →
                 </button>
@@ -284,7 +274,7 @@ export default function AIPrepDashboard({
                       : "my-resume"
                   )
                 }
-                className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600"
+                className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 cursor-pointer"
               >
                 Complete setup →
               </button>
@@ -299,20 +289,14 @@ export default function AIPrepDashboard({
           </p>
         )}
 
-        {/* ── Main content ── */}
+        {/* Main content */}
         {loading ? (
-          // Loading state
           <div className="grid min-h-[330px] place-items-center">
             <LoaderCircle className="animate-spin text-indigo-600" />
           </div>
         ) : view === "assessment" ? (
-          // ── Assessment session ──
-          <AssessmentCard
-            assessmentId="new"
-            onBack={() => setView("home")}
-          />
+          <DeviceCheckWizard onCancel={() => setView("home")} />
         ) : view === "home" ? (
-          // ── Home / card grid ──
           <section className="mt-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex justify-between">
               <div>
@@ -331,21 +315,21 @@ export default function AIPrepDashboard({
                   onClick={() => cardAction(title)}
                   disabled={starting}
                   className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${isReady
-                      ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer"
-                      : "border-slate-200 bg-slate-50 text-slate-400"
+                    ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer"
+                    : "border-slate-200 bg-slate-50 text-slate-400"
                     }`}
                 >
-                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${
-                    isReady
-                      ? "border-slate-200 bg-white text-slate-400 group-hover:border-transparent group-hover:bg-gradient-to-br group-hover:from-[#5b32e8] group-hover:to-[#9a57ff] group-hover:shadow-md group-hover:shadow-purple-500/25"
-                      : "border-slate-200 bg-white text-slate-400"
-                  }`}>
+                  <span
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${isReady
+                      ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED]"
+                      : "border-slate-200 bg-slate-100 text-slate-400"
+                      }`}
+                  >
                     {isReady ? (
                       <Icon
                         size={19}
-                        className={`text-indigo-600 transition-colors duration-200 group-hover:text-white ${
-                          title === "Start an assessment" ? "group-hover:fill-white" : ""
-                        }`}
+                        className={`transition-colors duration-200 ${title === "Start an assessment" ? "group-hover:fill-white" : ""
+                          }`}
                       />
                     ) : (
                       <Lock size={17} />
@@ -378,7 +362,6 @@ export default function AIPrepDashboard({
             </div>
           </section>
         ) : (
-          // ── Assessments list ──
           <section className="mt-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex justify-between">
               <div>
@@ -391,7 +374,7 @@ export default function AIPrepDashboard({
               </div>
               <button
                 onClick={() => setView("home")}
-                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-bold text-indigo-600 hover:bg-indigo-100"
+                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-bold text-indigo-600 hover:bg-indigo-100 cursor-pointer"
               >
                 ← Back to Dashboard
               </button>
@@ -403,7 +386,7 @@ export default function AIPrepDashboard({
                   <button
                     key={a.id}
                     onClick={() => router.push(`/aiprep/reports/${a.id}`)}
-                    className="flex w-full justify-between border-b border-slate-100 px-4 py-3 text-left last:border-0 hover:bg-slate-50"
+                    className="flex w-full justify-between border-b border-slate-100 px-4 py-3 text-left last:border-0 hover:bg-slate-50 cursor-pointer"
                   >
                     <span>
                       <b className="block text-sm text-slate-800">
@@ -430,7 +413,7 @@ export default function AIPrepDashboard({
           </section>
         )}
 
-        {/* ── Setup-required modal ── */}
+        {/* Setup modal */}
         {showSetupModal && (
           <div
             className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/45 p-4"
@@ -454,7 +437,7 @@ export default function AIPrepDashboard({
                 </div>
                 <button
                   onClick={() => setShowSetupModal(false)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
                   aria-label="Close setup modal"
                 >
                   <X size={20} />
@@ -468,7 +451,7 @@ export default function AIPrepDashboard({
                       setShowSetupModal(false);
                       goToSetup("my-llm-setup");
                     }}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50"
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer"
                   >
                     <span className="flex items-center gap-3">
                       <KeyRound className="text-indigo-600" size={19} />
@@ -494,7 +477,7 @@ export default function AIPrepDashboard({
                       setShowSetupModal(false);
                       goToSetup("my-resume");
                     }}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50"
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer"
                   >
                     <span className="flex items-center gap-3">
                       <FileText className="text-indigo-600" size={19} />
@@ -515,7 +498,7 @@ export default function AIPrepDashboard({
 
               <button
                 onClick={() => setShowSetupModal(false)}
-                className="mt-5 w-full rounded-lg bg-slate-100 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200"
+                className="mt-5 w-full rounded-lg bg-slate-100 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 cursor-pointer"
               >
                 Not now
               </button>
@@ -527,10 +510,6 @@ export default function AIPrepDashboard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
 function AlertBadge() {
   return (
     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-rose-600 text-lg font-bold text-white">
@@ -538,3 +517,5 @@ function AlertBadge() {
     </span>
   );
 }
+
+export default AIPrepDashboard;

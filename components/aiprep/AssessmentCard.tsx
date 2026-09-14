@@ -21,50 +21,40 @@ export default function AssessmentCard({
     const loadAssessment = async () => {
       try {
         if (assessmentId === "new") {
-          // Create a new assessment session via the AI Prep backend.
           const created = await aiPrepApi.createAssessment();
-
-          // Use the real assessment ID returned by the backend.
           const detail = await aiPrepApi.getAssessment(created.id);
           setAssessment(detail);
           return;
         }
-
-        // Load an existing assessment by its backend ID.
         setAssessment(await aiPrepApi.getAssessment(assessmentId));
       } catch (caught) {
         const err = caught as { body?: { detail?: unknown } };
         const detail = err.body?.detail;
-
         const reasons =
           detail &&
           typeof detail === "object" &&
           !Array.isArray(detail)
             ? (detail as { reasons?: string[] }).reasons
             : undefined;
-
         const message =
           detail &&
           typeof detail === "object" &&
           !Array.isArray(detail)
             ? (detail as { message?: string }).message
             : undefined;
-
         setError(
           reasons?.length
             ? reasons.join(" ")
             : message ||
-                (typeof detail === "string"
-                  ? detail
-                  : "The assessment service could not create this session.")
+              (typeof detail === "string"
+                ? detail
+                : "The assessment service could not create this session.")
         );
       }
     };
-
     void loadAssessment();
   }, [assessmentId]);
 
-  // Loading state
   if (!assessment && !error) {
     return (
       <div className="grid min-h-[60vh] place-items-center">
@@ -73,7 +63,6 @@ export default function AssessmentCard({
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="grid min-h-[60vh] place-items-center p-6 text-center text-slate-600">
@@ -82,10 +71,11 @@ export default function AssessmentCard({
     );
   }
 
+  const resolvedId = assessment?.id ?? assessmentId;
+
   return (
     <section className="bg-slate-50 py-4">
       <div className="mx-auto max-w-3xl">
-        {/* Back button */}
         <button
           onClick={() =>
             onBack ? onBack() : router.push("/user_dashboard/aiprep")
@@ -98,18 +88,20 @@ export default function AssessmentCard({
 
         <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
           <ClipboardCheck className="text-indigo-600" size={28} />
-
           <h1 className="mt-4 text-2xl font-extrabold text-slate-900">
-            {(assessment?.assessment_type || "Assessment").replaceAll(
-              "_",
-              " "
-            )}
+            {(assessment?.assessment_type || "Assessment").replaceAll("_", " ")}
           </h1>
-
           <p className="mt-2 text-sm text-slate-500">
             Your assessment session has been created. Status:{" "}
             {(assessment?.status || "In progress").replaceAll("_", " ")}.
           </p>
+
+          <button
+            onClick={() => router.push(`/aiprep/reports/${resolvedId}`)}
+            className="mt-6 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700"
+          >
+            View assessment details
+          </button>
         </div>
       </div>
     </section>

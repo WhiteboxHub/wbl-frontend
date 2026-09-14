@@ -1,89 +1,97 @@
-/**
- * AI Prep Tool – API client
- * All AI Prep backend calls are centralised here.
- * Base prefix: /api/aiprep/
- */
-
 import { apiFetch } from "@/lib/api";
 import type {
   AssessmentDetail,
   AssessmentListResponse,
-  CreateAssessmentResponse,
-  LlmKeyStatus,
+  AssessmentSummary,
   ReadinessCheck,
+  CreateAssessmentRequest,
+  CreateAssessmentResponse,
+  AssessmentStatus,
+  LlmKeyStatus,
   ResumeStatus,
 } from "@/types/aiprep";
 
-/** Build a full endpoint string for the AI Prep backend. */
-const endpoint = (path: string) => `api/aiprep/${path}`;
+export * from "@/types/aiprep";
+
+const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
 export const aiPrepApi = {
-  // -------------------------------------------------------------------------
   // Pre-flight readiness
-  // -------------------------------------------------------------------------
-
-  /**
-   * GET /api/aiprep/candidate/pre-check
-   * Combined readiness check — primary source of truth for LLM + resume status.
-   */
   getReadiness: (): Promise<ReadinessCheck> =>
     apiFetch(endpoint("candidate/pre-check")) as Promise<ReadinessCheck>,
 
-  /**
-   * GET /api/aiprep/candidate/llm-keys
-   * Dedicated LLM key status check.
-   * Response shape: { status, is_configured, provider, model, voice_enabled, message, available_models }
-   * `is_configured === true` ⟺ candidate has a working LLM key.
-   * The backend does NOT expose a separate "expired" state; use `status: "failure"` + `is_configured: false`.
-   */
   getLlmKeys: (): Promise<LlmKeyStatus> =>
     apiFetch(endpoint("candidate/llm-keys")) as Promise<LlmKeyStatus>,
 
-  /**
-   * GET /api/aiprep/candidate/resume-status
-   * Dedicated resume status check.
-   * Response shape: { status, has_resume, has_parsed_json, candidate_name, current_title, skills, message }
-   * `has_resume === true` ⟺ candidate has a resume on file.
-   */
   getResumeStatus: (): Promise<ResumeStatus> =>
     apiFetch(endpoint("candidate/resume-status")) as Promise<ResumeStatus>,
 
-  // -------------------------------------------------------------------------
-  // Assessments
-  // -------------------------------------------------------------------------
+  // List candidate assessments
+  listAssessments: (limit = 20, offset = 0): Promise<AssessmentListResponse> =>
+    apiFetch(endpoint(`candidate/assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>,
 
-  /**
-   * GET /api/aiprep/candidate/assessments
-   * List the authenticated candidate's own assessments.
-   */
-  listAssessments: (): Promise<AssessmentListResponse> =>
-    apiFetch(endpoint("candidate/assessments")) as Promise<AssessmentListResponse>,
-
-  /**
-   * GET /api/aiprep/candidate/assessments/{assessment_id}
-   * Fetch full assessment detail including telemetry, scores, and report.
-   */
+  // Get single assessment details
   getAssessment: (assessmentId: string | number): Promise<AssessmentDetail> =>
-    apiFetch(
-      endpoint(`candidate/assessments/${assessmentId}`)
-    ) as Promise<AssessmentDetail>,
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
 
-  /**
-   * POST /api/aiprep/candidate/assessments
-   * Create a new assessment session.
-   * Returns the new assessment with its real `id`.
-   */
+  // Create / Start assessment
   createAssessment: (
-    assessmentType: string = "INTRO",
-    mediaType: string = "VIDEO",
-    jobDescription?: string
-  ): Promise<CreateAssessmentResponse> =>
-    apiFetch(endpoint("candidate/assessments"), {
+    payload: string | CreateAssessmentRequest = "INTRO",
+    mediaTypeArg: string = "VIDEO",
+    jobDescriptionArg?: string
+  ): Promise<CreateAssessmentResponse & AssessmentSummary> => {
+    if (typeof payload === "string") {
+      return apiFetch(endpoint("candidate/assessments"), {
+        method: "POST",
+        body: {
+          assessment_type: payload,
+          media_type: mediaTypeArg,
+          job_description: jobDescriptionArg ?? null,
+        },
+      }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
+    }
+
+    const isAudioOnly =
+      payload.media_type === "AUDIO" ||
+      payload.assessment_mode === "AUDIO_ONLY" ||
+      (typeof payload.media_type === "string" && payload.media_type.toUpperCase() === "AUDIO");
+
+    const body: Record<string, unknown> = {
+      assessment_type: payload.assessment_type || "INTRO",
+      media_type: isAudioOnly ? "AUDIO" : "VIDEO",
+    };
+
+    if (payload.candidate_id !== undefined) {
+      body.candidate_id = payload.candidate_id;
+    }
+
+    const jobDescription = payload.job_description || payload.job_description_text;
+    if (jobDescription) {
+      body.job_description = jobDescription;
+    }
+
+    if (payload.user_agent) {
+      body.user_agent = payload.user_agent;
+    }
+
+    if (payload.ip_address) {
+      body.ip_address = payload.ip_address;
+    }
+
+    return apiFetch(endpoint("candidate/assessments"), {
       method: "POST",
-      body: {
-        assessment_type: assessmentType,
-        media_type: mediaType,
-        job_description: jobDescription ?? null,
-      },
-    }) as Promise<CreateAssessmentResponse>,
+      body,
+    }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
+  },
+
+  // Update assessment status
+  updateAssessmentStatus: async (
+    assessmentId: number | string,
+    status: AssessmentStatus
+  ): Promise<{ status: AssessmentStatus }> => {
+    return { status };
+  },
 };
+
+export const aiprepApi = aiPrepApi;
+export default aiPrepApi;
