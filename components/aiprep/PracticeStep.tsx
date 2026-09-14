@@ -20,17 +20,13 @@ import {
   Lock,
   Play,
   Pause,
-  RotateCcw,
-  ShieldCheck,
   CheckCircle2,
   Info,
   Sparkles,
   Camera,
   Activity,
   Eye,
-  Sun,
   Maximize,
-  Sliders,
   ChevronRight,
   ArrowLeft,
   VolumeX,
@@ -46,7 +42,6 @@ interface PracticeStepProps {
   selectedSpeakerLabel?: string;
   onBack: () => void;
   onStartAssessment: () => void;
-  isStarting?: boolean;
 }
 
 export const PracticeStep: React.FC<PracticeStepProps> = ({
@@ -58,7 +53,6 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   selectedSpeakerLabel = 'System Output (Built-in)',
   onBack,
   onStartAssessment,
-  isStarting = false,
 }) => {
   // ── Recording State ────────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -800,7 +794,6 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                     pct: realtimeTelemetry.is_instant_straight ? 100 : 60,
                     ok: realtimeTelemetry.is_instant_straight !== false,
                   },
-                  
                 ].map((item, idx) => (
                   <div key={idx} className="flex flex-col gap-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                     <div className="flex items-center justify-between">
