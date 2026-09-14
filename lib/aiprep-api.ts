@@ -1,8 +1,10 @@
 import { apiFetch } from "@/lib/api";
 import type {
   AssessmentDetail,
+  AssessmentDetails,
   AssessmentListResponse,
   AssessmentSummary,
+  CandidateAnalyticsDashboard,
   ReadinessCheck,
   CreateAssessmentRequest,
   CreateAssessmentResponse,
