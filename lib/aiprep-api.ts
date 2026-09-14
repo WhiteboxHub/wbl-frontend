@@ -9,9 +9,7 @@ import type {
   AssessmentDetail,
   AssessmentListResponse,
   CreateAssessmentResponse,
-  LlmKeyStatus,
   ReadinessCheck,
-  ResumeStatus,
 } from "@/types/aiprep";
 
 /** Build a full endpoint string for the AI Prep backend. */
@@ -28,25 +26,6 @@ export const aiPrepApi = {
    */
   getReadiness: (): Promise<ReadinessCheck> =>
     apiFetch(endpoint("candidate/pre-check")) as Promise<ReadinessCheck>,
-
-  /**
-   * GET /api/aiprep/candidate/llm-keys
-   * Dedicated LLM key status check.
-   * Response shape: { status, is_configured, provider, model, voice_enabled, message, available_models }
-   * `is_configured === true` ⟺ candidate has a working LLM key.
-   * The backend does NOT expose a separate "expired" state; use `status: "failure"` + `is_configured: false`.
-   */
-  getLlmKeys: (): Promise<LlmKeyStatus> =>
-    apiFetch(endpoint("candidate/llm-keys")) as Promise<LlmKeyStatus>,
-
-  /**
-   * GET /api/aiprep/candidate/resume-status
-   * Dedicated resume status check.
-   * Response shape: { status, has_resume, has_parsed_json, candidate_name, current_title, skills, message }
-   * `has_resume === true` ⟺ candidate has a resume on file.
-   */
-  getResumeStatus: (): Promise<ResumeStatus> =>
-    apiFetch(endpoint("candidate/resume-status")) as Promise<ResumeStatus>,
 
   // -------------------------------------------------------------------------
   // Assessments

@@ -88,7 +88,7 @@ export default function AssessmentCard({
         {/* Back button */}
         <button
           onClick={() =>
-            onBack ? onBack() : router.push("/user_dashboard/aiprep")
+            onBack ? onBack() : router.push("/aiprep")
           }
           className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600"
         >

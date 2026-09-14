@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
@@ -30,7 +30,7 @@ ENV NEXT_PUBLIC_RECAPTCHA_SITE_KEY=$NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 RUN npm run build
 
 # ---------- Runtime stage ----------
-FROM node:18-alpine
+FROM node:20-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production

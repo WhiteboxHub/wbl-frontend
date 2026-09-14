@@ -86,7 +86,6 @@ import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
-import AIPrepDashboard from "@/components/aiprep/AIPrepDashboard";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
@@ -2269,7 +2268,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                             })}
 
                             <button
-                                onClick={() => goToTab('aiprep')}
+                                onClick={() => router.push('/aiprep')}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${(activeTab === 'wbl-smartprep' || activeTab === 'aiprep')
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
@@ -2371,7 +2370,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     })}
 
                     <button
-                        onClick={() => goToTab('aiprep')}
+                        onClick={() => router.push('/aiprep')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'aiprep')
                             ? "bg-indigo-600 text-white shadow-sm"
                             : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
@@ -2414,7 +2413,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             onFinishSetup={async () => {
                                                 setupApi.clearCache?.();
                                                 await refreshSetupStatus();
-                                                goToTab('aiprep');
+                                                router.push('/aiprep');
                                             }}
                                         />
                                     </div>
@@ -3288,11 +3287,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {(activeTab === 'wbl-smartprep' || activeTab === 'aiprep') && <AIPrepDashboard setupStatus={{
-                                    resume_uploaded: Boolean(setupStatus?.resume_uploaded || setupStatus?.has_binary_resume || prefetchedSession?.summaryData?.resume_json || prefetchedSession?.summaryData?.resume_text === "Exists"),
-                                    api_keys_configured: Boolean(setupStatus?.api_keys_configured),
-                                    setup_complete: Boolean(setupStatus?.setup_complete),
-                                }} />}
+                                {(activeTab === 'wbl-smartprep' || activeTab === 'aiprep') && (() => { router.push('/aiprep'); return null; })()}
 
                                 {(activeTab === 'wbl-smartprep' || activeTab === 'aiprep') && false && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
@@ -3724,7 +3719,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                     setupApi.clearCache?.();
                                                                     await refreshSetupStatus();
                                                                     toast.success("Resume setup completed!");
-                                                                    goToTab('aiprep');
+                                                                    router.push('/aiprep');
                                                                 }}
                                                                 disabled={(!setupStatus?.has_binary_resume && !setupStatus?.resume_uploaded) || resumeUploadLoading}
                                                                 className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all cursor-pointer"
@@ -3931,7 +3926,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                                 setupApi.clearCache?.();
                                                                 await refreshSetupStatus();
                                                                 toast.success("Resume setup completed!");
-                                                                goToTab('aiprep');
+                                                                router.push('/aiprep');
                                                             }}
                                                             className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all cursor-pointer"
                                                         >
