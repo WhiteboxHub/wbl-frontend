@@ -186,11 +186,11 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'ai-prep' | 'aiprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'ai-prep' | 'aiprep' | 'my-llm-key' | 'my-assessments' | 'my-applications' | 'my-llm-setup' | 'my-resume';
 
 const normalizeTab = (tab?: string): TabType => {
     if (!tab) return 'overview';
-    if (tab.startsWith('ai-prep') || tab.startsWith('aiprep') || tab.startsWith('wbl-smartprep')) return 'ai-prep';
+    if (tab.startsWith('ai-prep') || tab.startsWith('aiprep') || tab.startsWith('wbl-smartprep') || tab === 'my-assessments' || tab === 'assessments') return 'ai-prep';
     return tab as TabType;
 };
 

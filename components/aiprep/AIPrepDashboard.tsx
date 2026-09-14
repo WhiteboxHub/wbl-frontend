@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { DeviceCheckWizard } from "./DeviceCheckWizard";
+import { CandidateAssessmentsPanel } from "./CandidateAssessmentsPanel";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import type {
   AssessmentSummary,
@@ -209,14 +210,16 @@ export function AIPrepDashboard({
   };
 
   const cardAction = (name: string) => {
+    if (name === "View assessments") {
+      setView("assessments");
+      return;
+    }
     if (!isReady) {
       setShowSetupModal(true);
       return;
     }
     if (name === "Start an assessment") {
       void startAssessment();
-    } else if (name === "View assessments") {
-      setView("assessments");
     }
   };
 
@@ -231,7 +234,7 @@ export function AIPrepDashboard({
     <main className="min-h-screen bg-[#f5f7fb] px-4 py-7 sm:px-6">
       <div className="mx-auto max-w-6xl">
         {/* Page header */}
-        {view !== "assessment" && (
+        {view === "home" && (
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-[#071d49]">
               Welcome back!
@@ -243,7 +246,7 @@ export function AIPrepDashboard({
         )}
 
         {/* Readiness banner */}
-        {!loading && !isReady && readinessBannerMessage && (
+        {!loading && view === "home" && !isReady && readinessBannerMessage && (
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
             <AlertBadge />
             <div className="min-w-0 flex-1">
@@ -309,108 +312,68 @@ export function AIPrepDashboard({
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {cards.map(({ title, icon: Icon }) => (
-                <button
-                  key={title}
-                  onClick={() => cardAction(title)}
-                  disabled={starting}
-                  className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${isReady
-                    ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer"
-                    : "border-slate-200 bg-slate-50 text-slate-400"
-                    }`}
-                >
-                  <span
-                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${isReady
-                      ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED]"
-                      : "border-slate-200 bg-slate-100 text-slate-400"
+              {cards.map(({ title, icon: Icon }) => {
+                const cardAccessible = title === "View assessments" || isReady;
+                return (
+                  <button
+                    key={title}
+                    onClick={() => cardAction(title)}
+                    disabled={starting}
+                    className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${cardAccessible
+                      ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer"
+                      : "border-slate-200 bg-slate-50 text-slate-400"
                       }`}
                   >
-                    {isReady ? (
-                      <Icon
-                        size={19}
-                        className={`transition-colors duration-200 ${title === "Start an assessment" ? "group-hover:fill-white" : ""
-                          }`}
-                      />
-                    ) : (
-                      <Lock size={17} />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <b className="block text-[15px] font-semibold text-slate-700 transition-colors duration-200 group-hover:font-extrabold group-hover:text-[#6e2bf5]">
-                      {starting && title === "Start an assessment"
-                        ? "Starting…"
-                        : title}
-                    </b>
-                    <small className="mt-1 block truncate text-slate-400">
-                      {isReady
-                        ? title === "Start an assessment"
-                          ? "Start a new practice session"
-                          : title === "View assessments"
-                            ? "Review your AI Prep results"
-                            : "Coming soon — backend API not yet available"
-                        : "Complete your LLM setup and upload your resume to access this."}
-                    </small>
-                  </span>
-                  {!isReady && (
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400">
-                      <Lock className="mr-1 inline" size={10} />
-                      Locked
+                    <span
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${cardAccessible
+                        ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED]"
+                        : "border-slate-200 bg-slate-100 text-slate-400"
+                        }`}
+                    >
+                      {cardAccessible ? (
+                        <Icon
+                          size={19}
+                          className={`transition-colors duration-200 ${title === "Start an assessment" ? "group-hover:fill-white" : ""
+                            }`}
+                        />
+                      ) : (
+                        <Lock size={17} />
+                      )}
                     </span>
-                  )}
-                </button>
-              ))}
+                    <span className="min-w-0 flex-1">
+                      <b className="block text-[15px] font-semibold text-slate-700 transition-colors duration-200 group-hover:font-extrabold group-hover:text-[#6e2bf5]">
+                        {starting && title === "Start an assessment"
+                          ? "Starting…"
+                          : title}
+                      </b>
+                      <small className="mt-1 block truncate text-slate-400">
+                        {cardAccessible
+                          ? title === "Start an assessment"
+                            ? "Start a new practice session"
+                            : title === "View assessments"
+                              ? "Review your AI Prep results"
+                              : "Coming soon — backend API not yet available"
+                          : "Complete your LLM setup and upload your resume to access this."}
+                      </small>
+                    </span>
+                    {!cardAccessible && (
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400">
+                        <Lock className="mr-1 inline" size={10} />
+                        Locked
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </section>
         ) : (
-          <section className="mt-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex justify-between">
-              <div>
-                <h2 className="text-xl font-extrabold text-[#071d49]">
-                  Your assessments
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Completed reports: {completed.length}
-                </p>
-              </div>
-              <button
-                onClick={() => setView("home")}
-                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-bold text-indigo-600 hover:bg-indigo-100 cursor-pointer"
-              >
-                ← Back to Dashboard
-              </button>
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-              {assessments.length ? (
-                assessments.map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => router.push(`/aiprep/reports/${a.id}`)}
-                    className="flex w-full justify-between border-b border-slate-100 px-4 py-3 text-left last:border-0 hover:bg-slate-50 cursor-pointer"
-                  >
-                    <span>
-                      <b className="block text-sm text-slate-800">
-                        {(a.assessment_type || "Assessment").replaceAll(
-                          "_",
-                          " "
-                        )}
-                      </b>
-                      <small className="text-slate-500">
-                        {formatDate(a.started_at || a.created_at)}
-                      </small>
-                    </span>
-                    <span className="text-xs font-bold text-slate-500">
-                      {(a.status || "Unknown").replaceAll("_", " ")}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <p className="p-7 text-center text-sm text-slate-500">
-                  No assessments yet.
-                </p>
-              )}
-            </div>
-          </section>
+          <div className="mt-4 rounded-[22px] border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-gray-900">
+            <CandidateAssessmentsPanel
+              onBack={() => setView("home")}
+              onStartAssessment={() => startAssessment()}
+            />
+          </div>
         )}
 
         {/* Setup modal */}
