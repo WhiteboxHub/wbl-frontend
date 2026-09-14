@@ -718,4 +718,5 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     </div>
   );
 };
+export default PracticeStep;
 
