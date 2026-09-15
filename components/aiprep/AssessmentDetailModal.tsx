@@ -40,6 +40,7 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
     }
   }, [
     isOpen,
+    assessment,
     assessment?.id,
     setIsLoading,
     setReportData,

@@ -663,7 +663,7 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [displayedQuestions, hiddenColumns]);
+  }, [displayedQuestions, hiddenColumns, gridApiRef]);
 
   const toggleColumnVisibility = (field: string) => {
     setHiddenColumns((prev) => {
