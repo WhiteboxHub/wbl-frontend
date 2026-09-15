@@ -11,7 +11,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 import {
   Mic,
@@ -71,7 +71,10 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
   const videoPlaybackRef = useRef<HTMLVideoElement | null>(null);
-  const liveVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [liveVideoElement, setLiveVideoElement] = useState<HTMLVideoElement | null>(null);
+  const liveVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    setLiveVideoElement(node);
+  }, []);
 
   // Vision Hook Integration for Real-time Video Analytics
   const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision();
@@ -97,7 +100,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
   // High-Speed Vision Tracking Loop (~25 FPS) for VIDEO_ANALYTICS mode
   useEffect(() => {
-    if (modeVariant !== 'VIDEO_ANALYTICS' || activeView === 'PLAYBACK' || !isVisionReady) return;
+    if (modeVariant !== 'VIDEO_ANALYTICS' || activeView === 'PLAYBACK' || !isVisionReady || !liveVideoElement) return;
 
     let animId: number;
     let lastTime = 0;
@@ -105,7 +108,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     const loop = (time: number) => {
       if (time - lastTime >= 40) {
         lastTime = time;
-        const video = liveVideoRef.current;
+        const video = liveVideoElement;
         if (video && video.readyState >= 2 && !video.paused && !video.ended) {
           try {
             detectVideoFrame(video, time);
@@ -120,7 +123,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     return () => {
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [modeVariant, activeView, isVisionReady, detectVideoFrame]);
+  }, [modeVariant, activeView, isVisionReady, detectVideoFrame, liveVideoElement]);
 
   // Monitor live hardware connection status and handle device disconnections
   useEffect(() => {
@@ -159,27 +162,33 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   // Connect live camera stream to video preview
   useEffect(() => {
     let localStream: MediaStream | null = null;
+    let isCurrent = true;
 
     async function initPreviewStream() {
-      if (!videoEnabled || !liveVideoRef.current) return;
+      if (!videoEnabled || !liveVideoElement) return;
 
       let streamToUse = cameraStream;
       if (!streamToUse || !streamToUse.active) {
         try {
-          localStream = await navigator.mediaDevices.getUserMedia({
+          const stream = await navigator.mediaDevices.getUserMedia({
             video: { width: 1280, height: 720 },
-            audio: true,
+            audio: false,
           });
+          if (!isCurrent) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          localStream = stream;
           streamToUse = localStream;
         } catch (err) {
           console.warn('Failed to acquire fallback video stream:', err);
         }
       }
 
-      if (liveVideoRef.current && streamToUse) {
-        if (liveVideoRef.current.srcObject !== streamToUse) {
-          liveVideoRef.current.srcObject = streamToUse;
-          liveVideoRef.current.play().catch((e) => console.warn('Preview video play handled:', e));
+      if (isCurrent && liveVideoElement && streamToUse) {
+        if (liveVideoElement.srcObject !== streamToUse) {
+          liveVideoElement.srcObject = streamToUse;
+          liveVideoElement.play().catch((e) => console.warn('Preview video play handled:', e));
         }
       }
     }
@@ -187,11 +196,12 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     initPreviewStream();
 
     return () => {
+      isCurrent = false;
       if (localStream) {
         localStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [cameraStream, videoEnabled]);
+  }, [cameraStream, videoEnabled, liveVideoElement]);
 
   // Clean up recorded blob URL on unmount
   useEffect(() => {
