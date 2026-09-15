@@ -844,7 +844,6 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         <button
           type="button"
           onClick={onStartAssessment}
-          disabled={true}
           className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60 flex items-center gap-2"
           title="Start Assessment is currently disabled"
         >

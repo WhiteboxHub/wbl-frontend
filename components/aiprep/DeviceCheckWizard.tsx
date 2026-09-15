@@ -67,27 +67,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => (initialType as AssessmentType) || 'INTRO');
 
   // 2. Consent State (Centralized in ConsentModal module)
-  const isAudioOnlyMode = useMemo(() => {
-    if (audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO') return true;
-    if (isMounted && typeof window !== 'undefined') {
-      const savedMode = sessionStorage.getItem('aiprep_active_mode');
-      const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
-      if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false') return true;
-    }
-    return false;
-  }, [audioOnly, initialMode, isMounted]);
+  // Deterministic initial state for SSR / initial client render
+  const initialDeterministicAudioOnly = Boolean(audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO');
+  const [isAudioOnlyMode, setIsAudioOnlyMode] = useState<boolean>(initialDeterministicAudioOnly);
 
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(isAudioOnlyMode);
-  }, [isAudioOnlyMode]);
+    return getInitialConsentState(initialDeterministicAudioOnly);
+  }, [initialDeterministicAudioOnly]);
 
   const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
@@ -99,9 +89,26 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // Restore persisted state from sessionStorage and URL safely after client mount
   useEffect(() => {
-    if (!isMounted || typeof window === 'undefined') return;
+    setIsMounted(true);
+    if (typeof window === 'undefined') return;
 
-    // 1. Restore step
+    // 1. Restore audio / video mode
+    const savedMode = sessionStorage.getItem('aiprep_active_mode');
+    const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
+    const isSavedAudioOnly = savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false';
+    const isSavedVideoAudio = savedMode === 'VIDEO_AUDIO' || savedVideo === 'true';
+
+    if (audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO' || isSavedAudioOnly) {
+      setIsAudioOnlyMode(true);
+      setVideoEnabled(false);
+      setConsentCamera(false);
+    } else if (isSavedVideoAudio) {
+      setIsAudioOnlyMode(false);
+      setVideoEnabled(true);
+      setConsentCamera(true);
+    }
+
+    // 2. Restore step
     const currentPath = window.location.pathname.toLowerCase();
     let topPath = '';
     try {
@@ -137,17 +144,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setStep(matchedStep);
     }
 
-    // 2. Restore type
+    // 3. Restore type
     if (!initialType) {
       const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
       if (savedType) setAssessmentType(savedType);
     }
 
-    // 3. Restore JD text
+    // 4. Restore JD text
     const savedJd = sessionStorage.getItem('aiprep_jd_text');
     if (savedJd) setJdText(savedJd);
 
-    // 4. Restore consent preferences
+    // 5. Restore consent preferences
     const savedAnalytics = sessionStorage.getItem('aiprep_consent_analytics');
     const savedRecording = sessionStorage.getItem('aiprep_consent_recording');
     const savedTranscript = sessionStorage.getItem('aiprep_consent_transcript');
@@ -155,14 +162,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (savedRecording !== null) setConsentSaveRecording(savedRecording === 'true');
     if (savedTranscript !== null) setConsentSaveTranscript(savedTranscript === 'true');
 
-    const savedMode = sessionStorage.getItem('aiprep_active_mode');
-    const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
-    if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false' || isAudioOnlyMode) {
-      setVideoEnabled(false);
-      setConsentCamera(false);
-    }
-
-    // 5. Restore hardware test results
+    // 6. Restore hardware test results
     const savedCamOk = sessionStorage.getItem('aiprep_test_camera_ok');
     if (savedCamOk !== null) {
       setCameraOk(savedCamOk === 'true');
@@ -187,7 +187,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setIsRealInternetOnline(false);
     }
-  }, [isMounted]);
+  }, []);
 
   const isPopStateRef = useRef(false);
   useEffect(() => {
