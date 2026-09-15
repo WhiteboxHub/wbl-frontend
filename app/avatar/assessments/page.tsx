@@ -57,7 +57,16 @@ export default function CandidateAssessmentsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, currentPage, limit]);
+  }, [
+    filters,
+    currentPage,
+    limit,
+    setIsLoading,
+    setError,
+    setAssessments,
+    setTotalPages,
+    setTotalCount,
+  ]);
 
   useEffect(() => {
     loadAssessments();

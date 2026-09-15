@@ -419,7 +419,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
     };
-  }, []);
+  }, [
+    setTypeDropdownOpen,
+    setStatusDropdownOpen,
+    setModeDropdownOpen,
+    setDateDropdownOpen,
+  ]);
 
   const handleSelectType = (val: string) => {
     if (onFilterChange) {

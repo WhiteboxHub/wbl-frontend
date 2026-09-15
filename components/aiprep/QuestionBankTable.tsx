@@ -198,23 +198,24 @@ interface ColumnFilterHeaderProps {
 }
 
 const StandardColumnHeader = (params: any) => {
+  const { column } = params;
   const filterButtonRef = useRef<HTMLDivElement>(null);
-  const title = params.displayName || params.column?.getColDef()?.headerName || "";
-  const enableFilter = params.enableFilter !== false && Boolean(params.column?.getColDef()?.filter);
+  const title = params.displayName || column?.getColDef()?.headerName || "";
+  const enableFilter = params.enableFilter !== false && Boolean(column?.getColDef()?.filter);
   const [isFilterActive, setIsFilterActive] = useState(false);
 
   useEffect(() => {
     const checkFilter = () => {
-      if (params.column?.isFilterActive) {
-        setIsFilterActive(params.column.isFilterActive());
+      if (column?.isFilterActive) {
+        setIsFilterActive(column.isFilterActive());
       }
     };
     checkFilter();
-    params.column?.addEventListener?.("filterChanged", checkFilter);
+    column?.addEventListener?.("filterChanged", checkFilter);
     return () => {
-      params.column?.removeEventListener?.("filterChanged", checkFilter);
+      column?.removeEventListener?.("filterChanged", checkFilter);
     };
-  }, [params.column]);
+  }, [column, setIsFilterActive]);
 
   const onSortClick = (e: React.MouseEvent) => {
     e.stopPropagation();

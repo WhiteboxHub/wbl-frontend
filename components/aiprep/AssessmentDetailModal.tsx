@@ -38,7 +38,14 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
       setTelemetryData(null);
       setActiveTab("overview");
     }
-  }, [isOpen, assessment?.id]);
+  }, [
+    isOpen,
+    assessment?.id,
+    setIsLoading,
+    setReportData,
+    setTelemetryData,
+    setActiveTab,
+  ]);
 
   if (!isOpen || !assessment) return null;
 
