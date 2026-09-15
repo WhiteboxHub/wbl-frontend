@@ -612,7 +612,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
             </div>
 
             <p className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 leading-relaxed">
-              "{sampleQuestion}"
+              &ldquo;{sampleQuestion}&rdquo;
             </p>
           </div>
 
@@ -844,8 +844,13 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         <button
           type="button"
           onClick={onStartAssessment}
-          className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60 flex items-center gap-2"
-          title="Start Assessment is currently disabled"
+          disabled={isRecording}
+          className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
+            isRecording
+              ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
+          }`}
+          title={isRecording ? 'Please stop recording before starting assessment' : 'Start Assessment'}
         >
           <span>Start Assessment</span>
           <ChevronRight className="w-4 h-4 stroke-[2.5]" />

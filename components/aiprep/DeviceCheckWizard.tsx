@@ -187,7 +187,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setIsRealInternetOnline(false);
     }
-  }, []);
+  }, [audioOnly, initialMode, initialType]);
 
   const isPopStateRef = useRef(false);
   useEffect(() => {
