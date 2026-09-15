@@ -162,6 +162,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   // Connect live camera stream to video preview
   useEffect(() => {
     let localStream: MediaStream | null = null;
+    let isCurrent = true;
 
     async function initPreviewStream() {
       if (!videoEnabled || !liveVideoElement) return;
@@ -169,17 +170,22 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       let streamToUse = cameraStream;
       if (!streamToUse || !streamToUse.active) {
         try {
-          localStream = await navigator.mediaDevices.getUserMedia({
+          const stream = await navigator.mediaDevices.getUserMedia({
             video: { width: 1280, height: 720 },
-            audio: true,
+            audio: false,
           });
+          if (!isCurrent) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          localStream = stream;
           streamToUse = localStream;
         } catch (err) {
           console.warn('Failed to acquire fallback video stream:', err);
         }
       }
 
-      if (liveVideoElement && streamToUse) {
+      if (isCurrent && liveVideoElement && streamToUse) {
         if (liveVideoElement.srcObject !== streamToUse) {
           liveVideoElement.srcObject = streamToUse;
           liveVideoElement.play().catch((e) => console.warn('Preview video play handled:', e));
@@ -190,6 +196,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     initPreviewStream();
 
     return () => {
+      isCurrent = false;
       if (localStream) {
         localStream.getTracks().forEach((t) => t.stop());
       }
