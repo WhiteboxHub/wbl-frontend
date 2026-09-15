@@ -180,3 +180,63 @@ export interface HardwareCheckResults {
   video_enabled: boolean;
   jd_text: string;
 }
+
+// ============================================================================
+// Question Bank Types
+// ============================================================================
+
+export type QuestionCategory =
+  | 'INTRO'
+  | 'JD_INTRO'
+  | 'RECRUITER'
+  | 'HIRING_MANAGER'
+  | 'SYSTEM_DESIGN'
+  | 'TECHNICAL';
+
+export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+
+export interface QuestionBankItem {
+  id: number;
+  category: QuestionCategory;
+  sub_category?: string | null;
+  difficulty_level: QuestionDifficulty;
+  question_text: string;
+  is_active: number | boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface QuestionFiltersState {
+  search: string;
+  category: string;
+  sub_category: string;
+  difficulty: string;
+  status: 'all' | 'active' | 'inactive';
+}
+
+export interface QuestionListResponse {
+  items: QuestionBankItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+
+
+// ============================================================================
+// Telemetry & Assessment Data (POST /api/aiprep/assessments/{id}/data)
+// ============================================================================
+
+export interface QuestionTelemetryItem {
+  question_id: number;
+  question_text: string;
+}
+
+export interface TranscriptSegment {
+  text: string;
+  start: number;
+  end: number;
+}
+
+
