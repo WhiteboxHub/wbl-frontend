@@ -27,9 +27,13 @@ const SLUG_TO_STEP: Record<string, WizardStep> = {
 
 const cleanLabel = (label: string, fallback: string) => {
   if (!label || !label.trim()) return fallback;
-  let c = label.replace(/^(Default|Communications)\s*-\s*/i, '').replace(/\s*[\(\[\{][^\)\]\}]*[\)\]\}]/g, '').trim();
+  // Strip generic OS prefixes like "Default - " or "Communications - "
+  let c = label.replace(/^(Default|Communications)\s*-\s*/i, '').trim();
+  // Remove trailing parentheticals that are redundant (e.g. device IDs like "(0x...)"), but keep useful ones like "(Built-in)" shortened
+  c = c.replace(/\s*\([0-9a-fx:,\s]+\)$/i, '').trim();
+  // Cap at 5 words to avoid overly long labels
   const words = c.split(/\s+/).filter(Boolean);
-  return (words.length > 2 ? words.slice(0, 2).join(' ') : c) || fallback;
+  return (words.length > 5 ? words.slice(0, 5).join(' ') : c) || fallback;
 };
 const filterDevs = (devs: any[], kind: string, fallback: string): MediaDev[] => {
   const seen = new Set<string>();
@@ -62,65 +66,132 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [step, setStep] = useState<WizardStep>(() => {
-    if (typeof window !== 'undefined') {
-      const currentPath = window.location.pathname.toLowerCase();
-      let topPath = '';
-      try {
-        if (window.top && window.top.location) {
-          topPath = window.top.location.pathname.toLowerCase();
-        }
-      } catch { }
-      const activePath = topPath || currentPath;
-      // When accessing /aiprep directly or assessment type route, always start at Step 1 (Assessment Type)
-      if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
-        return 'CONFIGURATION';
-      }
-      // Check URL route slugs
-      for (const [slugKey, s] of Object.entries(SLUG_TO_STEP)) {
-        if (activePath.includes(`/${slugKey}`) || activePath.endsWith(`/${slugKey}`)) {
-          return s;
-        }
-      }
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlStep = urlParams.get('step') as WizardStep | null;
-      if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(urlStep)) {
-        return urlStep;
-      }
-      // Check sessionStorage fallback
-      const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
-      if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
-        return savedStep;
-      }
-    }
-    return initialStep;
-  });
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
-    if (initialType) return initialType as AssessmentType;
-    if (typeof window !== 'undefined') {
-      const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
-      if (savedType) return savedType;
-    }
-    return 'INTRO';
-  });
+  const [isMounted, setIsMounted] = useState(false);
+  const [step, setStep] = useState<WizardStep>(initialStep);
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => (initialType as AssessmentType) || 'INTRO');
+
   // 2. Consent State (Centralized in ConsentModal module)
-  const isAudioOnlyMode = audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO';
+  // Deterministic initial state for SSR / initial client render
+  const initialDeterministicAudioOnly = Boolean(audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO');
+  const [isAudioOnlyMode, setIsAudioOnlyMode] = useState<boolean>(initialDeterministicAudioOnly);
+
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(isAudioOnlyMode);
-  }, [isAudioOnlyMode]);
+    return getInitialConsentState(initialDeterministicAudioOnly);
+  }, [initialDeterministicAudioOnly]);
+
   const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
   const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
-  const [jdText, setJdText] = useState<string>(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
-    return '';
-  });
+  const [jdText, setJdText] = useState<string>('');
+
+  // Restore persisted state from sessionStorage and URL safely after client mount
+  useEffect(() => {
+    setIsMounted(true);
+    if (typeof window === 'undefined') return;
+
+    // 1. Restore audio / video mode
+    const savedMode = sessionStorage.getItem('aiprep_active_mode');
+    const savedVideo = sessionStorage.getItem('aiprep_video_enabled');
+    const isSavedAudioOnly = savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO' || savedVideo === 'false';
+    const isSavedVideoAudio = savedMode === 'VIDEO_AUDIO' || savedVideo === 'true';
+
+    if (audioOnly || initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO' || isSavedAudioOnly) {
+      setIsAudioOnlyMode(true);
+      setVideoEnabled(false);
+      setConsentCamera(false);
+    } else if (isSavedVideoAudio) {
+      setIsAudioOnlyMode(false);
+      setVideoEnabled(true);
+      setConsentCamera(true);
+    }
+
+    // 2. Restore step
+    const currentPath = window.location.pathname.toLowerCase();
+    let topPath = '';
+    try {
+      if (window.top && window.top.location) {
+        topPath = window.top.location.pathname.toLowerCase();
+      }
+    } catch { }
+    const activePath = topPath || currentPath;
+    let matchedStep: WizardStep | null = null;
+    if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
+      matchedStep = 'CONFIGURATION';
+    } else {
+      for (const [slugKey, s] of Object.entries(SLUG_TO_STEP)) {
+        if (activePath.includes(`/${slugKey}`) || activePath.endsWith(`/${slugKey}`)) {
+          matchedStep = s;
+          break;
+        }
+      }
+      if (!matchedStep) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlStep = urlParams.get('step') as WizardStep | null;
+        if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(urlStep)) {
+          matchedStep = urlStep;
+        } else {
+          const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
+          if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
+            matchedStep = savedStep;
+          }
+        }
+      }
+    }
+    if (matchedStep) {
+      setStep(matchedStep);
+    }
+
+    // 3. Restore type
+    if (!initialType) {
+      const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
+      if (savedType) setAssessmentType(savedType);
+    }
+
+    // 4. Restore JD text
+    const savedJd = sessionStorage.getItem('aiprep_jd_text');
+    if (savedJd) setJdText(savedJd);
+
+    // 5. Restore consent preferences
+    const savedAnalytics = sessionStorage.getItem('aiprep_consent_analytics');
+    const savedRecording = sessionStorage.getItem('aiprep_consent_recording');
+    const savedTranscript = sessionStorage.getItem('aiprep_consent_transcript');
+    if (savedAnalytics !== null) setVideoAnalyticsEnabled(savedAnalytics === 'true');
+    if (savedRecording !== null) setConsentSaveRecording(savedRecording === 'true');
+    if (savedTranscript !== null) setConsentSaveTranscript(savedTranscript === 'true');
+
+    // 6. Restore hardware test results
+    const savedCamOk = sessionStorage.getItem('aiprep_test_camera_ok');
+    if (savedCamOk !== null) {
+      setCameraOk(savedCamOk === 'true');
+      setCameraTested(sessionStorage.getItem('aiprep_test_camera_tested') === 'true');
+    }
+    const savedMicOk = sessionStorage.getItem('aiprep_test_mic_ok');
+    if (savedMicOk !== null) {
+      setMicOk(savedMicOk === 'true');
+      setMicTested(sessionStorage.getItem('aiprep_test_mic_tested') === 'true');
+    }
+    const savedSpkOk = sessionStorage.getItem('aiprep_test_speaker_ok');
+    if (savedSpkOk !== null) {
+      setSpeakerOk(savedSpkOk === 'true');
+      setSpeakerTested(sessionStorage.getItem('aiprep_test_speaker_tested') === 'true');
+    }
+    const savedAnalyticsOk = sessionStorage.getItem('aiprep_test_analytics_ok');
+    if (savedAnalyticsOk !== null) {
+      setAnalyticsOk(savedAnalyticsOk === 'true');
+      setAnalyticsTested(sessionStorage.getItem('aiprep_test_analytics_tested') === 'true');
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsRealInternetOnline(false);
+    }
+  }, [audioOnly, initialMode, initialType]);
+
   const isPopStateRef = useRef(false);
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!isMounted || typeof window === 'undefined') return;
     sessionStorage.setItem('aiprep_wizard_step', step);
     sessionStorage.setItem('aiprep_active_type', assessmentType);
     syncConsentToSessionStorage({
@@ -170,18 +241,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         window.parent.postMessage({ type: 'AIPREP_STEP_CHANGE', step, slug }, targetOrigin);
       }
     } catch { }
-  }, [step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
+  }, [isMounted, step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
+    if (!isMounted || typeof window === 'undefined') return;
     if (step === 'CONFIGURATION' && !audioOnly) {
-      const savedMode = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_active_mode') : null;
+      const savedMode = sessionStorage.getItem('aiprep_active_mode');
       if (!savedMode) {
         setVideoEnabled(true);
         setConsentCamera(true);
         syncConsentToSessionStorage({ videoEnabled: true, consentCamera: true });
       }
     }
-  }, [step, audioOnly]);
+  }, [isMounted, step, audioOnly]);
   // Synchronize wizard step with Next.js router pathname
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -321,20 +393,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     };
   }, []);
 
-  // 3. Hardware Diagnostics & Streams (Initialized from sessionStorage for refresh persistence)
-  const [cameraOk, setCameraOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_camera_ok') === 'true' ? true : null);
-  const [micOk, setMicOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_mic_ok') === 'true' ? true : null);
-  const [speakerOk, setSpeakerOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_speaker_ok') === 'true' ? true : null);
-  const [cameraTested, setCameraTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_camera_ok') === 'true');
-  const [micTested, setMicTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_mic_ok') === 'true');
-  const [speakerTested, setSpeakerTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_speaker_ok') === 'true');
-  const [analyticsOk, setAnalyticsOk] = useState<boolean | null>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_analytics_ok') === 'true' ? true : null);
-  const [analyticsTested, setAnalyticsTested] = useState<boolean>(() => typeof window !== 'undefined' && sessionStorage.getItem('aiprep_test_analytics_ok') === 'true');
+  // 3. Hardware Diagnostics & Streams (Initialized safely for SSR and restored after mount)
+  const [cameraOk, setCameraOk] = useState<boolean | null>(null);
+  const [micOk, setMicOk] = useState<boolean | null>(null);
+  const [speakerOk, setSpeakerOk] = useState<boolean | null>(null);
+  const [cameraTested, setCameraTested] = useState<boolean>(false);
+  const [micTested, setMicTested] = useState<boolean>(false);
+  const [speakerTested, setSpeakerTested] = useState<boolean>(false);
+  const [analyticsOk, setAnalyticsOk] = useState<boolean | null>(null);
+  const [analyticsTested, setAnalyticsTested] = useState<boolean>(false);
   const [analyticsTesting, setAnalyticsTesting] = useState<boolean>(false);
 
   const [bandwidthKbps, setBandwidthKbps] = useState<number>(0);
   const [networkPingMs, setNetworkPingMs] = useState<number>(0);
-  const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(true);
   const [bandwidthChecking, setBandwidthChecking] = useState<boolean>(false);
   const [browserResult, setBrowserResult] = useState<{ ok: boolean; name: string } | null>(null);
   const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
@@ -406,6 +478,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   const [videoDevices, setVideoDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Integrated Webcam' }]);
   const [audioDevices, setAudioDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Default Microphone' }]);
+  const [speakerDevices, setSpeakerDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'System Default Speaker' }]);
   const [selectedVideoDevice, setSelectedVideoDevice] = useState<string>('default');
   const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>('default');
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -528,7 +601,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // Sync test results with sessionStorage so they persist on page refresh
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!isMounted || typeof window === 'undefined') return;
     if (cameraOk !== null) sessionStorage.setItem('aiprep_test_camera_ok', String(cameraOk));
     else sessionStorage.removeItem('aiprep_test_camera_ok');
     sessionStorage.setItem('aiprep_test_camera_tested', String(cameraTested));
@@ -544,7 +617,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (analyticsOk !== null) sessionStorage.setItem('aiprep_test_analytics_ok', String(analyticsOk));
     else sessionStorage.removeItem('aiprep_test_analytics_ok');
     sessionStorage.setItem('aiprep_test_analytics_tested', String(analyticsTested));
-  }, [cameraOk, cameraTested, micOk, micTested, speakerOk, speakerTested, analyticsOk, analyticsTested]);
+  }, [isMounted, cameraOk, cameraTested, micOk, micTested, speakerOk, speakerTested, analyticsOk, analyticsTested]);
 
   // Cleanup helper
   const cleanup = useCallback((scope: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY' = 'ALL') => {
@@ -650,6 +723,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         rawAudioCount = devs.filter((d) => d.kind === 'audioinput').length;
         vDevs = filterDevs(devs, 'videoinput', 'Integrated Webcam');
         aDevs = filterDevs(devs, 'audioinput', 'Default Microphone');
+        const spDevs = filterDevs(devs, 'audiooutput', 'System Default Speaker');
+        if (spDevs.length > 0) {
+          setSpeakerDevices(spDevs);
+        }
         if (vDevs.length > 0) {
           setVideoDevices(vDevs);
           setSelectedVideoDevice((prev) => (vDevs.some((d) => d.deviceId === prev) ? prev : vDevs[0].deviceId));
@@ -683,6 +760,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           });
           bindCameraStream(stream);
           setShowPermissionGuide(false);
+          // Camera permission granted — re-enumerate to get real device labels
+          const freshDevs = await navigator.mediaDevices.enumerateDevices();
+          const freshVDevs = filterDevs(freshDevs, 'videoinput', 'Integrated Webcam');
+          const freshADevs = filterDevs(freshDevs, 'audioinput', 'Default Microphone');
+          const freshSpDevs = filterDevs(freshDevs, 'audiooutput', 'System Default Speaker');
+          if (freshVDevs.length > 0) {
+            setVideoDevices(freshVDevs);
+            setSelectedVideoDevice((prev) => (freshVDevs.some((d) => d.deviceId === prev) ? prev : freshVDevs[0].deviceId));
+          }
+          if (freshADevs.length > 0) setAudioDevices(freshADevs);
+          if (freshSpDevs.length > 0) setSpeakerDevices(freshSpDevs);
           // If video stream is actively received, mark camera passed
           setCameraOk(true);
           setCameraTested(true);
@@ -702,7 +790,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       try {
         const micId = (aDevs.length > 0 ? aDevs[0].deviceId : null) || (selectedAudioDeviceRef.current !== 'default' ? selectedAudioDeviceRef.current : null);
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: micId ? { deviceId: { exact: micId } } : true,
+          // Don't pass `exact: 'default'` — use plain `true` for default device to avoid browser errors
+          audio: (micId && micId !== 'default') ? { deviceId: { exact: micId } } : true,
         });
         bindMicStream(stream);
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -729,6 +818,21 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
         setMicOk(true);
         setMicTested(true);
+        // Mic permission granted — re-enumerate to get real device labels
+        try {
+          const freshDevs2 = await navigator.mediaDevices.enumerateDevices();
+          const freshADevs2 = filterDevs(freshDevs2, 'audioinput', 'Default Microphone');
+          const freshSpDevs2 = filterDevs(freshDevs2, 'audiooutput', 'System Default Speaker');
+          const freshVDevs2 = filterDevs(freshDevs2, 'videoinput', 'Integrated Webcam');
+          if (freshADevs2.length > 0) {
+            setAudioDevices(freshADevs2);
+            // Always update to the first real device — in audio-only mode selectedAudioDevice
+            // is still 'default' at this point so we must force it to the real deviceId
+            setSelectedAudioDevice(freshADevs2[0].deviceId);
+          }
+          if (freshSpDevs2.length > 0) setSpeakerDevices(freshSpDevs2);
+          if (freshVDevs2.length > 0) setVideoDevices(freshVDevs2);
+        } catch { /* non-critical */ }
       } catch {
         setMicOk(false);
         setMicTested(true);
@@ -773,8 +877,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
         const vDevs = filterDevs(devs, 'videoinput', 'Integrated Webcam');
         const aDevs = filterDevs(devs, 'audioinput', 'Default Microphone');
+        const spDevs = filterDevs(devs, 'audiooutput', 'System Default Speaker');
         if (vDevs.length > 0) setVideoDevices(vDevs);
         if (aDevs.length > 0) setAudioDevices(aDevs);
+        if (spDevs.length > 0) setSpeakerDevices(spDevs);
 
         // Check if Microphone device was disconnected or ended
         const micTracks = micStreamRef.current?.getAudioTracks() || [];
@@ -1258,7 +1364,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       // Live Pre-flight Hardware Verification: ensure microphone and camera are still physically connected and live
       try {
         const netCheck = await checkRealInternet();
-        if (!netCheck.online || netCheck.kbps <= 0) {
+        const isBrowserOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
+        if (!netCheck.online && !isBrowserOnline) {
           setIsRealInternetOnline(false);
           return;
         }
@@ -1323,9 +1430,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       } catch (err) {
         console.error('[handleNext] Hardware pre-flight error:', err);
-        setMicOk(false);
-        setMicTested(true);
-        return;
       }
 
       // Final gate: verify all required states are valid
@@ -1340,11 +1444,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: !!speakerOk, bandwidth_kbps: bandwidthKbps,
           analytics_consent: videoAnalyticsEnabled, assessment_type: assessmentType, audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
         });
-        setStep('PRACTICE_START');
       } catch (err) {
-        console.error('[DeviceCheckWizard] Error preparing session:', err);
+        console.warn('[DeviceCheckWizard] Non-blocking backend session prep warning:', err);
       } finally {
         setIsConfirmingFromBackend(false);
+        setStep('PRACTICE_START');
       }
     } else if (step === 'PRACTICE_START') {
       handleCompleteAssessment();
@@ -1414,7 +1518,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             </div></div>
 
           {/* Content Body */}
-          <div className={`flex-1 min-h-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' ? 'overflow-hidden px-3 sm:px-6 py-1.5 sm:py-2' : 'overflow-y-auto p-2 sm:p-4 md:px-6 md:py-4'}`}>
+          <div className={`flex-1 min-h-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' ? 'overflow-hidden px-3 sm:px-6 py-1.5 sm:py-2' : step === 'CONSENT' ? 'overflow-y-auto px-3 sm:px-6 py-1.5 sm:py-2 md:py-2.5' : 'overflow-y-auto p-2 sm:p-4 md:px-6 md:py-4'}`}>
 
             {/* STEP 1: CONFIGURATION */}
             {step === 'CONFIGURATION' && (
@@ -1427,7 +1531,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
             {/* STEP 2: CONSENT */}
             {step === 'CONSENT' && (
-              <div className="w-full max-w-6xl mx-auto mt-0 mb-auto flex flex-col py-0"><ConsentStep
+              <div className="w-full max-w-4xl xl:max-w-5xl mx-auto my-auto flex flex-col py-0"><ConsentStep
                 videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled} consentMic={consentMic} setConsentMic={setConsentMic}
                 consentCamera={consentCamera} setConsentCamera={setConsentCamera} videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
                 consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording} consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
@@ -2149,6 +2253,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   cameraStream={cameraStream}
                   selectedAudioLabel={audioDevices.find((d) => d.deviceId === selectedAudioDevice)?.label || 'Microphone'}
                   selectedVideoLabel={videoDevices.find((d) => d.deviceId === selectedVideoDevice)?.label || 'Camera'}
+                  selectedSpeakerLabel={speakerDevices[0]?.label || 'System Default Speaker'}
                   onBack={handlePrevious}
                   onStartAssessment={handleCompleteAssessment}
                 />
