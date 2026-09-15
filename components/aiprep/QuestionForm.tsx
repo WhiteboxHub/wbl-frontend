@@ -297,11 +297,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
             disabled={isSubmitting}
             onClick={() => {
               setQuestionText("");
-              setSubCategory(
-                category === "TECHNICAL"
-                  ? QUESTION_TAXONOMY["TECHNICAL"]?.[0] || ""
-                  : ""
-              );
+              setSubCategory("");
               setErrors({});
             }}
             className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 shadow-xs transition-all hover:bg-red-100 hover:text-red-700 disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/60"
