@@ -1,29 +1,5 @@
-import axios from 'axios';
+import { apiFetch } from '@/lib/api';
 import { QuestionBankItem, QuestionFiltersState, QuestionListResponse } from '@/types/aiprep';
-
-function getEndpointUrl(path: string): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || '';
-  const baseUrl = envUrl.replace(/\/$/, '');
-  let cleanPath = path.replace(/^\//, '');
-
-  if (baseUrl.endsWith('/api') && cleanPath.startsWith('api/')) {
-    cleanPath = cleanPath.substring(4);
-  } else if (!baseUrl.endsWith('/api') && !cleanPath.startsWith('api/')) {
-    cleanPath = `api/${cleanPath}`;
-  }
-
-  return baseUrl ? `${baseUrl}/${cleanPath}` : `/${cleanPath}`;
-}
-
-function getAuthHeader(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  const token =
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('token') ||
-    localStorage.getItem('auth_token') ||
-    localStorage.getItem('bearer_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 // ---------------------------------------------------------------------------
 // 1. Fetch questions list from backend database
@@ -37,37 +13,29 @@ export async function fetchQuestionBank(
 ): Promise<QuestionListResponse> {
   try {
     const offset = (page - 1) * limit;
-    const params: Record<string, string | number | boolean> = {
-      limit,
-      offset,
-    };
+    const queryParams = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
 
     if (filters?.category && filters.category !== 'all') {
-      params.category = filters.category;
+      queryParams.set('category', filters.category);
     }
     if (filters?.difficulty && filters.difficulty !== 'all') {
-      params.difficulty_level = filters.difficulty;
+      queryParams.set('difficulty_level', filters.difficulty);
     }
     if (filters?.status && filters.status !== 'all') {
-      params.is_active = filters.status === 'active';
+      queryParams.set('is_active', String(filters.status === 'active'));
     }
 
-    const res = await axios.get<{ items: QuestionBankItem[]; total: number }>(
-      getEndpointUrl('/api/aiprep/questions'),
-      {
-        headers: getAuthHeader(),
-        params,
-        timeout: 10000,
-      }
-    );
-
-    let items = res.data.items || [];
-    let total = res.data.total ?? items.length;
+    const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`);
+    let items: QuestionBankItem[] = res?.items || [];
+    let total: number = res?.total ?? items.length;
 
     // Apply client-side sub_category and search filtering if needed
     if (filters?.sub_category && filters.sub_category !== 'all') {
       items = items.filter(
-        (item) => item.sub_category?.toLowerCase() === filters.sub_category.toLowerCase()
+        (item) => item.sub_category?.toLowerCase() === filters.sub_category?.toLowerCase()
       );
     }
     if (filters?.search && filters.search.trim()) {
@@ -90,8 +58,8 @@ export async function fetchQuestionBank(
       totalPages,
     };
   } catch (err: any) {
-    console.error('Fetch Question Bank API Error:', err?.response?.data || err.message);
-    const detail = err?.response?.data?.detail;
+    console.error('Fetch Question Bank API Error:', err?.body?.detail || err.message);
+    const detail = err?.body?.detail;
     throw new Error(typeof detail === 'string' ? detail : 'Failed to fetch questions from backend database.');
   }
 }
@@ -113,18 +81,14 @@ export async function createQuestion(
   };
 
   try {
-    const res = await axios.post<QuestionBankItem>(
-      getEndpointUrl('/api/aiprep/questions'),
-      payload,
-      {
-        headers: getAuthHeader(),
-        timeout: 10000,
-      }
-    );
-    return res.data;
+    const res = await apiFetch('api/aiprep/questions', {
+      method: 'POST',
+      body: payload,
+    });
+    return res;
   } catch (err: any) {
-    console.error('Create Question API Error:', err?.response?.data || err.message);
-    const detail = err?.response?.data?.detail;
+    console.error('Create Question API Error:', err?.body?.detail || err.message);
+    const detail = err?.body?.detail;
     throw new Error(typeof detail === 'string' ? detail : 'Failed to create question in backend database.');
   }
 }
@@ -148,18 +112,14 @@ export async function updateQuestion(
   if (data.is_active !== undefined) payload.is_active = Boolean(data.is_active);
 
   try {
-    const res = await axios.patch<QuestionBankItem>(
-      getEndpointUrl(`/api/aiprep/questions/${id}`),
-      payload,
-      {
-        headers: getAuthHeader(),
-        timeout: 10000,
-      }
-    );
-    return res.data;
+    const res = await apiFetch(`api/aiprep/questions/${id}`, {
+      method: 'PATCH',
+      body: payload,
+    });
+    return res;
   } catch (err: any) {
-    console.error('Update Question API Error:', err?.response?.data || err.message);
-    const detail = err?.response?.data?.detail;
+    console.error('Update Question API Error:', err?.body?.detail || err.message);
+    const detail = err?.body?.detail;
     throw new Error(typeof detail === 'string' ? detail : 'Failed to update question in backend database.');
   }
 }
@@ -173,15 +133,14 @@ export async function toggleQuestionStatus(
   isActive: boolean
 ): Promise<boolean> {
   try {
-    await axios.patch(
-      getEndpointUrl(`/api/aiprep/questions/${id}`),
-      { is_active: Boolean(isActive) },
-      { headers: getAuthHeader(), timeout: 10000 }
-    );
+    await apiFetch(`api/aiprep/questions/${id}`, {
+      method: 'PATCH',
+      body: { is_active: Boolean(isActive) },
+    });
     return true;
   } catch (err: any) {
-    console.error('Toggle Question Status API Error:', err?.response?.data || err.message);
-    const detail = err?.response?.data?.detail;
+    console.error('Toggle Question Status API Error:', err?.body?.detail || err.message);
+    const detail = err?.body?.detail;
     throw new Error(typeof detail === 'string' ? detail : 'Failed to update question status in backend database.');
   }
 }
@@ -192,22 +151,20 @@ export async function toggleQuestionStatus(
 // ---------------------------------------------------------------------------
 export async function deleteQuestion(id: number): Promise<boolean> {
   try {
-    await axios.delete(getEndpointUrl(`/api/aiprep/questions/${id}`), {
-      headers: getAuthHeader(),
-      timeout: 10000,
+    await apiFetch(`api/aiprep/questions/${id}`, {
+      method: 'DELETE',
     });
     return true;
   } catch (err: any) {
     try {
-      await axios.patch(
-        getEndpointUrl(`/api/aiprep/questions/${id}`),
-        { is_active: false },
-        { headers: getAuthHeader(), timeout: 10000 }
-      );
+      await apiFetch(`api/aiprep/questions/${id}`, {
+        method: 'PATCH',
+        body: { is_active: false },
+      });
       return true;
     } catch {
-      console.error('Delete Question API Error:', err?.response?.data || err.message);
-      const detail = err?.response?.data?.detail;
+      console.error('Delete Question API Error:', err?.body?.detail || err.message);
+      const detail = err?.body?.detail;
       throw new Error(typeof detail === 'string' ? detail : 'Failed to delete question from backend database.');
     }
   }

@@ -1,33 +1,9 @@
-import axios from "axios";
+import { apiFetch } from "@/lib/api";
 import {
   AssessmentFiltersState,
   AssessmentGridItem,
   AssessmentListApiResponse,
 } from "@/types/assessment";
-
-function getEndpointUrl(path: string): string {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const baseUrl = envUrl.replace(/\/$/, "");
-  let cleanPath = path.replace(/^\//, "");
-
-  if (baseUrl.endsWith("/api") && cleanPath.startsWith("api/")) {
-    cleanPath = cleanPath.substring(4);
-  } else if (!baseUrl.endsWith("/api") && !cleanPath.startsWith("api/")) {
-    cleanPath = `api/${cleanPath}`;
-  }
-
-  return baseUrl ? `${baseUrl}/${cleanPath}` : `/${cleanPath}`;
-}
-
-function getAuthHeader(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  const token =
-    localStorage.getItem("access_token") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("auth_token") ||
-    localStorage.getItem("bearer_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 /**
  * Assessment Service for Candidate and Admin/Employee assessment operations.
@@ -40,23 +16,21 @@ export const assessmentService = {
   ): Promise<AssessmentListApiResponse> => {
     try {
       const offset = (page - 1) * limit;
-      const params: Record<string, any> = { limit, offset };
+      const queryParams = new URLSearchParams({
+        limit: String(limit),
+        offset: String(offset),
+      });
 
       if (filters.candidate_id?.trim()) {
-        params.candidate_id = filters.candidate_id.trim();
+        queryParams.set("candidate_id", filters.candidate_id.trim());
       }
 
-      const res = await axios.get<{ items: AssessmentGridItem[]; total: number }>(
-        getEndpointUrl("/api/aiprep/candidate/assessments"),
-        {
-          headers: getAuthHeader(),
-          params,
-          timeout: 10000,
-        }
+      const res = await apiFetch(
+        `api/aiprep/candidate/assessments?${queryParams.toString()}`
       );
 
-      const items = res.data?.items || [];
-      const total = res.data?.total ?? items.length;
+      const items: AssessmentGridItem[] = res?.items || [];
+      const total: number = res?.total ?? items.length;
       const totalPages = Math.max(1, Math.ceil(total / limit));
 
       return {
@@ -85,26 +59,24 @@ export const assessmentService = {
   ): Promise<AssessmentListApiResponse> => {
     try {
       const offset = (page - 1) * limit;
-      const params: Record<string, any> = { limit, offset };
+      const queryParams = new URLSearchParams({
+        limit: String(limit),
+        offset: String(offset),
+      });
 
       if (filters.candidate_id?.trim()) {
-        params.candidate_id = filters.candidate_id.trim();
+        queryParams.set("candidate_id", filters.candidate_id.trim());
       }
       if (filters.status && filters.status !== "all") {
-        params.status = filters.status;
+        queryParams.set("status", filters.status);
       }
 
-      const res = await axios.get<{ items: AssessmentGridItem[]; total: number }>(
-        getEndpointUrl("/api/aiprep/employee/assessments"),
-        {
-          headers: getAuthHeader(),
-          params,
-          timeout: 10000,
-        }
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments?${queryParams.toString()}`
       );
 
-      const items = res.data?.items || [];
-      const total = res.data?.total ?? items.length;
+      const items: AssessmentGridItem[] = res?.items || [];
+      const total: number = res?.total ?? items.length;
       const totalPages = Math.max(1, Math.ceil(total / limit));
 
       return {
@@ -128,14 +100,10 @@ export const assessmentService = {
 
   fetchAssessmentDetail: async (assessmentId: number) => {
     try {
-      const res = await axios.get(
-        getEndpointUrl(`/api/aiprep/employee/assessments/${assessmentId}/report`),
-        {
-          headers: getAuthHeader(),
-          timeout: 10000,
-        }
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}/report`
       );
-      return res.data;
+      return res;
     } catch (err: any) {
       console.error("fetchAssessmentDetail error:", err);
       return null;
@@ -144,14 +112,10 @@ export const assessmentService = {
 
   fetchAssessmentData: async (assessmentId: number) => {
     try {
-      const res = await axios.get(
-        getEndpointUrl(`/api/aiprep/employee/assessments/${assessmentId}/data`),
-        {
-          headers: getAuthHeader(),
-          timeout: 10000,
-        }
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}/data`
       );
-      return res.data;
+      return res;
     } catch (err: any) {
       console.error("fetchAssessmentData error:", err);
       return {
@@ -162,4 +126,3 @@ export const assessmentService = {
     }
   },
 };
-

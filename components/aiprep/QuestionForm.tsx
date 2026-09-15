@@ -6,7 +6,6 @@ import {
   QuestionBankItem,
   QuestionCategory,
   QuestionDifficulty,
-  QUESTION_TAXONOMY,
 } from "@/types/aiprep";
 
 export interface QuestionFormData {
@@ -78,7 +77,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
     } else {
       setCategory("TECHNICAL");
       setDifficulty("MEDIUM");
-      setSubCategory(QUESTION_TAXONOMY["TECHNICAL"]?.[0] || "");
+      setSubCategory("");
       setQuestionText("");
       setIsActive(true);
     }
@@ -87,9 +86,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
 
   const handleCategoryChange = (newCat: QuestionCategory) => {
     setCategory(newCat);
-    setSubCategory(
-      newCat === "TECHNICAL" ? QUESTION_TAXONOMY["TECHNICAL"]?.[0] || "" : ""
-    );
+    setSubCategory("");
   };
 
   const validate = (): boolean => {
@@ -123,9 +120,6 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  const currentTaxonomySubs =
-    category === "TECHNICAL" ? QUESTION_TAXONOMY["TECHNICAL"] || [] : [];
 
   return (
     <form
@@ -173,49 +167,21 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
 
             {/* Sub-Category */}
             <div>
-              <label htmlFor="form-subcategory-select" className={labelCls}>
+              <label htmlFor="form-subcategory" className={labelCls}>
                 Sub-Category{" "}
                 {category === "TECHNICAL" && (
                   <span className="text-red-500">*</span>
                 )}
               </label>
               {category === "TECHNICAL" ? (
-                <div className="flex flex-col gap-2">
-                  <select
-                    id="form-subcategory-select"
-                    value={
-                      currentTaxonomySubs.includes(subCategory)
-                        ? subCategory
-                        : "__custom__"
-                    }
-                    onChange={(e) => {
-                      if (e.target.value !== "__custom__") {
-                        setSubCategory(e.target.value);
-                      } else {
-                        setSubCategory("");
-                      }
-                    }}
-                    className={inputCls}
-                  >
-                    {currentTaxonomySubs.map((sub) => (
-                      <option key={sub} value={sub}>
-                        {sub}
-                      </option>
-                    ))}
-                    <option value="__custom__">+ Custom Sub-Category</option>
-                  </select>
-                  {(!currentTaxonomySubs.includes(subCategory) ||
-                    subCategory === "") && (
-                    <input
-                      id="form-subcategory"
-                      type="text"
-                      placeholder="Enter custom sub-category..."
-                      value={subCategory}
-                      onChange={(e) => setSubCategory(e.target.value)}
-                      className={inputCls}
-                    />
-                  )}
-                </div>
+                <input
+                  id="form-subcategory"
+                  type="text"
+                  placeholder="Enter sub-category..."
+                  value={subCategory}
+                  onChange={(e) => setSubCategory(e.target.value)}
+                  className={inputCls}
+                />
               ) : (
                 <input
                   disabled
