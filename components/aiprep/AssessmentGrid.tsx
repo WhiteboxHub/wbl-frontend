@@ -146,11 +146,10 @@ function getCanonicalStatus(raw?: string): string {
 const FunnelFilterIcon = ({ isActive }: { isActive?: boolean }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    className={`h-3.5 w-3.5 ${
-      isActive
+    className={`h-3.5 w-3.5 ${isActive
         ? "text-purple-600 dark:text-purple-400 font-bold"
         : "text-gray-400 hover:text-gray-600 dark:text-gray-400"
-    }`}
+      }`}
     fill="none"
     viewBox="0 0 24 24"
     stroke="currentColor"

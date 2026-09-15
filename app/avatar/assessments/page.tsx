@@ -65,7 +65,7 @@ export default function CandidateAssessmentsPage() {
     setError,
     setAssessments,
     setTotalPages,
-    setTotalCount,
+    setTotalCount,      
   ]);
 
   useEffect(() => {
