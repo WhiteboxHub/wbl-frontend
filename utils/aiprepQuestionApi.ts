@@ -21,33 +21,22 @@ export async function fetchQuestionBank(
     if (filters?.category && filters.category !== 'all') {
       queryParams.set('category', filters.category);
     }
+    if (filters?.sub_category && filters.sub_category !== 'all') {
+      queryParams.set('sub_category', filters.sub_category);
+    }
     if (filters?.difficulty && filters.difficulty !== 'all') {
       queryParams.set('difficulty_level', filters.difficulty);
     }
     if (filters?.status && filters.status !== 'all') {
       queryParams.set('is_active', String(filters.status === 'active'));
     }
+    if (filters?.search && filters.search.trim()) {
+      queryParams.set('search', filters.search.trim());
+    }
 
     const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`);
-    let items: QuestionBankItem[] = res?.items || [];
-    let total: number = res?.total ?? items.length;
-
-    // Apply client-side sub_category and search filtering if needed
-    if (filters?.sub_category && filters.sub_category !== 'all') {
-      items = items.filter(
-        (item) => item.sub_category?.toLowerCase() === filters.sub_category?.toLowerCase()
-      );
-    }
-    if (filters?.search && filters.search.trim()) {
-      const q = filters.search.trim().toLowerCase();
-      items = items.filter(
-        (item) =>
-          item.question_text?.toLowerCase().includes(q) ||
-          item.category?.toLowerCase().includes(q) ||
-          item.sub_category?.toLowerCase().includes(q)
-      );
-    }
-
+    const items: QuestionBankItem[] = res?.items || [];
+    const total: number = res?.total ?? items.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
     return {

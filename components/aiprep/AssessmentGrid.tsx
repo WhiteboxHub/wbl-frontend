@@ -562,9 +562,6 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
-    if (filters) {
-      return assessments;
-    }
     return assessments.filter((a) => {
       const matchType =
         currentCategory === "all" ||

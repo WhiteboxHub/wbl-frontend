@@ -70,6 +70,15 @@ export const assessmentService = {
       if (filters.status && filters.status !== "all") {
         queryParams.set("status", filters.status);
       }
+      if (filters.category && filters.category !== "all") {
+        queryParams.set("assessment_type", filters.category);
+      }
+      if (filters.media_type && filters.media_type !== "all") {
+        queryParams.set("media_type", filters.media_type);
+      }
+      if (filters.search && filters.search.trim()) {
+        queryParams.set("search", filters.search.trim());
+      }
 
       const res = await apiFetch(
         `api/aiprep/employee/assessments?${queryParams.toString()}`
