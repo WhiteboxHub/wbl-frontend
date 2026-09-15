@@ -8,6 +8,33 @@ import { AssessmentFilters } from "@/components/aiprep/AssessmentFilters";
 import { AssessmentGrid } from "@/components/aiprep/AssessmentGrid";
 import { AssessmentDetailModal } from "@/components/aiprep/AssessmentDetailModal";
 
+const getCanonicalAssessmentType = (raw?: string): string => {
+  const t = (raw || "").toUpperCase().replace(/[\s-]+/g, "_");
+  if (t === "INTRO" || t === "GENERAL_INTRO") return "INTRO";
+  if (t === "JD_INTRO" || t === "JOB_DESCRIPTION_INTRO" || t === "JD" || t === "JDINTRO") return "JD_INTRO";
+  if (t === "RECRUITER" || t === "RECRUITER_SCREEN" || t === "RECRUITER_SCREENING") return "RECRUITER";
+  if (t === "HIRING_MANAGER" || t === "HIRINGMANAGER" || t === "HM") return "HIRING_MANAGER";
+  if (t === "SYSTEM_DESIGN" || t === "SYSTEMDESIGN") return "SYSTEM_DESIGN";
+  if (t === "TECHNICAL" || t === "TECH") return "TECHNICAL";
+  return t;
+};
+
+const getCanonicalMode = (raw?: string | number): string => {
+  const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
+  if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
+  if (m === "2" || m === "VIDEO" || m === "VIDEO_ONLY") return "VIDEO";
+  return "VIDEO_AUDIO";
+};
+
+const getCanonicalStatus = (raw?: string): string => {
+  const s = (raw || "").toUpperCase().replace(/[\s-]+/g, "_");
+  if (s === "IN_PROGRESS" || s === "PROCESSING" || s === "TESTING") return "IN_PROGRESS";
+  if (s === "EVALUATING") return "EVALUATING";
+  if (s === "COMPLETED") return "COMPLETED";
+  if (s === "FAILED") return "FAILED";
+  return s;
+};
+
 export default function CandidateAssessmentsPage() {
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,33 +122,6 @@ export default function CandidateAssessmentsPage() {
   const handleViewAssessment = (assessment: AssessmentGridItem) => {
     setSelectedAssessment(assessment);
     setIsModalOpen(true);
-  };
-
-  const getCanonicalAssessmentType = (raw?: string): string => {
-    const t = (raw || "").toUpperCase().replace(/[\s-]+/g, "_");
-    if (t === "INTRO" || t === "GENERAL_INTRO") return "INTRO";
-    if (t === "JD_INTRO" || t === "JOB_DESCRIPTION_INTRO" || t === "JD" || t === "JDINTRO") return "JD_INTRO";
-    if (t === "RECRUITER" || t === "RECRUITER_SCREEN" || t === "RECRUITER_SCREENING") return "RECRUITER";
-    if (t === "HIRING_MANAGER" || t === "HIRINGMANAGER" || t === "HM") return "HIRING_MANAGER";
-    if (t === "SYSTEM_DESIGN" || t === "SYSTEMDESIGN") return "SYSTEM_DESIGN";
-    if (t === "TECHNICAL" || t === "TECH") return "TECHNICAL";
-    return t;
-  };
-
-  const getCanonicalMode = (raw?: string | number): string => {
-    const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
-    if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
-    if (m === "2" || m === "VIDEO" || m === "VIDEO_ONLY") return "VIDEO";
-    return "VIDEO_AUDIO";
-  };
-
-  const getCanonicalStatus = (raw?: string): string => {
-    const s = (raw || "").toUpperCase().replace(/[\s-]+/g, "_");
-    if (s === "IN_PROGRESS" || s === "PROCESSING" || s === "TESTING") return "IN_PROGRESS";
-    if (s === "EVALUATING") return "EVALUATING";
-    if (s === "COMPLETED") return "COMPLETED";
-    if (s === "FAILED") return "FAILED";
-    return s;
   };
 
   const displayedAssessments = useMemo(() => {
@@ -249,7 +249,7 @@ export default function CandidateAssessmentsPage() {
         onView={handleViewAssessment}
         currentPage={currentPage}
         totalPages={totalPages}
-        totalCount={displayedAssessments.length}
+        totalCount={totalCount}
         onPageChange={setCurrentPage}
         filters={filters}
         onFilterChange={handleFilterChange}
