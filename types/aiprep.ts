@@ -222,28 +222,7 @@ export interface QuestionListResponse {
   totalPages: number;
 }
 
-/**
- * According to DB constraint `chk_qb_subcategory` (Migration V134):
- * - Sub-categories are allowed/required ONLY when category is 'TECHNICAL'.
- * - For non-TECHNICAL categories, sub_category MUST be NULL.
- */
-export const QUESTION_TAXONOMY: Record<QuestionCategory, string[]> = {
-  TECHNICAL: [
-    'Agentic AI & Orchestration',
-    'RAG & Retrieval Systems',
-    'LLMs, Prompting & Fine-Tuning',
-    'MLOps, Deployment & Infrastructure',
-    'Machine Learning & Evaluation',
-    'Python, Coding & Debugging',
-    'Cloud & AWS',
-    'NLP & Text Processing',
-  ],
-  SYSTEM_DESIGN: [],
-  RECRUITER: [],
-  HIRING_MANAGER: [],
-  INTRO: [],
-  JD_INTRO: [],
-};
+
 
 // ============================================================================
 // Telemetry & Assessment Data (POST /api/aiprep/assessments/{id}/data)
