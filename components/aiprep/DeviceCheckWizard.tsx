@@ -9,8 +9,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity } from 'lucide-react';
 import { AssessmentConfig } from './Assessmentselection';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
-import  PracticeStep  from './PracticeStep';
-import { AssessmentType, HardwareCheckResults } from '@/lib/aiprep-api';
+import PracticeStep from './PracticeStep';
+import { AssessmentType, aiPrepApi, HardwareCheckResults } from '@/lib/aiprep-api';
+import { apiFetch } from '@/lib/api';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START';
@@ -1262,8 +1263,24 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   // Navigation handlers
   const allChecksPass = internetStatus !== 'checking' && internetStatus !== 'failed' && micOk === true && micTested === true && speakerOk === true && speakerTested === true && (!videoEnabled || (cameraOk === true && cameraTested === true && (!videoAnalyticsEnabled || (analyticsOk === true && analyticsTested === true))));
 
+  // Candidate resolution & backend assessment creation
+  const getCandidateId = async (): Promise<number | undefined> => {
+    try {
+      const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (userStr) {
+        const parsed = JSON.parse(userStr);
+        if (parsed?.candidate_id || parsed?.id) return parsed.candidate_id || parsed.id;
+      }
+      const userResponse = await apiFetch("user_dashboard");
+      if (userResponse?.candidate_id || userResponse?.id) return userResponse.candidate_id || userResponse.id;
+    } catch (err) {
+      console.warn("[DeviceCheckWizard] Could not resolve candidate profile:", err);
+    }
+    return undefined;
+  };
+
   // 6. Navigation Handlers
-  const handleCompleteAssessment = () => {
+  const handleCompleteAssessment = async () => {
     const results: HardwareCheckResults = {
       browser_info: browserResult?.name || 'Standard Browser',
       os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
@@ -1280,6 +1297,32 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
     if (onComplete) {
       onComplete(results);
+    } else {
+      try {
+        const cid = await getCandidateId();
+        const targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+        const assessment = await aiPrepApi.createAssessment({
+          assessment_type: targetType,
+          assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+          candidate_id: cid,
+          job_description_text: jdText || null,
+        });
+
+        if (!assessment || !assessment.id) {
+          throw new Error('Failed to initialize assessment session on server.');
+        }
+        const targetId = assessment.id;
+        const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
+        const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
+
+        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.setItem('aiprep_active_id', String(targetId));
+
+        router.push(targetSessionUrl);
+      } catch (err: any) {
+        console.error('[DeviceCheckWizard] Failed to start assessment:', err);
+        alert(err?.message || 'Failed to start assessment. Please try again.');
+      }
     }
   };
 
