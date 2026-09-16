@@ -460,26 +460,29 @@ export function normalizeReport(
   const bundled = asRecord(assessment.report);
 
   // Fallback to report_data if top-level fields aren't separately keyed
-  const repData = asRecord(apiReport?.report_data) || asRecord(bundled.report_data);
+  const repData = asRecord(apiReport?.report_data ?? bundled.report_data);
 
-  const rawAudio =
+  const rawAudio = asRecord(
     apiReport?.audio_evaluation ??
-    asRecord(bundled.audio_evaluation) ??
-    nested(repData, "audio_evaluation");
+    bundled.audio_evaluation ??
+    nested(repData, "audio_evaluation")
+  );
 
-  const rawVideo =
+  const rawVideo = asRecord(
     apiReport?.video_evaluation ??
-    asRecord(bundled.video_evaluation) ??
-    nested(repData, "video_evaluation");
+    bundled.video_evaluation ??
+    nested(repData, "video_evaluation")
+  );
 
-  const rawTxEval =
+  const rawTxEval = asRecord(
     apiReport?.transcript_evaluation ??
-    asRecord(bundled.transcript_evaluation) ??
+    bundled.transcript_evaluation ??
     (Object.keys(nested(repData, "transcript_evaluation")).length
       ? nested(repData, "transcript_evaluation")
       : Object.keys(repData).length
         ? repData
-        : {});
+        : {})
+  );
 
   const txEval = asRecord(rawTxEval);
 
@@ -491,15 +494,15 @@ export function normalizeReport(
   const overallAssessment = asRecord(introEval.overall_assessment) as IntroOverallAssessment;
 
   // ── Scores breakdown ─────────────────────────────────────────────────────
-  const scoresRaw = asRecord(txEval.scores_breakdown_json) || asRecord(repData.scores_breakdown_json);
+  const scoresRaw = asRecord(txEval.scores_breakdown_json ?? repData.scores_breakdown_json);
   const parseScore = (key: string) => {
     const s = asRecord(scoresRaw[key]);
     return Object.keys(s).length ? { band: asStr(s.band) } : undefined;
   };
 
   // ── Intro quality ────────────────────────────────────────────────────────
-  const iq = asRecord(introEval.introduction_quality);
-  const intro_quality = Object.keys(iq).length ? {
+  const iq = introEval.introduction_quality ? asRecord(introEval.introduction_quality) : null;
+  const intro_quality = iq && Object.keys(iq).length ? {
     clarity: asStr(iq.clarity),
     coherence: asStr(iq.coherence),
     technical_depth: asStr(iq.technical_depth),
@@ -510,7 +513,7 @@ export function normalizeReport(
   } : undefined;
 
   // ── Resume alignment ─────────────────────────────────────────────────────
-  const ra = asRecord(txEval.resume_alignment) || asRecord(repData.resume_alignment);
+  const ra = asRecord(txEval.resume_alignment ?? repData.resume_alignment);
   const resume_alignment = Object.keys(ra).length ? {
     band: asStr(ra.band),
     missed_highlights: asStrArray(ra.missed_highlights),
@@ -518,7 +521,7 @@ export function normalizeReport(
   } : undefined;
 
   // ── Technical analysis ───────────────────────────────────────────────────
-  const ta = asRecord(txEval.technical_analysis_json) || asRecord(repData.technical_analysis_json);
+  const ta = asRecord(txEval.technical_analysis_json ?? repData.technical_analysis_json);
   const technical_analysis = Object.keys(ta).length ? {
     summary: asStr(ta.summary),
     strengths: asStrArray(ta.strengths),
@@ -527,7 +530,7 @@ export function normalizeReport(
   } : undefined;
 
   // ── Non-technical analysis ───────────────────────────────────────────────
-  const nt = asRecord(txEval.non_technical_analysis_json) || asRecord(repData.non_technical_analysis_json);
+  const nt = asRecord(txEval.non_technical_analysis_json ?? repData.non_technical_analysis_json);
   const non_technical = Object.keys(nt).length ? {
     communication_summary: asStr(nt.communication_summary),
     structure_quality: asStr(nt.structure_quality),
@@ -552,7 +555,7 @@ export function normalizeReport(
     });
 
   // Also extract from checklist_verification if available
-  const checklist = asRecord(txEval.checklist_verification) || asRecord(repData.checklist_verification);
+  const checklist = asRecord(txEval.checklist_verification ?? repData.checklist_verification);
   if (Object.keys(checklist).length > 0) {
     for (const [k, v] of Object.entries(checklist)) {
       const item = asRecord(v);
