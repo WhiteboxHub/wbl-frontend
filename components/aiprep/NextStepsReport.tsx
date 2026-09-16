@@ -278,11 +278,11 @@ export default function NextStepsReport({ report }: Props) {
                 <RotateCcw className="w-4 h-4" />
               </span>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                Ready for your next practice?
+                Keep building your interview skills
               </h3>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Put what you learned into practice with another assessment.
+              Every assessment gives you another opportunity to practice, learn, and improve. Use the insights from this assessment, then put them into practice in your next one.
             </p>
           </div>
 
@@ -291,14 +291,13 @@ export default function NextStepsReport({ report }: Props) {
               href="/user_dashboard/ai-prep"
               className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
-              Dashboard
+              My Assessments
             </Link>
             <Link
               href="/user_dashboard/ai-prep"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:gap-2.5"
             >
-              Start Assessment
-              <ArrowRight className="w-4 h-4" />
+              Start Assessment →
             </Link>
           </div>
         </div>
