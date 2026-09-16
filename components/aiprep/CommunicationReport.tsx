@@ -200,8 +200,10 @@ export default function CommunicationReport({ report }: Props) {
   const confidenceNotes = non_technical?.confidence_notes;
   const hasCommQuality = Boolean(commSummary || structureQuality || confidenceNotes);
 
+  const isAudioOnly = assessment.media_type === "AUDIO";
   const hasAudioContent = audioItems.length > 0 || Boolean(audio?.executive_summary);
-  const hasVideoContent = videoItems.length > 0 || Boolean(video?.overall_summary);
+  const hasVideoContent = !isAudioOnly && (videoItems.length > 0 || Boolean(video?.overall_summary));
+
 
   return (
     <div className="space-y-6">
@@ -279,11 +281,12 @@ export default function CommunicationReport({ report }: Props) {
           </div>
         </div>
 
-        {video?.overall_summary && (
+        {!isAudioOnly && video?.overall_summary && (
           <p className="text-xs sm:text-sm leading-relaxed text-slate-700">
             {video.overall_summary}
           </p>
         )}
+
 
         {hasVideoContent ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

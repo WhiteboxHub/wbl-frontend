@@ -152,25 +152,31 @@ export function OverviewContent({
   } = report;
 
   const introSection = intro_sections.find((s) =>
-    ["career_story", "current_role", "current_project"].includes(s.key)
+    ["career_story", "current_role", "current_project", "introduced_self", "career_arc_covered"].includes(s.key)
   );
   const introResumeBand = introSection?.status ?? scores.overall_band;
   const aiEngBand = scores.ai_engineering?.band;
-  const aiEngObs = intro_sections.find((s) =>
-    [
-      "agentic_ai",
-      "rag_and_retrieval",
-      "models_and_ai_platforms",
-    ].includes(s.key)
-  )?.observation;
+  const aiEngObs =
+    intro_sections.find((s) =>
+      [
+        "agentic_ai",
+        "rag_and_retrieval",
+        "models_and_ai_platforms",
+        "rag_retrieval_chunking_mentioned",
+        "ai_agents_multiagent_mentioned",
+      ].includes(s.key)
+    )?.observation ?? report.technical_analysis?.summary;
   const coreEngBand = scores.core_engineering?.band;
-  const coreEngObs = intro_sections.find((s) =>
-    [
-      "software_engineering",
-      "cloud_and_infrastructure",
-      "cicd_and_delivery",
-    ].includes(s.key)
-  )?.observation;
+  const coreEngObs =
+    intro_sections.find((s) =>
+      [
+        "software_engineering",
+        "cloud_and_infrastructure",
+        "cicd_and_delivery",
+        "mcp_mentioned",
+        "memory_context_engineering_mentioned",
+      ].includes(s.key)
+    )?.observation ?? report.technical_analysis?.depth_assessment;
   const audioObs =
     audio?.executive_summary ?? audio?.primary_vocal_strength ?? undefined;
   const audioBand = audio?.overall_readiness;
@@ -181,9 +187,11 @@ export function OverviewContent({
     : undefined;
   const addlBand =
     scores.non_technical?.band ?? scores.business_acumen?.band;
-  const addlObs = intro_sections.find((s) =>
-    ["ai_engineering_evolution", "cicd_and_delivery"].includes(s.key)
-  )?.observation;
+  const addlObs =
+    intro_sections.find((s) =>
+      ["ai_engineering_evolution", "cicd_and_delivery", "guardrails_evals_observability_mentioned"].includes(s.key)
+    )?.observation ?? report.non_technical?.communication_summary;
+
   const tip =
     final_assessment?.most_important_improvement ??
     priority_improvements[0]?.guidance ??
@@ -376,8 +384,20 @@ export function ReportHeader({
   activeTab,
   onSelectTab,
 }: ReportHeaderProps) {
+  const typeLabelMap: Record<string, string> = {
+    INTRO: "Introduction Assessment",
+    JD_INTRO: "Job-Specific Introduction",
+    TECHNICAL: "Technical Assessment",
+    SYSTEM_DESIGN: "System Design Assessment",
+    HIRING_MANAGER: "Hiring Manager Assessment",
+    RECRUITER: "Recruiter Assessment",
+  };
+
   const typeLabel =
-    assessment.assessment_type?.replaceAll("_", " ") ?? "Assessment";
+    (assessment.assessment_type && typeLabelMap[assessment.assessment_type]) ??
+    assessment.assessment_type?.replaceAll("_", " ") ??
+    "Assessment";
+
 
   return (
     <header className="border-b border-slate-200 bg-white shadow-sm">
