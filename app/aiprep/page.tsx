@@ -82,7 +82,6 @@ export default function AIPrepPage() {
         assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
         candidate_id: candidateId,
         job_description_text: results.jd_text || null,
-        user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
       });
 
       if (!assessment || !assessment.id) {
