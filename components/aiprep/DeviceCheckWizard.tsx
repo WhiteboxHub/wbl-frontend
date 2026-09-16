@@ -50,7 +50,7 @@ interface DeviceCheckWizardProps {
   assessmentMode?: string;
   audioOnly?: boolean;
   initialStep?: WizardStep;
-  onComplete?: (results: HardwareCheckResults) => void;
+  onComplete?: (results: HardwareCheckResults) => Promise<void> | void;
   onCancel?: () => void;
 }
 export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
@@ -1296,7 +1296,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     };
 
     if (onComplete) {
-      onComplete(results);
+      await onComplete(results);
     } else {
       try {
         const cid = await getCandidateId();

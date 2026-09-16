@@ -42,7 +42,7 @@ interface PracticeStepProps {
   selectedVideoLabel?: string;
   selectedSpeakerLabel?: string;
   onBack: () => void;
-  onStartAssessment: () => void;
+  onStartAssessment: () => Promise<void> | void;
 }
 
 export const PracticeStep: React.FC<PracticeStepProps> = ({
@@ -855,15 +855,20 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
             if (isRecording || isLaunching) return;
             setIsLaunching(true);
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-              mediaRecorderRef.current.stop();
+            try {
+              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+              }
+              if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+              if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+              await onStartAssessment();
+            } catch (err) {
+              console.error('[PracticeStep] Launch assessment failed:', err);
+              setIsLaunching(false);
             }
-            if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
-            if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
-            onStartAssessment();
           }}
           disabled={isRecording || isLaunching}
           className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
