@@ -492,8 +492,8 @@ export default function AiPrepReport({
   useEffect(() => {
     if (tabParam) {
       setActiveTab(tabFromParam(tabParam));
-    } else if (initialTab) {
-      setActiveTab(initialTab);
+    } else {
+      setActiveTab(initialTab ?? "Overview");
     }
   }, [tabParam, initialTab]);
 
