@@ -62,59 +62,40 @@ export default function AIPrepPage() {
     return null;
   });
 
-  // Phase 1 — called when transitioning from DEVICE_CHECK → CONFIRMATION
-  const handlePrepareConfirmation = async (results: HardwareCheckResults): Promise<number> => {
-    let candidateId: number | undefined = undefined;
-    try {
-      const userResponse = await apiFetch("user_dashboard");
-      if (userResponse?.candidate_id) candidateId = userResponse.candidate_id;
-    } catch (err) {
-      console.error("Failed to retrieve candidate profile details:", err);
-    }
-
-    const targetType: AssessmentType = 'INTRO';
-    const assessment = await aiPrepApi.createAssessment({
-      assessment_type: targetType,
-      assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
-      candidate_id: candidateId,
-      job_description_text: null,
-      user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
-    });
-
-    if (!assessment || !assessment.id) {
-      throw new Error('Failed to initialize assessment session on server.');
-    }
-    const targetId = assessment.id;
-    setActiveAssessmentId(targetId);
-    sessionStorage.setItem('aiprep_active_id', String(targetId));
-    sessionStorage.setItem('aiprep_active_type', 'INTRO');
-
-    sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
-
-    return targetId!;
-  };
-
-  // Phase 2 — Wizard final completion ("Start Assessment" button)
-  const handleCheckComplete = async (_results: HardwareCheckResults) => {
+  // Wizard final completion ("Start Assessment" button clicked)
+  const handleCheckComplete = async (results: HardwareCheckResults) => {
     try {
       setIsSaving(true);
       setErrorMsg(null);
 
-      let targetId = activeAssessmentId;
-      if (!targetId) {
-        targetId = await handlePrepareConfirmation(_results);
+      let candidateId: number | undefined = undefined;
+      try {
+        const userResponse = await apiFetch("user_dashboard");
+        if (userResponse?.candidate_id) candidateId = userResponse.candidate_id;
+      } catch (err) {
+        console.error("Failed to retrieve candidate profile details:", err);
       }
 
-      const statusRes = await aiPrepApi.updateAssessmentStatus(targetId, 'IN_PROGRESS');
-      if (!statusRes || statusRes.status !== 'IN_PROGRESS') {
-        throw new Error('Failed to launch the practice assessment room. Please retry.');
+      const targetType: AssessmentType = (results.assessment_type as AssessmentType) || effectiveType || 'INTRO';
+      const assessment = await aiPrepApi.createAssessment({
+        assessment_type: targetType,
+        assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+        candidate_id: candidateId,
+        job_description_text: results.jd_text || null,
+        user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
+      });
+
+      if (!assessment || !assessment.id) {
+        throw new Error('Failed to initialize assessment session on server.');
       }
+
+      const targetId = assessment.id;
+      sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+      sessionStorage.removeItem('aiprep_active_id');
+      sessionStorage.removeItem('aiprep_wizard_step');
 
       const isEmbedded = window.self !== window.top || window.location.search.includes('embed=true');
       const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
-
-      sessionStorage.removeItem('aiprep_active_id');
-      sessionStorage.removeItem('aiprep_wizard_step');
 
       router.push(targetSessionUrl);
     } catch (err: any) {
@@ -270,7 +251,6 @@ export default function AIPrepPage() {
           assessmentMode={effectiveMode}
           audioOnly={effectiveMode === 'AUDIO_ONLY'}
           initialStep={(typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_wizard_step') as any) : null) || 'CONFIGURATION'}
-          onPrepareConfirmation={handlePrepareConfirmation}
           onComplete={handleCheckComplete}
           onCancel={handleCancel}
         />

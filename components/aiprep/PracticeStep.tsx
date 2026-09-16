@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   VolumeX,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 interface PracticeStepProps {
@@ -65,6 +66,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [isLaunching, setIsLaunching] = useState<boolean>(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -853,17 +855,35 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
         <button
           type="button"
-          onClick={onStartAssessment}
-          disabled={isRecording}
+          onClick={() => {
+            if (isRecording || isLaunching) return;
+            setIsLaunching(true);
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+              mediaRecorderRef.current.stop();
+            }
+            if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+            if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+            onStartAssessment();
+          }}
+          disabled={isRecording || isLaunching}
           className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
-            isRecording
+            isRecording || isLaunching
               ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
               : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
           }`}
-          title={isRecording ? 'Please stop recording before starting assessment' : 'Start Assessment'}
+          title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
         >
-          <span>Start Assessment</span>
-          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+          {isLaunching ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Launching Assessment...</span>
+            </>
+          ) : (
+            <>
+              <span>Start Assessment</span>
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+            </>
+          )}
         </button>
       </div>
     </div>
