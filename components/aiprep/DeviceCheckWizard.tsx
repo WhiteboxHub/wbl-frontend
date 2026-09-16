@@ -1322,6 +1322,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       } catch (err: any) {
         console.error('[DeviceCheckWizard] Failed to start assessment:', err);
         alert(err?.message || 'Failed to start assessment. Please try again.');
+        throw err;
       }
     }
   };

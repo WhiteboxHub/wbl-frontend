@@ -101,6 +101,7 @@ export default function AIPrepPage() {
       console.error('[Session Setup Error] Creation pipeline failed:', err);
       setErrorMsg(err.message || 'Setup pipeline failed. Please try again.');
       setIsSaving(false);
+      throw err;
     }
   };
 
