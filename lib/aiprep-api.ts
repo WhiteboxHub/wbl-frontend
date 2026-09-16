@@ -7,6 +7,8 @@ import type {
   CreateAssessmentRequest,
   CreateAssessmentResponse,
   AssessmentStatus,
+  AssessmentDataResponse,
+  AssessmentReportResponse,
   LlmKeyStatus,
   ResumeStatus,
 } from "@/types/aiprep";
@@ -33,6 +35,14 @@ export const aiPrepApi = {
   // Get single assessment details
   getAssessment: (assessmentId: string | number): Promise<AssessmentDetail> =>
     apiFetch(endpoint(`candidate/assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
+
+  // Get submitted telemetry/transcript data for an assessment
+  getAssessmentData: (assessmentId: string | number): Promise<AssessmentDataResponse> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/data`)) as Promise<AssessmentDataResponse>,
+
+  // Get LLM-generated evaluation report for an assessment
+  getAssessmentReport: (assessmentId: string | number): Promise<AssessmentReportResponse> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/report`)) as Promise<AssessmentReportResponse>,
 
   // Create / Start assessment
   createAssessment: (
