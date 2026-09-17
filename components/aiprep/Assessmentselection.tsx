@@ -168,13 +168,12 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   const [infoModalType, setInfoModalType] = useState<AssessmentType | null>(null);
 
   const handleTypeSelect = (type: AssessmentType, isLocked?: boolean) => {
-    if (!isLocked && type === 'INTRO') {
-      setAssessmentType('INTRO');
+    if (!isLocked) {
+      setAssessmentType(type);
     }
   };
 
   const handleNextClick = () => {
-    setAssessmentType('INTRO');
     if (onNext) onNext();
   };
 
@@ -194,8 +193,8 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
       {/* ── Responsive 1-col (mobile) -> 2-col (tablet) -> 3-col (desktop) Grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {DISPLAY_CARDS.map((card) => {
-          const isSelected = assessmentType === card.type && card.type === 'INTRO';
-          const isClickable = !card.isLocked && card.type === 'INTRO';
+          const isSelected = assessmentType === card.type;
+          const isClickable = !card.isLocked;
 
           return (
             <AssessmentCard
@@ -241,9 +240,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         type={infoModalType}
         onClose={() => setInfoModalType(null)}
         onSelect={(type) => {
-          if (type === 'INTRO') {
-            setAssessmentType('INTRO');
-          }
+          setAssessmentType(type);
           setInfoModalType(null);
         }}
       />
