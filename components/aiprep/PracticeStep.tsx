@@ -11,7 +11,8 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 import {
   Mic,
   Video,
@@ -19,20 +20,18 @@ import {
   Lock,
   Play,
   Pause,
-  RotateCcw,
-  ShieldCheck,
   CheckCircle2,
   Info,
   Sparkles,
   Camera,
   Activity,
   Eye,
-  Sun,
   Maximize,
-  Sliders,
   ChevronRight,
   ArrowLeft,
   VolumeX,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 interface PracticeStepProps {
@@ -41,9 +40,9 @@ interface PracticeStepProps {
   cameraStream: MediaStream | null;
   selectedAudioLabel?: string;
   selectedVideoLabel?: string;
+  selectedSpeakerLabel?: string;
   onBack: () => void;
-  onStartAssessment: () => void;
-  isStarting?: boolean;
+  onStartAssessment: () => Promise<void> | void;
 }
 
 export const PracticeStep: React.FC<PracticeStepProps> = ({
@@ -52,9 +51,9 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   cameraStream,
   selectedAudioLabel = 'Default Microphone (Built-in)',
   selectedVideoLabel = 'FaceTime HD Camera (Built-in)',
+  selectedSpeakerLabel = 'System Output (Built-in)',
   onBack,
   onStartAssessment,
-  isStarting = false,
 }) => {
   // ── Recording State ────────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -66,13 +65,22 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [volume, setVolume] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
+  const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [isLaunching, setIsLaunching] = useState<boolean>(false);
 
+  const recordTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
   const videoPlaybackRef = useRef<HTMLVideoElement | null>(null);
-  const liveVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [liveVideoElement, setLiveVideoElement] = useState<HTMLVideoElement | null>(null);
+  const liveVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    setLiveVideoElement(node);
+  }, []);
+
+  // Vision Hook Integration for Real-time Video Analytics
+  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision();
 
   // Helper to get currently active media playback element
   const getActiveMediaEl = () => {
@@ -93,30 +101,97 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       ? 'Explain a project you are proud of, the architecture choices you made, and what you learned from it.'
       : 'Please introduce yourself and tell us about your background, core strengths, and goals.';
 
+  // High-Speed Vision Tracking Loop (~25 FPS) for VIDEO_ANALYTICS mode
+  useEffect(() => {
+    if (modeVariant !== 'VIDEO_ANALYTICS' || activeView === 'PLAYBACK' || !isVisionReady || !liveVideoElement) return;
+
+    let animId: number;
+    let lastTime = 0;
+
+    const loop = (time: number) => {
+      if (time - lastTime >= 40) {
+        lastTime = time;
+        const video = liveVideoElement;
+        if (video && video.readyState >= 2 && !video.paused && !video.ended) {
+          try {
+            detectVideoFrame(video, time);
+          } catch (_) { }
+        }
+      }
+      animId = requestAnimationFrame(loop);
+    };
+
+    animId = requestAnimationFrame(loop);
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [modeVariant, activeView, isVisionReady, detectVideoFrame, liveVideoElement]);
+
+  // Monitor live hardware connection status and handle device disconnections
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices) return;
+
+    const checkDeviceAvailability = async () => {
+      try {
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const hasMic = devs.some((d) => d.kind === 'audioinput');
+        const hasCam = devs.some((d) => d.kind === 'videoinput');
+
+        if (!hasMic) {
+          setDeviceError('Microphone disconnected or unavailable. Please connect your microphone.');
+        } else if (videoEnabled && !hasCam) {
+          setDeviceError('Camera disconnected or unavailable. Please connect your camera.');
+        } else {
+          setDeviceError(null);
+        }
+      } catch (e) {
+        console.warn('Device check warning:', e);
+      }
+    };
+
+    checkDeviceAvailability();
+
+    const handleDeviceChange = () => {
+      checkDeviceAvailability();
+    };
+
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+    };
+  }, [videoEnabled]);
+
   // Connect live camera stream to video preview
   useEffect(() => {
     let localStream: MediaStream | null = null;
+    let isCurrent = true;
 
     async function initPreviewStream() {
-      if (!videoEnabled || !liveVideoRef.current) return;
+      if (!videoEnabled || !liveVideoElement) return;
 
       let streamToUse = cameraStream;
       if (!streamToUse || !streamToUse.active) {
         try {
-          localStream = await navigator.mediaDevices.getUserMedia({
+          const stream = await navigator.mediaDevices.getUserMedia({
             video: { width: 1280, height: 720 },
-            audio: true,
+            audio: false,
           });
+          if (!isCurrent) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          localStream = stream;
           streamToUse = localStream;
         } catch (err) {
           console.warn('Failed to acquire fallback video stream:', err);
         }
       }
 
-      if (liveVideoRef.current && streamToUse) {
-        if (liveVideoRef.current.srcObject !== streamToUse) {
-          liveVideoRef.current.srcObject = streamToUse;
-          liveVideoRef.current.play().catch((e) => console.warn('Preview video play handled:', e));
+      if (isCurrent && liveVideoElement && streamToUse) {
+        if (liveVideoElement.srcObject !== streamToUse) {
+          liveVideoElement.srcObject = streamToUse;
+          liveVideoElement.play().catch((e) => console.warn('Preview video play handled:', e));
         }
       }
     }
@@ -124,11 +199,12 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     initPreviewStream();
 
     return () => {
+      isCurrent = false;
       if (localStream) {
         localStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [cameraStream, videoEnabled]);
+  }, [cameraStream, videoEnabled, liveVideoElement]);
 
   // Clean up recorded blob URL on unmount
   useEffect(() => {
@@ -148,6 +224,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   // ── Start Test Recording (Sandbox) ─────────────────────────────────────────
   const startTestRecording = async () => {
     try {
+      setDeviceError(null);
       if (isPlaying) {
         pausePlayback();
       }
@@ -157,56 +234,81 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         setTestAudioUrl(null);
       }
 
-      // Ensure we capture BOTH microphone audio and camera video tracks together
-      const tracks: MediaStreamTrack[] = [];
-
-      // 1. Acquire microphone audio track
+      // 1. Acquire & verify live microphone audio track
+      let audioTrack: MediaStreamTrack | null = null;
       try {
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const audioTrack = audioStream.getAudioTracks()[0];
-        if (audioTrack) {
-          tracks.push(audioTrack);
-        }
+        audioTrack = audioStream.getAudioTracks().find((t) => t.readyState === 'live') || null;
       } catch (aErr) {
-        console.warn('Microphone stream acquire note:', aErr);
+        console.warn('Microphone stream acquire error:', aErr);
       }
 
-      // 2. Acquire camera video track if video mode is enabled
+      if (!audioTrack) {
+        setDeviceError('Microphone disconnected or unavailable. Please check your microphone connection.');
+        return;
+      }
+
+      // 2. Acquire & verify live camera video track if video mode is enabled
+      let vidTrack: MediaStreamTrack | null = null;
       if (videoEnabled) {
-        try {
-          let vidTrack: MediaStreamTrack | null = null;
-          if (
-            cameraStream &&
-            cameraStream.getVideoTracks().length > 0 &&
-            cameraStream.getVideoTracks()[0].readyState === 'live'
-          ) {
-            vidTrack = cameraStream.getVideoTracks()[0];
-          } else {
+        if (
+          cameraStream &&
+          cameraStream.getVideoTracks().length > 0 &&
+          cameraStream.getVideoTracks()[0].readyState === 'live'
+        ) {
+          // Clone the track so stopping activeStream later won't stop the live camera stream
+          vidTrack = cameraStream.getVideoTracks()[0].clone();
+        } else {
+          try {
             const freshVidStream = await navigator.mediaDevices.getUserMedia({
               video: { width: 1280, height: 720 },
             });
-            vidTrack = freshVidStream.getVideoTracks()[0];
+            vidTrack = freshVidStream.getVideoTracks().find((t) => t.readyState === 'live') || null;
+          } catch (vErr) {
+            console.warn('Video stream acquire error:', vErr);
           }
-          if (vidTrack) {
-            tracks.push(vidTrack);
-          }
-        } catch (vErr) {
-          console.warn('Video stream acquire note:', vErr);
         }
+
+        if (!vidTrack) {
+          setDeviceError('Camera disconnected or unavailable. Please check your camera connection.');
+          return;
+        }
+      }
+
+      const tracks: MediaStreamTrack[] = [audioTrack];
+      if (vidTrack) {
+        tracks.push(vidTrack);
       }
 
       const activeStream = new MediaStream(tracks);
 
       recordedChunksRef.current = [];
-      const mimeType = videoEnabled
-        ? MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-          ? 'video/webm;codecs=vp9,opus'
-          : 'video/webm'
-        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm';
+      const getSupportedMimeType = (video: boolean) => {
+        const videoTypes = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+          'video/mp4',
+        ];
+        const audioTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/aac',
+        ];
+        const targets = video ? videoTypes : audioTypes;
+        if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+          for (const type of targets) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+        }
+        return '';
+      };
 
-      const recorder = new MediaRecorder(activeStream, { mimeType });
+      const mimeType = getSupportedMimeType(videoEnabled);
+      const recorder = new MediaRecorder(activeStream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -216,7 +318,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        const blob = new Blob(recordedChunksRef.current, mimeType ? { type: mimeType } : undefined);
         const url = URL.createObjectURL(blob);
         setTestAudioUrl(url);
         setIsRecording(false);
@@ -226,16 +328,19 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
       recorder.start(500);
       setIsRecording(true);
+      recordTimeRef.current = 0;
       setRecordTime(0);
 
       const timer = setInterval(() => {
         setRecordTime((prev) => {
-          if (prev >= 29) {
+          const next = prev + 1;
+          recordTimeRef.current = next;
+          if (next >= 30) {
             clearInterval(timer);
             stopTestRecording();
             return 30;
           }
-          return prev + 1;
+          return next;
         });
       }, 1000);
       recordTimerRef.current = timer;
@@ -256,7 +361,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       } catch (_) { }
     }
     setIsRecording(false);
-    const finalSec = recordTime > 0 ? recordTime : 5;
+    const finalSec = recordTimeRef.current > 0 ? recordTimeRef.current : 5;
     setTotalDuration(finalSec);
     setPlaybackTime(0);
     setActiveView('PLAYBACK');
@@ -443,7 +548,11 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   {activeView === 'PLAYBACK' && testAudioUrl
                     ? 'Recorded Test'
                     : modeVariant === 'VIDEO_ANALYTICS'
-                      ? 'Analyzing…'
+                      ? isVisionReady
+                        ? realtimeTelemetry.is_instant_face_present
+                          ? 'Analyzing (Face Locked)'
+                          : 'Analyzing (Searching Face)'
+                        : 'Initializing Vision…'
                       : 'Preview'}
                 </span>
               </div>
@@ -479,17 +588,44 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 </div>
               )}
 
-              {/* Video with Analytics: Augmented Facial Mesh Box */}
+              {/* Video with Analytics: Dynamic Facial Mesh Box from MediaPipe Vision Telemetry */}
               {modeVariant === 'VIDEO_ANALYTICS' && activeView !== 'PLAYBACK' && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                  <div className="w-36 h-48 border-2 border-emerald-400/90 rounded-2xl shadow-[0_0_15px_rgba(52,211,153,0.3)] flex flex-col justify-between p-1.5 transition-all">
-                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950/70 px-1 rounded self-start">
-                      ID: FACE_01
-                    </span>
-                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950/70 px-1 rounded self-end">
-                      ENG: 98%
-                    </span>
-                  </div>
+                <div className="absolute inset-0 z-10 pointer-events-none">
+                  {realtimeTelemetry.face_box && realtimeTelemetry.is_instant_face_present ? (() => {
+                    const rawW = realtimeTelemetry.face_box.width * 100;
+                    const rawH = realtimeTelemetry.face_box.height * 100;
+                    const boxW = Math.max(28, Math.min(75, rawW * 1.55));
+                    const boxH = Math.max(30, Math.min(85, rawH * 1.20));
+                    const padX = (boxW - rawW) / 2;
+                    const padY = (boxH - rawH) / 2;
+                    const boxL = Math.max(0, Math.min(100 - boxW, (1 - realtimeTelemetry.face_box.x - realtimeTelemetry.face_box.width) * 100 - padX));
+                    const boxT = Math.max(0, Math.min(100 - boxH, realtimeTelemetry.face_box.y * 100 - padY));
+
+                    return (
+                      <div
+                        className="absolute border-2 border-emerald-400/90 rounded-2xl shadow-[0_0_15px_rgba(52,211,153,0.3)] flex flex-col justify-between p-1.5 transition-all duration-75"
+                        style={{
+                          left: `${boxL}%`,
+                          top: `${boxT}%`,
+                          width: `${boxW}%`,
+                          height: `${boxH}%`,
+                        }}
+                      >
+                        <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded self-start">
+                          ID: FACE_01
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded self-end">
+                          ATTN: {Math.round(realtimeTelemetry.screen_attention_pct ?? 0)}%
+                        </span>
+                      </div>
+                    );
+                  })() : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="px-3 py-1.5 rounded-full bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-mono font-semibold animate-pulse">
+                        Searching for face…
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -510,9 +646,17 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
             </div>
 
             <p className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 leading-relaxed">
-              "{sampleQuestion}"
+              &ldquo;{sampleQuestion}&rdquo;
             </p>
           </div>
+
+          {/* Device Error Banner */}
+          {deviceError && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-in fade-in duration-200">
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>{deviceError}</span>
+            </div>
+          )}
 
           {/* Center: Video Mode Start/Stop Button */}
           {modeVariant !== 'AUDIO_ONLY' && (
@@ -639,7 +783,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                     <span className="font-semibold">Speaker</span>
                   </div>
                   <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">System Output</span>
+                    <span className="truncate">{selectedSpeakerLabel}</span>
                     <Lock className="w-3 h-3 text-slate-400 shrink-0" />
                   </div>
                 </div>
@@ -655,32 +799,57 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
               </div>
             </div>
           ) : (
-            /* Variant 3: Analytics (Live during recording) */
+            /* Variant 3: Real-time Analytics (Driven by MediaPipe Vision Telemetry) */
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Analytics (live during recording)
+                Analytics (live during practice)
               </h3>
 
-              <div className="space-y-2 text-xs">
+              <div className="space-y-2.5 text-xs">
                 {[
-                  { label: 'Face detection', icon: <Eye className="w-3 h-3" /> },
-                  { label: 'Eye contact', icon: <Activity className="w-3 h-3" /> },
-                  { label: 'Posture', icon: <Maximize className="w-3 h-3" /> },
-                  { label: 'Lighting', icon: <Sun className="w-3 h-3" /> },
-                  { label: 'Background', icon: <ShieldCheck className="w-3 h-3" /> },
-                  { label: 'Speech volume', icon: <Mic className="w-3 h-3" /> },
+                  {
+                    label: 'Face detection',
+                    icon: <Eye className="w-3.5 h-3.5" />,
+                    status: realtimeTelemetry.is_instant_face_present ? 'Face Detected' : 'No Face',
+                    pct: realtimeTelemetry.is_instant_face_present ? 100 : 0,
+                    ok: !!realtimeTelemetry.is_instant_face_present,
+                  },
+                  {
+                    label: 'Eye contact',
+                    icon: <Activity className="w-3.5 h-3.5" />,
+                    status: realtimeTelemetry.is_instant_eyes_attentive ? 'Attentive' : 'Off-screen',
+                    pct: realtimeTelemetry.eye_contact_pct ?? 0,
+                    ok: !!realtimeTelemetry.is_instant_eyes_attentive,
+                  },
+                  {
+                    label: 'Posture alignment',
+                    icon: <Maximize className="w-3.5 h-3.5" />,
+                    status: realtimeTelemetry.sitting_position || 'Upright Centered',
+                    pct: realtimeTelemetry.is_instant_straight ? 100 : 60,
+                    ok: realtimeTelemetry.is_instant_straight !== false,
+                  },
                 ].map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between py-0.5">
-                    <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                      <span className="text-slate-400">{item.icon}</span>
-                      <span className="font-semibold text-[11px]">{item.label}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                      <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                        <div className="w-full h-full bg-emerald-500 rounded-full" />
+                  <div key={idx} className="flex flex-col gap-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold text-[11px]">
+                        <span className="text-indigo-500">{item.icon}</span>
+                        <span>{item.label}</span>
                       </div>
-                      <Lock className="w-2.5 h-2.5 text-slate-400" />
-                      <span>Ready</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        item.ok
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          item.ok ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${item.pct}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -688,7 +857,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[10.5px] text-slate-400 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <span>Analytics will run during your recording. All settings are locked.</span>
+                <span>MediaPipe AI Vision tracking active. Telemetry processed in-memory.</span>
               </div>
             </div>
           )}
@@ -708,12 +877,40 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
         <button
           type="button"
-          onClick={onStartAssessment}
-          disabled={isStarting}
-          className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-600/25 active:scale-95 transition-all duration-200 cursor-pointer flex items-center gap-2"
+          onClick={async () => {
+            if (isRecording || isLaunching) return;
+            setIsLaunching(true);
+            try {
+              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+              }
+              if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+              if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+              await onStartAssessment();
+            } catch (err) {
+              console.error('[PracticeStep] Launch assessment failed:', err);
+              setIsLaunching(false);
+            }
+          }}
+          disabled={isRecording || isLaunching}
+          className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
+            isRecording || isLaunching
+              ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
+          }`}
+          title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
         >
-          <span>{isStarting ? 'Starting session…' : 'Start Assessment'}</span>
-          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+          {isLaunching ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Launching Assessment...</span>
+            </>
+          ) : (
+            <>
+              <span>Start Assessment</span>
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+            </>
+          )}
         </button>
       </div>
     </div>
