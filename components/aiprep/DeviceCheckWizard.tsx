@@ -1315,8 +1315,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
         const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
-        sessionStorage.removeItem('aiprep_wizard_step');
-        sessionStorage.setItem('aiprep_active_id', String(targetId));
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+          sessionStorage.removeItem('aiprep_wizard_step');
+          sessionStorage.setItem('aiprep_active_id', String(targetId));
+        }
 
         router.push(targetSessionUrl);
       } catch (err: any) {
