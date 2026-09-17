@@ -360,10 +360,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const [bandwidthKbps, setBandwidthKbps] = useState<number>(0);
   const [networkPingMs, setNetworkPingMs] = useState<number>(0);
   const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const [bandwidthChecking, setBandwidthChecking] = useState<boolean>(false);
   const [browserResult, setBrowserResult] = useState<{ ok: boolean; name: string } | null>(null);
   const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
-  const [permissionGuideTarget, setPermissionGuideTarget] = useState<'camera' | 'mic' | 'network' | 'all'>('camera');
+  const [permissionGuideTarget, setPermissionGuideTarget] = useState<'camera' | 'mic' | 'speaker' | 'network' | 'all'>('camera');
 
   // Real Internet Connectivity Probe (Probes external endpoints to verify real WAN reachability)
   const checkRealInternet = useCallback(async (): Promise<{ online: boolean; kbps: number; latencyMs: number }> => {
@@ -1883,13 +1882,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               <div className="flex items-start gap-2.5">
                                 <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><ShieldAlert className="w-3 h-3 stroke-[2.5]" /></div>
                                 <div>
-                                  <h4 className="text-xs sm:text-sm font-bold text-rose-600 dark:text-rose-400 leading-tight">{permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : 'Browser Permissions Required'}</h4>
+                                  <h4 className="text-xs sm:text-sm font-bold text-rose-600 dark:text-rose-400 leading-tight">{permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : permissionGuideTarget === 'speaker' ? 'Audio Output / Speaker Issue' : 'Browser Permissions Required'}</h4>
                                   <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5 leading-relaxed">
                                     {permissionGuideTarget === 'mic'
                                       ? 'Your browser blocked microphone access. Please allow permission to capture your voice.'
                                       : permissionGuideTarget === 'camera'
                                         ? 'Your browser blocked camera access. Please allow permission for AI video proctoring.'
-                                        : 'Please allow camera and microphone access in your browser to continue.'}
+                                        : permissionGuideTarget === 'speaker'
+                                          ? 'Unable to play audio through your output device. Please check your speaker connection and system volume.'
+                                          : 'Please allow camera and microphone access in your browser to continue.'}
                                   </p>
                                 </div>
                               </div>
@@ -2309,13 +2310,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 <div className="flex items-start gap-2.5">
                                   <div className="w-5.5 h-5.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><ShieldAlert className="w-3.5 h-3.5 stroke-[2.5]" /></div>
                                   <div>
-                                    <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">{permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : 'Browser Permissions Required'}</h4>
+                                    <h4 className="text-xs sm:text-[13px] font-bold text-rose-600 dark:text-rose-400 leading-tight">{permissionGuideTarget === 'mic' ? 'Microphone Permission Required' : permissionGuideTarget === 'camera' ? 'Camera Permission Required' : permissionGuideTarget === 'speaker' ? 'Audio Output / Speaker Issue' : 'Browser Permissions Required'}</h4>
                                     <p className="text-[11.5px] text-slate-600 dark:text-slate-300 font-medium mt-0.5 leading-relaxed">
                                       {permissionGuideTarget === 'mic'
                                         ? 'Your browser blocked microphone access. Please allow permission to capture your voice during the assessment.'
                                         : permissionGuideTarget === 'camera'
                                           ? 'Your browser blocked camera access. Please allow permission for AI video proctoring.'
-                                          : 'Please allow camera and microphone access in your browser to continue.'}
+                                          : permissionGuideTarget === 'speaker'
+                                            ? 'Unable to play audio through your output device. Please check your speaker connection and volume settings.'
+                                            : 'Please allow camera and microphone access in your browser to continue.'}
                                     </p>
                                   </div></div>
                                 <button
