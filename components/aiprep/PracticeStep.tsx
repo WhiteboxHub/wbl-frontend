@@ -76,15 +76,18 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   useEffect(() => {
     let active = true;
     const typeToQuery = assessmentType || 'INTRO';
-    aiPrepApi.getQuestions(typeToQuery)
-      .then((res: any) => {
-        if (!active) return;
-        const items = Array.isArray(res) ? res : res?.items || res?.questions || [];
-        if (items.length > 0 && items[0]?.question_text) {
-          setDbQuestion(items[0].question_text);
-        }
-      })
-      .catch(() => {});
+    if (typeof aiPrepApi?.getQuestions === 'function') {
+      aiPrepApi.getQuestions(typeToQuery)
+        .then((res: any) => {
+          if (!active) return;
+          const items = Array.isArray(res) ? res : res?.items || res?.questions || [];
+          if (items.length > 0 && items[0]?.question_text) {
+            setDbQuestion(items[0].question_text);
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => { active = false; };
   }, [assessmentType]);
 
