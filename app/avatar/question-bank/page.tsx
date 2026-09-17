@@ -159,7 +159,7 @@ export default function QuestionBankPage() {
   };
 
   return (
-    <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
+    <div className="space-y-4 min-w-0">
       {/* Toast notification */}
       {toast && (
         <div
@@ -180,7 +180,7 @@ export default function QuestionBankPage() {
       )}
 
       {/* Page Header */}
-      <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
             AI Prep Question Bank
@@ -217,7 +217,7 @@ export default function QuestionBankPage() {
 
       {/* Table */}
       {!error && (
-        <div className="mt-6">
+        <div className="w-full min-w-0">
           <QuestionBankTable
             questions={questions}
             isLoading={isLoading}

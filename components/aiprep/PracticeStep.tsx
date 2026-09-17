@@ -76,8 +76,8 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   useEffect(() => {
     let active = true;
     const typeToQuery = assessmentType || 'INTRO';
-    if (typeof aiPrepApi?.getQuestions === 'function') {
-      aiPrepApi.getQuestions(typeToQuery)
+    if (typeof (aiPrepApi as any)?.getQuestions === 'function') {
+      (aiPrepApi as any).getQuestions(typeToQuery)
         .then((res: any) => {
           if (!active) return;
           const items = Array.isArray(res) ? res : res?.items || res?.questions || [];
