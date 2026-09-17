@@ -68,6 +68,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState<boolean>(false);
 
+  const recordTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -255,7 +256,8 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           cameraStream.getVideoTracks().length > 0 &&
           cameraStream.getVideoTracks()[0].readyState === 'live'
         ) {
-          vidTrack = cameraStream.getVideoTracks()[0];
+          // Clone the track so stopping activeStream later won't stop the live camera stream
+          vidTrack = cameraStream.getVideoTracks()[0].clone();
         } else {
           try {
             const freshVidStream = await navigator.mediaDevices.getUserMedia({
@@ -281,15 +283,32 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       const activeStream = new MediaStream(tracks);
 
       recordedChunksRef.current = [];
-      const mimeType = videoEnabled
-        ? MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-          ? 'video/webm;codecs=vp9,opus'
-          : 'video/webm'
-        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm';
+      const getSupportedMimeType = (video: boolean) => {
+        const videoTypes = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+          'video/mp4',
+        ];
+        const audioTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/aac',
+        ];
+        const targets = video ? videoTypes : audioTypes;
+        if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+          for (const type of targets) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+        }
+        return '';
+      };
 
-      const recorder = new MediaRecorder(activeStream, { mimeType });
+      const mimeType = getSupportedMimeType(videoEnabled);
+      const recorder = new MediaRecorder(activeStream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -299,7 +318,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        const blob = new Blob(recordedChunksRef.current, mimeType ? { type: mimeType } : undefined);
         const url = URL.createObjectURL(blob);
         setTestAudioUrl(url);
         setIsRecording(false);
@@ -309,16 +328,19 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
       recorder.start(500);
       setIsRecording(true);
+      recordTimeRef.current = 0;
       setRecordTime(0);
 
       const timer = setInterval(() => {
         setRecordTime((prev) => {
-          if (prev >= 29) {
+          const next = prev + 1;
+          recordTimeRef.current = next;
+          if (next >= 30) {
             clearInterval(timer);
             stopTestRecording();
             return 30;
           }
-          return prev + 1;
+          return next;
         });
       }, 1000);
       recordTimerRef.current = timer;
@@ -339,7 +361,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       } catch (_) { }
     }
     setIsRecording(false);
-    const finalSec = recordTime > 0 ? recordTime : 5;
+    const finalSec = recordTimeRef.current > 0 ? recordTimeRef.current : 5;
     setTotalDuration(finalSec);
     setPlaybackTime(0);
     setActiveView('PLAYBACK');

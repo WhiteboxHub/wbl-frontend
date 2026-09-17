@@ -38,7 +38,7 @@ export interface AssessmentQuestion {
   category?: string;
   sub_category?: string | null;
   difficulty_level?: string;
-  is_active?: boolean;
+  is_active?: boolean | number;
 }
 
 export interface CreateAssessmentRequest {
