@@ -34,6 +34,8 @@ export default function RootLayout({
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
   const isAiPrepReport = pathname.startsWith("/aiprep/reports");
+  const isSessionRoom = pathname.startsWith("/aiprep/session");
+  const isStandalone = isAvatarSection || isCoderpad || isSessionRoom;
   const [isOpen, setIsOpen] = useState(false);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
 

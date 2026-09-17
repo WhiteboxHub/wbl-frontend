@@ -92,6 +92,8 @@ export const aiPrepApi = {
       method: "POST",
       body,
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
+  },
+
   // Update assessment status
   updateAssessmentStatus: async (
     assessmentId: number | string,

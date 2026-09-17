@@ -935,6 +935,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
               </>
             )}
           </button>
+        </div>
       </div>
     </div>
   );
