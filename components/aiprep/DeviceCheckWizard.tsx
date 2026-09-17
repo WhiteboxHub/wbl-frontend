@@ -2259,7 +2259,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                                 {/* Real-time Green Face Detection Bounding Box & Status Tag Overlay */}
                                 {cameraOk && isFaceDetected && isFaceLive && realtimeTelemetry?.face_box && (() => {
-                                  const [top, left, height, width] = realtimeTelemetry.face_box;
+                                  const rawBox = realtimeTelemetry.face_box;
+                                  const top = rawBox.y;
+                                  const left = rawBox.x;
+                                  const height = rawBox.height;
+                                  const width = rawBox.width;
                                   return (
                                     <>
                                       <div
