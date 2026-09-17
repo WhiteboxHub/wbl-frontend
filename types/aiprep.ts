@@ -165,6 +165,49 @@ export interface AssessmentListResponse {
   count?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Assessment submitted data – AssessmentDataResponse
+// Mirrors fapi/ai_prep/schemas.py :: AssessmentDataResponse
+// ---------------------------------------------------------------------------
+
+export interface AssessmentDataResponse {
+  id?: number | null;
+  assessment_id: number;
+  questions?: Record<string, unknown>[] | null;
+  /** transcript shape: { full_text?: string, text?: string, segments?: TranscriptSegment[] } */
+  transcript?: Record<string, unknown> | null;
+  audio_telemetry?: Record<string, unknown> | null;
+  video_telemetry?: Record<string, unknown> | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Assessment evaluation report – AssessmentReportResponse
+// Mirrors fapi/ai_prep/schemas.py :: AssessmentReportResponse
+// The three JSON columns come from ai_prep_assessment_report table:
+//   audio_evaluation  → audio LLM output (summary, factors{pace,volume,...}, key_findings, recording_environment_context)
+//   video_evaluation  → video LLM output (summary, factors{camera_framing,...}, key_findings)
+//   transcript_evaluation → transcript LLM output which itself contains:
+//     scores_breakdown_json, intro_evaluation, technical_analysis_json,
+//     non_technical_analysis_json, coaching_suggestions_json,
+//     transcript_evidence_json, gaps_to_validate_json, improvements_json,
+//     resume_alignment, signal_timeline_json
+// report_data is a virtual property derived from the above three columns
+// ---------------------------------------------------------------------------
+
+export interface AssessmentReportResponse {
+  id?: number | null;
+  assessment_id: number;
+  audio_evaluation?: Record<string, unknown> | null;
+  video_evaluation?: Record<string, unknown> | null;
+  transcript_evaluation?: Record<string, unknown> | null;
+  overall_score?: number | null;
+  report_data?: Record<string, unknown> | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface HardwareCheckResults {
   browser_info: string;
   os_info: string;
@@ -178,3 +221,63 @@ export interface HardwareCheckResults {
   video_enabled: boolean;
   jd_text: string;
 }
+
+// ============================================================================
+// Question Bank Types
+// ============================================================================
+
+export type QuestionCategory =
+  | 'INTRO'
+  | 'JD_INTRO'
+  | 'RECRUITER'
+  | 'HIRING_MANAGER'
+  | 'SYSTEM_DESIGN'
+  | 'TECHNICAL';
+
+export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+
+export interface QuestionBankItem {
+  id: number;
+  category: QuestionCategory;
+  sub_category?: string | null;
+  difficulty_level: QuestionDifficulty;
+  question_text: string;
+  is_active: number | boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface QuestionFiltersState {
+  search: string;
+  category: string;
+  sub_category: string;
+  difficulty: string;
+  status: 'all' | 'active' | 'inactive';
+}
+
+export interface QuestionListResponse {
+  items: QuestionBankItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+
+
+// ============================================================================
+// Telemetry & Assessment Data (POST /api/aiprep/assessments/{id}/data)
+// ============================================================================
+
+export interface QuestionTelemetryItem {
+  question_id: number;
+  question_text: string;
+}
+
+export interface TranscriptSegment {
+  text: string;
+  start: number;
+  end: number;
+}
+
+
