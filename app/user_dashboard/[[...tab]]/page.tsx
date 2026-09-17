@@ -19,13 +19,6 @@ interface UserProfile {
 // ── Candidate sub-component with setup-status banner ─────────────────────────
 function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }) {
   const [setupStatus, setSetupStatus] = React.useState<any>(null);
-  const [headerCollapsed, setHeaderCollapsed] = React.useState<boolean>(false);
-  const [isWizardActive, setIsWizardActive] = React.useState<boolean>(false);
-  const [activeTabState, setActiveTabState] = React.useState<string>(currentTab);
-
-  React.useEffect(() => {
-    setActiveTabState(currentTab);
-  }, [currentTab]);
 
   React.useEffect(() => {
     setupApi
@@ -34,40 +27,8 @@ function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }
       .catch(() => setSetupStatus(null));
   }, []);
 
-  React.useEffect(() => {
-    const handleLayoutMode = (e: any) => {
-      if (e?.detail) {
-        if (typeof e.detail.headerCollapsed === "boolean") {
-          setHeaderCollapsed(e.detail.headerCollapsed);
-        }
-        if (typeof e.detail.isWizardActive === "boolean") {
-          setIsWizardActive(e.detail.isWizardActive);
-        }
-        if (typeof e.detail.activeTab === "string") {
-          setActiveTabState(e.detail.activeTab);
-        }
-      }
-    };
-    window.addEventListener("aiprep-layout-mode", handleLayoutMode);
-    return () => {
-      window.removeEventListener("aiprep-layout-mode", handleLayoutMode);
-    };
-  }, []);
-
-  const isAssessment =
-    isWizardActive ||
-    activeTabState.startsWith("ai-prep") ||
-    activeTabState.startsWith("aiprep") ||
-    activeTabState === "wbl-smartprep";
-
-  const containerClasses = isAssessment
-    ? `w-full h-full flex-1 min-h-0 overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-900 ${
-        headerCollapsed ? "pt-0" : "pt-[64px] lg:pt-[70px]"
-      }`
-    : `pt-24 pb-12 transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-900 min-h-screen`;
-
   return (
-    <div className={containerClasses}>
+    <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <Toaster richColors position="top-center" />
       <CandidateDashboard defaultTab={currentTab} />
     </div>
@@ -161,7 +122,7 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Hello, {getFirstName(userProfile.full_name)}!</h2>
-              <p className="text-gray-600 dark:text-gray-400">Here&apos;s your account overview</p>
+              <p className="text-gray-600 dark:text-gray-400">Here's your account overview</p>
             </div>
           </div>
         </div>

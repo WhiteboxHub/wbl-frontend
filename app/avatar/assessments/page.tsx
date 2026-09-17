@@ -22,6 +22,7 @@ const getCanonicalAssessmentType = (raw?: string): string => {
 const getCanonicalMode = (raw?: string | number): string => {
   const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
   if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
+  if (m === "2" || m === "VIDEO" || m === "VIDEO_ONLY") return "VIDEO";
   return "VIDEO_AUDIO";
 };
 
@@ -130,10 +131,8 @@ export default function CandidateAssessmentsPage() {
       const term = filters.search.toLowerCase().trim();
       list = list.filter((a) => {
         const matchId = `as-${a.id}`.toLowerCase().includes(term) || String(a.id).includes(term);
-        const matchCandId = String(a.candidate_id || "").includes(term) || `cand-${a.candidate_id}`.toLowerCase().includes(term);
-        const matchCandName = Boolean(a.candidate_name && a.candidate_name.toLowerCase().includes(term));
-        const matchCandEmail = Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(term));
-        return matchId || matchCandId || matchCandName || matchCandEmail;
+        const matchCand = String(a.candidate_id || "").includes(term);
+        return matchId || matchCand;
       });
     }
 
@@ -143,9 +142,7 @@ export default function CandidateAssessmentsPage() {
         return (
           String(a.candidate_id || "").toLowerCase().includes(candTerm) ||
           `cand-${a.candidate_id}`.toLowerCase().includes(candTerm) ||
-          `candidate #${a.candidate_id}`.toLowerCase().includes(candTerm) ||
-          Boolean(a.candidate_name && a.candidate_name.toLowerCase().includes(candTerm)) ||
-          Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(candTerm))
+          `candidate #${a.candidate_id}`.toLowerCase().includes(candTerm)
         );
       });
     }
@@ -213,16 +210,25 @@ export default function CandidateAssessmentsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="mb-4 flex items-center justify-between">
+    <div className="flex flex-col h-full space-y-4 p-4 lg:p-6 min-h-0 bg-[#fbfcfd] dark:bg-gray-950">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidate Assessments
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+            Candidate Assessments List
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Candidates currently in assessment phase
-          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => loadAssessments()}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs transition-all cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-indigo-600" : "text-gray-500"}`} />
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 
@@ -255,7 +261,6 @@ export default function CandidateAssessmentsPage() {
         isOpen={isModalOpen}
         assessment={selectedAssessment}
         onClose={() => setIsModalOpen(false)}
-        isAdmin={true}
       />
     </div>
   );

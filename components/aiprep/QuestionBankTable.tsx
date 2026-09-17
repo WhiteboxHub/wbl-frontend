@@ -45,7 +45,6 @@ interface QuestionBankTableProps {
   title?: string;
   filters?: QuestionFiltersState;
   onFilterChange?: (filters: Partial<QuestionFiltersState>) => void;
-  height?: string;
 }
 
 const EditSquareIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
@@ -602,7 +601,6 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
   title = "AI Prep Question Bank",
   filters,
   onFilterChange,
-  height = "calc(70vh)",
 }) => {
   const [pageInput, setPageInput] = useState<string>(String(currentPage));
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -1282,7 +1280,7 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
       <div
         className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
           } w-full rounded-2xl border border-gray-200 shadow-xs dark:border-gray-800 overflow-hidden min-w-0`}
-        style={{ height: height, minHeight: "420px" }}
+        style={{ height: "600px" }}
       >
         <AgGridReact
           rowData={displayedQuestions}

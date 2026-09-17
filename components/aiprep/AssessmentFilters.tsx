@@ -33,19 +33,19 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
       <div className="flex-1 min-w-[200px]">
         <Label
           htmlFor="assessment-search-input"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="text-xs font-semibold text-gray-700 dark:text-gray-300"
         >
           Search Assessments
         </Label>
         <div className="relative mt-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 transform text-gray-400" />
           <Input
             id="assessment-search-input"
             type="text"
-            placeholder="Search..."
+            placeholder="Search by ID..."
             value={filters.search}
             onChange={(e) => onFilterChange({ search: e.target.value })}
-            className="pl-10"
+            className="pl-9 h-9 text-xs rounded-lg"
           />
         </div>
       </div>
@@ -55,19 +55,19 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
         <div className="flex-1 min-w-[200px]">
           <Label
             htmlFor="candidate-search-input"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="text-xs font-semibold text-gray-700 dark:text-gray-300"
           >
             Candidate Filter
           </Label>
           <div className="relative mt-1">
-            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+            <User className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 transform text-gray-400" />
             <Input
               id="candidate-search-input"
               type="text"
               placeholder="Candidate ID, Name or Email"
               value={filters.candidate_id || ""}
               onChange={(e) => onFilterChange({ candidate_id: e.target.value })}
-              className="pl-10"
+              className="pl-9 h-9 text-xs rounded-lg"
             />
           </div>
         </div>
@@ -78,11 +78,11 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-10 items-center gap-1.5 shrink-0 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 shadow-2xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+          className="inline-flex h-9 items-center gap-1.5 shrink-0 rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 shadow-2xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer transition-colors"
           title="Reset all filters"
         >
-          <RotateCcw className="h-4 w-4 text-gray-400" />
-          <span>Reset</span>
+          <RotateCcw className="h-3.5 w-3.5" />
+          Reset
         </button>
       )}
     </div>

@@ -85,22 +85,7 @@ export const aiPrepApi = {
       body,
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
   },
-
-  // Get Questions from Question Bank
-  getQuestions: async (
-    category?: string,
-    difficulty?: string
-  ): Promise<any> => {
-    const params = new URLSearchParams();
-    if (category && category !== "GENERAL") {
-      params.append("category", category.toUpperCase());
-    }
-    if (difficulty) params.append("difficulty_level", difficulty.toUpperCase());
-    const queryStr = params.toString() ? `?${params.toString()}` : "";
-    return apiFetch(endpoint(`questions${queryStr}`));
-  },
 };
 
 export const aiprepApi = aiPrepApi;
 export default aiPrepApi;
-

@@ -34,67 +34,10 @@ export default function RootLayout({
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
   const isAiPrepReport = pathname.startsWith("/aiprep/reports");
-  const isSessionRoom = pathname.startsWith("/aiprep/session");
-  const isStandalone = isAvatarSection || isCoderpad || isSessionRoom;
   const [isOpen, setIsOpen] = useState(false);
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-
-  const [isAssessmentLayout, setIsAssessmentLayout] = useState(false);
-  const [activeTabFromEvent, setActiveTabFromEvent] = useState("");
-
-  useEffect(() => {
-    const handleLayoutMode = (e: any) => {
-      if (e?.detail) {
-        if (typeof e.detail.headerCollapsed === "boolean") {
-          setHeaderCollapsed(e.detail.headerCollapsed);
-        }
-        if (typeof e.detail.isWizardActive === "boolean") {
-          setIsAssessmentLayout(e.detail.isWizardActive);
-        } else if (e.detail.fullscreen || e.detail.step || e.detail.slug) {
-          setIsAssessmentLayout(true);
-        }
-        if (typeof e.detail.activeTab === "string") {
-          setActiveTabFromEvent(e.detail.activeTab);
-        }
-      }
-    };
-    window.addEventListener("aiprep-layout-mode", handleLayoutMode);
-    return () => {
-      window.removeEventListener("aiprep-layout-mode", handleLayoutMode);
-    };
-  }, []);
-
-  const isAiprepRoute =
-    pathname.startsWith("/aiprep") ||
-    pathname.startsWith("/user_dashboard/ai-prep") ||
-    pathname.startsWith("/user_dashboard/aiprep") ||
-    activeTabFromEvent.startsWith("ai-prep") ||
-    activeTabFromEvent.startsWith("aiprep") ||
-    activeTabFromEvent === "wbl-smartprep";
-  const isAssessment = isAssessmentLayout || isAiprepRoute;
-
-  useEffect(() => {
-    if (isAssessment) {
-      document.documentElement.style.overflow = "hidden";
-      document.documentElement.style.height = "100%";
-      document.body.style.overflow = "hidden";
-      document.body.style.height = "100%";
-    } else {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-      document.body.style.overflow = "";
-      document.body.style.height = "";
-    }
-    return () => {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-      document.body.style.overflow = "";
-      document.body.style.height = "";
-    };
-  }, [isAssessment]);
 
   return (
-    <html suppressHydrationWarning lang="en" className={isAssessment ? "h-full overflow-hidden" : ""}>
+    <html suppressHydrationWarning lang="en">
       <head>
         <title>
           Whitebox-Learning - AIML Training and Placements in Bay area
@@ -117,7 +60,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={`${poppins.className} dark:bg-black overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
+      <body className={`${poppins.className} dark:bg-black overflow-x-hidden`}>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
@@ -127,23 +70,15 @@ export default function RootLayout({
                 <>{children}</>
               ) : (
                 <>
-                  <div
-                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${
-                      headerCollapsed
-                        ? "max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
-                        : "max-h-[100px] translate-y-0 opacity-100"
-                    }`}
-                  >
-                    <Header />
-                  </div>
+                  <Header />
                   <Sidebar
                     isOpen={isOpen}
                     toggleSidebar={() => setIsOpen(!isOpen)}
                   />
-                  <main className={isAssessment ? "w-full flex-1 min-h-0 overflow-hidden flex flex-col" : "w-full overflow-x-hidden"}>{children}</main>
-                  {!isAssessment && <Footer />}
-                  {!isAssessment && <ScrollToTop />}
-                  {!isAssessment && <ReferralNotificationButton />}
+                  <main className="w-full overflow-x-hidden">{children}</main>
+                  <Footer />
+                  <ScrollToTop />
+                  <ReferralNotificationButton />
                 </>
               )}
             </Providers>
