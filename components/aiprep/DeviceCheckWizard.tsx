@@ -360,6 +360,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const [bandwidthKbps, setBandwidthKbps] = useState<number>(0);
   const [networkPingMs, setNetworkPingMs] = useState<number>(0);
   const [isRealInternetOnline, setIsRealInternetOnline] = useState<boolean>(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [bandwidthChecking, setBandwidthChecking] = useState<boolean>(false);
   const [browserResult, setBrowserResult] = useState<{ ok: boolean; name: string } | null>(null);
   const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
   const [permissionGuideTarget, setPermissionGuideTarget] = useState<'camera' | 'mic' | 'speaker' | 'network' | 'all'>('camera');
