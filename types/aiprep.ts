@@ -114,6 +114,9 @@ export interface AssessmentSummary {
   id: number;
   assessment_uuid?: string | null;
   candidate_id?: number | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
+  score?: number | null;
   assessment_type: string;
   media_type: string;
   status: AssessmentStatus;
@@ -242,6 +245,7 @@ export interface QuestionBankItem {
   sub_category?: string | null;
   difficulty_level: QuestionDifficulty;
   question_text: string;
+  ideal_answer_rubric?: string | null;
   is_active: number | boolean;
   created_at?: string;
   updated_at?: string;
@@ -258,12 +262,10 @@ export interface QuestionFiltersState {
 export interface QuestionListResponse {
   items: QuestionBankItem[];
   total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
 }
-
-
 
 // ============================================================================
 // Telemetry & Assessment Data (POST /api/aiprep/assessments/{id}/data)
@@ -279,5 +281,83 @@ export interface TranscriptSegment {
   start: number;
   end: number;
 }
+
+export interface TranscriptTelemetry {
+  full_text: string;
+  segments?: TranscriptSegment[];
+}
+
+export interface AudioTelemetry {
+  words_per_minute?: number;
+  speaking_pace_wpm?: number;
+  silence_ratio_pct?: number;
+  filler_rate_per_min?: number;
+  avg_volume_db?: number;
+  mean_pitch_hz?: number;
+  pause_count?: number;
+  background_noise_level?: string;
+  speaking_duration_seconds?: number;
+}
+
+export interface VideoTelemetry {
+  is_video_mode?: boolean;
+  face_visible_pct?: number;
+  face_visibility_pct?: number;
+  head_nods_count?: number;
+  eye_contact_pct?: number;
+  screen_attention_pct?: number;
+  distraction_level_pct?: number;
+  facial_engagement_pct?: number;
+  acknowledgement_count?: number;
+  expression_variety_pct?: number;
+  posture_score?: number;
+  visual_engagement_pct?: number;
+  frame_stability_score?: number;
+  sitting_position?: string;
+  gaze_direction?: string;
+}
+
+export interface SubmitTelemetryPayload {
+  questions: QuestionTelemetryItem[];
+  transcript: TranscriptTelemetry;
+  audio_telemetry: AudioTelemetry;
+  video_telemetry: VideoTelemetry;
+}
+
+export type SubmitAssessmentDataRequest = SubmitTelemetryPayload;
+
+export type ChunkStatus = 'queued' | 'uploading' | 'uploaded' | 'failed';
+
+export interface ChunkUploadItem {
+  chunkNumber: number;
+  blob: Blob;
+  status: ChunkStatus;
+  retryCount: number;
+  error?: string;
+}
+
+export interface ChunkUploadResponse {
+  message: string;
+  chunk_number?: number;
+  file_path?: string;
+  success?: boolean;
+}
+
+export interface ChunkUploadQueueState {
+  totalChunks: number;
+  uploadedChunks: number;
+  pendingChunks: number;
+  failedChunks: number;
+  isUploading: boolean;
+}
+
+export interface ProcessingStatusResponse {
+  step: string;
+  progress: number;
+  status: AssessmentStatus | string;
+  steps?: Record<string, number>;
+  error?: string;
+}
+
 
 

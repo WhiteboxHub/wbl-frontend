@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
+import { aiPrepApi } from '@/lib/aiprep-api';
 import {
   Mic,
   Video,
@@ -20,6 +21,7 @@ import {
   Lock,
   Play,
   Pause,
+  Check,
   CheckCircle2,
   Info,
   Sparkles,
@@ -35,6 +37,7 @@ import {
 } from 'lucide-react';
 
 interface PracticeStepProps {
+  assessmentType?: string;
   videoEnabled: boolean;
   videoAnalyticsEnabled: boolean;
   cameraStream: MediaStream | null;
@@ -46,6 +49,7 @@ interface PracticeStepProps {
 }
 
 export const PracticeStep: React.FC<PracticeStepProps> = ({
+  assessmentType,
   videoEnabled,
   videoAnalyticsEnabled,
   cameraStream,
@@ -67,6 +71,22 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState<boolean>(false);
+  const [dbQuestion, setDbQuestion] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    const typeToQuery = assessmentType || 'INTRO';
+    aiPrepApi.getQuestions(typeToQuery)
+      .then((res: any) => {
+        if (!active) return;
+        const items = Array.isArray(res) ? res : res?.items || res?.questions || [];
+        if (items.length > 0 && items[0]?.question_text) {
+          setDbQuestion(items[0].question_text);
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [assessmentType]);
 
   const recordTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -94,12 +114,6 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       ? 'VIDEO_ANALYTICS'
       : 'VIDEO_STANDARD';
 
-  // Sample Questions per track
-  const sampleQuestion = !videoEnabled
-    ? 'Tell us about a time you solved a challenging technical or business problem.'
-    : videoAnalyticsEnabled
-      ? 'Explain a project you are proud of, the architecture choices you made, and what you learned from it.'
-      : 'Please introduce yourself and tell us about your background, core strengths, and goals.';
 
   // High-Speed Vision Tracking Loop (~25 FPS) for VIDEO_ANALYTICS mode
   useEffect(() => {
@@ -449,8 +463,10 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col justify-between h-full p-2 sm:p-4 space-y-4 animate-in fade-in duration-300">
-      {/* Hidden audio player for audio-only local playback */}
+    <div className="w-full h-full flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden animate-in fade-in duration-300">
+      {/* Central Content Area - fits exactly in viewport */}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden w-full px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 space-y-2.5 sm:space-y-3 max-w-7xl mx-auto flex flex-col justify-between">
+        {/* Hidden audio player for audio-only local playback */}
       {testAudioUrl && !videoEnabled && (
         <audio
           ref={audioPlaybackRef}
@@ -468,7 +484,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           {modeVariant === 'VIDEO_STANDARD' && '4. Practice recording – Video (Camera + Mic)'}
           {modeVariant === 'VIDEO_ANALYTICS' && '4. Practice recording – Video with Analytics'}
         </h2>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-xs sm:text-xs text-slate-500 dark:text-slate-400">
           {modeVariant === 'AUDIO_ONLY' &&
             'Record a short sample response to make sure your microphone and speakers are working properly.'}
           {modeVariant === 'VIDEO_STANDARD' &&
@@ -479,18 +495,18 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       </div>
 
       {/* ── 3-COLUMN MAIN SANDBOX GRID ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 flex-1 min-h-[340px] items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 flex-1 min-h-0 items-stretch w-full overflow-hidden">
         {/* ── COLUMN 1: Visual Stage / Audio Box (4 cols) ─────────────────── */}
-        <div className="lg:col-span-4 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-xs min-h-[220px]">
+        <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center relative overflow-hidden shadow-xs h-full min-h-0">
           {modeVariant === 'AUDIO_ONLY' ? (
             /* Audio Test Circular Badge */
-            <div className="flex flex-col items-center text-center space-y-3 py-4">
-              <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center shadow-md">
-                <Mic className="w-8 h-8" />
+            <div className="flex flex-col items-center text-center space-y-2.5 py-1 w-full my-auto">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-indigo-50/90 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center shadow-xs">
+                <Mic className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Audio Test</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-[200px]">
+              <div className="space-y-0.5">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Audio Test</h3>
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 max-w-[220px]">
                   Click the button and speak for 20–30 seconds.
                 </p>
               </div>
@@ -500,7 +516,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <button
                   type="button"
                   onClick={startTestRecording}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-2 shadow-md hover:shadow-lg shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer"
+                  className="mt-1 px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-[#5B45F6] hover:bg-[#4F39E8] text-white flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
                 >
                   <Mic className="w-4 h-4" />
                   <span>Start recording</span>
@@ -509,7 +525,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <button
                   type="button"
                   onClick={stopTestRecording}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 shadow-md hover:shadow-lg shadow-rose-600/20 active:scale-95 transition-all cursor-pointer animate-pulse"
+                  className="mt-1 px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 shadow-md hover:shadow-lg shadow-rose-600/20 active:scale-95 transition-all cursor-pointer animate-pulse"
                 >
                   <span className="w-2.5 h-2.5 rounded-sm bg-white" />
                   <span>Stop recording ({30 - recordTime}s)</span>
@@ -633,26 +649,26 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         </div>
 
         {/* ── COLUMN 2: Sample Question & Media Player Bar (5 cols) ───────── */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs space-y-4">
+        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs h-full min-h-0">
           {/* Top: Sample Question Card */}
-          <div className="space-y-2">
+          <div className="space-y-2 sm:space-y-2.5">
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Sample question
               </span>
             </div>
 
-            <p className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 leading-relaxed">
-              &ldquo;{sampleQuestion}&rdquo;
+            <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
+              {dbQuestion ? <>&ldquo;{dbQuestion}&rdquo;</> : 'Test your microphone and video clarity before starting the live assessment session.'}
             </p>
           </div>
 
           {/* Device Error Banner */}
           {deviceError && (
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-in fade-in duration-200">
               <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
               <span>{deviceError}</span>
             </div>
@@ -665,7 +681,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <button
                   type="button"
                   onClick={startTestRecording}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-white dark:bg-slate-800 border-2 border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
+                  className="px-5 py-2 rounded-xl font-bold text-xs bg-white dark:bg-slate-800 border-2 border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
                 >
                   <Video className="w-4 h-4 text-rose-500 fill-rose-500" />
                   <span>Start recording</span>
@@ -674,7 +690,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <button
                   type="button"
                   onClick={stopTestRecording}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 shadow-md shadow-rose-600/30 active:scale-95 transition-all cursor-pointer animate-pulse"
+                  className="px-5 py-2 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 shadow-md shadow-rose-600/30 active:scale-95 transition-all cursor-pointer animate-pulse"
                 >
                   <span className="w-2.5 h-2.5 rounded-sm bg-white" />
                   <span>Stop recording ({30 - recordTime}s)</span>
@@ -684,21 +700,21 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           )}
 
           {/* Bottom: Interactive Scrubber & Audio Player Bar */}
-          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
               {/* Play / Pause Toggle */}
               <button
                 type="button"
                 onClick={togglePlayback}
                 disabled={!testAudioUrl || isRecording}
-                className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                className="w-8 h-8 rounded-lg bg-indigo-100/80 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-200 disabled:opacity-40 flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
                 title={testAudioUrl ? 'Play test recording' : 'Record a sample first to listen'}
               >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
               </button>
 
               {/* Time display */}
-              <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
+              <span className="text-[10.5px] font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
                 {formatSeconds(isPlaying ? playbackTime : isRecording ? recordTime : 0)} / {formatSeconds(totalDuration)}
               </span>
 
@@ -721,7 +737,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   onClick={toggleMute}
                   className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                 >
-                  {isMuted || volume === 0 ? <VolumeX className="w-4 h-4 text-rose-500" /> : <Volume2 className="w-4 h-4" />}
+                  {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 text-rose-500" /> : <Volume2 className="w-3.5 h-3.5" />}
                 </button>
                 <input
                   type="range"
@@ -730,80 +746,86 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
-                  className="w-14 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  className="w-12 sm:w-14 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
               </div>
             </div>
 
-            {/* Note banner: "This is just a test. Your recording will not be saved." */}
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs px-2">
-              <Info className="w-4 h-4 text-indigo-500 shrink-0" />
+            {/* Note banner */}
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px] px-1">
+              <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               <span>This is just a test. Your recording will not be saved.</span>
             </div>
           </div>
         </div>
 
         {/* ── COLUMN 3: Device Status OR Real-time Analytics (3 cols) ─────── */}
-        <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs h-full min-h-0">
           {modeVariant !== 'VIDEO_ANALYTICS' ? (
             /* Variant 1 & 2: Device Status Card */
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Device status
-              </h3>
-
+            <div className="flex flex-col justify-between h-full space-y-3">
               <div className="space-y-3">
-                {videoEnabled && (
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Device status
+                </h3>
+
+                <div className="space-y-3">
+                  {videoEnabled && (
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                        <Camera className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-semibold">Camera</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
+                        <span className="truncate">{selectedVideoLabel}</span>
+                        <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                      <Camera className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-semibold">Camera</span>
+                      <Mic className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-semibold">Microphone</span>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                      <span className="truncate">{selectedVideoLabel}</span>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
+                      <span className="truncate">{selectedAudioLabel}</span>
                       <Lock className="w-3 h-3 text-slate-400 shrink-0" />
                     </div>
                   </div>
-                )}
 
-                <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Mic className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Microphone</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedAudioLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs py-1">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Volume2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Speaker</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedSpeakerLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                      <Volume2 className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-semibold">Speaker</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
+                      <span className="truncate">{selectedSpeakerLabel}</span>
+                      <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium leading-snug">
-                  {videoEnabled
-                    ? 'Video and audio devices verified and locked for this session.'
-                    : 'Audio devices verified and locked for this session.'}
+              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <p className="text-[11.5px] font-semibold text-emerald-800 dark:text-emerald-300 leading-snug">
+                  Audio devices verified and locked for this session.
                 </p>
               </div>
             </div>
           ) : (
-            /* Variant 3: Real-time Analytics (Driven by MediaPipe Vision Telemetry) */
+            /* Variant 3: Real-time Analytics Visualizer */
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Analytics (live during practice)
-              </h3>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Real-time signals</span>
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  Live
+                </span>
+              </div>
 
               <div className="space-y-2.5 text-xs">
                 {[
@@ -863,58 +885,60 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           )}
         </div>
       </div>
+      </div>
 
       {/* ── BOTTOM NAVIGATION ACTIONS ──────────────────────────────────────── */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
-        </button>
+      <div className="w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 py-2 sm:py-2.5 shrink-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+          >
+            <span>← Back</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={async () => {
-            if (isRecording || isLaunching) return;
-            setIsLaunching(true);
-            try {
-              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
+          <button
+            type="button"
+            onClick={async () => {
+              if (isRecording || isLaunching) return;
+              setIsLaunching(true);
+              try {
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                  mediaRecorderRef.current.stop();
+                }
+                if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+                if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+                await onStartAssessment();
+              } catch (err) {
+                console.error('[PracticeStep] Launch assessment failed:', err);
+                setIsLaunching(false);
               }
-              if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
-              if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
-              await onStartAssessment();
-            } catch (err) {
-              console.error('[PracticeStep] Launch assessment failed:', err);
-              setIsLaunching(false);
-            }
-          }}
-          disabled={isRecording || isLaunching}
-          className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
-            isRecording || isLaunching
-              ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
-              : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
-          }`}
-          title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
-        >
-          {isLaunching ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
-              <span>Launching Assessment...</span>
-            </>
-          ) : (
-            <>
-              <span>Start Assessment</span>
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-            </>
-          )}
-        </button>
+            }}
+            disabled={isRecording || isLaunching}
+            className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
+              isRecording || isLaunching
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
+            }`}
+            title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
+          >
+            {isLaunching ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Launching Assessment...</span>
+              </>
+            ) : (
+              <>
+                <span>Start Assessment</span>
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </>
+            )}
+          </button>
       </div>
     </div>
   );
 };
+
 export default PracticeStep;
 

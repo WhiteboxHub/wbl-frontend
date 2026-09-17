@@ -9,7 +9,7 @@ import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
 import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AIPrepPage() {
   const router = useRouter();
@@ -198,6 +198,20 @@ export default function AIPrepPage() {
     router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
 
+  const toggleHeader = () => {
+    if (autoCollapseTimerRef.current) {
+      clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = null;
+    }
+    const nextCollapsed = !headerCollapsed;
+    setHeaderCollapsed(nextCollapsed);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+        detail: { active: true, fullscreen: nextCollapsed, headerCollapsed: nextCollapsed }
+      }));
+    }
+  };
+
   if (!isMounted) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
@@ -210,14 +224,29 @@ export default function AIPrepPage() {
   // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
   if (!showWizard && !isSaving && !errorMsg) {
     return (
-      <div className={isEmbedded ? "min-h-screen bg-slate-50 dark:bg-[#0b0f19]" : "pt-24 pb-12 min-h-screen bg-slate-50 dark:bg-[#0b0f19]"}>
+      <div className={isEmbedded ? "min-h-screen bg-slate-50 dark:bg-[#0b0f19] p-4 sm:p-6" : "pt-24 pb-12 min-h-screen bg-slate-50 dark:bg-[#0b0f19] px-4 sm:px-6"}>
         <AIPrepDashboard />
       </div>
     );
   }
   return (
-    <div className={`w-full h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${!isEmbedded && !headerCollapsed ? 'pt-[72px] lg:pt-[76px]' : 'pt-0'
+    <div className={`w-full h-[100dvh] h-screen flex-1 min-h-0 bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${!isEmbedded && !headerCollapsed ? 'pt-[72px] lg:pt-[76px]' : 'pt-0'
       }`}>
+      {showWizard && !isEmbedded && (
+        <button
+          type="button"
+          onClick={toggleHeader}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center py-3 px-2 rounded-r-xl bg-[#7C3AED] hover:bg-[#6D28D9] shadow-xl shadow-purple-500/25 text-white hover:pr-3 transition-all duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 group animate-in fade-in"
+          title={headerCollapsed ? "Expand navigation header" : "Minimize navigation header"}
+          aria-label={headerCollapsed ? "Expand navigation header" : "Minimize navigation header"}
+        >
+          {headerCollapsed ? (
+            <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform text-white" />
+          ) : (
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform text-white" />
+          )}
+        </button>
+      )}
       {errorMsg ? (
         <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
           <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />

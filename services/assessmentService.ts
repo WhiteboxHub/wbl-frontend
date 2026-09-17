@@ -65,7 +65,12 @@ export const assessmentService = {
       });
 
       if (filters.candidate_id?.trim()) {
-        queryParams.set("candidate_id", filters.candidate_id.trim());
+        const rawCand = filters.candidate_id.trim();
+        if (/^\d+$/.test(rawCand)) {
+          queryParams.set("candidate_id", rawCand);
+        } else if (rawCand.toLowerCase().startsWith("cand-") && /^\d+$/.test(rawCand.slice(5))) {
+          queryParams.set("candidate_id", rawCand.slice(5));
+        }
       }
       if (filters.status && filters.status !== "all") {
         queryParams.set("status", filters.status);
