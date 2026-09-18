@@ -712,7 +712,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       <div className="flex items-center justify-between">
         {isAdmin ? (
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Candidate Assessments ({recordCount})
+            Candidate Assessment List ({recordCount})
           </h3>
         ) : (
           <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 text-xs font-semibold shadow-2xs">
