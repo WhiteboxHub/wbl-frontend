@@ -34,7 +34,23 @@ export const aiPrepApi = {
 
   // Get single assessment details
   getAssessment: (assessmentId: string | number): Promise<AssessmentDetail> =>
-    apiFetch(endpoint(`assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
+
+  // Get assessment data (telemetry / answers / transcript)
+  getAssessmentData: (assessmentId: string | number): Promise<AssessmentDataResponse> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/data`)) as Promise<AssessmentDataResponse>,
+
+  // Get assessment evaluation report
+  getAssessmentReport: (assessmentId: string | number): Promise<AssessmentReportResponse> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/report`)) as Promise<AssessmentReportResponse>,
+
+  // Update assessment status
+  updateAssessmentStatus: async (
+    assessmentId: number | string,
+    status: AssessmentStatus
+  ): Promise<{ status: AssessmentStatus }> => {
+    return { status };
+  },
 
   // Create / Start assessment
   createAssessment: (
