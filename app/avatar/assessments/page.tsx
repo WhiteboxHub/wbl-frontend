@@ -226,9 +226,6 @@ export default function CandidateAssessmentsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidate Assessments
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Candidates currently in assessment phase
-          </p>
         </div>
       </div>
 
