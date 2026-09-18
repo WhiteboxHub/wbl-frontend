@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   VolumeX,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 interface PracticeStepProps {
@@ -41,7 +42,7 @@ interface PracticeStepProps {
   selectedVideoLabel?: string;
   selectedSpeakerLabel?: string;
   onBack: () => void;
-  onStartAssessment: () => void;
+  onStartAssessment: () => Promise<void> | void;
 }
 
 export const PracticeStep: React.FC<PracticeStepProps> = ({
@@ -65,7 +66,9 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [isLaunching, setIsLaunching] = useState<boolean>(false);
 
+  const recordTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -253,7 +256,8 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           cameraStream.getVideoTracks().length > 0 &&
           cameraStream.getVideoTracks()[0].readyState === 'live'
         ) {
-          vidTrack = cameraStream.getVideoTracks()[0];
+          // Clone the track so stopping activeStream later won't stop the live camera stream
+          vidTrack = cameraStream.getVideoTracks()[0].clone();
         } else {
           try {
             const freshVidStream = await navigator.mediaDevices.getUserMedia({
@@ -279,15 +283,32 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       const activeStream = new MediaStream(tracks);
 
       recordedChunksRef.current = [];
-      const mimeType = videoEnabled
-        ? MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-          ? 'video/webm;codecs=vp9,opus'
-          : 'video/webm'
-        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm';
+      const getSupportedMimeType = (video: boolean) => {
+        const videoTypes = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+          'video/mp4',
+        ];
+        const audioTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/aac',
+        ];
+        const targets = video ? videoTypes : audioTypes;
+        if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+          for (const type of targets) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+        }
+        return '';
+      };
 
-      const recorder = new MediaRecorder(activeStream, { mimeType });
+      const mimeType = getSupportedMimeType(videoEnabled);
+      const recorder = new MediaRecorder(activeStream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e) => {
@@ -297,7 +318,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        const blob = new Blob(recordedChunksRef.current, mimeType ? { type: mimeType } : undefined);
         const url = URL.createObjectURL(blob);
         setTestAudioUrl(url);
         setIsRecording(false);
@@ -307,16 +328,19 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
       recorder.start(500);
       setIsRecording(true);
+      recordTimeRef.current = 0;
       setRecordTime(0);
 
       const timer = setInterval(() => {
         setRecordTime((prev) => {
-          if (prev >= 29) {
+          const next = prev + 1;
+          recordTimeRef.current = next;
+          if (next >= 30) {
             clearInterval(timer);
             stopTestRecording();
             return 30;
           }
-          return prev + 1;
+          return next;
         });
       }, 1000);
       recordTimerRef.current = timer;
@@ -337,7 +361,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       } catch (_) { }
     }
     setIsRecording(false);
-    const finalSec = recordTime > 0 ? recordTime : 5;
+    const finalSec = recordTimeRef.current > 0 ? recordTimeRef.current : 5;
     setTotalDuration(finalSec);
     setPlaybackTime(0);
     setActiveView('PLAYBACK');
@@ -853,17 +877,40 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
         <button
           type="button"
-          onClick={onStartAssessment}
-          disabled={isRecording}
+          onClick={async () => {
+            if (isRecording || isLaunching) return;
+            setIsLaunching(true);
+            try {
+              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+              }
+              if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+              if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+              await onStartAssessment();
+            } catch (err) {
+              console.error('[PracticeStep] Launch assessment failed:', err);
+              setIsLaunching(false);
+            }
+          }}
+          disabled={isRecording || isLaunching}
           className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
-            isRecording
+            isRecording || isLaunching
               ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
               : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
           }`}
-          title={isRecording ? 'Please stop recording before starting assessment' : 'Start Assessment'}
+          title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
         >
-          <span>Start Assessment</span>
-          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+          {isLaunching ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-white" />
+              <span>Launching Assessment...</span>
+            </>
+          ) : (
+            <>
+              <span>Start Assessment</span>
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+            </>
+          )}
         </button>
       </div>
     </div>

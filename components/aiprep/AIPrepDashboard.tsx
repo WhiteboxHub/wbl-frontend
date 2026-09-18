@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { DeviceCheckWizard } from "./DeviceCheckWizard";
+import { CandidateAssessmentsPanel } from "./CandidateAssessmentsPanel";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import type {
   AssessmentSummary,
@@ -209,14 +210,16 @@ export function AIPrepDashboard({
   };
 
   const cardAction = (name: string) => {
+    if (name === "View assessments") {
+      setView("assessments");
+      return;
+    }
     if (!isReady) {
       setShowSetupModal(true);
       return;
     }
     if (name === "Start an assessment") {
       void startAssessment();
-    } else if (name === "View assessments") {
-      setView("assessments");
     }
   };
 
@@ -231,7 +234,7 @@ export function AIPrepDashboard({
     <main className="min-h-full w-full bg-transparent text-gray-900 dark:text-gray-100 transition-colors duration-200">
       <div className="mx-auto max-w-6xl">
         {/* Page header */}
-        {view !== "assessment" && (
+        {view === "home" && (
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
               Welcome back!
@@ -243,7 +246,7 @@ export function AIPrepDashboard({
         )}
 
         {/* Readiness banner */}
-        {!loading && !isReady && readinessBannerMessage && (
+        {!loading && view === "home" && !isReady && readinessBannerMessage && (
           <div className="mt-4 flex items-center gap-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-rose-700 dark:text-rose-300">
             <AlertBadge />
             <div className="min-w-0 flex-1">
@@ -309,108 +312,68 @@ export function AIPrepDashboard({
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {cards.map(({ title, icon: Icon }) => (
-                <button
-                  key={title}
-                  onClick={() => cardAction(title)}
-                  disabled={starting}
-                  className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${isReady
-                    ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:border-purple-400 dark:hover:border-purple-500/60 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 hover:shadow-sm cursor-pointer"
-                    : "border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/30 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                    }`}
-                >
-                  <span
-                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${isReady
-                      ? "border-purple-100 dark:border-purple-900/50 bg-[#F4EBFF] dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-400 group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED] dark:group-hover:bg-purple-600 dark:group-hover:border-purple-600"
-                      : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+              {cards.map(({ title, icon: Icon }) => {
+                const cardAccessible = title === "View assessments" || isReady;
+                return (
+                  <button
+                    key={title}
+                    onClick={() => cardAction(title)}
+                    disabled={starting}
+                    className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${cardAccessible
+                      ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:border-purple-400 dark:hover:border-purple-500/60 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 hover:shadow-sm cursor-pointer"
+                      : "border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/30 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                       }`}
                   >
-                    {isReady ? (
-                      <Icon
-                        size={19}
-                        className={`transition-colors duration-200 ${title === "Start an assessment" ? "group-hover:fill-white" : ""
-                          }`}
-                      />
-                    ) : (
-                      <Lock size={17} />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <b className="block text-[15px] font-semibold text-gray-800 dark:text-gray-200 transition-colors duration-200 group-hover:font-extrabold group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                      {starting && title === "Start an assessment"
-                        ? "Starting…"
-                        : title}
-                    </b>
-                    <small className="mt-1 block truncate text-gray-500 dark:text-gray-400">
-                      {isReady
-                        ? title === "Start an assessment"
-                          ? "Start a new practice session"
-                          : title === "View assessments"
-                            ? "Review your AI Prep results"
-                            : "Coming soon — backend API not yet available"
-                        : "Complete your LLM setup and upload your resume to access this."}
-                    </small>
-                  </span>
-                  {!isReady && (
-                    <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                      <Lock className="mr-1 inline" size={10} />
-                      Locked
+                    <span
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${cardAccessible
+                        ? "border-purple-100 dark:border-purple-900/50 bg-[#F4EBFF] dark:bg-purple-950/60 text-[#7C3AED] dark:text-purple-400 group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED] dark:group-hover:bg-purple-600 dark:group-hover:border-purple-600"
+                        : "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                        }`}
+                    >
+                      {cardAccessible ? (
+                        <Icon
+                          size={19}
+                          className={`transition-colors duration-200 ${title === "Start an assessment" ? "group-hover:fill-white" : ""
+                            }`}
+                        />
+                      ) : (
+                        <Lock size={17} />
+                      )}
                     </span>
-                  )}
-                </button>
-              ))}
+                    <span className="min-w-0 flex-1">
+                      <b className="block text-[15px] font-semibold text-gray-800 dark:text-gray-200 transition-colors duration-200 group-hover:font-extrabold group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        {starting && title === "Start an assessment"
+                          ? "Starting…"
+                          : title}
+                      </b>
+                      <small className="mt-1 block truncate text-gray-500 dark:text-gray-400">
+                        {cardAccessible
+                          ? title === "Start an assessment"
+                            ? "Start a new practice session"
+                            : title === "View assessments"
+                              ? "Review your AI Prep results"
+                              : "Coming soon — backend API not yet available"
+                          : "Complete your LLM setup and upload your resume to access this."}
+                      </small>
+                    </span>
+                    {!cardAccessible && (
+                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                        <Lock className="mr-1 inline" size={10} />
+                        Locked
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </section>
         ) : (
-          <section className="mt-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 lg:p-6 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-extrabold text-gray-900 dark:text-white">
-                  Your assessments
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Completed reports: {completed.length}
-                </p>
-              </div>
-              <button
-                onClick={() => setView("home")}
-                className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/50 px-3 py-1.5 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 cursor-pointer transition-colors"
-              >
-                ← Back to Dashboard
-              </button>
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
-              {assessments.length ? (
-                assessments.map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => router.push(`/aiprep/reports/${a.id}`)}
-                    className="flex w-full justify-between px-4 py-3 text-left transition-colors bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer"
-                  >
-                    <span>
-                      <b className="block text-sm text-gray-900 dark:text-gray-100">
-                        {(a.assessment_type || "Assessment").replaceAll(
-                          "_",
-                          " "
-                        )}
-                      </b>
-                      <small className="text-gray-500 dark:text-gray-400">
-                        {formatDate(a.started_at || a.created_at)}
-                      </small>
-                    </span>
-                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
-                      {(a.status || "Unknown").replaceAll("_", " ")}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <p className="p-7 text-center text-sm text-gray-500 dark:text-gray-400">
-                  No assessments yet.
-                </p>
-              )}
-            </div>
-          </section>
+          <div className="mt-4 rounded-[22px] border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-gray-900">
+            <CandidateAssessmentsPanel
+              onBack={() => setView("home")}
+              onStartAssessment={() => startAssessment()}
+            />
+          </div>
         )}
 
         {/* Setup modal */}

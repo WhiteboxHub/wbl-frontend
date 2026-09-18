@@ -16,6 +16,7 @@ import {
   Mail,
   List,
   Linkedin,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -38,6 +39,15 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   const allSidebarItems = [
     { title: "Home", href: "/avatar/employee/employee-dashboard", icon: HomeIcon, exact: true },
     { title: "Analytics", href: "/avatar/analytics", icon: ShieldCheck },
+    {
+      title: "AI Prep",
+      href: "/avatar/question-bank",
+      icon: Sparkles,
+      children: [
+        { title: "Question Bank", href: "/avatar/question-bank" },
+        { title: "Assessments", href: "/avatar/assessments" },
+      ],
+    },
     {
       title: "Leads",
       href: "/avatar/leads",
