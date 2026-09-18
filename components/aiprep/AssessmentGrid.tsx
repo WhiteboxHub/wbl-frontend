@@ -124,6 +124,7 @@ function getCanonicalAssessmentType(raw?: string): string {
 
 function getCanonicalMode(raw?: string | number): string {
   const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
+  if (m === "ALL") return "ALL";
   if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
   return "VIDEO_AUDIO";
 }
@@ -1015,6 +1016,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             <div className="space-y-1.5">
               {ASSESSMENT_TYPES.map((t) => {
                 const isChecked =
+                  currentCategory !== "all" &&
                   getCanonicalAssessmentType(currentCategory) ===
                   getCanonicalAssessmentType(t.value);
                 return (
@@ -1087,6 +1089,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             <div className="space-y-1.5">
               {MODE_TYPES.map((m) => {
                 const isChecked =
+                  currentMode !== "all" &&
                   getCanonicalMode(currentMode) === getCanonicalMode(m.value);
                 const Icon = m.icon;
                 return (
@@ -1160,6 +1163,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             <div className="space-y-1.5">
               {STATUS_TYPES.map((s) => {
                 const isChecked =
+                  currentStatus !== "all" &&
                   getCanonicalStatus(currentStatus) ===
                   getCanonicalStatus(s.value);
                 return (

@@ -21,6 +21,7 @@ const getCanonicalAssessmentType = (raw?: string): string => {
 
 const getCanonicalMode = (raw?: string | number): string => {
   const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
+  if (m === "ALL") return "ALL";
   if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
   return "VIDEO_AUDIO";
 };
