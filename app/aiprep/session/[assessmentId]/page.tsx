@@ -169,6 +169,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const hasAutoStartedRef = useRef<boolean>(false);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionInitializedRef = useRef<boolean>(false);
 
   // Live Speech Recognition Transcript
@@ -405,10 +406,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
           hasAutoStartedRef.current = true;
           setCountdownValue(5);
-          const interval = setInterval(() => {
+          countdownIntervalRef.current = setInterval(() => {
             setCountdownValue((prev) => {
               if (prev === null || prev <= 1) {
-                clearInterval(interval);
+                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
                 startRecorderRef.current();
                 return null;
               }
@@ -428,6 +429,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     return () => {
       stopAiSpeech();
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
   }, [assessmentId, stopAiSpeech]);
@@ -959,6 +961,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               <button
                 type="button"
                 onClick={() => {
+                  if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
                   cleanupRecorder();
                   router.push(isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep');
                 }}

@@ -52,10 +52,8 @@ export function useProcessingStatus({
   const [isFailed, setIsFailed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const isMountedRef = useRef<boolean>(true);
   const hasTriggeredCompleteRef = useRef<boolean>(false);
   const hasTriggeredFailedRef = useRef<boolean>(false);
-  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const onCompletedRef = useRef(onCompleted);
   const onFailedRef = useRef(onFailed);
@@ -65,107 +63,108 @@ export function useProcessingStatus({
     onFailedRef.current = onFailed;
   });
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-    };
-  }, []);
+  const pollActionRef = useRef<(() => Promise<void>) | null>(null);
 
-  const checkStatus = useCallback(async () => {
+  useEffect(() => {
     if (!assessmentId) return;
 
-    try {
-      const assessment = await aiprepApi.getAssessment(assessmentId);
-      if (!isMountedRef.current) return;
+    let active = true;
+    let timer: NodeJS.Timeout | null = null;
 
-      const currentStatus = assessment?.status || 'EVALUATING';
-      setStatus(currentStatus);
+    const poll = async () => {
+      try {
+        const assessment = await aiprepApi.getAssessment(assessmentId);
+        if (!active) return;
 
-      if (currentStatus === 'COMPLETED') {
-        setProgressPercent(100);
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'COMPLETED',
-          finalize: 'COMPLETED',
-        });
-        setIsCompleted(true);
-        setIsFailed(false);
+        const currentStatus = assessment?.status || 'EVALUATING';
+        setStatus(currentStatus);
 
-        if (!hasTriggeredCompleteRef.current) {
-          hasTriggeredCompleteRef.current = true;
-          if (onCompletedRef.current) onCompletedRef.current();
-        }
-        return;
-      }
-
-      if (currentStatus === 'FAILED') {
-        setIsFailed(true);
-        setIsCompleted(false);
-        setErrorMessage('Evaluation processing encountered an error.');
-        if (!hasTriggeredFailedRef.current) {
-          hasTriggeredFailedRef.current = true;
-          if (onFailedRef.current) onFailedRef.current('Evaluation processing encountered an error.');
-        }
-        return;
-      }
-
-      // Status is EVALUATING or IN_PROGRESS - simulate smooth realistic step progression
-      setProgressPercent((prev) => {
-        const next = Math.min(92, prev + 12);
-        if (next >= 40 && next < 60) {
-          setSteps({
-            stt: 'COMPLETED',
-            audio: 'RUNNING',
-            video: 'QUEUED',
-            llm: 'QUEUED',
-            finalize: 'QUEUED',
-          });
-        } else if (next >= 60 && next < 78) {
-          setSteps({
-            stt: 'COMPLETED',
-            audio: 'COMPLETED',
-            video: 'RUNNING',
-            llm: 'QUEUED',
-            finalize: 'QUEUED',
-          });
-        } else if (next >= 78) {
+        if (currentStatus === 'COMPLETED') {
+          setProgressPercent(100);
           setSteps({
             stt: 'COMPLETED',
             audio: 'COMPLETED',
             video: 'COMPLETED',
-            llm: 'RUNNING',
-            finalize: 'QUEUED',
+            llm: 'COMPLETED',
+            finalize: 'COMPLETED',
           });
+          setIsCompleted(true);
+          setIsFailed(false);
+
+          if (!hasTriggeredCompleteRef.current) {
+            hasTriggeredCompleteRef.current = true;
+            if (onCompletedRef.current) onCompletedRef.current();
+          }
+          return;
         }
-        return next;
-      });
 
-      // Schedule next poll
-      if (isMountedRef.current) {
-        pollTimerRef.current = setTimeout(checkStatus, pollIntervalMs);
+        if (currentStatus === 'FAILED') {
+          setIsFailed(true);
+          setIsCompleted(false);
+          setErrorMessage('Evaluation processing encountered an error.');
+          if (!hasTriggeredFailedRef.current) {
+            hasTriggeredFailedRef.current = true;
+            if (onFailedRef.current) onFailedRef.current('Evaluation processing encountered an error.');
+          }
+          return;
+        }
+
+        // Status is EVALUATING or IN_PROGRESS - simulate smooth realistic step progression
+        setProgressPercent((prev) => {
+          const next = Math.min(92, prev + 12);
+          if (next >= 40 && next < 60) {
+            setSteps({
+              stt: 'COMPLETED',
+              audio: 'RUNNING',
+              video: 'QUEUED',
+              llm: 'QUEUED',
+              finalize: 'QUEUED',
+            });
+          } else if (next >= 60 && next < 78) {
+            setSteps({
+              stt: 'COMPLETED',
+              audio: 'COMPLETED',
+              video: 'RUNNING',
+              llm: 'QUEUED',
+              finalize: 'QUEUED',
+            });
+          } else if (next >= 78) {
+            setSteps({
+              stt: 'COMPLETED',
+              audio: 'COMPLETED',
+              video: 'COMPLETED',
+              llm: 'RUNNING',
+              finalize: 'QUEUED',
+            });
+          }
+          return next;
+        });
+
+        if (active) {
+          timer = setTimeout(poll, pollIntervalMs);
+        }
+      } catch (err: any) {
+        console.warn('[ProcessingStatus Poll Note]:', err);
+        if (active) {
+          timer = setTimeout(poll, pollIntervalMs);
+        }
       }
-    } catch (err: any) {
-      console.warn('[ProcessingStatus Poll Note]:', err);
-      // Retry poll even on temporary network hiccup
-      if (isMountedRef.current) {
-        pollTimerRef.current = setTimeout(checkStatus, pollIntervalMs);
-      }
-    }
-  }, [assessmentId, pollIntervalMs]);
+    };
 
-  useEffect(() => {
-    if (!assessmentId) return;
-
-    checkStatus();
+    pollActionRef.current = poll;
+    poll();
 
     return () => {
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      active = false;
+      if (timer) clearTimeout(timer);
     };
-  }, [assessmentId, checkStatus]);
+  }, [assessmentId, pollIntervalMs]);
+
+  const refetch = useCallback(async () => {
+    if (pollActionRef.current) {
+      await pollActionRef.current();
+    }
+  }, []);
 
   return {
     status,
@@ -174,7 +173,7 @@ export function useProcessingStatus({
     isCompleted,
     isFailed,
     errorMessage,
-    refetch: checkStatus,
+    refetch,
   };
 }
 
