@@ -2546,11 +2546,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                     <button
                         type="button"
-                        disabled
-                        title="AI Prep is only available on desktop"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-50 cursor-not-allowed"
+                        disabled={isMobile}
+                        onClick={() => !isMobile && goToTab('aiprep')}
+                        title={isMobile ? "AI Prep is only available on desktop" : undefined}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${
+                            isMobile
+                                ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-50 cursor-not-allowed"
+                                : (activeTab === 'wbl-smartprep' || activeTab === 'aiprep')
+                                    ? "bg-indigo-600 text-white shadow-sm"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                        }`}
                     >
-                        <Sparkles className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                        <Sparkles className={`w-3.5 h-3.5 ${isMobile ? "text-gray-400 dark:text-gray-500" : ""}`} />
                         AI PrepTool
                     </button>
                 </div>
