@@ -3325,7 +3325,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && (
-                                    <div className="flex-1 overflow-y-auto bg-slate-50/70 p-0 dark:bg-slate-950/40">
+                                    <div className="flex-1 overflow-y-auto bg-transparent p-0">
                                         {isWizardPath() ? (
                                             <div className="w-full min-h-full">
                                                 <DeviceCheckWizard

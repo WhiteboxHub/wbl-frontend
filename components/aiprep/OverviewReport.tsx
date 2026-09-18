@@ -86,11 +86,11 @@ function HighlightCard({
   status?: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex flex-col gap-1.5 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-xs">
       <div className="flex items-center gap-2 text-violet-600">{icon}</div>
-      <p className="text-sm font-bold text-slate-800">{title}</p>
+      <p className="text-xs sm:text-sm font-bold text-slate-800">{title}</p>
       {observation ? (
-        <p className="flex-1 text-xs leading-5 text-slate-600 line-clamp-3">
+        <p className="flex-1 text-xs leading-relaxed text-slate-600 line-clamp-3">
           {observation}
         </p>
       ) : (
@@ -200,24 +200,24 @@ export function OverviewContent({
   const previewSegments = transcript.segments.slice(0, 4);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── Overall Assessment ───────────────────────────────────────────── */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-2xl border border-slate-100/80 bg-white p-4 sm:p-5 shadow-xs">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-amber-500">✦</span>
-            <h2 className="text-base font-extrabold text-slate-900">
+            <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
               Overall Assessment
             </h2>
           </div>
           <Badge status={overall_readiness ?? scores.overall_band} />
         </div>
         {overall_summary ? (
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-600">
             {overall_summary}
           </p>
         ) : (
-          <p className="mt-3 text-sm text-slate-400 italic">
+          <p className="mt-2 text-xs text-slate-400 italic">
             {report.assessment.status === "EVALUATING"
               ? "Your assessment is currently being evaluated. Check back soon."
               : "Overall summary not yet available."}
@@ -227,10 +227,10 @@ export function OverviewContent({
 
       {/* ── Evaluation Highlights ────────────────────────────────────────── */}
       <section>
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+        <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
           Evaluation Highlights
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <HighlightCard
             icon={<User size={16} />}
             title="Introduction & Resume"
@@ -277,22 +277,22 @@ export function OverviewContent({
       </section>
 
       {/* ── Recording + Transcript preview ──────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Recording Playback */}
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-slate-700">
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+          <div className="mb-2.5 flex items-center gap-2 text-slate-700">
             <Video size={15} className="text-violet-500" />
-            <h2 className="text-sm font-bold">Recording Playback</h2>
+            <h2 className="text-xs sm:text-sm font-bold">Recording Playback</h2>
           </div>
           <VideoPlayer youtubeUrl={youtube_url} videoRef={videoRef} />
         </section>
 
         {/* Transcript Preview */}
-        <section className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-2">
+        <section className="flex flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs">
+          <div className="mb-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-slate-700">
               <FileText size={15} className="text-violet-500" />
-              <h2 className="text-sm font-bold">Transcript Preview</h2>
+              <h2 className="text-xs sm:text-sm font-bold">Transcript Preview</h2>
             </div>
             <Link
               href={`/aiprep/reports/${assessmentId}?tab=transcript`}
@@ -310,9 +310,9 @@ export function OverviewContent({
           </div>
 
           {previewSegments.length > 0 ? (
-            <div className="flex-1 space-y-3 overflow-hidden">
+            <div className="flex-1 space-y-2 overflow-hidden">
               {previewSegments.map((seg, i) => (
-                <div key={i} className="flex gap-3 text-xs">
+                <div key={i} className="flex gap-2.5 text-xs">
                   {seg.timestamp_s != null ? (
                     <button
                       onClick={() => seekTo(seg.timestamp_s!)}
@@ -332,7 +332,7 @@ export function OverviewContent({
                         {seg.speaker}
                       </p>
                     )}
-                    <p className="leading-5 text-slate-600 line-clamp-2">
+                    <p className="leading-snug text-slate-600 line-clamp-2">
                       {seg.text}
                     </p>
                   </div>
@@ -340,7 +340,7 @@ export function OverviewContent({
               ))}
             </div>
           ) : transcript.full_text ? (
-            <p className="flex-1 text-xs leading-6 text-slate-600 line-clamp-6">
+            <p className="flex-1 text-xs leading-5 text-slate-600 line-clamp-4">
               {transcript.full_text}
             </p>
           ) : (
@@ -353,13 +353,13 @@ export function OverviewContent({
 
       {/* ── Tip ──────────────────────────────────────────────────────────── */}
       {tip && (
-        <section className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <section className="flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3.5">
           <Lightbulb size={16} className="mt-0.5 shrink-0 text-emerald-600" />
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
               Tip
             </p>
-            <p className="mt-1 text-sm leading-6 text-slate-700">{tip}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-700">{tip}</p>
           </div>
         </section>
       )}
@@ -376,6 +376,7 @@ export interface ReportHeaderProps {
   assessmentId: string;
   activeTab: ReportTab;
   onSelectTab: (tab: ReportTab) => void;
+  performanceBand?: string;
 }
 
 export function ReportHeader({
@@ -383,63 +384,74 @@ export function ReportHeader({
   assessmentId,
   activeTab,
   onSelectTab,
+  performanceBand,
 }: ReportHeaderProps) {
   const typeLabelMap: Record<string, string> = {
-    INTRO: "Introduction Assessment",
-    JD_INTRO: "Job-Specific Introduction",
-    TECHNICAL: "Technical Assessment",
-    SYSTEM_DESIGN: "System Design Assessment",
-    HIRING_MANAGER: "Hiring Manager Assessment",
-    RECRUITER: "Recruiter Assessment",
+    INTRO: "Introduction Assessment Report",
+    JD_INTRO: "Job-Specific Introduction Report",
+    TECHNICAL: "Technical Assessment Report",
+    SYSTEM_DESIGN: "System Design Assessment Report",
+    HIRING_MANAGER: "Hiring Manager Assessment Report",
+    RECRUITER: "Recruiter Assessment Report",
   };
 
   const typeLabel =
     (assessment.assessment_type && typeLabelMap[assessment.assessment_type]) ??
-    assessment.assessment_type?.replaceAll("_", " ") ??
-    "Assessment";
-
+    (assessment.assessment_type?.replaceAll("_", " ")
+      ? `${assessment.assessment_type.replaceAll("_", " ")} Report`
+      : "Introduction Assessment Report");
 
   return (
-    <header className="border-b border-slate-200 bg-white shadow-sm">
-      <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
-        {/* Back link */}
-        <Link
-          href="/user_dashboard/ai-prep"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-violet-700 transition-colors"
-        >
-          <ArrowLeft size={15} />
-          Dashboard
-        </Link>
+    <header className="border-b border-slate-200 bg-white shadow-xs">
+      <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
+        {/* Top bar: Back link + Top-right status */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/user_dashboard/ai-prep"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-violet-700 transition-colors"
+          >
+            <ArrowLeft size={15} />
+            Dashboard
+          </Link>
 
-        <div className="mt-2 flex flex-wrap items-baseline gap-3">
-          <h1 className="text-xl font-extrabold text-slate-900 capitalize">
-            {typeLabel}
-          </h1>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            {assessment.media_type ?? "VIDEO"}
-          </span>
-          {assessment.status === "COMPLETED" && (
+          {/* Top-right status: VIDEO | Completed | Performance Band */}
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
+              {assessment.media_type ?? "VIDEO"}
+            </span>
             <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-              Completed
+              {assessment.status === "COMPLETED"
+                ? "Completed"
+                : assessment.status === "EVALUATING"
+                ? "Evaluating…"
+                : "Completed"}
             </span>
-          )}
-          {assessment.status === "EVALUATING" && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-              Evaluating…
-            </span>
-          )}
-          {assessment.completed_at && (
-            <span className="text-xs text-slate-400">
-              {new Date(assessment.completed_at).toLocaleDateString(undefined, {
-                dateStyle: "medium",
-              })}
-            </span>
-          )}
+            {performanceBand && (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${bandColor(
+                  performanceBand
+                )}`}
+              >
+                <span className="size-1.5 rounded-full bg-current opacity-70" />
+                {formatBand(performanceBand)}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Tab nav — each tab updates ?tab= query param */}
+        {/* Title + Subtitle */}
+        <div className="mt-2">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight capitalize">
+            {typeLabel}
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            AI Engineering & GenAI Practice Session • Real LLM Evaluation
+          </p>
+        </div>
+
+        {/* Tab nav — compact padding */}
         <nav
-          className="mt-4 flex gap-1 overflow-x-auto"
+          className="mt-3 flex gap-1 overflow-x-auto border-t border-slate-100 pt-2"
           aria-label="Report sections"
         >
           {REPORT_TABS.map((tab) => {
@@ -450,10 +462,10 @@ export function ReportHeader({
                 type="button"
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => onSelectTab(tab.label)}
-                className={`whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors cursor-pointer ${
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   isActive
-                    ? "bg-violet-600 text-white shadow-sm"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    ? "bg-violet-600 text-white shadow-sm shadow-violet-500/20"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
                 {tab.label}
@@ -669,14 +681,15 @@ export default function AiPrepReport({
   const { assessment } = report;
 
   return (
-    <div className="min-h-screen bg-[#f7f9fc]">
+    <div className="h-screen overflow-hidden bg-[#f7f9fc] flex flex-col">
       <ReportHeader
         assessment={assessment}
         assessmentId={assessmentId}
         activeTab={activeTab}
         onSelectTab={handleTabChange}
+        performanceBand={report.scores?.overall_band || report.overall_readiness}
       />
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="flex-1 min-h-0 mx-auto w-full max-w-3xl px-2 py-2 sm:px-3 overflow-hidden">
         {activeTab === "Overview" && (
           <OverviewContent
             report={report}
