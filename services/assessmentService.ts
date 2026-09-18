@@ -73,6 +73,10 @@ export const assessmentService = {
         }
       }
 
+      if (filters.status && filters.status !== "all") {
+        queryParams.set("status", filters.status);
+      }
+
       const res = await apiFetch(
         `api/aiprep/employee/assessments?${queryParams.toString()}`
       );

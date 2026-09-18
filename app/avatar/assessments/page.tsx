@@ -65,7 +65,7 @@ export default function CandidateAssessmentsPage() {
     setError(null);
     try {
       const res = await assessmentService.fetchEmployeeAssessments(
-        {},
+        filters,
         currentPage,
         limit
       );
@@ -87,6 +87,7 @@ export default function CandidateAssessmentsPage() {
   }, [
     currentPage,
     limit,
+    filters,
     setIsLoading,
     setError,
     setAssessments,
