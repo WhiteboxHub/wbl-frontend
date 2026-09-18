@@ -7,6 +7,8 @@ import type {
   CreateAssessmentRequest,
   CreateAssessmentResponse,
   AssessmentStatus,
+  AssessmentDataResponse,
+  AssessmentReportResponse,
   LlmKeyStatus,
   ResumeStatus,
 } from "@/types/aiprep";
@@ -82,14 +84,6 @@ export const aiPrepApi = {
       method: "POST",
       body,
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;
-  },
-
-  // Update assessment status
-  updateAssessmentStatus: async (
-    assessmentId: number | string,
-    status: AssessmentStatus
-  ): Promise<{ status: AssessmentStatus }> => {
-    return { status };
   },
 };
 
