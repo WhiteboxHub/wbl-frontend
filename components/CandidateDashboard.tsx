@@ -35,6 +35,9 @@ import {
     Video,
     Check,
     ChevronRight,
+    ChevronLeft,
+    ChevronUp,
+    ChevronDown,
     LogOut,
     Settings,
     LayoutDashboard,
@@ -89,8 +92,7 @@ import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 import { DeviceCheckWizard } from "./aiprep/DeviceCheckWizard";
 import AIPrepDashboard from './aiprep/AIPrepDashboard'
 import CandidateOnboarding from "./CandidateOnboarding";
-
-import { ColDef, ValueFormatterParams } from "ag-grid-community";
+import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 interface DashboardData {
     basic_info: {
@@ -567,15 +569,114 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         return "";
     });
 
+    const [isAiPrepWizardActive, setIsAiPrepWizardActive] = useState<boolean>(false);
+    const [isLayoutCollapsed, setIsLayoutCollapsed] = useState<boolean>(false);
+    const autoCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const hasAutoCollapsedRef = useRef<boolean>(false);
+
     const isWizardPath = useCallback(() => {
         const pathToCheck = (currentSubPath || pathname || (typeof window !== "undefined" ? window.location.pathname : "")).toLowerCase();
         return WIZARD_SLUGS.some((slug) => pathToCheck.includes(`/${slug}`) || pathToCheck.endsWith(`/${slug}`));
     }, [currentSubPath, pathname]);
 
+    const isWizardActive = Boolean(
+        (activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') &&
+        (
+            isAiPrepWizardActive ||
+            isWizardPath() ||
+            (typeof window !== "undefined" && Boolean(sessionStorage.getItem('aiprep_wizard_step')))
+        )
+    );
+
+    const isSidebarCollapsed = isWizardActive && isLayoutCollapsed;
+    const isHeaderCollapsed = isWizardActive && isLayoutCollapsed;
+
+    const toggleLayout = useCallback(() => {
+        if (autoCollapseTimerRef.current) {
+            clearTimeout(autoCollapseTimerRef.current);
+            autoCollapseTimerRef.current = null;
+        }
+        hasAutoCollapsedRef.current = true;
+        setIsLayoutCollapsed((prev) => !prev);
+    }, []);
+
+    useEffect(() => {
+        const handleLayoutEvent = (e: any) => {
+            if (e?.detail) {
+                if (e.detail.step || e.detail.slug) {
+                    setIsAiPrepWizardActive(true);
+                }
+                if (e.detail.active === false) {
+                    setIsAiPrepWizardActive(false);
+                }
+            }
+        };
+        const handleLocationChange = () => {
+            if (typeof window !== "undefined") {
+                setCurrentSubPath(window.location.pathname.toLowerCase());
+            }
+        };
+        window.addEventListener('aiprep-layout-mode', handleLayoutEvent);
+        window.addEventListener('popstate', handleLocationChange);
+        return () => {
+            window.removeEventListener('aiprep-layout-mode', handleLayoutEvent);
+            window.removeEventListener('popstate', handleLocationChange);
+        };
+    }, []);
+
+    // When assessment wizard activates, keep sidebar open for 0.5 seconds,
+    // then automatically collapse to fullscreen mode.
+    // If the user clicks the toggle to open/close manually, the timer is cleared and their choice is preserved.
+    useEffect(() => {
+        if (isWizardActive) {
+            if (!hasAutoCollapsedRef.current) {
+                setIsLayoutCollapsed(false);
+                if (autoCollapseTimerRef.current) {
+                    clearTimeout(autoCollapseTimerRef.current);
+                }
+                autoCollapseTimerRef.current = setTimeout(() => {
+                    hasAutoCollapsedRef.current = true;
+                    setIsLayoutCollapsed(true);
+                    autoCollapseTimerRef.current = null;
+                }, 500);
+            }
+        } else {
+            if (autoCollapseTimerRef.current) {
+                clearTimeout(autoCollapseTimerRef.current);
+                autoCollapseTimerRef.current = null;
+            }
+            hasAutoCollapsedRef.current = false;
+            setIsLayoutCollapsed(false);
+        }
+
+        return () => {
+            if (autoCollapseTimerRef.current) {
+                clearTimeout(autoCollapseTimerRef.current);
+            }
+        };
+    }, [isWizardActive]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        window.dispatchEvent(
+            new CustomEvent("aiprep-layout-mode", {
+                detail: {
+                    headerCollapsed: isWizardActive ? isLayoutCollapsed : false,
+                    sidebarCollapsed: isWizardActive ? isLayoutCollapsed : false,
+                    isWizardActive,
+                    activeTab,
+                },
+            })
+        );
+    }, [isWizardActive, isLayoutCollapsed, activeTab]);
+
     const goToTab = (tab: TabType | string) => {
         setSetupWizardOpen(false);
         const normalized = normalizeTab(tab);
         setActiveTab(normalized);
+        if (!normalized.startsWith("ai-prep") || !WIZARD_SLUGS.some((slug) => tab.toLowerCase().includes(slug))) {
+            setIsAiPrepWizardActive(false);
+        }
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         const targetUrl = `/user_dashboard/${tab}${searchString}`;
         setCurrentSubPath(targetUrl.toLowerCase());
@@ -2260,16 +2361,22 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     ];
 
     return (
-        <div className="flex h-screen bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
+        <div className="flex w-full h-full flex-1 min-h-0 bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
             {/* Hidden identity tag for browser extension telemetry */}
             {data?.basic_info?.email && (
                 <div id="wbl-user-identity" data-email={data.basic_info.email} style={{ display: 'none' }} />
             )}
 
             {/* ==================== SIDEBAR ==================== */}
-            <aside className="hidden lg:flex w-60 flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm">
+            <aside
+                className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm transition-all duration-300 ease-in-out ${
+                    isWizardActive && isSidebarCollapsed
+                        ? "w-0 border-r-0 opacity-0 pointer-events-none overflow-hidden"
+                        : "w-60 opacity-100"
+                }`}
+            >
                 {/* Logo */}
-                <div className="p-5 pb-4 border-b border-gray-100 dark:border-gray-800">
+                <div className="p-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
                             <Briefcase className="w-5 h-5" />
@@ -2306,14 +2413,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                             <button
                                 onClick={() => goToTab('ai-prep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep'
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold select-none cursor-pointer transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
                                 <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>AI PrepTool</span>
-                                {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
                         </div>
                     </div>
@@ -2322,8 +2428,28 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             </aside>
 
+            {/* Floating Expand/Collapse Tab across all assessment wizard steps */}
+            {isWizardActive && (
+                <button
+                    type="button"
+                    onClick={toggleLayout}
+                    className={`fixed top-1/2 -translate-y-1/2 z-[100] flex items-center justify-center py-3 px-2 rounded-r-xl bg-[#7C3AED] hover:bg-[#6D28D9] shadow-xl shadow-purple-500/25 text-white hover:pr-3 transition-all duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 group animate-in fade-in ${
+                        isSidebarCollapsed ? "left-0" : "left-60"
+                    }`}
+                    title={isSidebarCollapsed ? "Expand sidebar and header" : "Minimize sidebar and header"}
+                    aria-label={isSidebarCollapsed ? "Expand sidebar and header" : "Minimize sidebar and header"}
+                    aria-expanded={!isSidebarCollapsed}
+                >
+                    {isSidebarCollapsed ? (
+                        <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform text-white" />
+                    ) : (
+                        <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform text-white" />
+                    )}
+                </button>
+            )}
+
             {/* ==================== MAIN CONTENT ==================== */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex-1 min-w-0 min-h-0 h-full flex flex-col overflow-hidden">
 
                 {/* Top Bar */}
                 <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3 flex' : activeTab === 'job-board' ? 'lg:hidden min-h-[56px] py-2 flex' : 'lg:hidden min-h-[56px] py-2 flex'} items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
@@ -2419,12 +2545,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 </div>
 
                 {/* Scrollable Content */}
-                <main className="flex-1 overflow-hidden flex flex-col">
+                <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
 
 
 
                     {/* ==================== TAB CONTENT ==================== */}
-                    <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
+                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col animate-fadeIn">
                         {setupWizardOpen ? (
                             <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
                                 <CandidateSetupWizard
@@ -3325,12 +3451,15 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && (
-                                    <div className="flex-1 overflow-y-auto bg-slate-50/70 p-0 dark:bg-slate-950/40">
-                                        {isWizardPath() ? (
-                                            <div className="w-full min-h-full">
+                                    <div className={`flex-1 min-h-0 min-w-0 flex flex-col ${isWizardActive ? 'overflow-hidden h-full p-0' : 'overflow-y-auto bg-slate-50/70 p-0 dark:bg-slate-950/40'}`}>
+                                        {isWizardActive ? (
+                                            <div className="w-full h-full flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
                                                 <DeviceCheckWizard
+                                                    initialStep="CONFIGURATION"
+                                                    isSidebarCollapsed={isSidebarCollapsed}
                                                     onCancel={() => {
                                                         sessionStorage.removeItem('aiprep_wizard_step');
+                                                        setIsAiPrepWizardActive(false);
                                                         goToTab('ai-prep');
                                                     }}
                                                 />
@@ -3347,6 +3476,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         ),
                                                         api_keys_configured: Boolean(setupStatus?.api_keys_configured),
                                                         setup_complete: Boolean(setupStatus?.setup_complete),
+                                                    }}
+                                                    onStartAssessment={() => {
+                                                        sessionStorage.setItem('aiprep_wizard_step', 'CONFIGURATION');
+                                                        setIsAiPrepWizardActive(true);
+                                                        goToTab('ai-prep/assessment-type');
                                                     }}
                                                 />
                                             </div>

@@ -21,8 +21,8 @@ const getCanonicalAssessmentType = (raw?: string): string => {
 
 const getCanonicalMode = (raw?: string | number): string => {
   const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
+  if (m === "ALL") return "ALL";
   if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
-  if (m === "2" || m === "VIDEO" || m === "VIDEO_ONLY") return "VIDEO";
   return "VIDEO_AUDIO";
 };
 
@@ -55,7 +55,7 @@ export default function CandidateAssessmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const limit = 50;
+  const limit = 100;
 
   const [selectedAssessment, setSelectedAssessment] = useState<AssessmentGridItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,14 +85,14 @@ export default function CandidateAssessmentsPage() {
       setIsLoading(false);
     }
   }, [
-    filters,
     currentPage,
     limit,
+    filters,
     setIsLoading,
     setError,
     setAssessments,
     setTotalPages,
-    setTotalCount,      
+    setTotalCount,
   ]);
 
   useEffect(() => {
@@ -124,111 +124,26 @@ export default function CandidateAssessmentsPage() {
     setIsModalOpen(true);
   };
 
-  const displayedAssessments = useMemo(() => {
-    let list = assessments;
-
-    if (filters.search?.trim()) {
-      const term = filters.search.toLowerCase().trim();
-      list = list.filter((a) => {
-        const matchId = `as-${a.id}`.toLowerCase().includes(term) || String(a.id).includes(term);
-        const matchCand = String(a.candidate_id || "").includes(term);
-        return matchId || matchCand;
-      });
+  const handleDeleteAssessment = async (assessment: AssessmentGridItem) => {
+    try {
+      await assessmentService.deleteAssessment(assessment.id);
+    } catch (err) {
+      console.warn("deleteAssessment error:", err);
     }
+    setAssessments((prev) => prev.filter((a) => a.id !== assessment.id));
+    setTotalCount((prev) => (prev && prev > 0 ? prev - 1 : 0));
+  };
 
-    if (filters.candidate_id?.trim()) {
-      const candTerm = filters.candidate_id.toLowerCase().trim();
-      list = list.filter((a) => {
-        return (
-          String(a.candidate_id || "").toLowerCase().includes(candTerm) ||
-          `cand-${a.candidate_id}`.toLowerCase().includes(candTerm) ||
-          `candidate #${a.candidate_id}`.toLowerCase().includes(candTerm)
-        );
-      });
-    }
 
-    if (filters.category && filters.category !== "all") {
-      const targetCanonical = getCanonicalAssessmentType(filters.category);
-      list = list.filter(
-        (a) => getCanonicalAssessmentType(a.assessment_type) === targetCanonical
-      );
-    }
-
-    if (filters.media_type && filters.media_type !== "all") {
-      const targetMode = getCanonicalMode(filters.media_type);
-      list = list.filter(
-        (a) => getCanonicalMode(a.media_type || (a as any).media_mode) === targetMode
-      );
-    }
-
-    if (filters.status && filters.status !== "all") {
-      const targetStatus = getCanonicalStatus(filters.status);
-      list = list.filter((a) => getCanonicalStatus(a.status) === targetStatus);
-    }
-
-    if (filters.date_value) {
-      const parseItemDateKey = (dateStr?: string | null): string => {
-        if (!dateStr) return "";
-        try {
-          const d = new Date(dateStr);
-          if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
-          const yyyy = d.getFullYear();
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0");
-          return `${yyyy}-${mm}-${dd}`;
-        } catch {
-          return "";
-        }
-      };
-
-      const op = filters.date_operator || "equals";
-      list = list.filter((a) => {
-        const itemKey = parseItemDateKey(a.created_at || a.started_at);
-        if (!itemKey) return false;
-        if (op === "equals") return itemKey === filters.date_value;
-        if (op === "not_equals") return itemKey !== filters.date_value;
-        if (op === "less_than") return itemKey < filters.date_value!;
-        if (op === "greater_than") return itemKey > filters.date_value!;
-        if (op === "in_range") {
-          return itemKey >= filters.date_value! && (!filters.date_to || itemKey <= filters.date_to);
-        }
-        return true;
-      });
-    }
-
-    return list;
-  }, [
-    assessments,
-    filters.search,
-    filters.candidate_id,
-    filters.category,
-    filters.media_type,
-    filters.status,
-    filters.date_operator,
-    filters.date_value,
-    filters.date_to,
-  ]);
 
   return (
-    <div className="flex flex-col h-full space-y-4 p-4 lg:p-6 min-h-0 bg-[#fbfcfd] dark:bg-gray-950">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-            Candidate Assessments List
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidate Assessment List
           </h1>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => loadAssessments()}
-            disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs transition-all cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-indigo-600" : "text-gray-500"}`} />
-            <span>Refresh</span>
-          </button>
         </div>
       </div>
 
@@ -242,11 +157,13 @@ export default function CandidateAssessmentsPage() {
 
       {/* Grid Table */}
       <AssessmentGrid
-        assessments={displayedAssessments}
+        assessments={assessments}
         isLoading={isLoading}
         error={error}
         onRetry={loadAssessments}
         onView={handleViewAssessment}
+        onEdit={handleViewAssessment}
+        onDelete={handleDeleteAssessment}
         currentPage={currentPage}
         totalPages={totalPages}
         totalCount={totalCount}
@@ -261,6 +178,7 @@ export default function CandidateAssessmentsPage() {
         isOpen={isModalOpen}
         assessment={selectedAssessment}
         onClose={() => setIsModalOpen(false)}
+        isAdmin={true}
       />
     </div>
   );

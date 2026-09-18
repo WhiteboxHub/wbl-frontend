@@ -256,6 +256,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         isOpen={isModalOpen}
         assessment={selectedAssessment}
         onClose={() => setIsModalOpen(false)}
+        isAdmin={false}
       />
     </div>
   );

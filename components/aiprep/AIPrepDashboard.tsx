@@ -49,11 +49,13 @@ export interface AIPrepDashboardProps {
     api_keys_configured?: boolean;
     setup_complete?: boolean;
   };
+  onStartAssessment?: () => void;
 }
 
 export function AIPrepDashboard({
   initialView = "home",
   setupStatus,
+  onStartAssessment,
 }: AIPrepDashboardProps) {
   const router = useRouter();
 
@@ -206,7 +208,11 @@ export function AIPrepDashboard({
       setShowSetupModal(true);
       return;
     }
-    setView("assessment");
+    if (onStartAssessment) {
+      onStartAssessment();
+    } else {
+      setView("assessment");
+    }
   };
 
   const cardAction = (name: string) => {
@@ -231,15 +237,15 @@ export function AIPrepDashboard({
   ];
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] px-4 py-7 sm:px-6">
+    <div className="w-full">
       <div className="mx-auto max-w-6xl">
         {/* Page header */}
         {view === "home" && (
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-[#071d49]">
+            <h1 className="text-2xl font-extrabold tracking-tight text-[#071d49] dark:text-white">
               Welcome back!
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Your AI-powered interview preparation platform.
             </p>
           </div>
@@ -300,11 +306,11 @@ export function AIPrepDashboard({
         ) : view === "assessment" ? (
           <DeviceCheckWizard onCancel={() => setView("home")} />
         ) : view === "home" ? (
-          <section className="mt-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="mt-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex justify-between">
               <div>
-                <h2 className="text-xl font-extrabold text-[#071d49]">AI Prep</h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <h2 className="text-xl font-extrabold text-[#071d49] dark:text-white">AI Prep</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Choose what you want to do next.
                 </p>
               </div>
@@ -320,14 +326,14 @@ export function AIPrepDashboard({
                     onClick={() => cardAction(title)}
                     disabled={starting}
                     className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${cardAccessible
-                      ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer"
-                      : "border-slate-200 bg-slate-50 text-slate-400"
+                      ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer dark:border-gray-800 dark:hover:border-purple-500/40 dark:hover:bg-purple-950/20"
+                      : "border-slate-200 bg-slate-50 text-slate-400 dark:border-gray-800 dark:bg-gray-800/40 dark:text-slate-500"
                       }`}
                   >
                     <span
                       className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${cardAccessible
-                        ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED]"
-                        : "border-slate-200 bg-slate-100 text-slate-400"
+                        ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED] dark:border-purple-900/40 dark:bg-purple-900/30"
+                        : "border-slate-200 bg-slate-100 text-slate-400 dark:border-gray-700 dark:bg-gray-800"
                         }`}
                     >
                       {cardAccessible ? (
@@ -341,12 +347,12 @@ export function AIPrepDashboard({
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <b className="block text-[15px] font-semibold text-slate-700 transition-colors duration-200 group-hover:font-extrabold group-hover:text-[#6e2bf5]">
+                      <b className="block text-[15px] font-semibold text-slate-700 transition-colors duration-200 group-hover:font-extrabold group-hover:text-[#6e2bf5] dark:text-slate-200 dark:group-hover:text-purple-400">
                         {starting && title === "Start an assessment"
                           ? "Starting…"
                           : title}
                       </b>
-                      <small className="mt-1 block truncate text-slate-400">
+                      <small className="mt-1 block truncate text-slate-400 dark:text-slate-500">
                         {cardAccessible
                           ? title === "Start an assessment"
                             ? "Start a new practice session"
@@ -357,7 +363,7 @@ export function AIPrepDashboard({
                       </small>
                     </span>
                     {!cardAccessible && (
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400 dark:bg-gray-800 dark:text-slate-500">
                         <Lock className="mr-1 inline" size={10} />
                         Locked
                       </span>
@@ -469,7 +475,7 @@ export function AIPrepDashboard({
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 

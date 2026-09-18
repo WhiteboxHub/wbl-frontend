@@ -11,7 +11,10 @@ import {
   ChevronRight,
   Download,
   Settings,
+  Edit,
+  Trash2,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 
 interface AssessmentGridProps {
@@ -20,6 +23,8 @@ interface AssessmentGridProps {
   error: string | null;
   onRetry: () => void;
   onView: (assessment: AssessmentGridItem) => void;
+  onEdit?: (assessment: AssessmentGridItem) => void;
+  onDelete?: (assessment: AssessmentGridItem) => void;
   currentPage: number;
   totalPages: number;
   totalCount?: number;
@@ -27,6 +32,7 @@ interface AssessmentGridProps {
   isAdmin?: boolean;
   filters?: AssessmentFiltersState;
   onFilterChange?: (filters: Partial<AssessmentFiltersState>) => void;
+  height?: string;
 }
 
 const ASSESSMENT_TYPES = [
@@ -103,12 +109,6 @@ const MODE_TYPES = [
     color: "text-purple-600 dark:text-purple-400",
   },
   {
-    value: "VIDEO",
-    label: "Video Only",
-    icon: Video,
-    color: "text-blue-600 dark:text-blue-400",
-  },
-  {
     value: "VIDEO_AUDIO",
     label: "Video + Audio",
     icon: Video,
@@ -129,8 +129,9 @@ function getCanonicalAssessmentType(raw?: string): string {
 
 function getCanonicalMode(raw?: string | number): string {
   const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
+  if (m === "ALL") return "ALL";
   if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
-  if (m === "2" || m === "VIDEO" || m === "VIDEO_ONLY") return "VIDEO";
+  if (m === "3" || m === "VIDEO" || m === "VIDEO_AUDIO" || m === "VIDEO_ONLY") return "VIDEO_AUDIO";
   return "VIDEO_AUDIO";
 }
 
@@ -183,17 +184,17 @@ const ColumnVisibilityModal = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900 border border-gray-200 dark:border-gray-800"
+        className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-900 border border-blue-200 dark:border-blue-900"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
-          <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+        <div className="flex items-center justify-between border-b border-blue-200 dark:border-blue-900 pb-3 mb-3">
+          <h4 className="text-sm font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             Toggle Columns
           </h4>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-bold text-base cursor-pointer"
+            className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 font-bold text-base cursor-pointer"
           >
             ✕
           </button>
@@ -204,13 +205,13 @@ const ColumnVisibilityModal = ({
             return (
               <label
                 key={col.field}
-                className="flex items-center gap-2.5 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none py-1.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex items-center gap-2.5 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none py-1.5 px-2 rounded-lg hover:bg-blue-50/50 dark:hover:bg-gray-800"
               >
                 <input
                   type="checkbox"
                   checked={isVisible}
                   onChange={() => onToggleColumn(col.field)}
-                  className="rounded text-[#2a5a6b] focus:ring-[#2a5a6b]"
+                  className="rounded text-blue-600 focus:ring-blue-500"
                 />
                 <span>{col.label}</span>
               </label>
@@ -228,6 +229,8 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   error,
   onRetry,
   onView,
+  onEdit,
+  onDelete,
   currentPage,
   totalPages,
   totalCount,
@@ -235,10 +238,31 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   isAdmin = true,
   filters,
   onFilterChange,
+  height = "calc(70vh)",
 }) => {
+  // Row selection state
+  const [selectedRow, setSelectedRow] = useState<AssessmentGridItem | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   // Column toggle modal state
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+
+  // Clear selection if current selected row is no longer present in assessments
+  useEffect(() => {
+    if (selectedRow && !assessments.some((a) => a.id === selectedRow.id)) {
+      setSelectedRow(null);
+    }
+  }, [assessments, selectedRow]);
+
+  const handleRowClick = (a: AssessmentGridItem) => {
+    setSelectedRow((prev) => (prev?.id === a.id ? null : a));
+  };
+
+  const handleRowDoubleClick = (a: AssessmentGridItem) => {
+    setSelectedRow(a);
+    onView(a);
+  };
 
   const allColumnsList = useMemo(() => {
     const list = [
@@ -426,28 +450,37 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   ]);
 
   const handleSelectType = (val: string) => {
+    const targetVal =
+      val !== "all" && currentCategory !== "all" && getCanonicalAssessmentType(currentCategory) === getCanonicalAssessmentType(val)
+        ? "all"
+        : val;
+    setInternalCategory(targetVal);
     if (onFilterChange) {
-      onFilterChange({ category: val });
-    } else {
-      setInternalCategory(val);
+      onFilterChange({ category: targetVal });
     }
     setTypeDropdownOpen(false);
   };
 
   const handleSelectMode = (val: string) => {
+    const targetVal =
+      val !== "all" && currentMode !== "all" && getCanonicalMode(currentMode) === getCanonicalMode(val)
+        ? "all"
+        : val;
+    setInternalMode(targetVal);
     if (onFilterChange) {
-      onFilterChange({ media_type: val });
-    } else {
-      setInternalMode(val);
+      onFilterChange({ media_type: targetVal });
     }
     setModeDropdownOpen(false);
   };
 
   const handleSelectStatus = (val: string) => {
+    const targetVal =
+      val !== "all" && currentStatus !== "all" && getCanonicalStatus(currentStatus) === getCanonicalStatus(val)
+        ? "all"
+        : val;
+    setInternalStatus(targetVal);
     if (onFilterChange) {
-      onFilterChange({ status: val });
-    } else {
-      setInternalStatus(val);
+      onFilterChange({ status: targetVal });
     }
     setStatusDropdownOpen(false);
   };
@@ -518,7 +551,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     );
   };
 
-  // 1: Audio Only, 2: Video Only, 3: Video + Audio
+  // 1: Audio Only, 3: Video + Audio
   const getMediaBadge = (mode?: string) => {
     const m = getCanonicalMode(mode);
     if (m === "AUDIO") {
@@ -526,14 +559,6 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         <span className="inline-flex items-center gap-1.5 text-purple-600 dark:text-purple-400 text-xs font-semibold">
           <Mic className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
           <span>Audio Only</span>
-        </span>
-      );
-    }
-    if (m === "VIDEO") {
-      return (
-        <span className="inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 text-xs font-semibold">
-          <Video className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-          <span>Video Only</span>
         </span>
       );
     }
@@ -562,17 +587,90 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
     return assessments.filter((a) => {
+      // 1. Search term filter (Assessment ID only)
+      if (filters?.search?.trim()) {
+        const term = filters.search.toLowerCase().trim();
+        const matchId =
+          `as-${a.id}`.toLowerCase().includes(term) ||
+          String(a.id).toLowerCase().includes(term);
+        if (!matchId) {
+          return false;
+        }
+      }
+
+      // 2. Candidate filter (Candidate ID, Candidate Name, or Candidate Email)
+      const rawCandFilter = (filters?.candidate_id || filters?.candidate_search || "").trim();
+      if (rawCandFilter) {
+        const candFilter = rawCandFilter.toLowerCase();
+        const candDigits = rawCandFilter.replace(/^[^\d]*/, "").replace(/[^\d]/g, "");
+
+        const candIdStr = String(
+          a.candidate_id ??
+          (a as any).candidateId ??
+          (a as any).candidate?.id ??
+          (a as any).user_id ??
+          ""
+        ).trim().toLowerCase();
+
+        const matchCandId = Boolean(
+          candIdStr && (
+            candIdStr === candFilter ||
+            candIdStr.includes(candFilter) ||
+            (candDigits && candIdStr === candDigits) ||
+            `cand-${candIdStr}`.includes(candFilter) ||
+            `candidate #${candIdStr}`.includes(candFilter) ||
+            `candidate ${candIdStr}`.includes(candFilter)
+          )
+        );
+
+        const candName = String(
+          a.candidate_name ||
+          (a as any).candidateName ||
+          (a as any).candidate?.full_name ||
+          (a as any).candidate?.name ||
+          ""
+        ).toLowerCase();
+        const matchCandName = Boolean(candName && candName.includes(candFilter));
+
+        const candEmail = String(
+          a.candidate_email ||
+          (a as any).candidateEmail ||
+          (a as any).candidate?.email ||
+          (a as any).email ||
+          ""
+        ).toLowerCase();
+        const matchCandEmail = Boolean(candEmail && candEmail.includes(candFilter));
+
+        if (!matchCandId && !matchCandName && !matchCandEmail) {
+          return false;
+        }
+      }
+
+      // 3. Type / Category
       const matchType =
         currentCategory === "all" ||
         getCanonicalAssessmentType(a.assessment_type) === getCanonicalAssessmentType(currentCategory);
+      if (!matchType) return false;
+
+      // 4. Status
       const matchStatus =
         currentStatus === "all" ||
         getCanonicalStatus(a.status) === getCanonicalStatus(currentStatus);
+      if (!matchStatus) return false;
+
+      // 5. Mode
+      const itemMode =
+        a.media_type ||
+        (a as any).media_mode ||
+        (a as any).mode ||
+        (a as any).assessment_mode ||
+        (a as any).mediaType;
       const matchMode =
         currentMode === "all" ||
-        getCanonicalMode(a.media_type || (a as any).media_mode) === getCanonicalMode(currentMode);
+        getCanonicalMode(itemMode) === getCanonicalMode(currentMode);
+      if (!matchMode) return false;
 
-      let matchDate = true;
+      // 6. Date
       if (currentDateValue) {
         const parseItemDateKey = (dateStr?: string | null): string => {
           if (!dateStr) return "";
@@ -589,22 +687,18 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         };
 
         const itemKey = parseItemDateKey(a.created_at || a.started_at);
-        if (!itemKey) {
-          matchDate = false;
-        } else if (currentDateOperator === "equals") {
-          matchDate = itemKey === currentDateValue;
-        } else if (currentDateOperator === "not_equals") {
-          matchDate = itemKey !== currentDateValue;
-        } else if (currentDateOperator === "less_than") {
-          matchDate = itemKey < currentDateValue;
-        } else if (currentDateOperator === "greater_than") {
-          matchDate = itemKey > currentDateValue;
-        } else if (currentDateOperator === "in_range") {
-          matchDate = itemKey >= currentDateValue && (!currentDateTo || itemKey <= currentDateTo);
+        if (!itemKey) return false;
+        if (currentDateOperator === "equals" && itemKey !== currentDateValue) return false;
+        if (currentDateOperator === "not_equals" && itemKey === currentDateValue) return false;
+        if (currentDateOperator === "less_than" && !(itemKey < currentDateValue)) return false;
+        if (currentDateOperator === "greater_than" && !(itemKey > currentDateValue)) return false;
+        if (currentDateOperator === "in_range") {
+          if (itemKey < currentDateValue) return false;
+          if (currentDateTo && itemKey > currentDateTo) return false;
         }
       }
 
-      return matchType && matchStatus && matchMode && matchDate;
+      return true;
     });
   }, [
     assessments,
@@ -623,7 +717,9 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     if (!listToExport || listToExport.length === 0) return;
     const headers = [
       "Assessment ID",
+      "Candidate Name",
       "Candidate ID",
+      "Candidate Email",
       "Assessment Type",
       "Mode",
       "Status",
@@ -632,7 +728,9 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     ];
     const rows = listToExport.map((a) => [
       `AS-${a.id}`,
+      `"${a.candidate_name || ""}"`,
       a.candidate_id || "",
+      `"${a.candidate_email || ""}"`,
       a.assessment_type || "",
       a.media_type || (a as any).media_mode || "",
       a.status || "",
@@ -654,29 +752,95 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     document.body.removeChild(link);
   };
 
-  const recordCount = totalCount ?? displayedAssessments.length;
+  const isAnyFilterActive =
+    isTypeFiltered ||
+    isModeFiltered ||
+    isStatusFiltered ||
+    isDateFiltered ||
+    Boolean(filters?.search?.trim()) ||
+    Boolean(filters?.candidate_id?.trim()) ||
+    Boolean(filters?.candidate_search?.trim());
+
+  const recordCount = isAnyFilterActive
+    ? displayedAssessments.length
+    : (totalCount ?? displayedAssessments.length);
 
   return (
-    <div className="space-y-3">
-      {/* Sub-toolbar: records count pill + settings and export buttons */}
+    <div className="space-y-4">
+      {/* Sub-toolbar: title/records count + settings and export buttons */}
       <div className="flex items-center justify-between">
-        <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-xs font-medium text-gray-600 shadow-2xs dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          {recordCount} records
-        </div>
+        {isAdmin ? (
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Candidate Assessment List ({recordCount})
+          </h3>
+        ) : (
+          <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 text-xs font-semibold shadow-2xs">
+            {recordCount} records
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
+          {/* Toggle Columns */}
           <button
             type="button"
             onClick={() => setIsColumnModalOpen(true)}
-            className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 shadow-2xs transition-colors cursor-pointer"
-            title="Columns Settings"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+            title="Toggle Columns"
           >
             <Settings className="h-4 w-4" />
           </button>
+
+          {isAdmin && (
+            <>
+              {/* View Details */}
+              <button
+                type="button"
+                onClick={() => selectedRow && onView(selectedRow)}
+                disabled={!selectedRow}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+                title="View"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+
+              {/* Edit */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedRow) {
+                    if (onEdit) onEdit(selectedRow);
+                    else onView(selectedRow);
+                  }
+                }}
+                disabled={!selectedRow}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+                title="Edit"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+
+              {/* Delete */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedRow) {
+                    setIsDeleteDialogOpen(true);
+                  }
+                }}
+                disabled={!selectedRow}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-red-600 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          )}
+
+          {/* Download CSV */}
           <button
             type="button"
             onClick={handleExportCSV}
-            className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-emerald-600 dark:border-gray-800 dark:bg-gray-900 dark:text-emerald-400 dark:hover:bg-gray-800 shadow-2xs transition-colors cursor-pointer"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-green-600 hover:bg-gray-50 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
             title="Download CSV"
           >
             <Download className="h-4 w-4" />
@@ -685,7 +849,10 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       </div>
 
       {/* Main Table Container */}
-      <div className="flex-1 min-h-[420px] flex flex-col rounded-xl border border-gray-200 bg-white shadow-xs overflow-visible dark:border-gray-800 dark:bg-gray-900">
+      <div
+        className="w-full flex-1 flex flex-col rounded-lg border border-gray-200 shadow-sm dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden"
+        style={{ height: height, minHeight: "420px" }}
+      >
         {isLoading ? (
           <div className="flex flex-1 items-center justify-center p-12">
             <div className="flex flex-col items-center gap-3">
@@ -715,25 +882,29 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-x-auto min-h-[350px]">
+          <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 relative">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50/50 text-xs font-bold text-gray-800 dark:border-gray-800 dark:bg-gray-800/50 dark:text-gray-200 sticky top-0 z-10">
+              <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-xs">
+                <tr className="border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-gray-100">
                   {!hiddenColumns.has("id") && (
-                    <th className="py-3.5 px-4 w-32 font-bold">Assessment ID</th>
+                    <th className="py-3 px-4 w-32 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
+                      Assessment ID
+                    </th>
                   )}
                   {isAdmin && !hiddenColumns.has("candidate") && (
-                    <th className="py-3.5 px-4 w-44 font-bold">Candidate</th>
+                    <th className="py-3 px-4 w-44 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
+                      Candidate
+                    </th>
                   )}
 
                   {/* Assessment Type Column with Funnel Filter */}
                   {!hiddenColumns.has("assessment_type") && (
-                    <th className="py-3.5 px-4 w-48 relative font-bold">
+                    <th className="py-3 px-4 w-48 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       <div
                         ref={typeButtonRef}
                         className="flex items-center justify-between min-w-0"
                       >
-                        <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+                        <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                           Assessment Type
                         </span>
                         <div
@@ -754,12 +925,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
                   {/* Mode Column with Funnel Filter */}
                   {!hiddenColumns.has("mode") && (
-                    <th className="py-3.5 px-4 w-44 relative font-bold">
+                    <th className="py-3 px-4 w-44 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       <div
                         ref={modeButtonRef}
                         className="flex items-center justify-between min-w-0"
                       >
-                        <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+                        <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                           Mode
                         </span>
                         <div
@@ -780,12 +951,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
                   {/* Status Column with Funnel Filter */}
                   {!hiddenColumns.has("status") && (
-                    <th className="py-3.5 px-4 w-44 relative font-bold">
+                    <th className="py-3 px-4 w-44 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       <div
                         ref={statusButtonRef}
                         className="flex items-center justify-between min-w-0"
                       >
-                        <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+                        <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                           Status
                         </span>
                         <div
@@ -805,17 +976,19 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   )}
 
                   {!hiddenColumns.has("score") && (
-                    <th className="py-3.5 px-4 w-24 font-bold">Score</th>
+                    <th className="py-3 px-4 w-24 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
+                      Score
+                    </th>
                   )}
 
                   {/* Date Column with Funnel Filter */}
                   {!hiddenColumns.has("date") && (
-                    <th className="py-3.5 px-4 w-44 relative font-bold">
+                    <th className="py-3 px-4 w-44 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       <div
                         ref={dateButtonRef}
                         className="flex items-center justify-between min-w-0"
                       >
-                        <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+                        <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                           Date
                         </span>
                         <div
@@ -835,7 +1008,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   )}
 
                   {!hiddenColumns.has("actions") && (
-                    <th className="py-3.5 px-4 w-28 text-center font-bold">
+                    <th className="py-3 px-4 w-28 text-center font-bold text-gray-900 dark:text-gray-100">
                       Actions
                     </th>
                   )}
@@ -852,76 +1025,90 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  displayedAssessments.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors"
-                    >
-                      {!hiddenColumns.has("id") && (
-                        <td className="py-3.5 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                          AS-{a.id}
-                        </td>
-                      )}
+                  displayedAssessments.map((a) => {
+                    const isSelected = selectedRow?.id === a.id;
+                    return (
+                      <tr
+                        key={a.id}
+                        onClick={() => handleRowClick(a)}
+                        onDoubleClick={() => handleRowDoubleClick(a)}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-[#BAE6FD] dark:bg-sky-900/60 font-medium"
+                            : "hover:bg-gray-50/80 dark:hover:bg-gray-800/40"
+                        }`}
+                      >
+                        {!hiddenColumns.has("id") && (
+                          <td className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100">
+                            AS-{a.id}
+                          </td>
+                        )}
 
-                      {isAdmin && !hiddenColumns.has("candidate") && (
-                        <td className="py-3.5 px-4">
-                          <div>
+                        {isAdmin && !hiddenColumns.has("candidate") && (
+                          <td className="py-3.5 px-4">
                             <p className="font-bold text-gray-900 dark:text-white">
-                              Candidate #{a.candidate_id || "—"}
+                              {a.candidate_name || (a.candidate_id ? `Candidate #${a.candidate_id}` : "—")}
                             </p>
-                            <p className="text-[11px] text-gray-400 font-mono">
-                              CAND-{a.candidate_id || "—"}
-                            </p>
-                          </div>
-                        </td>
-                      )}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("assessment_type") && (
-                        <td className="py-3.5 px-4">
-                          {getTypeBadge(a.assessment_type)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("assessment_type") && (
+                          <td className="py-3.5 px-4">
+                            {getTypeBadge(a.assessment_type)}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("mode") && (
-                        <td className="py-3.5 px-4">
-                          {getMediaBadge(a.media_type || (a as any).media_mode)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("mode") && (
+                          <td className="py-3.5 px-4">
+                            {getMediaBadge(
+                              a.media_type ||
+                              (a as any).media_mode ||
+                              (a as any).mode ||
+                              (a as any).assessment_mode ||
+                              (a as any).mediaType
+                            )}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("status") && (
-                        <td className="py-3.5 px-4">
-                          {getStatusBadge(a.status)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("status") && (
+                          <td className="py-3.5 px-4">
+                            {getStatusBadge(a.status)}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("score") && (
-                        <td className="py-3.5 px-4 font-medium text-gray-500 dark:text-gray-400">
-                          {a.score != null && a.score > 0
-                            ? `${a.score}%`
-                            : "—"}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("score") && (
+                          <td className="py-3.5 px-4 font-medium text-gray-500 dark:text-gray-400">
+                            {a.score != null && a.score > 0
+                              ? `${a.score}%`
+                              : "—"}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("date") && (
-                        <td className="py-3.5 px-4 text-gray-600 dark:text-gray-400 font-medium">
-                          {formatDate(a.created_at)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("date") && (
+                          <td className="py-3.5 px-4 text-gray-600 dark:text-gray-400 font-medium">
+                            {formatDate(a.created_at)}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("actions") && (
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => onView(a)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200/80 bg-indigo-50/70 px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 hover:text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300 transition-colors cursor-pointer"
-                          >
-                            <Eye className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                            <span>View</span>
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
+                        {!hiddenColumns.has("actions") && (
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onView(a);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+                              title="View Details"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-gray-500 hover:text-blue-600" />
+                              <span>View</span>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -929,7 +1116,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         )}
 
         {/* Pagination Footer */}
-        <div className="shrink-0 flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/30 text-xs text-gray-500 dark:text-gray-400">
+        <div className="shrink-0 flex items-center justify-between border-t border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30 px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
           <span>
             Page{" "}
             <strong className="text-gray-900 dark:text-white">
@@ -946,7 +1133,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
               type="button"
               disabled={currentPage <= 1 || isLoading}
               onClick={() => onPageChange(currentPage - 1)}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-2xs hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-2xs hover:bg-gray-50 disabled:opacity-40 cursor-pointer dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               Previous
@@ -956,7 +1143,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
               type="button"
               disabled={currentPage >= totalPages || isLoading}
               onClick={() => onPageChange(currentPage + 1)}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-2xs hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-2xs hover:bg-gray-50 disabled:opacity-40 cursor-pointer dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               Next
               <ChevronRight className="h-3.5 w-3.5" />
@@ -974,6 +1161,26 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         onToggleColumn={toggleColumnVisibility}
       />
 
+      {/* Confirm Delete Dialog */}
+      {isAdmin && (
+        <ConfirmDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          onConfirm={() => {
+            if (selectedRow) {
+              onDelete?.(selectedRow);
+              setSelectedRow(null);
+            }
+          }}
+          title="Delete Assessment"
+          message={`Are you sure you want to delete assessment AS-${selectedRow?.id}${
+            selectedRow?.candidate_name ? ` for ${selectedRow.candidate_name}` : ""
+          }? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+      )}
+
       {/* Portal Modal: Assessment Type Filter */}
       {typeDropdownOpen &&
         createPortal(
@@ -990,7 +1197,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-800">
-              <label
+              <div
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                 onClick={() => handleSelectType("all")}
               >
@@ -1001,16 +1208,17 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   className="mr-2.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
                 Select All
-              </label>
+              </div>
             </div>
 
             <div className="space-y-1.5">
               {ASSESSMENT_TYPES.map((t) => {
                 const isChecked =
+                  currentCategory !== "all" &&
                   getCanonicalAssessmentType(currentCategory) ===
                   getCanonicalAssessmentType(t.value);
                 return (
-                  <label
+                  <div
                     key={t.value}
                     onClick={() => handleSelectType(t.value)}
                     className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none"
@@ -1026,7 +1234,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     >
                       {t.label}
                     </span>
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -1062,7 +1270,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-800">
-              <label
+              <div
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                 onClick={() => handleSelectMode("all")}
               >
@@ -1073,16 +1281,17 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   className="mr-2.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
                 Select All
-              </label>
+              </div>
             </div>
 
             <div className="space-y-1.5">
               {MODE_TYPES.map((m) => {
                 const isChecked =
+                  currentMode !== "all" &&
                   getCanonicalMode(currentMode) === getCanonicalMode(m.value);
                 const Icon = m.icon;
                 return (
-                  <label
+                  <div
                     key={m.value}
                     onClick={() => handleSelectMode(m.value)}
                     className="flex cursor-pointer items-center rounded px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none"
@@ -1099,7 +1308,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                       <Icon className="h-3.5 w-3.5" />
                       <span>{m.label}</span>
                     </span>
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -1135,7 +1344,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-800">
-              <label
+              <div
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                 onClick={() => handleSelectStatus("all")}
               >
@@ -1146,16 +1355,17 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   className="mr-2.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
                 Select All
-              </label>
+              </div>
             </div>
 
             <div className="space-y-1.5">
               {STATUS_TYPES.map((s) => {
                 const isChecked =
+                  currentStatus !== "all" &&
                   getCanonicalStatus(currentStatus) ===
                   getCanonicalStatus(s.value);
                 return (
-                  <label
+                  <div
                     key={s.value}
                     onClick={() => handleSelectStatus(s.value)}
                     className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none"
@@ -1171,7 +1381,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     >
                       {s.label}
                     </span>
-                  </label>
+                  </div>
                 );
               })}
             </div>
