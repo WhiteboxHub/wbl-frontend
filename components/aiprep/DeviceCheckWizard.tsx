@@ -2145,7 +2145,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       )}
 
                       {/* Main Workspace Grid: Left Video/Audio card & Right Device Status card (Equal Height) */}
-                      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(260px,310px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} items-stretch w-full mx-auto`}>
+                      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} items-stretch w-full mx-auto`}>
                         {/* Left Column: Video Viewport Frame / Audio-Only Card */}
                         <div className="col-span-1 flex flex-col min-w-0 h-full">
                           <div className={`relative w-full h-full flex-1 rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 ease-in-out ${!videoEnabled ? (isCompact ? 'min-h-[280px]' : 'min-h-[320px]') + ' bg-[#F7F9FE] dark:bg-slate-900/90' : 'aspect-video min-h-[240px] bg-slate-950'}`} >
@@ -2367,17 +2367,17 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           ) : (
                             /* Default Device Status Card */
                             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200 min-w-0">
-                              <div className="px-4 pt-2.5 pb-1.5">
-                                <h3 className="font-bold text-slate-900 dark:text-white leading-tight text-xs sm:text-[14px]">Device Status</h3>
+                              <div className={`${isCompact ? 'px-4 pt-2.5 pb-1.5' : 'px-4 sm:px-5 pt-3.5 pb-2'}`}>
+                                <h3 className={`font-bold text-slate-900 dark:text-white leading-tight ${isCompact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'}`}>Device Status</h3>
                               </div>
                               <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                                <div className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 ${isCompact ? 'py-1 sm:py-1.5' : 'py-1.5 sm:py-2'}`}>
+                                <div className={`flex items-center justify-between px-4 sm:px-5 min-w-0 ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'}`}>
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0`}><Globe className="w-3.5 h-3.5" /></div>
-                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Browser support</span>
+                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0`}><Globe className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /></div>
+                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Browser support</span>
                                   </div>
-                                  <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-emerald-600 shrink-0 ml-1.5 whitespace-nowrap">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" />
+                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold text-emerald-600 shrink-0 ml-1.5 whitespace-nowrap`}>
+                                    <CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} />
                                   </span>
                                 </div>
                                 <div
@@ -2387,22 +2387,22 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       checkRealInternet().finally(() => setBandwidthChecking(false));
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 transition-colors ${isCompact ? 'py-1 sm:py-1.5' : 'py-1.5 sm:py-2'} ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`} >
+                                  className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`} >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600`}>
-                                      {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600`}>
+                                      {internetStatus === 'failed' ? <WifiOff className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Wifi className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
                                     </div>
-                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Internet connection</span>
+                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Internet connection</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-purple-600' : 'text-rose-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-purple-600' : 'text-rose-600'}`}>
                                     {internetStatus === 'checking' ? (
                                       'Testing...'
                                     ) : internetStatus === 'passed' ? (
-                                      <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     ) : internetStatus === 'unstable' ? (
-                                      <><AlertTriangle className="w-3.5 h-3.5" /> Unstable <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><AlertTriangle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Unstable <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     ) : (
-                                      <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     )}
                                   </span>
                                 </div>
@@ -2416,20 +2416,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         testCamera();
                                       }
                                     }}
-                                    className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1 sm:py-1.5' : 'py-1.5 sm:py-2'} ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                    className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
                                     <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : cameraTested && cameraOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                        {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                                      <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : cameraTested && cameraOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                        {cameraTested && cameraOk === false ? <VideoOff className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Video className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
                                       </div>
-                                      <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Camera</span>
+                                      <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Camera</span>
                                     </div>
-                                    <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${testingCamera ? 'text-purple-600' : cameraTested && cameraOk ? 'text-emerald-600' : cameraTested && cameraOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                    <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${testingCamera ? 'text-purple-600' : cameraTested && cameraOk ? 'text-emerald-600' : cameraTested && cameraOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                       {testingCamera ? (
                                         'Testing...'
                                       ) : cameraTested && cameraOk ? (
-                                        <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                        <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                       ) : cameraTested && cameraOk === false ? (
-                                        <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                        <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                       ) : (
                                         'Click to test'
                                       )}
@@ -2445,20 +2445,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       testMicrophone();
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1 sm:py-1.5' : 'py-1.5 sm:py-2'} ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                  className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                      {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                      {micTested && micOk === false ? <MicOff className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Mic className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
                                     </div>
-                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Microphone</span>
+                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Microphone</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${micTesting ? 'text-purple-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${micTesting ? 'text-purple-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {micTesting ? (
                                       'Testing...'
                                     ) : micTested && micOk ? (
-                                      <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     ) : micTested && micOk === false ? (
-                                      <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     ) : (
                                       'Click to test'
                                     )}
@@ -2473,20 +2473,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       playChimeTone();
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1 sm:py-1.5' : 'py-1.5 sm:py-2'} ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                  className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                      {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                      {speakerTested && speakerOk === false ? <VolumeX className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Volume2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
                                     </div>
-                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Speaker</span>
+                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Speaker</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${speakerTestState === 'playing' ? 'text-purple-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${speakerTestState === 'playing' ? 'text-purple-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {speakerTestState === 'playing' ? (
                                       'Testing...'
                                     ) : speakerTested && speakerOk ? (
-                                      <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     ) : speakerTested && speakerOk === false ? (
-                                      <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                      <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                     ) : (
                                       'Click to test'
                                     )}
@@ -2495,18 +2495,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 {videoEnabled && videoAnalyticsEnabled && (
                                   <div
                                     onClick={testAnalytics}
-                                    className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1 sm:py-1.5' : 'py-1.5 sm:py-2'} hover:bg-slate-50/70 dark:hover:bg-slate-800/40`} >
+                                    className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} hover:bg-slate-50/70 dark:hover:bg-slate-800/40`} >
                                     <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400`}><Activity className="w-3.5 h-3.5" /></div>
-                                      <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Video analytics</span>
+                                      <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400`}><Activity className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /></div>
+                                      <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Video analytics</span>
                                     </div>
-                                    <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${analyticsTesting ? 'text-purple-600' : analyticsTested && analyticsOk ? 'text-emerald-600' : analyticsTested && analyticsOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                    <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${analyticsTesting ? 'text-purple-600' : analyticsTested && analyticsOk ? 'text-emerald-600' : analyticsTested && analyticsOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                       {analyticsTesting ? (
                                         'Testing...'
                                       ) : analyticsTested && analyticsOk ? (
-                                        <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                        <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                       ) : analyticsTested && analyticsOk === false ? (
-                                        <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
+                                        <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
                                       ) : (
                                         'Click to test'
                                       )}
@@ -2536,172 +2536,177 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         if (!showNetworkCard && !showCameraCard && !showMicCard && !showSpeakerCard) return null;
 
                         return (
-                          <div className={`flex flex-col ${isCompact ? 'space-y-1' : 'space-y-1.5'} w-full`}>
-                            {/* Network Quality Troubleshooting Alert Card */}
-                            {showNetworkCard && (
-                              <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3.5 text-left space-y-1.5 animate-in fade-in duration-200 shadow-2xs">
-                                {/* Metric Badges Header */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pb-1 border-b border-rose-200/60 dark:border-rose-900/40">
-                                  <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1 border border-rose-100 dark:border-rose-900/30">
-                                    <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><WifiOff className="w-3 h-3 stroke-[2.5]" /></div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">{internetStatus === 'failed' ? 'Disconnected' : 'Unstable'}</div>
-                                      <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Status</div></div></div>
+                          <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} w-full mx-auto`}>
+                            <div className="col-span-1 min-w-0">
+                              <div className={`flex flex-col ${isCompact ? 'space-y-1' : 'space-y-1.5'} w-full`}>
+                                {/* Network Quality Troubleshooting Alert Card */}
+                                {showNetworkCard && (
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3.5 text-left space-y-1.5 animate-in fade-in duration-200 shadow-2xs">
+                                    {/* Metric Badges Header */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pb-1 border-b border-rose-200/60 dark:border-rose-900/40">
+                                      <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1 border border-rose-100 dark:border-rose-900/30">
+                                        <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><WifiOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">{internetStatus === 'failed' ? 'Disconnected' : 'Unstable'}</div>
+                                          <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Status</div></div></div>
 
-                                  <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1 border border-rose-100 dark:border-rose-900/30">
-                                    <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><ArrowDown className="w-3 h-3 stroke-[2.5]" /></div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
-                                        {bandwidthKbps > 1000 ? `${(bandwidthKbps / 1000).toFixed(1)} Mbps` : `${bandwidthKbps} Kbps`}
-                                      </div>
-                                      <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Speed</div></div></div>
+                                      <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1 border border-rose-100 dark:border-rose-900/30">
+                                        <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><ArrowDown className="w-3 h-3 stroke-[2.5]" /></div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">
+                                            {bandwidthKbps > 1000 ? `${(bandwidthKbps / 1000).toFixed(1)} Mbps` : `${bandwidthKbps} Kbps`}
+                                          </div>
+                                          <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Speed</div></div></div>
 
-                                  <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1 border border-rose-100 dark:border-rose-900/30 col-span-2 sm:col-span-1">
-                                    <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><Activity className="w-3 h-3 stroke-[2.5]" /></div>
-                                    <div className="min-w-0 flex-1">
-                                      <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">{internetStatus === 'failed' ? 'Offline' : `${networkPingMs} ms`}</div>
-                                      <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Latency</div></div></div></div>
+                                      <div className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg p-1 border border-rose-100 dark:border-rose-900/30 col-span-2 sm:col-span-1">
+                                        <div className="w-5 h-5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><Activity className="w-3 h-3 stroke-[2.5]" /></div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-xs font-extrabold text-rose-600 dark:text-rose-400 leading-tight truncate">{internetStatus === 'failed' ? 'Offline' : `${networkPingMs} ms`}</div>
+                                          <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Latency</div></div></div></div>
 
-                                {/* Alert Card Header & Advice List with Try Again button */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
-                                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                                    <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><WifiOff className="w-3 h-3 stroke-[2.5]" /></div>
-                                    <div className="space-y-0.5 flex-1 min-w-0">
-                                      <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">{internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}</h4>
-                                      <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
-                                        <li className="flex items-center gap-1.5">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                          <span>Switch to a wired Ethernet connection or move closer to Wi-Fi router.</span>
-                                        </li>
-                                        <li className="flex items-center gap-1.5">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                          <span>Stop other downloads or video streaming, or try a mobile hotspot.</span>
-                                        </li>
-                                      </ul>
+                                    {/* Alert Card Header & Advice List with Try Again button */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
+                                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                                        <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><WifiOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                        <div className="space-y-0.5 flex-1 min-w-0">
+                                          <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">{internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}</h4>
+                                          <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
+                                            <li className="flex items-center gap-1.5">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                              <span>Switch to a wired Ethernet connection or move closer to Wi-Fi router.</span>
+                                            </li>
+                                            <li className="flex items-center gap-1.5">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                              <span>Stop other downloads or video streaming, or try a mobile hotspot.</span>
+                                            </li>
+                                          </ul>
+                                        </div></div>
+
+                                      {/* Try Again Button placed in card */}
+                                      <div className="self-end sm:self-center shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setBandwidthChecking(true);
+                                            checkRealInternet().finally(() => setBandwidthChecking(false));
+                                          }}
+                                          disabled={bandwidthChecking}
+                                          className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
+                                          <RefreshCw className={`w-3 h-3 ${bandwidthChecking ? 'animate-spin' : ''}`} />
+                                          <span>{bandwidthChecking ? 'Checking...' : 'Try Again'}</span>
+                                        </button>
+                                      </div></div></div>
+                                )}
+
+                                {/* Camera Troubleshooting Alert Card */}
+                                {showCameraCard && (
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
+                                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VideoOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                      <div className="space-y-0.5 flex-1 min-w-0">
+                                        <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">Camera not detected or access blocked. Please check:</h4>
+                                        <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Your webcam is plugged out or lens cover is closed.</span>
+                                          </li>
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
+                                          </li>
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Select your preferred device from the Camera dropdown below.</span>
+                                          </li>
+                                        </ul>
+                                      </div></div>
+                                    <div className="self-end sm:self-center shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => testCamera()}
+                                        disabled={testingCamera}
+                                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
+                                        <RefreshCw className={`w-3 h-3 ${testingCamera ? 'animate-spin' : ''}`} />
+                                        <span>{testingCamera ? 'Testing...' : 'Try Again'}</span>
+                                      </button>
                                     </div></div>
+                                )}
 
-                                  {/* Try Again Button placed in card */}
-                                  <div className="self-end sm:self-center shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setBandwidthChecking(true);
-                                        checkRealInternet().finally(() => setBandwidthChecking(false));
-                                      }}
-                                      disabled={bandwidthChecking}
-                                      className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
-                                      <RefreshCw className={`w-3 h-3 ${bandwidthChecking ? 'animate-spin' : ''}`} />
-                                      <span>{bandwidthChecking ? 'Checking...' : 'Try Again'}</span>
-                                    </button>
-                                  </div></div></div>
-                            )}
+                                {/* Microphone Troubleshooting Alert Card */}
+                                {showMicCard && (
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
+                                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><MicOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                      <div className="space-y-0.5 flex-1 min-w-0">
+                                        <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">Microphone not detected or no audio received. Please check:</h4>
+                                        <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Your microphone is plugged out or hardware mute switch is on.</span>
+                                          </li>
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
+                                          </li>
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Select your preferred device from the Microphone dropdown below.</span>
+                                          </li>
+                                        </ul>
+                                      </div></div>
+                                    <div className="self-end sm:self-center shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => testMicrophone()}
+                                        disabled={micTesting}
+                                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
+                                        <RefreshCw className={`w-3 h-3 ${micTesting ? 'animate-spin' : ''}`} />
+                                        <span>{micTesting ? 'Testing...' : 'Try Again'}</span>
+                                      </button>
+                                    </div></div>
+                                )}
 
-                            {/* Camera Troubleshooting Alert Card */}
-                            {showCameraCard && (
-                              <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
-                                <div className="flex items-start gap-2 flex-1 min-w-0">
-                                  <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VideoOff className="w-3 h-3 stroke-[2.5]" /></div>
-                                  <div className="space-y-0.5 flex-1 min-w-0">
-                                    <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">Camera not detected or access blocked. Please check:</h4>
-                                    <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Your webcam is plugged out or lens cover is closed.</span>
-                                      </li>
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
-                                      </li>
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Select your preferred device from the Camera dropdown below.</span>
-                                      </li>
-                                    </ul>
-                                  </div></div>
-                                <div className="self-end sm:self-center shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => testCamera()}
-                                    disabled={testingCamera}
-                                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
-                                    <RefreshCw className={`w-3 h-3 ${testingCamera ? 'animate-spin' : ''}`} />
-                                    <span>{testingCamera ? 'Testing...' : 'Try Again'}</span>
-                                  </button>
-                                </div></div>
-                            )}
-
-                            {/* Microphone Troubleshooting Alert Card */}
-                            {showMicCard && (
-                              <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
-                                <div className="flex items-start gap-2 flex-1 min-w-0">
-                                  <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><MicOff className="w-3 h-3 stroke-[2.5]" /></div>
-                                  <div className="space-y-0.5 flex-1 min-w-0">
-                                    <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">Microphone not detected or no audio received. Please check:</h4>
-                                    <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Your microphone is plugged out or hardware mute switch is on.</span>
-                                      </li>
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Browser permission is not allowed (click the lock 🔒 icon in your URL bar).</span>
-                                      </li>
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Select your preferred device from the Microphone dropdown below.</span>
-                                      </li>
-                                    </ul>
-                                  </div></div>
-                                <div className="self-end sm:self-center shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => testMicrophone()}
-                                    disabled={micTesting}
-                                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
-                                    <RefreshCw className={`w-3 h-3 ${micTesting ? 'animate-spin' : ''}`} />
-                                    <span>{micTesting ? 'Testing...' : 'Try Again'}</span>
-                                  </button>
-                                </div></div>
-                            )}
-
-                            {/* Speaker Troubleshooting Alert Card */}
-                            {showSpeakerCard && (
-                              <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
-                                <div className="flex items-start gap-2 flex-1 min-w-0">
-                                  <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VolumeX className="w-3 h-3 stroke-[2.5]" /></div>
-                                  <div className="space-y-0.5 flex-1 min-w-0">
-                                    <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">We couldn&apos;t play the test sound. Please check:</h4>
-                                    <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Your speakers are plugged out or volume is muted.</span>
-                                      </li>
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Browser permission is not allowed to play sound.</span>
-                                      </li>
-                                      <li className="flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                                        <span>Try selecting a different speaker output device.</span>
-                                      </li>
-                                    </ul>
-                                  </div></div>
-                                <div className="self-end sm:self-center shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => playChimeTone()}
-                                    disabled={speakerTestState === 'playing'}
-                                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
-                                    <RefreshCw className={`w-3 h-3 ${speakerTestState === 'playing' ? 'animate-spin' : ''}`} />
-                                    <span>{speakerTestState === 'playing' ? 'Playing...' : 'Try Again'}</span>
-                                  </button>
-                                </div></div>
-                            )}
-                          </div>);
+                                {/* Speaker Troubleshooting Alert Card */}
+                                {showSpeakerCard && (
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
+                                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VolumeX className="w-3 h-3 stroke-[2.5]" /></div>
+                                      <div className="space-y-0.5 flex-1 min-w-0">
+                                        <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">We couldn&apos;t play the test sound. Please check:</h4>
+                                        <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Your speakers are plugged out or volume is muted.</span>
+                                          </li>
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Browser permission is not allowed to play sound.</span>
+                                          </li>
+                                          <li className="flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                            <span>Try selecting a different speaker output device.</span>
+                                          </li>
+                                        </ul>
+                                      </div></div>
+                                    <div className="self-end sm:self-center shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => playChimeTone()}
+                                        disabled={speakerTestState === 'playing'}
+                                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[10.5px] sm:text-[11px] inline-flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-60" >
+                                        <RefreshCw className={`w-3 h-3 ${speakerTestState === 'playing' ? 'animate-spin' : ''}`} />
+                                        <span>{speakerTestState === 'playing' ? 'Playing...' : 'Try Again'}</span>
+                                      </button>
+                                    </div></div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
                       })()}
 
                       {/* Hardware Selectors: Left Column matches width of Left Video/Audio card */}
-                      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(260px,310px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} w-full mx-auto`}>
+                      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} w-full mx-auto`}>
                         <div className="col-span-1 min-w-0">
                           {(() => {
                             const activeVideoValue = videoDevices.some((d) => d.deviceId === selectedVideoDevice)
