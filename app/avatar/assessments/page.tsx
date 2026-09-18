@@ -65,7 +65,7 @@ export default function CandidateAssessmentsPage() {
     setError(null);
     try {
       const res = await assessmentService.fetchEmployeeAssessments(
-        filters,
+        {},
         currentPage,
         limit
       );
@@ -85,14 +85,13 @@ export default function CandidateAssessmentsPage() {
       setIsLoading(false);
     }
   }, [
-    filters,
     currentPage,
     limit,
     setIsLoading,
     setError,
     setAssessments,
     setTotalPages,
-    setTotalCount,      
+    setTotalCount,
   ]);
 
   useEffect(() => {
@@ -243,7 +242,7 @@ export default function CandidateAssessmentsPage() {
 
       {/* Grid Table */}
       <AssessmentGrid
-        assessments={displayedAssessments}
+        assessments={assessments}
         isLoading={isLoading}
         error={error}
         onRetry={loadAssessments}

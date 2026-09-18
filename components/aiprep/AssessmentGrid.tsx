@@ -126,6 +126,7 @@ function getCanonicalMode(raw?: string | number): string {
   const m = String(raw || "").toUpperCase().replace(/[\s\+\-_]+/g, "_");
   if (m === "ALL") return "ALL";
   if (m === "1" || m === "AUDIO" || m === "AUDIO_ONLY") return "AUDIO";
+  if (m === "3" || m === "VIDEO" || m === "VIDEO_AUDIO" || m === "VIDEO_ONLY") return "VIDEO_AUDIO";
   return "VIDEO_AUDIO";
 }
 
@@ -422,28 +423,37 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   ]);
 
   const handleSelectType = (val: string) => {
+    const targetVal =
+      val !== "all" && currentCategory !== "all" && getCanonicalAssessmentType(currentCategory) === getCanonicalAssessmentType(val)
+        ? "all"
+        : val;
+    setInternalCategory(targetVal);
     if (onFilterChange) {
-      onFilterChange({ category: val });
-    } else {
-      setInternalCategory(val);
+      onFilterChange({ category: targetVal });
     }
     setTypeDropdownOpen(false);
   };
 
   const handleSelectMode = (val: string) => {
+    const targetVal =
+      val !== "all" && currentMode !== "all" && getCanonicalMode(currentMode) === getCanonicalMode(val)
+        ? "all"
+        : val;
+    setInternalMode(targetVal);
     if (onFilterChange) {
-      onFilterChange({ media_type: val });
-    } else {
-      setInternalMode(val);
+      onFilterChange({ media_type: targetVal });
     }
     setModeDropdownOpen(false);
   };
 
   const handleSelectStatus = (val: string) => {
+    const targetVal =
+      val !== "all" && currentStatus !== "all" && getCanonicalStatus(currentStatus) === getCanonicalStatus(val)
+        ? "all"
+        : val;
+    setInternalStatus(targetVal);
     if (onFilterChange) {
-      onFilterChange({ status: val });
-    } else {
-      setInternalStatus(val);
+      onFilterChange({ status: targetVal });
     }
     setStatusDropdownOpen(false);
   };
@@ -550,12 +560,46 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
     return assessments.filter((a) => {
+      // 1. Search term filter
+      if (filters?.search?.trim()) {
+        const term = filters.search.toLowerCase().trim();
+        const matchId = `as-${a.id}`.toLowerCase().includes(term) || String(a.id).includes(term);
+        const matchCandId = String(a.candidate_id || "").includes(term) || `cand-${a.candidate_id}`.toLowerCase().includes(term);
+        const matchCandName = Boolean(a.candidate_name && a.candidate_name.toLowerCase().includes(term));
+        const matchCandEmail = Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(term));
+        const matchUuid = Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(term));
+        const matchJd = Boolean(a.job_description && a.job_description.toLowerCase().includes(term));
+        if (!matchId && !matchCandId && !matchCandName && !matchCandEmail && !matchUuid && !matchJd) {
+          return false;
+        }
+      }
+
+      // 2. Candidate filter
+      const candFilter = (filters?.candidate_id || filters?.candidate_search || "").trim().toLowerCase();
+      if (candFilter) {
+        const matchCandId = String(a.candidate_id || "").toLowerCase().includes(candFilter) ||
+          `cand-${a.candidate_id}`.toLowerCase().includes(candFilter) ||
+          `candidate #${a.candidate_id}`.toLowerCase().includes(candFilter);
+        const matchCandName = Boolean(a.candidate_name && a.candidate_name.toLowerCase().includes(candFilter));
+        const matchCandEmail = Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(candFilter));
+        if (!matchCandId && !matchCandName && !matchCandEmail) {
+          return false;
+        }
+      }
+
+      // 3. Type / Category
       const matchType =
         currentCategory === "all" ||
         getCanonicalAssessmentType(a.assessment_type) === getCanonicalAssessmentType(currentCategory);
+      if (!matchType) return false;
+
+      // 4. Status
       const matchStatus =
         currentStatus === "all" ||
         getCanonicalStatus(a.status) === getCanonicalStatus(currentStatus);
+      if (!matchStatus) return false;
+
+      // 5. Mode
       const itemMode =
         a.media_type ||
         (a as any).media_mode ||
@@ -565,8 +609,9 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       const matchMode =
         currentMode === "all" ||
         getCanonicalMode(itemMode) === getCanonicalMode(currentMode);
+      if (!matchMode) return false;
 
-      let matchDate = true;
+      // 6. Date
       if (currentDateValue) {
         const parseItemDateKey = (dateStr?: string | null): string => {
           if (!dateStr) return "";
@@ -583,22 +628,18 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         };
 
         const itemKey = parseItemDateKey(a.created_at || a.started_at);
-        if (!itemKey) {
-          matchDate = false;
-        } else if (currentDateOperator === "equals") {
-          matchDate = itemKey === currentDateValue;
-        } else if (currentDateOperator === "not_equals") {
-          matchDate = itemKey !== currentDateValue;
-        } else if (currentDateOperator === "less_than") {
-          matchDate = itemKey < currentDateValue;
-        } else if (currentDateOperator === "greater_than") {
-          matchDate = itemKey > currentDateValue;
-        } else if (currentDateOperator === "in_range") {
-          matchDate = itemKey >= currentDateValue && (!currentDateTo || itemKey <= currentDateTo);
+        if (!itemKey) return false;
+        if (currentDateOperator === "equals" && itemKey !== currentDateValue) return false;
+        if (currentDateOperator === "not_equals" && itemKey === currentDateValue) return false;
+        if (currentDateOperator === "less_than" && !(itemKey < currentDateValue)) return false;
+        if (currentDateOperator === "greater_than" && !(itemKey > currentDateValue)) return false;
+        if (currentDateOperator === "in_range") {
+          if (itemKey < currentDateValue) return false;
+          if (currentDateTo && itemKey > currentDateTo) return false;
         }
       }
 
-      return matchType && matchStatus && matchMode && matchDate;
+      return true;
     });
   }, [
     assessments,
@@ -652,7 +693,18 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     document.body.removeChild(link);
   };
 
-  const recordCount = totalCount ?? displayedAssessments.length;
+  const isAnyFilterActive =
+    isTypeFiltered ||
+    isModeFiltered ||
+    isStatusFiltered ||
+    isDateFiltered ||
+    Boolean(filters?.search?.trim()) ||
+    Boolean(filters?.candidate_id?.trim()) ||
+    Boolean(filters?.candidate_search?.trim());
+
+  const recordCount = isAnyFilterActive
+    ? displayedAssessments.length
+    : (totalCount ?? displayedAssessments.length);
 
   return (
     <div className="space-y-4">
@@ -1005,7 +1057,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-800">
-              <label
+              <div
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                 onClick={() => handleSelectType("all")}
               >
@@ -1016,7 +1068,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   className="mr-2.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
                 Select All
-              </label>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1026,7 +1078,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   getCanonicalAssessmentType(currentCategory) ===
                   getCanonicalAssessmentType(t.value);
                 return (
-                  <label
+                  <div
                     key={t.value}
                     onClick={() => handleSelectType(t.value)}
                     className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none"
@@ -1042,7 +1094,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     >
                       {t.label}
                     </span>
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -1078,7 +1130,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-800">
-              <label
+              <div
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                 onClick={() => handleSelectMode("all")}
               >
@@ -1089,7 +1141,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   className="mr-2.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
                 Select All
-              </label>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1099,7 +1151,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   getCanonicalMode(currentMode) === getCanonicalMode(m.value);
                 const Icon = m.icon;
                 return (
-                  <label
+                  <div
                     key={m.value}
                     onClick={() => handleSelectMode(m.value)}
                     className="flex cursor-pointer items-center rounded px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none"
@@ -1116,7 +1168,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                       <Icon className="h-3.5 w-3.5" />
                       <span>{m.label}</span>
                     </span>
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -1152,7 +1204,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-800">
-              <label
+              <div
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 select-none"
                 onClick={() => handleSelectStatus("all")}
               >
@@ -1163,7 +1215,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   className="mr-2.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
                 Select All
-              </label>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1173,7 +1225,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                   getCanonicalStatus(currentStatus) ===
                   getCanonicalStatus(s.value);
                 return (
-                  <label
+                  <div
                     key={s.value}
                     onClick={() => handleSelectStatus(s.value)}
                     className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors select-none"
@@ -1189,7 +1241,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     >
                       {s.label}
                     </span>
-                  </label>
+                  </div>
                 );
               })}
             </div>
