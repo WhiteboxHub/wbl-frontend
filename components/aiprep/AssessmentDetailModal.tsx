@@ -346,7 +346,7 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         Client IP Address
                       </label>
                       <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-mono min-h-[34px] flex items-center">
-                        {telemetryData?.telemetry?.ip || telemetryData?.telemetry?.client_ip || "127.0.0.1"}
+                        {reportData?.ip_address || (assessment as any)?.ip_address || telemetryData?.telemetry?.ip || telemetryData?.telemetry?.client_ip || "127.0.0.1"}
                       </div>
                     </div>
 
@@ -354,8 +354,8 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                       <label className="block text-xs font-bold text-blue-700 dark:text-blue-400">
                         Browser / Device
                       </label>
-                      <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center truncate" title={telemetryData?.telemetry?.user_agent || "Web Browser"}>
-                        {telemetryData?.telemetry?.user_agent ? telemetryData.telemetry.user_agent.slice(0, 32) + "..." : "Web Browser (Chrome)"}
+                      <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center truncate" title={reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent || "Web Browser"}>
+                        {(reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent) ? (reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent).slice(0, 36) + "..." : "Web Browser (Chrome)"}
                       </div>
                     </div>
 
