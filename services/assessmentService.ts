@@ -55,7 +55,7 @@ export const assessmentService = {
   fetchEmployeeAssessments: async (
     filters: Partial<AssessmentFiltersState> = {},
     page: number = 1,
-    limit: number = 100
+    limit: number = 50
   ): Promise<AssessmentListApiResponse> => {
     try {
       const offset = (page - 1) * limit;
@@ -77,12 +77,36 @@ export const assessmentService = {
         `api/aiprep/employee/assessments?${queryParams.toString()}`
       );
 
-      let items: AssessmentGridItem[] = res?.items || [];
+      const items: AssessmentGridItem[] = res?.items || [];
       const total: number = res?.total ?? items.length;
+      const totalPages = Math.max(1, Math.ceil(total / limit));
 
-      // If total items exceed the single-page limit (100 in backend), fetch remaining pages
-      // so client-side filters (candidate name, email, ID, etc.) operate on the full assessment list
-      if (!filters.candidate_id?.trim() && total > items.length && items.length > 0) {
+      return {
+        items,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (err: any) {
+      console.warn("fetchEmployeeAssessments error:", err?.message);
+      return {
+        items: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 1,
+      };
+    }
+  },
+
+  fetchAllEmployeeAssessments: async (): Promise<AssessmentListApiResponse> => {
+    try {
+      const firstRes = await apiFetch(`api/aiprep/employee/assessments?limit=100&offset=0`);
+      let items: AssessmentGridItem[] = firstRes?.items || [];
+      const total: number = firstRes?.total ?? items.length;
+
+      if (total > items.length && items.length > 0) {
         const totalPagesToFetch = Math.ceil(total / 100);
         const remainingFetches = [];
         for (let p = 2; p <= totalPagesToFetch; p++) {
@@ -99,22 +123,27 @@ export const assessmentService = {
         }
       }
 
-      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const seen = new Set<number>();
+      const uniqueItems = items.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
 
       return {
-        items,
-        total: items.length > total ? items.length : total,
-        page,
-        limit,
-        totalPages,
+        items: uniqueItems,
+        total: uniqueItems.length,
+        page: 1,
+        limit: uniqueItems.length,
+        totalPages: 1,
       };
     } catch (err: any) {
-      console.warn("fetchEmployeeAssessments error:", err?.message);
+      console.warn("fetchAllEmployeeAssessments error:", err?.message);
       return {
         items: [],
         total: 0,
-        page,
-        limit,
+        page: 1,
+        limit: 100,
         totalPages: 1,
       };
     }
