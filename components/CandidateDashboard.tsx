@@ -572,6 +572,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [isAiPrepWizardActive, setIsAiPrepWizardActive] = useState<boolean>(false);
     const [isLayoutCollapsed, setIsLayoutCollapsed] = useState<boolean>(false);
     const autoCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const hasAutoCollapsedRef = useRef<boolean>(false);
 
     const isWizardPath = useCallback(() => {
         const pathToCheck = (currentSubPath || pathname || (typeof window !== "undefined" ? window.location.pathname : "")).toLowerCase();
@@ -595,6 +596,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             clearTimeout(autoCollapseTimerRef.current);
             autoCollapseTimerRef.current = null;
         }
+        hasAutoCollapsedRef.current = true;
         setIsLayoutCollapsed((prev) => !prev);
     }, []);
 
@@ -622,14 +624,36 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         };
     }, []);
 
-    // When assessment wizard activates, start in collapsed (fullscreen) mode.
-    // When the user clicks the toggle to open, it remains open and does NOT auto-minimize.
+    // When assessment wizard activates, keep sidebar open for 3 seconds,
+    // then automatically collapse to fullscreen mode.
+    // If the user clicks the toggle to open/close manually, the timer is cleared and their choice is preserved.
     useEffect(() => {
         if (isWizardActive) {
-            setIsLayoutCollapsed(true);
+            if (!hasAutoCollapsedRef.current) {
+                setIsLayoutCollapsed(false);
+                if (autoCollapseTimerRef.current) {
+                    clearTimeout(autoCollapseTimerRef.current);
+                }
+                autoCollapseTimerRef.current = setTimeout(() => {
+                    hasAutoCollapsedRef.current = true;
+                    setIsLayoutCollapsed(true);
+                    autoCollapseTimerRef.current = null;
+                }, 3000);
+            }
         } else {
+            if (autoCollapseTimerRef.current) {
+                clearTimeout(autoCollapseTimerRef.current);
+                autoCollapseTimerRef.current = null;
+            }
+            hasAutoCollapsedRef.current = false;
             setIsLayoutCollapsed(false);
         }
+
+        return () => {
+            if (autoCollapseTimerRef.current) {
+                clearTimeout(autoCollapseTimerRef.current);
+            }
+        };
     }, [isWizardActive]);
 
     useEffect(() => {

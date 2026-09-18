@@ -143,7 +143,7 @@ export default function AIPrepPage() {
               detail: { active: true, fullscreen: true, headerCollapsed: true }
             }));
           }
-        }, 2000);
+        }, 3000);
       }
     } else {
       if (autoCollapseTimerRef.current) {
