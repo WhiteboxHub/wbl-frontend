@@ -587,37 +587,13 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
     return assessments.filter((a) => {
-      // 1. Search term filter
+      // 1. Search term filter (Assessment ID only)
       if (filters?.search?.trim()) {
         const term = filters.search.toLowerCase().trim();
-        const matchId = `as-${a.id}`.toLowerCase().includes(term) || String(a.id).includes(term);
-        const matchCandId = String(a.candidate_id || "").includes(term) || `cand-${a.candidate_id}`.toLowerCase().includes(term);
-        const matchCandName = Boolean(a.candidate_name && a.candidate_name.toLowerCase().includes(term));
-        const matchCandEmail = Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(term));
-        const matchUuid = Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(term));
-        const matchJd = Boolean(a.job_description && a.job_description.toLowerCase().includes(term));
-        const matchType = Boolean(a.assessment_type && a.assessment_type.toLowerCase().includes(term));
-        const matchStatus = Boolean(a.status && a.status.toLowerCase().includes(term));
-        const itemMode =
-          a.media_type ||
-          (a as any).media_mode ||
-          (a as any).mode ||
-          (a as any).assessment_mode ||
-          (a as any).mediaType ||
-          "";
-        const matchMode = Boolean(String(itemMode).toLowerCase().includes(term));
-
-        if (
-          !matchId &&
-          !matchCandId &&
-          !matchCandName &&
-          !matchCandEmail &&
-          !matchUuid &&
-          !matchJd &&
-          !matchType &&
-          !matchStatus &&
-          !matchMode
-        ) {
+        const matchId =
+          `as-${a.id}`.toLowerCase().includes(term) ||
+          String(a.id).toLowerCase().includes(term);
+        if (!matchId) {
           return false;
         }
       }
