@@ -50,6 +50,8 @@ export interface CreateAssessmentRequest {
   assessment_mode?: string;
   job_description?: string | null;
   job_description_text?: string | null;
+  user_agent?: string | null;
+  ip_address?: string | null;
 }
 
 export type AssessmentStatus =
@@ -116,6 +118,9 @@ export interface AssessmentSummary {
   id: number;
   assessment_uuid?: string | null;
   candidate_id?: number | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
+  score?: number | null;
   assessment_type: string;
   media_type: string;
   status: AssessmentStatus;

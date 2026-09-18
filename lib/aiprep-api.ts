@@ -21,29 +21,37 @@ const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 export const aiPrepApi = {
   // Pre-flight readiness
   getReadiness: (): Promise<ReadinessCheck> =>
-    apiFetch(endpoint("candidate/pre-check")) as Promise<ReadinessCheck>,
+    apiFetch(endpoint("pre-check")) as Promise<ReadinessCheck>,
 
   getLlmKeys: (): Promise<LlmKeyStatus> =>
-    apiFetch(endpoint("candidate/llm-keys")) as Promise<LlmKeyStatus>,
+    apiFetch(endpoint("llm-keys")) as Promise<LlmKeyStatus>,
 
   getResumeStatus: (): Promise<ResumeStatus> =>
-    apiFetch(endpoint("candidate/resume-status")) as Promise<ResumeStatus>,
+    apiFetch(endpoint("resume-status")) as Promise<ResumeStatus>,
 
   // List candidate assessments
   listAssessments: (limit = 20, offset = 0): Promise<AssessmentListResponse> =>
-    apiFetch(endpoint(`candidate/assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>,
+    apiFetch(endpoint(`assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>,
 
   // Get single assessment details
   getAssessment: (assessmentId: string | number): Promise<AssessmentDetail> =>
     apiFetch(endpoint(`candidate/assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
 
-  // Get submitted telemetry/transcript data for an assessment
+  // Get assessment data (telemetry / answers / transcript)
   getAssessmentData: (assessmentId: string | number): Promise<AssessmentDataResponse> =>
     apiFetch(endpoint(`candidate/assessments/${assessmentId}/data`)) as Promise<AssessmentDataResponse>,
 
-  // Get LLM-generated evaluation report for an assessment
+  // Get assessment evaluation report
   getAssessmentReport: (assessmentId: string | number): Promise<AssessmentReportResponse> =>
     apiFetch(endpoint(`candidate/assessments/${assessmentId}/report`)) as Promise<AssessmentReportResponse>,
+
+  // Update assessment status
+  updateAssessmentStatus: async (
+    assessmentId: number | string,
+    status: AssessmentStatus
+  ): Promise<{ status: AssessmentStatus }> => {
+    return { status };
+  },
 
   // Create / Start assessment
   createAssessment: (
@@ -52,7 +60,7 @@ export const aiPrepApi = {
     jobDescriptionArg?: string
   ): Promise<CreateAssessmentResponse & AssessmentSummary> => {
     if (typeof payload === "string") {
-      return apiFetch(endpoint("candidate/assessments"), {
+      return apiFetch(endpoint("assessments"), {
         method: "POST",
         body: {
           assessment_type: payload,
@@ -81,7 +89,15 @@ export const aiPrepApi = {
       body.job_description = jobDescription;
     }
 
-    return apiFetch(endpoint("candidate/assessments"), {
+    if (payload.user_agent) {
+      body.user_agent = payload.user_agent;
+    }
+
+    if (payload.ip_address) {
+      body.ip_address = payload.ip_address;
+    }
+
+    return apiFetch(endpoint("assessments"), {
       method: "POST",
       body,
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;

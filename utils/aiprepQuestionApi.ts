@@ -145,16 +145,8 @@ export async function deleteQuestion(id: number): Promise<boolean> {
     });
     return true;
   } catch (err: any) {
-    try {
-      await apiFetch(`api/aiprep/questions/${id}`, {
-        method: 'PATCH',
-        body: { is_active: false },
-      });
-      return true;
-    } catch {
-      console.error('Delete Question API Error:', err?.body?.detail || err.message);
-      const detail = err?.body?.detail;
-      throw new Error(typeof detail === 'string' ? detail : 'Failed to delete question from backend database.');
-    }
+    console.error('Delete Question API Error:', err?.body?.detail || err.message);
+    const detail = err?.body?.detail;
+    throw new Error(typeof detail === 'string' ? detail : 'Failed to delete question from backend database.');
   }
 }

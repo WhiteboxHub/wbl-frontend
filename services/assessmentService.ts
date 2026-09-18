@@ -26,7 +26,7 @@ export const assessmentService = {
       }
 
       const res = await apiFetch(
-        `api/aiprep/candidate/assessments?${queryParams.toString()}`
+        `api/aiprep/assessments?${queryParams.toString()}`
       );
 
       const items: AssessmentGridItem[] = res?.items || [];
@@ -78,7 +78,7 @@ export const assessmentService = {
       }
 
       const res = await apiFetch(
-        `api/aiprep/employee/assessments?${queryParams.toString()}`
+        `api/aiprep/assessments?${queryParams.toString()}`
       );
 
       const items: AssessmentGridItem[] = res?.items || [];
@@ -156,7 +156,7 @@ export const assessmentService = {
   fetchAssessmentDetail: async (assessmentId: number) => {
     try {
       const res = await apiFetch(
-        `api/aiprep/employee/assessments/${assessmentId}/report`
+        `api/aiprep/assessments/${assessmentId}`
       );
       return res;
     } catch (err: any) {
@@ -168,7 +168,7 @@ export const assessmentService = {
   fetchAssessmentData: async (assessmentId: number) => {
     try {
       const res = await apiFetch(
-        `api/aiprep/employee/assessments/${assessmentId}/data`
+        `api/aiprep/assessments/${assessmentId}/data`
       );
       return res;
     } catch (err: any) {
