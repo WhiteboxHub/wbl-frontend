@@ -34,6 +34,7 @@ export default function RootLayout({
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
   const isAiPrepReport = pathname.startsWith("/aiprep/reports");
+  const isAiPrepSession = pathname.startsWith("/aiprep/session");
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -66,7 +67,7 @@ export default function RootLayout({
           <AuthProvider>
             <Providers>
               <GlobalServiceWorker />
-              {isAvatarSection || isCoderpad || isAiPrepReport ? (
+              {isAvatarSection || isCoderpad || isAiPrepReport || isAiPrepSession ? (
                 <>{children}</>
               ) : (
                 <>

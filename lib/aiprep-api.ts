@@ -11,6 +11,7 @@ import type {
   AssessmentReportResponse,
   LlmKeyStatus,
   ResumeStatus,
+  QuestionBankItem,
 } from "@/types/aiprep";
 
 export * from "@/types/aiprep";
@@ -101,6 +102,77 @@ export const aiPrepApi = {
   ): Promise<{ status: AssessmentStatus }> => {
     return { status };
   },
+
+  // Upload 30s sequential WebM chunk
+  uploadChunk: async (
+    assessmentId: number | string,
+    chunkIndex: number,
+    blob: Blob,
+    mediaType: string = "VIDEO",
+    _isFinal: boolean = false
+  ): Promise<{ success: boolean; chunk_index: number }> => {
+    const formData = new FormData();
+    formData.append("assessment_id", String(assessmentId));
+    formData.append("chunk_number", String(chunkIndex));
+    const filename = `${mediaType.toLowerCase()}_chunk_${chunkIndex}.webm`;
+    formData.append("file", blob, filename);
+
+    const isClient = typeof window !== "undefined";
+    const token =
+      isClient &&
+      (localStorage.getItem("access_token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("bearer_token") ||
+        null);
+
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+    const url = baseUrl
+      ? `${baseUrl}/aiprep/media/upload-chunk`
+      : `/api/aiprep/media/upload-chunk`;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Upload chunk failed: ${res.statusText}`);
+    }
+    return res.json();
+  },
+
+  // Fetch category questions from Question Bank
+  getQuestions: (category?: string): Promise<{ items: QuestionBankItem[]; total: number }> => {
+    const query = category ? `?category=${encodeURIComponent(category)}` : "";
+    return apiFetch(endpoint(`questions${query}`)) as Promise<{ items: QuestionBankItem[]; total: number }>;
+  },
+
+  // Submit candidate telemetry & transcript data
+  submitTelemetryData: (assessmentId: string | number, payload: any): Promise<any> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/data`), {
+      method: "POST",
+      body: payload,
+    }),
+
+  // Trigger evaluation orchestrator
+  triggerEvaluation: (assessmentId: string | number): Promise<any> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/evaluate`), {
+      method: "POST",
+    }),
+
+  // Assemble media chunks
+  assembleMedia: (assessmentId: string | number): Promise<any> =>
+    apiFetch(endpoint(`media/assemble?assessment_id=${assessmentId}`), {
+      method: "POST",
+    }),
 };
 
 export const aiprepApi = aiPrepApi;
