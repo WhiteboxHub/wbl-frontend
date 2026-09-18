@@ -18,21 +18,21 @@ const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 export const aiPrepApi = {
   // Pre-flight readiness
   getReadiness: (): Promise<ReadinessCheck> =>
-    apiFetch(endpoint("candidate/pre-check")) as Promise<ReadinessCheck>,
+    apiFetch(endpoint("pre-check")) as Promise<ReadinessCheck>,
 
   getLlmKeys: (): Promise<LlmKeyStatus> =>
-    apiFetch(endpoint("candidate/llm-keys")) as Promise<LlmKeyStatus>,
+    apiFetch(endpoint("llm-keys")) as Promise<LlmKeyStatus>,
 
   getResumeStatus: (): Promise<ResumeStatus> =>
-    apiFetch(endpoint("candidate/resume-status")) as Promise<ResumeStatus>,
+    apiFetch(endpoint("resume-status")) as Promise<ResumeStatus>,
 
   // List candidate assessments
   listAssessments: (limit = 20, offset = 0): Promise<AssessmentListResponse> =>
-    apiFetch(endpoint(`candidate/assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>,
+    apiFetch(endpoint(`assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>,
 
   // Get single assessment details
   getAssessment: (assessmentId: string | number): Promise<AssessmentDetail> =>
-    apiFetch(endpoint(`candidate/assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
+    apiFetch(endpoint(`assessments/${assessmentId}`)) as Promise<AssessmentDetail>,
 
   // Create / Start assessment
   createAssessment: (
@@ -41,7 +41,7 @@ export const aiPrepApi = {
     jobDescriptionArg?: string
   ): Promise<CreateAssessmentResponse & AssessmentSummary> => {
     if (typeof payload === "string") {
-      return apiFetch(endpoint("candidate/assessments"), {
+      return apiFetch(endpoint("assessments"), {
         method: "POST",
         body: {
           assessment_type: payload,
@@ -78,7 +78,7 @@ export const aiPrepApi = {
       body.ip_address = payload.ip_address;
     }
 
-    return apiFetch(endpoint("candidate/assessments"), {
+    return apiFetch(endpoint("assessments"), {
       method: "POST",
       body,
     }) as Promise<CreateAssessmentResponse & AssessmentSummary>;

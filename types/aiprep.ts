@@ -116,6 +116,9 @@ export interface AssessmentSummary {
   id: number;
   assessment_uuid?: string | null;
   candidate_id?: number | null;
+  candidate_name?: string | null;
+  candidate_email?: string | null;
+  score?: number | null;
   assessment_type: string;
   media_type: string;
   status: AssessmentStatus;
