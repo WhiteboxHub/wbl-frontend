@@ -50,8 +50,6 @@ export interface CreateAssessmentRequest {
   assessment_mode?: string;
   job_description?: string | null;
   job_description_text?: string | null;
-  ip_address?: string | null;
-  user_agent?: string | null;
 }
 
 export type AssessmentStatus =

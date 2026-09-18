@@ -9,7 +9,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity } from 'lucide-react';
 import { AssessmentConfig } from './Assessmentselection';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
-import  PracticeStep  from './PracticeStep';
+import PracticeStep from './PracticeStep';
 import { AssessmentType, aiPrepApi, HardwareCheckResults } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
@@ -50,8 +50,7 @@ interface DeviceCheckWizardProps {
   assessmentMode?: string;
   audioOnly?: boolean;
   initialStep?: WizardStep;
-  onPrepareConfirmation?: (results: HardwareCheckResults) => Promise<number>;
-  onComplete?: (results: HardwareCheckResults) => void;
+  onComplete?: (results: HardwareCheckResults) => Promise<void> | void;
   onCancel?: () => void;
 }
 export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
@@ -60,7 +59,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   assessmentMode: initialMode,
   audioOnly = false,
   initialStep = 'CONFIGURATION',
-  onPrepareConfirmation,
   onComplete,
   onCancel,
 }) => {
@@ -1281,33 +1279,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     return undefined;
   };
 
-  const handlePrepareConfirmationInternal = async (results: any): Promise<number> => {
-    if (onPrepareConfirmation) {
-      return await onPrepareConfirmation(results);
-    }
-    const cid = await getCandidateId();
-    const targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
-    const assessment = await aiPrepApi.createAssessment({
-      assessment_type: targetType,
-      assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
-      candidate_id: cid,
-      job_description_text: jdText || null,
-      user_agent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined,
-    });
-
-    if (!assessment || !assessment.id) {
-      throw new Error('Failed to initialize assessment session on server.');
-    }
-    const targetId = assessment.id;
-    sessionStorage.setItem('aiprep_active_id', String(targetId));
-    sessionStorage.setItem('aiprep_active_type', targetType);
-    sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
-    return targetId;
-  };
-
   // 6. Navigation Handlers
   const handleCompleteAssessment = async () => {
-    const results = {
+    const results: HardwareCheckResults = {
       browser_info: browserResult?.name || 'Standard Browser',
       os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
       camera_permission: !!cameraOk,
@@ -1322,31 +1296,34 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     };
 
     if (onComplete) {
-      onComplete(results);
-      return;
-    }
+      await onComplete(results);
+    } else {
+      try {
+        const cid = await getCandidateId();
+        const targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+        const assessment = await aiPrepApi.createAssessment({
+          assessment_type: targetType,
+          assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+          candidate_id: cid,
+          job_description_text: jdText || null,
+        });
 
-    try {
-      let targetId = initialAssessmentId || (typeof window !== 'undefined' && sessionStorage.getItem('aiprep_active_id') ? parseInt(sessionStorage.getItem('aiprep_active_id')!, 10) : null);
-      if (!targetId) {
-        targetId = await handlePrepareConfirmationInternal(results);
+        if (!assessment || !assessment.id) {
+          throw new Error('Failed to initialize assessment session on server.');
+        }
+        const targetId = assessment.id;
+        const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
+        const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
+
+        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.setItem('aiprep_active_id', String(targetId));
+
+        router.push(targetSessionUrl);
+      } catch (err: any) {
+        console.error('[DeviceCheckWizard] Failed to start assessment:', err);
+        alert(err?.message || 'Failed to start assessment. Please try again.');
+        throw err;
       }
-
-      const statusRes = await aiPrepApi.updateAssessmentStatus(targetId, 'IN_PROGRESS');
-      if (!statusRes || statusRes.status !== 'IN_PROGRESS') {
-        throw new Error('Failed to launch the practice assessment room. Please retry.');
-      }
-
-      const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
-      const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
-
-      sessionStorage.removeItem('aiprep_wizard_step');
-      sessionStorage.setItem('aiprep_active_id', String(targetId));
-
-      window.location.href = targetSessionUrl;
-    } catch (err: any) {
-      console.error('[DeviceCheckWizard] Failed to start assessment:', err);
-      alert(err?.message || 'Failed to start assessment. Please try again.');
     }
   };
 
@@ -1437,19 +1414,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         return;
       }
 
-      setIsConfirmingFromBackend(true);
-      try {
-        await handlePrepareConfirmationInternal({
-          browser_info: browserResult?.name || 'Standard Browser', os_info: typeof navigator !== 'undefined' ? navigator.platform : 'Unknown OS',
-          camera_permission: !!cameraOk, mic_permission: !!micOk, speaker_ok: !!speakerOk, bandwidth_kbps: bandwidthKbps,
-          analytics_consent: videoAnalyticsEnabled, assessment_type: assessmentType, audio_enabled: true, video_enabled: videoEnabled, jd_text: jdText,
-        });
-      } catch (err) {
-        console.warn('[DeviceCheckWizard] Non-blocking backend session prep warning:', err);
-      } finally {
-        setIsConfirmingFromBackend(false);
-        setStep('PRACTICE_START');
-      }
+      setStep('PRACTICE_START');
     } else if (step === 'PRACTICE_START') {
       handleCompleteAssessment();
     }

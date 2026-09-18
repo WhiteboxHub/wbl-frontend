@@ -81,14 +81,6 @@ export const aiPrepApi = {
       body.job_description = jobDescription;
     }
 
-    if (payload.user_agent) {
-      body.user_agent = payload.user_agent;
-    }
-
-    if (payload.ip_address) {
-      body.ip_address = payload.ip_address;
-    }
-
     return apiFetch(endpoint("candidate/assessments"), {
       method: "POST",
       body,
