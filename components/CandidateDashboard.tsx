@@ -624,7 +624,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         };
     }, []);
 
-    // When assessment wizard activates, keep sidebar open for 3 seconds,
+    // When assessment wizard activates, keep sidebar open for 1.5 seconds,
     // then automatically collapse to fullscreen mode.
     // If the user clicks the toggle to open/close manually, the timer is cleared and their choice is preserved.
     useEffect(() => {
@@ -638,7 +638,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     hasAutoCollapsedRef.current = true;
                     setIsLayoutCollapsed(true);
                     autoCollapseTimerRef.current = null;
-                }, 3000);
+                }, 1500);
             }
         } else {
             if (autoCollapseTimerRef.current) {
