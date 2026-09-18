@@ -55,7 +55,7 @@ export default function CandidateAssessmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const limit = 50;
+  const limit = 100;
 
   const [selectedAssessment, setSelectedAssessment] = useState<AssessmentGridItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

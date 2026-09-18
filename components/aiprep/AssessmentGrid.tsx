@@ -598,14 +598,49 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         }
       }
 
-      // 2. Candidate filter
-      const candFilter = (filters?.candidate_id || filters?.candidate_search || "").trim().toLowerCase();
-      if (candFilter) {
-        const matchCandId = String(a.candidate_id || "").toLowerCase().includes(candFilter) ||
-          `cand-${a.candidate_id}`.toLowerCase().includes(candFilter) ||
-          `candidate #${a.candidate_id}`.toLowerCase().includes(candFilter);
-        const matchCandName = Boolean(a.candidate_name && a.candidate_name.toLowerCase().includes(candFilter));
-        const matchCandEmail = Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(candFilter));
+      // 2. Candidate filter (Candidate ID, Candidate Name, or Candidate Email)
+      const rawCandFilter = (filters?.candidate_id || filters?.candidate_search || "").trim();
+      if (rawCandFilter) {
+        const candFilter = rawCandFilter.toLowerCase();
+        const candDigits = rawCandFilter.replace(/^[^\d]*/, "").replace(/[^\d]/g, "");
+
+        const candIdStr = String(
+          a.candidate_id ??
+          (a as any).candidateId ??
+          (a as any).candidate?.id ??
+          (a as any).user_id ??
+          ""
+        ).trim().toLowerCase();
+
+        const matchCandId = Boolean(
+          candIdStr && (
+            candIdStr === candFilter ||
+            candIdStr.includes(candFilter) ||
+            (candDigits && candIdStr === candDigits) ||
+            `cand-${candIdStr}`.includes(candFilter) ||
+            `candidate #${candIdStr}`.includes(candFilter) ||
+            `candidate ${candIdStr}`.includes(candFilter)
+          )
+        );
+
+        const candName = String(
+          a.candidate_name ||
+          (a as any).candidateName ||
+          (a as any).candidate?.full_name ||
+          (a as any).candidate?.name ||
+          ""
+        ).toLowerCase();
+        const matchCandName = Boolean(candName && candName.includes(candFilter));
+
+        const candEmail = String(
+          a.candidate_email ||
+          (a as any).candidateEmail ||
+          (a as any).candidate?.email ||
+          (a as any).email ||
+          ""
+        ).toLowerCase();
+        const matchCandEmail = Boolean(candEmail && candEmail.includes(candFilter));
+
         if (!matchCandId && !matchCandName && !matchCandEmail) {
           return false;
         }

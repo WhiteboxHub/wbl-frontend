@@ -55,12 +55,12 @@ export const assessmentService = {
   fetchEmployeeAssessments: async (
     filters: Partial<AssessmentFiltersState> = {},
     page: number = 1,
-    limit: number = 50
+    limit: number = 100
   ): Promise<AssessmentListApiResponse> => {
     try {
       const offset = (page - 1) * limit;
       const queryParams = new URLSearchParams({
-        limit: String(limit),
+        limit: String(Math.min(limit, 100)),
         offset: String(offset),
       });
 
@@ -77,13 +77,33 @@ export const assessmentService = {
         `api/aiprep/employee/assessments?${queryParams.toString()}`
       );
 
-      const items: AssessmentGridItem[] = res?.items || [];
+      let items: AssessmentGridItem[] = res?.items || [];
       const total: number = res?.total ?? items.length;
+
+      // If total items exceed the single-page limit (100 in backend), fetch remaining pages
+      // so client-side filters (candidate name, email, ID, etc.) operate on the full assessment list
+      if (!filters.candidate_id?.trim() && total > items.length && items.length > 0) {
+        const totalPagesToFetch = Math.ceil(total / 100);
+        const remainingFetches = [];
+        for (let p = 2; p <= totalPagesToFetch; p++) {
+          const nextOffset = (p - 1) * 100;
+          remainingFetches.push(
+            apiFetch(`api/aiprep/employee/assessments?limit=100&offset=${nextOffset}`)
+          );
+        }
+        const pagesRes = await Promise.all(remainingFetches);
+        for (const pr of pagesRes) {
+          if (pr?.items && Array.isArray(pr.items)) {
+            items = items.concat(pr.items);
+          }
+        }
+      }
+
       const totalPages = Math.max(1, Math.ceil(total / limit));
 
       return {
         items,
-        total,
+        total: items.length > total ? items.length : total,
         page,
         limit,
         totalPages,
