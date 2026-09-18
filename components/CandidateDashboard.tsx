@@ -90,7 +90,8 @@ import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 import { DeviceCheckWizard } from "./aiprep/DeviceCheckWizard";
-import AIPrepDashboard from './aiprep/AIPrepDashboard'
+import AIPrepDashboard from './aiprep/AIPrepDashboard';
+import { aiPrepApi } from "@/lib/aiprep-api";
 import CandidateOnboarding from "./CandidateOnboarding";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 
@@ -3457,6 +3458,25 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 <DeviceCheckWizard
                                                     initialStep="CONFIGURATION"
                                                     isSidebarCollapsed={isSidebarCollapsed}
+                                                    onComplete={async (results) => {
+                                                        try {
+                                                            const targetType = results.assessment_type || 'INTRO';
+                                                            const assessment = await aiPrepApi.createAssessment({
+                                                                assessment_type: targetType,
+                                                                assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+                                                                candidate_id: candidateId || undefined,
+                                                                job_description_text: results.jd_text || null,
+                                                            });
+                                                            if (assessment?.id) {
+                                                                sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+                                                                sessionStorage.removeItem('aiprep_active_id');
+                                                                sessionStorage.removeItem('aiprep_wizard_step');
+                                                                window.location.href = `/aiprep/session/${assessment.id}`;
+                                                            }
+                                                        } catch (err) {
+                                                            console.error('Failed to auto-create assessment from dashboard:', err);
+                                                        }
+                                                    }}
                                                     onCancel={() => {
                                                         sessionStorage.removeItem('aiprep_wizard_step');
                                                         setIsAiPrepWizardActive(false);
