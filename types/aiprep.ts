@@ -21,6 +21,8 @@ export type MediaType = 'VIDEO' | 'AUDIO' | 'VIDEO_AUDIO' | 'AUDIO_ONLY' | strin
 
 export type AssessmentMode = MediaType;
 
+export type ChunkStatus = 'queued' | 'uploading' | 'uploaded' | 'failed';
+
 export interface AssessmentCardMeta {
   type: AssessmentType;
   title: string;
@@ -232,7 +234,8 @@ export type QuestionCategory =
   | 'RECRUITER'
   | 'HIRING_MANAGER'
   | 'SYSTEM_DESIGN'
-  | 'TECHNICAL';
+  | 'TECHNICAL'
+  | string;
 
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
 
