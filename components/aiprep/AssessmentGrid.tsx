@@ -596,7 +596,28 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         const matchCandEmail = Boolean(a.candidate_email && a.candidate_email.toLowerCase().includes(term));
         const matchUuid = Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(term));
         const matchJd = Boolean(a.job_description && a.job_description.toLowerCase().includes(term));
-        if (!matchId && !matchCandId && !matchCandName && !matchCandEmail && !matchUuid && !matchJd) {
+        const matchType = Boolean(a.assessment_type && a.assessment_type.toLowerCase().includes(term));
+        const matchStatus = Boolean(a.status && a.status.toLowerCase().includes(term));
+        const itemMode =
+          a.media_type ||
+          (a as any).media_mode ||
+          (a as any).mode ||
+          (a as any).assessment_mode ||
+          (a as any).mediaType ||
+          "";
+        const matchMode = Boolean(String(itemMode).toLowerCase().includes(term));
+
+        if (
+          !matchId &&
+          !matchCandId &&
+          !matchCandName &&
+          !matchCandEmail &&
+          !matchUuid &&
+          !matchJd &&
+          !matchType &&
+          !matchStatus &&
+          !matchMode
+        ) {
           return false;
         }
       }
