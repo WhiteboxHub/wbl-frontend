@@ -2413,14 +2413,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                             <button
                                 onClick={() => goToTab('ai-prep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep'
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold select-none cursor-pointer transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
                                 <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>AI PrepTool</span>
-                                {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
                             </button>
                         </div>
                     </div>
