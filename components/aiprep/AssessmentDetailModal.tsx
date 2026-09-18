@@ -423,15 +423,6 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         })()}
                       </div>
                     </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-blue-700 dark:text-blue-400">
-                        Priority
-                      </label>
-                      <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center">
-                        Normal
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
