@@ -11,7 +11,10 @@ import {
   ChevronRight,
   Download,
   Settings,
+  Edit,
+  Trash2,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 
 interface AssessmentGridProps {
@@ -20,6 +23,8 @@ interface AssessmentGridProps {
   error: string | null;
   onRetry: () => void;
   onView: (assessment: AssessmentGridItem) => void;
+  onEdit?: (assessment: AssessmentGridItem) => void;
+  onDelete?: (assessment: AssessmentGridItem) => void;
   currentPage: number;
   totalPages: number;
   totalCount?: number;
@@ -224,6 +229,8 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   error,
   onRetry,
   onView,
+  onEdit,
+  onDelete,
   currentPage,
   totalPages,
   totalCount,
@@ -233,9 +240,29 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   onFilterChange,
   height = "calc(70vh)",
 }) => {
+  // Row selection state
+  const [selectedRow, setSelectedRow] = useState<AssessmentGridItem | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   // Column toggle modal state
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+
+  // Clear selection if current selected row is no longer present in assessments
+  useEffect(() => {
+    if (selectedRow && !assessments.some((a) => a.id === selectedRow.id)) {
+      setSelectedRow(null);
+    }
+  }, [assessments, selectedRow]);
+
+  const handleRowClick = (a: AssessmentGridItem) => {
+    setSelectedRow((prev) => (prev?.id === a.id ? null : a));
+  };
+
+  const handleRowDoubleClick = (a: AssessmentGridItem) => {
+    setSelectedRow(a);
+    onView(a);
+  };
 
   const allColumnsList = useMemo(() => {
     const list = [
@@ -721,14 +748,59 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         )}
 
         <div className="flex items-center gap-2">
+          {/* Toggle Columns */}
           <button
             type="button"
             onClick={() => setIsColumnModalOpen(true)}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
-            title="Columns Settings"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+            title="Toggle Columns"
           >
             <Settings className="h-4 w-4" />
           </button>
+
+          {/* View Details */}
+          <button
+            type="button"
+            onClick={() => selectedRow && onView(selectedRow)}
+            disabled={!selectedRow}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+            title="View"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+
+          {/* Edit */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedRow) {
+                if (onEdit) onEdit(selectedRow);
+                else onView(selectedRow);
+              }
+            }}
+            disabled={!selectedRow}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+            title="Edit"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+
+          {/* Delete */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedRow) {
+                setIsDeleteDialogOpen(true);
+              }
+            }}
+            disabled={!selectedRow}
+            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-red-600 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+
+          {/* Download CSV */}
           <button
             type="button"
             onClick={handleExportCSV}
@@ -917,78 +989,90 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  displayedAssessments.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="hover:bg-gray-50/80 dark:hover:bg-gray-800/40 transition-colors"
-                    >
-                      {!hiddenColumns.has("id") && (
-                        <td className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100">
-                          AS-{a.id}
-                        </td>
-                      )}
+                  displayedAssessments.map((a) => {
+                    const isSelected = selectedRow?.id === a.id;
+                    return (
+                      <tr
+                        key={a.id}
+                        onClick={() => handleRowClick(a)}
+                        onDoubleClick={() => handleRowDoubleClick(a)}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-[#BAE6FD] dark:bg-sky-900/60 font-medium"
+                            : "hover:bg-gray-50/80 dark:hover:bg-gray-800/40"
+                        }`}
+                      >
+                        {!hiddenColumns.has("id") && (
+                          <td className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100">
+                            AS-{a.id}
+                          </td>
+                        )}
 
-                      {isAdmin && !hiddenColumns.has("candidate") && (
-                        <td className="py-3.5 px-4">
-                          <p className="font-bold text-gray-900 dark:text-white">
-                            {a.candidate_name || (a.candidate_id ? `Candidate #${a.candidate_id}` : "—")}
-                          </p>
-                        </td>
-                      )}
+                        {isAdmin && !hiddenColumns.has("candidate") && (
+                          <td className="py-3.5 px-4">
+                            <p className="font-bold text-gray-900 dark:text-white">
+                              {a.candidate_name || (a.candidate_id ? `Candidate #${a.candidate_id}` : "—")}
+                            </p>
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("assessment_type") && (
-                        <td className="py-3.5 px-4">
-                          {getTypeBadge(a.assessment_type)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("assessment_type") && (
+                          <td className="py-3.5 px-4">
+                            {getTypeBadge(a.assessment_type)}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("mode") && (
-                        <td className="py-3.5 px-4">
-                          {getMediaBadge(
-                            a.media_type ||
-                            (a as any).media_mode ||
-                            (a as any).mode ||
-                            (a as any).assessment_mode ||
-                            (a as any).mediaType
-                          )}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("mode") && (
+                          <td className="py-3.5 px-4">
+                            {getMediaBadge(
+                              a.media_type ||
+                              (a as any).media_mode ||
+                              (a as any).mode ||
+                              (a as any).assessment_mode ||
+                              (a as any).mediaType
+                            )}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("status") && (
-                        <td className="py-3.5 px-4">
-                          {getStatusBadge(a.status)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("status") && (
+                          <td className="py-3.5 px-4">
+                            {getStatusBadge(a.status)}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("score") && (
-                        <td className="py-3.5 px-4 font-medium text-gray-500 dark:text-gray-400">
-                          {a.score != null && a.score > 0
-                            ? `${a.score}%`
-                            : "—"}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("score") && (
+                          <td className="py-3.5 px-4 font-medium text-gray-500 dark:text-gray-400">
+                            {a.score != null && a.score > 0
+                              ? `${a.score}%`
+                              : "—"}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("date") && (
-                        <td className="py-3.5 px-4 text-gray-600 dark:text-gray-400 font-medium">
-                          {formatDate(a.created_at)}
-                        </td>
-                      )}
+                        {!hiddenColumns.has("date") && (
+                          <td className="py-3.5 px-4 text-gray-600 dark:text-gray-400 font-medium">
+                            {formatDate(a.created_at)}
+                          </td>
+                        )}
 
-                      {!hiddenColumns.has("actions") && (
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => onView(a)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
-                            title="View Details"
-                          >
-                            <Eye className="h-3.5 w-3.5 text-gray-500 hover:text-blue-600" />
-                            <span>View</span>
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
+                        {!hiddenColumns.has("actions") && (
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onView(a);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+                              title="View Details"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-gray-500 hover:text-blue-600" />
+                              <span>View</span>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1039,6 +1123,24 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
         allColumns={allColumnsList}
         hiddenColumns={hiddenColumns}
         onToggleColumn={toggleColumnVisibility}
+      />
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={() => {
+          if (selectedRow) {
+            onDelete?.(selectedRow);
+            setSelectedRow(null);
+          }
+        }}
+        title="Delete Assessment"
+        message={`Are you sure you want to delete assessment AS-${selectedRow?.id}${
+          selectedRow?.candidate_name ? ` for ${selectedRow.candidate_name}` : ""
+        }? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
       />
 
       {/* Portal Modal: Assessment Type Filter */}

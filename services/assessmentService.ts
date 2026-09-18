@@ -127,4 +127,19 @@ export const assessmentService = {
       };
     }
   },
+
+  deleteAssessment: async (assessmentId: number) => {
+    try {
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      return res;
+    } catch (err: any) {
+      console.warn("deleteAssessment error:", err?.message);
+      return null;
+    }
+  },
 };

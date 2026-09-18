@@ -123,6 +123,16 @@ export default function CandidateAssessmentsPage() {
     setIsModalOpen(true);
   };
 
+  const handleDeleteAssessment = async (assessment: AssessmentGridItem) => {
+    try {
+      await assessmentService.deleteAssessment(assessment.id);
+    } catch (err) {
+      console.warn("deleteAssessment error:", err);
+    }
+    setAssessments((prev) => prev.filter((a) => a.id !== assessment.id));
+    setTotalCount((prev) => (prev && prev > 0 ? prev - 1 : 0));
+  };
+
   const displayedAssessments = useMemo(() => {
     let list = assessments;
 
@@ -244,6 +254,8 @@ export default function CandidateAssessmentsPage() {
         error={error}
         onRetry={loadAssessments}
         onView={handleViewAssessment}
+        onEdit={handleViewAssessment}
+        onDelete={handleDeleteAssessment}
         currentPage={currentPage}
         totalPages={totalPages}
         totalCount={totalCount}
