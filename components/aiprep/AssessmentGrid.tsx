@@ -790,47 +790,51 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             <Settings className="h-4 w-4" />
           </button>
 
-          {/* View Details */}
-          <button
-            type="button"
-            onClick={() => selectedRow && onView(selectedRow)}
-            disabled={!selectedRow}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
-            title="View"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
+          {isAdmin && (
+            <>
+              {/* View Details */}
+              <button
+                type="button"
+                onClick={() => selectedRow && onView(selectedRow)}
+                disabled={!selectedRow}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+                title="View"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
 
-          {/* Edit */}
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedRow) {
-                if (onEdit) onEdit(selectedRow);
-                else onView(selectedRow);
-              }
-            }}
-            disabled={!selectedRow}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
-            title="Edit"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
+              {/* Edit */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedRow) {
+                    if (onEdit) onEdit(selectedRow);
+                    else onView(selectedRow);
+                  }
+                }}
+                disabled={!selectedRow}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+                title="Edit"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
 
-          {/* Delete */}
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedRow) {
-                setIsDeleteDialogOpen(true);
-              }
-            }}
-            disabled={!selectedRow}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-red-600 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+              {/* Delete */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedRow) {
+                    setIsDeleteDialogOpen(true);
+                  }
+                }}
+                disabled={!selectedRow}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-red-600 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          )}
 
           {/* Download CSV */}
           <button
@@ -1158,22 +1162,24 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       />
 
       {/* Confirm Delete Dialog */}
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={() => {
-          if (selectedRow) {
-            onDelete?.(selectedRow);
-            setSelectedRow(null);
-          }
-        }}
-        title="Delete Assessment"
-        message={`Are you sure you want to delete assessment AS-${selectedRow?.id}${
-          selectedRow?.candidate_name ? ` for ${selectedRow.candidate_name}` : ""
-        }? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
+      {isAdmin && (
+        <ConfirmDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          onConfirm={() => {
+            if (selectedRow) {
+              onDelete?.(selectedRow);
+              setSelectedRow(null);
+            }
+          }}
+          title="Delete Assessment"
+          message={`Are you sure you want to delete assessment AS-${selectedRow?.id}${
+            selectedRow?.candidate_name ? ` for ${selectedRow.candidate_name}` : ""
+          }? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+      )}
 
       {/* Portal Modal: Assessment Type Filter */}
       {typeDropdownOpen &&
