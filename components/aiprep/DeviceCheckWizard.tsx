@@ -208,20 +208,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
   }, [step, audioOnly]);
 
-  // Lock body and html scrolling to eliminate browser scrollbar during wizard
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
-    };
-  }, []);
   // Synchronize wizard step with Next.js router pathname
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -303,13 +289,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     document.documentElement.style.setProperty('overflow', 'hidden', 'important');
 
     let parentIframe: HTMLElement | null = null;
-    let origIframeCss = '', origParentOverflow = '';
+    let origIframeCss = '', origParentOverflow = '', origParentDocElementOverflow = '';
     const modifiedAncestors: { el: HTMLElement; origCss: string }[] = [];
 
     if (window.parent && window.parent !== window) {
       try {
         const parentDoc = window.parent.document;
         origParentOverflow = parentDoc.body.style.overflow;
+        origParentDocElementOverflow = parentDoc.documentElement.style.overflow;
         parentDoc.body.style.setProperty('overflow', 'hidden', 'important');
         parentDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
         const iframes = parentDoc.querySelectorAll('iframe');
@@ -357,8 +344,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           modifiedAncestors.forEach(({ el, origCss }) => {
             el.style.cssText = origCss;
           });
-          if (origParentOverflow) {
+          if (origParentOverflow !== undefined) {
             window.parent.document.body.style.overflow = origParentOverflow;
+          }
+          if (origParentDocElementOverflow !== undefined) {
+            window.parent.document.documentElement.style.overflow = origParentDocElementOverflow;
           }
         } catch { }
       }
