@@ -8,6 +8,7 @@ import type { AssessmentType, AssessmentMode, HardwareCheckResults } from '@/typ
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
+import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
 import { AlertCircle, Loader2, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AIPrepPage() {

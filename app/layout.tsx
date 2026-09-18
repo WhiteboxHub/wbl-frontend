@@ -123,7 +123,7 @@ export default function RootLayout({
           <AuthProvider>
             <Providers>
               <GlobalServiceWorker />
-              {isAvatarSection || isCoderpad || isAiPrepReport || isAiPrepSession ? (
+              {isAvatarSection || isCoderpad || isAiPrepReport || isSessionRoom ? (
                 <>{children}</>
               ) : (
                 <>
