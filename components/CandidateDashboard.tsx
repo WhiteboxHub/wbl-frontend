@@ -62,6 +62,7 @@ import {
     X,
     Trash2,
     ArrowRight,
+    Laptop,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -559,6 +560,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const handleJobBoardClicksCardClick = () => {
         goToTab("job-board");
     };
+
+    const [isMobile, setIsMobile] = useState<boolean>(false);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 1024);
+        };
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const [currentSubPath, setCurrentSubPath] = useState<string>(() => {
         if (typeof window !== "undefined") {
@@ -2407,13 +2419,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     })}
 
                     <button
-                        onClick={() => goToTab('aiprep')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${(activeTab === 'wbl-smartprep' || activeTab === 'aiprep')
-                            ? "bg-indigo-600 text-white shadow-sm"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                            }`}
+                        type="button"
+                        disabled
+                        title="AI Prep is only available on desktop"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-50 cursor-not-allowed"
                     >
-                        <Sparkles className="w-3.5 h-3.5" />
+                        <Sparkles className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                         AI PrepTool
                     </button>
                 </div>
@@ -3325,33 +3336,52 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && (
-                                    <div className="flex-1 overflow-y-auto bg-slate-50/70 p-0 dark:bg-slate-950/40">
-                                        {isWizardPath() ? (
-                                            <div className="w-full min-h-full">
-                                                <DeviceCheckWizard
-                                                    onCancel={() => {
-                                                        sessionStorage.removeItem('aiprep_wizard_step');
-                                                        goToTab('ai-prep');
-                                                    }}
-                                                />
+                                    isMobile ? (
+                                        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-white dark:bg-gray-900 animate-in fade-in duration-200">
+                                            <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm border border-indigo-100 dark:border-indigo-900/50">
+                                                <Laptop className="w-8 h-8" />
                                             </div>
-                                        ) : (
-                                            <div className="p-4 lg:p-6">
-                                                <AIPrepDashboard
-                                                    setupStatus={{
-                                                        resume_uploaded: Boolean(
-                                                            setupStatus?.resume_uploaded ||
-                                                            setupStatus?.has_binary_resume ||
-                                                            prefetchedSession?.summaryData?.resume_json ||
-                                                            prefetchedSession?.summaryData?.resume_text === "Exists"
-                                                        ),
-                                                        api_keys_configured: Boolean(setupStatus?.api_keys_configured),
-                                                        setup_complete: Boolean(setupStatus?.setup_complete),
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
+                                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Desktop Only Feature</h2>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-6 leading-relaxed">
+                                                AI PrepTool is only available on desktop and laptop devices with camera and microphone support. Please access Whitebox from a desktop computer to practice.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => goToTab('overview')}
+                                                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all cursor-pointer"
+                                            >
+                                                Go to Overview
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 overflow-y-auto bg-slate-50/70 p-0 dark:bg-slate-950/40">
+                                            {isWizardPath() ? (
+                                                <div className="w-full min-h-full">
+                                                    <DeviceCheckWizard
+                                                        onCancel={() => {
+                                                            sessionStorage.removeItem('aiprep_wizard_step');
+                                                            goToTab('ai-prep');
+                                                        }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 lg:p-6">
+                                                    <AIPrepDashboard
+                                                        setupStatus={{
+                                                            resume_uploaded: Boolean(
+                                                                setupStatus?.resume_uploaded ||
+                                                                setupStatus?.has_binary_resume ||
+                                                                prefetchedSession?.summaryData?.resume_json ||
+                                                                prefetchedSession?.summaryData?.resume_text === "Exists"
+                                                            ),
+                                                            api_keys_configured: Boolean(setupStatus?.api_keys_configured),
+                                                            setup_complete: Boolean(setupStatus?.setup_complete),
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
                                 )}
 
 

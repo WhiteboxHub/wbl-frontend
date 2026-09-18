@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, Video, FileText, Info, Check, X, ArrowRight } from 'lucide-react';
+import { Mic, Video, FileText, Info, Check, X, ArrowRight, ArrowLeft } from 'lucide-react';
 export type ConsentInfoModalType = 'MIC' | 'CAMERA' | 'ANALYTICS' | 'RECORDING' | 'TRANSCRIPT' | null;
 
 export interface ConsentState {
@@ -385,9 +385,10 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         <button
           type="button"
           onClick={onBack}
-          className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+          className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
         >
-          Back
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
         </button>
 
         <button

@@ -252,6 +252,22 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
     }
   }, [isMounted, step, audioOnly]);
+
+  // Lock body and html scrolling to eliminate browser scrollbar during wizard
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
+
   // Synchronize wizard step with Next.js router pathname
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -327,8 +343,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (typeof window === 'undefined') return;
 
     window.dispatchEvent(new CustomEvent('aiprep-layout-mode', { detail: { fullscreen: true } }));
-    const origOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const origBodyOverflow = document.body.style.overflow;
+    const origHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.setProperty('overflow', 'hidden', 'important');
+    document.documentElement.style.setProperty('overflow', 'hidden', 'important');
 
     let parentIframe: HTMLElement | null = null;
     let origIframeCss = '', origParentOverflow = '';
@@ -339,6 +357,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         const parentDoc = window.parent.document;
         origParentOverflow = parentDoc.body.style.overflow;
         parentDoc.body.style.setProperty('overflow', 'hidden', 'important');
+        parentDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
         const iframes = parentDoc.querySelectorAll('iframe');
         for (let i = 0; i < iframes.length; i++) {
           const f = iframes[i];
@@ -375,7 +394,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
 
     return () => {
-      document.body.style.overflow = origOverflow;
+      document.body.style.overflow = origBodyOverflow;
+      document.documentElement.style.overflow = origHtmlOverflow;
       window.dispatchEvent(new CustomEvent('aiprep-layout-mode', { detail: { fullscreen: false } }));
       if (window.parent && window.parent !== window) {
         try {
@@ -570,7 +590,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       const hasLiveBox = !!realtimeTelemetry?.face_box && (realtimeTelemetry?.face_box?.width ?? 0) > 0;
       const hasPresence = realtimeTelemetry?.is_instant_face_present === true || isFaceLive;
 
-      if (hasLiveBox || hasPresence || isVisionReady) {
+      if (hasLiveBox || hasPresence) {
         setAnalyticsOk(true);
         setAnalyticsTested(true);
         if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'true');
@@ -580,7 +600,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setAnalyticsTested(true);
       if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'false');
     }
-  }, [step, videoEnabled, videoAnalyticsEnabled, cameraOk, cameraStream, realtimeTelemetry, isFaceLive, isVisionReady]);
+  }, [step, videoEnabled, videoAnalyticsEnabled, cameraOk, cameraStream, realtimeTelemetry, isFaceLive]);
 
   const [micLevel, setMicLevel] = useState<number>(0);
   const [micTesting, setMicTesting] = useState<boolean>(false);
@@ -925,6 +945,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const testCamera = async () => {
     if (testingCamera || !videoEnabled) return;
     setTestingCamera(true);
+    const startTime = Date.now();
     try {
       cleanup('VIDEO_ONLY');
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -941,6 +962,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setCameraTested(true);
       setShowPermissionGuide(false);
     } catch {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 700) {
+        await new Promise((r) => setTimeout(r, 700 - elapsed));
+      }
       setCameraOk(false);
       setCameraTested(true);
       setCameraStream(null);
@@ -948,6 +973,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setAnalyticsTested(true);
       if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'false');
     } finally {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 700) {
+        await new Promise((r) => setTimeout(r, 700 - elapsed));
+      }
       setTestingCamera(false);
     }
   };
@@ -1032,6 +1061,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     micTestingRef.current = true;
     maxLevelSeenRef.current = 0;
     setMicTesting(true);
+    const startTime = Date.now();
     try {
       let stream = micStreamRef.current;
       if (!stream?.active || !stream.getAudioTracks().length || stream.getAudioTracks()[0].readyState !== 'live') {
@@ -1102,10 +1132,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setShowPermissionGuide(false);
       }
     } catch {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 800) {
+        await new Promise((r) => setTimeout(r, 800 - elapsed));
+      }
       setMicOk(false);
       setMicTested(true);
       setShowPermissionGuide(false);
     } finally {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 800) {
+        await new Promise((r) => setTimeout(r, 800 - elapsed));
+      }
       micTestingRef.current = false;
       setMicLevel(0);
       setMicTesting(false);
@@ -1315,8 +1353,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
         const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
-        sessionStorage.removeItem('aiprep_wizard_step');
-        sessionStorage.setItem('aiprep_active_id', String(targetId));
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+          sessionStorage.removeItem('aiprep_wizard_step');
+          sessionStorage.setItem('aiprep_active_id', String(targetId));
+        }
 
         router.push(targetSessionUrl);
       } catch (err: any) {
@@ -1449,7 +1490,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     <div
       className={
         isFullScreenStep
-          ? "fixed inset-0 z-[9999] w-screen h-screen flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden"
+          ? "fixed inset-0 z-[9999] w-full h-full flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden"
           : "w-full h-full flex-1 flex flex-col bg-white dark:bg-slate-900 select-none overflow-hidden"
       } >
       <div className="w-full h-full flex-1 bg-white dark:bg-slate-900 border-0 overflow-hidden flex flex-col transition-all duration-200">

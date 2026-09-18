@@ -9,7 +9,7 @@ import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
 import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Laptop } from 'lucide-react';
 
 export default function AIPrepPage() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function AIPrepPage() {
   const { isAuthenticated } = useAuth();
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -24,6 +25,15 @@ export default function AIPrepPage() {
 
   useEffect(() => {
     setIsMounted(true);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
     if (!isUserAuthenticated) {
       if (typeof window !== 'undefined') {
         if (window.top && window.top !== window.self) {
@@ -203,6 +213,27 @@ export default function AIPrepPage() {
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
         <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-[#4A6CF7] animate-spin mb-4" />
         <p className="text-xs text-slate-550 font-semibold select-none">Loading secure environment...</p>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+        <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm border border-indigo-100 dark:border-indigo-900/50">
+          <Laptop className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Desktop Only Feature</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-6 leading-relaxed">
+          AI PrepTool is only available on desktop and laptop devices with camera and microphone support. Please access Whitebox from a desktop computer to practice your assessments.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push('/user_dashboard')}
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all cursor-pointer"
+        >
+          Back to Dashboard
+        </button>
       </div>
     );
   }
