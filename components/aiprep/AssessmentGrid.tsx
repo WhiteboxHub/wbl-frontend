@@ -556,9 +556,15 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       const matchStatus =
         currentStatus === "all" ||
         getCanonicalStatus(a.status) === getCanonicalStatus(currentStatus);
+      const itemMode =
+        a.media_type ||
+        (a as any).media_mode ||
+        (a as any).mode ||
+        (a as any).assessment_mode ||
+        (a as any).mediaType;
       const matchMode =
         currentMode === "all" ||
-        getCanonicalMode(a.media_type || (a as any).media_mode) === getCanonicalMode(currentMode);
+        getCanonicalMode(itemMode) === getCanonicalMode(currentMode);
 
       let matchDate = true;
       if (currentDateValue) {
@@ -872,15 +878,9 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
                       {isAdmin && !hiddenColumns.has("candidate") && (
                         <td className="py-3.5 px-4">
-                          <div>
-                            <p className="font-bold text-gray-900 dark:text-white">
-                              {a.candidate_name || (a.candidate_id ? `Candidate #${a.candidate_id}` : "—")}
-                            </p>
-                            <p className="text-[11px] text-gray-400 font-mono">
-                              CAND-{a.candidate_id || "—"}
-                              {a.candidate_email ? ` • ${a.candidate_email}` : ""}
-                            </p>
-                          </div>
+                          <p className="font-bold text-gray-900 dark:text-white">
+                            {a.candidate_name || (a.candidate_id ? `Candidate #${a.candidate_id}` : "—")}
+                          </p>
                         </td>
                       )}
 
@@ -892,7 +892,13 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
                       {!hiddenColumns.has("mode") && (
                         <td className="py-3.5 px-4">
-                          {getMediaBadge(a.media_type || (a as any).media_mode)}
+                          {getMediaBadge(
+                            a.media_type ||
+                            (a as any).media_mode ||
+                            (a as any).mode ||
+                            (a as any).assessment_mode ||
+                            (a as any).mediaType
+                          )}
                         </td>
                       )}
 

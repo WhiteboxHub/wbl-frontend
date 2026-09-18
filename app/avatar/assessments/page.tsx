@@ -160,9 +160,15 @@ export default function CandidateAssessmentsPage() {
 
     if (filters.media_type && filters.media_type !== "all") {
       const targetMode = getCanonicalMode(filters.media_type);
-      list = list.filter(
-        (a) => getCanonicalMode(a.media_type || (a as any).media_mode) === targetMode
-      );
+      list = list.filter((a: any) => {
+        const rowMode =
+          a.media_type ||
+          a.media_mode ||
+          a.mode ||
+          a.assessment_mode ||
+          a.mediaType;
+        return getCanonicalMode(rowMode) === targetMode;
+      });
     }
 
     if (filters.status && filters.status !== "all") {
