@@ -91,7 +91,8 @@ import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 import { DeviceCheckWizard } from "./aiprep/DeviceCheckWizard";
-import AIPrepDashboard from './aiprep/AIPrepDashboard'
+import AIPrepDashboard from './aiprep/AIPrepDashboard';
+import { aiPrepApi } from "@/lib/aiprep-api";
 import CandidateOnboarding from "./CandidateOnboarding";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 
