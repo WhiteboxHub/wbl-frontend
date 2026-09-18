@@ -406,20 +406,30 @@ function extractImproveCard(report: NormalizedReport): CardData {
   let description = "";
   const actions: string[] = [];
 
+  const addAction = (txt?: string) => {
+    if (!txt) return;
+    const clean = toFriendlyText(txt).trim();
+    if (!clean) return;
+    const descClean = toFriendlyText(description).trim().toLowerCase();
+    if (clean.toLowerCase() === descClean) return;
+    if (actions.some((a) => a.toLowerCase() === clean.toLowerCase())) return;
+    actions.push(clean);
+  };
+
   if (priority_improvements.length > 0) {
     const first = priority_improvements[0];
     title = first.topic || "Area for Review";
     description = first.guidance || first.example || "";
     if (first.example && first.guidance && first.example !== first.guidance) {
-      actions.push(toFriendlyText(first.example));
+      addAction(first.example);
     }
     if (priority_improvements.length > 1) {
       const second = priority_improvements[1];
       const text = [second.topic, second.guidance].filter(Boolean).join(": ");
-      if (text) actions.push(toFriendlyText(text));
+      addAction(text);
     }
     if (technical_analysis?.areas_for_improvement?.[0]) {
-      actions.push(toFriendlyText(technical_analysis.areas_for_improvement[0]));
+      addAction(technical_analysis.areas_for_improvement[0]);
     }
   } else if (improvements.length > 0) {
     const first = improvements[0];
@@ -428,10 +438,10 @@ function extractImproveCard(report: NormalizedReport): CardData {
     if (improvements.length > 1) {
       const second = improvements[1];
       const text = [second.topic, second.rationale].filter(Boolean).join(": ");
-      if (text) actions.push(toFriendlyText(text));
+      addAction(text);
     }
     if (technical_analysis?.areas_for_improvement?.[0]) {
-      actions.push(toFriendlyText(technical_analysis.areas_for_improvement[0]));
+      addAction(technical_analysis.areas_for_improvement[0]);
     }
   } else if (
     technical_analysis?.areas_for_improvement &&
@@ -440,7 +450,7 @@ function extractImproveCard(report: NormalizedReport): CardData {
     title = "Technical Implementation";
     description = technical_analysis.areas_for_improvement[0];
     technical_analysis.areas_for_improvement.slice(1, 3).forEach((item) => {
-      actions.push(toFriendlyText(item));
+      addAction(item);
     });
   } else if (final_assessment?.most_important_improvement) {
     title = "Priority Focus";
@@ -474,22 +484,37 @@ function extractStrengthenCard(report: NormalizedReport): CardData {
     gaps_to_validate = [],
     resume_alignment,
     technical_analysis,
+    priority_improvements = [],
   } = report;
 
   let title = "";
   let description = "";
   const actions: string[] = [];
 
+  const addAction = (txt?: string) => {
+    if (!txt) return;
+    const clean = toFriendlyText(txt).trim();
+    if (!clean) return;
+    const descClean = toFriendlyText(description).trim().toLowerCase();
+    if (clean.toLowerCase() === descClean) return;
+    if (actions.some((a) => a.toLowerCase() === clean.toLowerCase())) return;
+    actions.push(clean);
+  };
+
   if (critical_gaps.length > 0) {
     const first = critical_gaps[0];
-    title = first.topic || "Topic to Strengthen";
+    // If the topic matches priority_improvements[0], differentiate card focus
+    const isOverlapping = priority_improvements[0]?.topic === first.topic;
+    title = isOverlapping
+      ? `Coverage: ${first.topic || "Core Requirements"}`
+      : first.topic || "Topic to Strengthen";
     description =
       first.what_is_missing || first.why_it_matters || first.suggested_addition || "";
     if (first.suggested_addition && first.suggested_addition !== description) {
-      actions.push(toFriendlyText(first.suggested_addition));
+      addAction(first.suggested_addition);
     }
     if (first.why_it_matters && first.why_it_matters !== description) {
-      actions.push(toFriendlyText(first.why_it_matters));
+      addAction(first.why_it_matters);
     }
     if (critical_gaps.length > 1) {
       const second = critical_gaps[1];
@@ -499,11 +524,11 @@ function extractStrengthenCard(report: NormalizedReport): CardData {
       ]
         .filter(Boolean)
         .join(": ");
-      if (text) actions.push(toFriendlyText(text));
+      addAction(text);
     } else if (gaps_to_validate.length > 0) {
       const g = gaps_to_validate[0];
       const text = [g.topic, g.reason].filter(Boolean).join(": ");
-      if (text) actions.push(toFriendlyText(text));
+      addAction(text);
     }
   } else if (gaps_to_validate.length > 0) {
     const first = gaps_to_validate[0];
@@ -511,7 +536,7 @@ function extractStrengthenCard(report: NormalizedReport): CardData {
     description = first.reason || "";
     gaps_to_validate.slice(1, 3).forEach((g) => {
       const text = [g.topic, g.reason].filter(Boolean).join(": ");
-      if (text) actions.push(toFriendlyText(text));
+      addAction(text);
     });
   } else if (
     resume_alignment?.missed_highlights &&
@@ -562,7 +587,11 @@ function extractPracticeCard(report: NormalizedReport): CardData {
 
   if (coaching_suggestions.length > 0) {
     const first = coaching_suggestions[0];
-    title = first.area || first.dimension || "Delivery & Practice";
+    // If the topic is identical to improve/strengthen card, give it a delivery-focused angle
+    title =
+      first.dimension && first.dimension !== first.area
+        ? `${first.dimension}: ${first.area}`
+        : first.area || "Delivery & Practice";
     description = first.suggestion || "";
     if (first.evidence) {
       actions.push(toFriendlyText("Observation: " + first.evidence));
@@ -572,14 +601,16 @@ function extractPracticeCard(report: NormalizedReport): CardData {
       const text = [second.area, second.suggestion].filter(Boolean).join(": ");
       if (text) actions.push(toFriendlyText(text));
     }
-    if (audio?.primary_vocal_gap) {
-      actions.push(toFriendlyText("Vocal delivery: " + audio.primary_vocal_gap));
+    const vocalGap = audio?.primary_vocal_gap;
+    if (vocalGap && vocalGap !== "null" && vocalGap !== "undefined" && vocalGap.trim()) {
+      actions.push(toFriendlyText("Vocal delivery: " + vocalGap));
     }
   } else if (final_assessment?.most_important_improvement) {
     title = "Core Practice Focus";
     description = final_assessment.most_important_improvement;
-    if (audio?.primary_vocal_gap) {
-      actions.push(toFriendlyText("Delivery: " + audio.primary_vocal_gap));
+    const vocalGap = audio?.primary_vocal_gap;
+    if (vocalGap && vocalGap !== "null" && vocalGap !== "undefined" && vocalGap.trim()) {
+      actions.push(toFriendlyText("Delivery: " + vocalGap));
     }
     if (final_assessment.transition_quality) {
       actions.push(toFriendlyText("Transitions: " + final_assessment.transition_quality));

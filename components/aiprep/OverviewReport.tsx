@@ -155,42 +155,46 @@ export function OverviewContent({
     ["career_story", "current_role", "current_project", "introduced_self", "career_arc_covered"].includes(s.key)
   );
   const introResumeBand = introSection?.status ?? scores.overall_band;
-  const aiEngBand = scores.ai_engineering?.band;
-  const aiEngObs =
-    intro_sections.find((s) =>
-      [
-        "agentic_ai",
-        "rag_and_retrieval",
-        "models_and_ai_platforms",
-        "rag_retrieval_chunking_mentioned",
-        "ai_agents_multiagent_mentioned",
-      ].includes(s.key)
-    )?.observation ?? report.technical_analysis?.summary;
-  const coreEngBand = scores.core_engineering?.band;
-  const coreEngObs =
-    intro_sections.find((s) =>
-      [
-        "software_engineering",
-        "cloud_and_infrastructure",
-        "cicd_and_delivery",
-        "mcp_mentioned",
-        "memory_context_engineering_mentioned",
-      ].includes(s.key)
-    )?.observation ?? report.technical_analysis?.depth_assessment;
+
+  const aiEngSection = intro_sections.find((s) =>
+    [
+      "agentic_ai",
+      "rag_and_retrieval",
+      "models_and_ai_platforms",
+      "rag_retrieval_chunking_mentioned",
+      "ai_agents_multiagent_mentioned",
+    ].includes(s.key)
+  );
+  const aiEngBand = scores.ai_engineering?.band ?? aiEngSection?.status ?? report.intro_quality?.technical_depth;
+  const aiEngObs = aiEngSection?.observation ?? report.technical_analysis?.summary;
+
+  const coreEngSection = intro_sections.find((s) =>
+    [
+      "software_engineering",
+      "cloud_and_infrastructure",
+      "cicd_and_delivery",
+      "mcp_mentioned",
+      "memory_context_engineering_mentioned",
+    ].includes(s.key)
+  );
+  const coreEngBand = scores.core_engineering?.band ?? coreEngSection?.status;
+  const coreEngObs = coreEngSection?.observation ?? report.technical_analysis?.depth_assessment;
+
   const audioObs =
     audio?.executive_summary ?? audio?.primary_vocal_strength ?? undefined;
   const audioBand = audio?.overall_readiness;
+
   const videoObs =
     video?.overall_summary ?? video?.primary_setup_strength ?? undefined;
   const videoBand = video
     ? video.factors.camera_framing_centering?.status ?? scores.non_technical?.band
     : undefined;
-  const addlBand =
-    scores.non_technical?.band ?? scores.business_acumen?.band;
-  const addlObs =
-    intro_sections.find((s) =>
-      ["ai_engineering_evolution", "cicd_and_delivery", "guardrails_evals_observability_mentioned"].includes(s.key)
-    )?.observation ?? report.non_technical?.communication_summary;
+
+  const addlSection = intro_sections.find((s) =>
+    ["ai_engineering_evolution", "cicd_and_delivery", "guardrails_evals_observability_mentioned"].includes(s.key)
+  );
+  const addlBand = scores.non_technical?.band ?? scores.business_acumen?.band ?? addlSection?.status;
+  const addlObs = addlSection?.observation ?? report.non_technical?.communication_summary;
 
   const tip =
     final_assessment?.most_important_improvement ??
@@ -419,12 +423,26 @@ export function ReportHeader({
             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-600">
               {assessment.media_type ?? "VIDEO"}
             </span>
-            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                assessment.status === "COMPLETED"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : assessment.status === "EVALUATING"
+                  ? "bg-amber-100 text-amber-700"
+                  : assessment.status === "FAILED"
+                  ? "bg-rose-100 text-rose-700"
+                  : "bg-slate-100 text-slate-700"
+              }`}
+            >
               {assessment.status === "COMPLETED"
                 ? "Completed"
                 : assessment.status === "EVALUATING"
                 ? "Evaluating…"
-                : "Completed"}
+                : assessment.status === "FAILED"
+                ? "Evaluation Failed"
+                : assessment.status
+                ? assessment.status.replace("_", " ")
+                : "In Progress"}
             </span>
             {performanceBand && (
               <span
@@ -445,7 +463,15 @@ export function ReportHeader({
             {typeLabel}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            AI Engineering & GenAI Practice Session • Real LLM Evaluation
+            Session #{assessment.id ?? assessmentId}
+            {assessment.created_at
+              ? ` • ${new Date(assessment.created_at).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}`
+              : ""}
+            {" • Detailed AI Assessment"}
           </p>
         </div>
 
@@ -681,7 +707,7 @@ export default function AiPrepReport({
   const { assessment } = report;
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f7f9fc] flex flex-col">
+    <div className="min-h-screen bg-[#f7f9fc] flex flex-col">
       <ReportHeader
         assessment={assessment}
         assessmentId={assessmentId}
@@ -689,7 +715,7 @@ export default function AiPrepReport({
         onSelectTab={handleTabChange}
         performanceBand={report.scores?.overall_band || report.overall_readiness}
       />
-      <main className="flex-1 min-h-0 mx-auto w-full max-w-3xl px-2 py-2 sm:px-3 overflow-hidden">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-5 sm:px-6 pb-12">
         {activeTab === "Overview" && (
           <OverviewContent
             report={report}

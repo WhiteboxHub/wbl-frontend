@@ -139,8 +139,8 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
         </p>
       </div>
 
-      {/* ── Player (for non-YouTube video) ── */}
-      {youtube_url && !youtube_url.includes("youtube.com") && !youtube_url.includes("youtu.be") && (
+      {/* ── Player ── */}
+      {youtube_url && (
         <section className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Recording Playback
