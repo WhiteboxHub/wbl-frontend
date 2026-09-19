@@ -60,13 +60,19 @@ export const assessmentService = {
     try {
       const offset = (page - 1) * limit;
       const queryParams = new URLSearchParams({
-        limit: String(limit),
+        limit: String(Math.min(limit, 100)),
         offset: String(offset),
       });
 
       if (filters.candidate_id?.trim()) {
-        queryParams.set("candidate_id", filters.candidate_id.trim());
+        const rawCand = filters.candidate_id.trim();
+        if (/^\d+$/.test(rawCand)) {
+          queryParams.set("candidate_id", rawCand);
+        } else if (rawCand.toLowerCase().startsWith("cand-") && /^\d+$/.test(rawCand.slice(5))) {
+          queryParams.set("candidate_id", rawCand.slice(5));
+        }
       }
+
       if (filters.status && filters.status !== "all") {
         queryParams.set("status", filters.status);
       }
@@ -107,6 +113,55 @@ export const assessmentService = {
     }
   },
 
+  fetchAllEmployeeAssessments: async (): Promise<AssessmentListApiResponse> => {
+    try {
+      const firstRes = await apiFetch(`api/aiprep/employee/assessments?limit=100&offset=0`);
+      let items: AssessmentGridItem[] = firstRes?.items || [];
+      const total: number = firstRes?.total ?? items.length;
+
+      if (total > items.length && items.length > 0) {
+        const totalPagesToFetch = Math.ceil(total / 100);
+        const remainingFetches = [];
+        for (let p = 2; p <= totalPagesToFetch; p++) {
+          const nextOffset = (p - 1) * 100;
+          remainingFetches.push(
+            apiFetch(`api/aiprep/employee/assessments?limit=100&offset=${nextOffset}`)
+          );
+        }
+        const pagesRes = await Promise.all(remainingFetches);
+        for (const pr of pagesRes) {
+          if (pr?.items && Array.isArray(pr.items)) {
+            items = items.concat(pr.items);
+          }
+        }
+      }
+
+      const seen = new Set<number>();
+      const uniqueItems = items.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+
+      return {
+        items: uniqueItems,
+        total: uniqueItems.length,
+        page: 1,
+        limit: uniqueItems.length,
+        totalPages: 1,
+      };
+    } catch (err: any) {
+      console.warn("fetchAllEmployeeAssessments error:", err?.message);
+      return {
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 100,
+        totalPages: 1,
+      };
+    }
+  },
+
   fetchAssessmentDetail: async (assessmentId: number) => {
     try {
       const res = await apiFetch(
@@ -132,6 +187,21 @@ export const assessmentService = {
         questions: [],
         telemetry: {},
       };
+    }
+  },
+
+  deleteAssessment: async (assessmentId: number) => {
+    try {
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      return res;
+    } catch (err: any) {
+      console.warn("deleteAssessment error:", err?.message);
+      return null;
     }
   },
 };
