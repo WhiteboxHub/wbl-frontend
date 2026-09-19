@@ -253,23 +253,23 @@ export function AIPrepDashboard({
 
         {/* Readiness banner */}
         {!loading && view === "home" && !isReady && readinessBannerMessage && (
-          <div className="mt-4 flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
+          <div className="mt-4 flex items-center gap-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-rose-700 dark:text-rose-300">
             <AlertBadge />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold">{readinessBannerMessage.title}</p>
-              <p className="text-xs">{readinessBannerMessage.body}</p>
+              <p className="text-xs text-rose-600 dark:text-rose-400">{readinessBannerMessage.body}</p>
             </div>
             {readinessBannerMessage.fix === "both" ? (
               <div className="flex gap-2">
                 <button
                   onClick={() => goToSetup("my-llm-setup")}
-                  className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 cursor-pointer"
+                  className="whitespace-nowrap rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
                 >
                   LLM Setup →
                 </button>
                 <button
                   onClick={() => goToSetup("my-resume")}
-                  className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 cursor-pointer"
+                  className="whitespace-nowrap rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
                 >
                   Resume →
                 </button>
@@ -283,7 +283,7 @@ export function AIPrepDashboard({
                       : "my-resume"
                   )
                 }
-                className="whitespace-nowrap rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-bold text-indigo-600 cursor-pointer"
+                className="whitespace-nowrap rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
               >
                 Complete setup →
               </button>
@@ -293,7 +293,7 @@ export function AIPrepDashboard({
 
         {/* API error banner */}
         {apiError && (
-          <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <p className="mt-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
             {apiError}
           </p>
         )}
@@ -301,7 +301,7 @@ export function AIPrepDashboard({
         {/* Main content */}
         {loading ? (
           <div className="grid min-h-[330px] place-items-center">
-            <LoaderCircle className="animate-spin text-indigo-600" />
+            <LoaderCircle className="animate-spin text-indigo-600 dark:text-indigo-400" />
           </div>
         ) : view === "assessment" ? (
           <DeviceCheckWizard onCancel={() => setView("home")} />
@@ -314,7 +314,7 @@ export function AIPrepDashboard({
                   Choose what you want to do next.
                 </p>
               </div>
-              <Sparkles className="text-indigo-500" size={20} />
+              <Sparkles className="text-indigo-500 dark:text-indigo-400" size={20} />
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -385,28 +385,28 @@ export function AIPrepDashboard({
         {/* Setup modal */}
         {showSetupModal && (
           <div
-            className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/45 p-4"
+            className="fixed inset-0 z-[100] grid place-items-center bg-black/60 backdrop-blur-sm p-4"
             role="dialog"
             aria-modal="true"
           >
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-rose-600">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
                     <AlertCircle size={21} />
                   </span>
                   <div>
-                    <h2 className="font-bold text-slate-900">
+                    <h2 className="font-bold text-gray-900 dark:text-white">
                       Complete your AI Prep setup
                     </h2>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                       Finish the missing setup before using AI Prep.
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowSetupModal(false)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
+                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                   aria-label="Close setup modal"
                 >
                   <X size={20} />
@@ -420,15 +420,15 @@ export function AIPrepDashboard({
                       setShowSetupModal(false);
                       goToSetup("my-llm-setup");
                     }}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer"
+                    className="flex w-full items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3 text-left hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-3">
-                      <KeyRound className="text-indigo-600" size={19} />
+                      <KeyRound className="text-indigo-600 dark:text-indigo-400" size={19} />
                       <span>
-                        <b className="block text-sm text-slate-900">
+                        <b className="block text-sm text-gray-900 dark:text-white">
                           Go to LLM Setup
                         </b>
-                        <small className="text-slate-500">
+                        <small className="text-gray-500 dark:text-gray-400">
                           {llmStatus?.status === "failure"
                             ? llmStatus?.message ||
                             "LLM key is missing or invalid."
@@ -436,7 +436,7 @@ export function AIPrepDashboard({
                         </small>
                       </span>
                     </span>
-                    <b className="text-indigo-600">→</b>
+                    <b className="text-indigo-600 dark:text-indigo-400">→</b>
                   </button>
                 )}
 
@@ -446,15 +446,15 @@ export function AIPrepDashboard({
                       setShowSetupModal(false);
                       goToSetup("my-resume");
                     }}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer"
+                    className="flex w-full items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3 text-left hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer transition-colors"
                   >
                     <span className="flex items-center gap-3">
-                      <FileText className="text-indigo-600" size={19} />
+                      <FileText className="text-indigo-600 dark:text-indigo-400" size={19} />
                       <span>
-                        <b className="block text-sm text-slate-900">
+                        <b className="block text-sm text-gray-900 dark:text-white">
                           Go to Resume Setup
                         </b>
-                        <small className="text-slate-500">
+                        <small className="text-gray-500 dark:text-gray-400">
                           {resumeStatus?.message ||
                             "Used to tailor assessment questions."}
                         </small>
@@ -467,7 +467,7 @@ export function AIPrepDashboard({
 
               <button
                 onClick={() => setShowSetupModal(false)}
-                className="mt-5 w-full rounded-lg bg-slate-100 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200 cursor-pointer"
+                className="mt-5 w-full rounded-lg bg-gray-100 dark:bg-gray-800 py-2.5 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors"
               >
                 Not now
               </button>

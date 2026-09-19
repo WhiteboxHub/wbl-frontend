@@ -55,22 +55,43 @@ export default function TechnicalReport({ report }: Props) {
 
   const overallBand = scores?.overall_band || report.overall_readiness;
 
-  const strengths = technical_analysis?.strengths ?? [];
+  const strengths = (technical_analysis?.strengths && technical_analysis.strengths.length > 0)
+    ? technical_analysis.strengths
+    : (report.strongest_points && report.strongest_points.length > 0)
+      ? report.strongest_points
+      : (report.overall_strongest_signal ? [report.overall_strongest_signal] : []);
   const displayedStrengths = strengths.slice(0, 3);
 
-  const improvements = technical_analysis?.areas_for_improvement ?? [];
+  const improvements = (technical_analysis?.areas_for_improvement && technical_analysis.areas_for_improvement.length > 0)
+    ? technical_analysis.areas_for_improvement
+    : (report.priority_improvements && report.priority_improvements.length > 0)
+      ? report.priority_improvements.map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || "")).filter(Boolean)
+      : (report.critical_gaps && report.critical_gaps.length > 0)
+        ? report.critical_gaps.map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || "")).filter(Boolean)
+        : (report.overall_biggest_gap ? [report.overall_biggest_gap] : []);
   const displayedImprovements = improvements.slice(0, 3);
 
-  const validationTopics = gaps_to_validate ?? [];
+  const validationTopics = (gaps_to_validate && gaps_to_validate.length > 0)
+    ? gaps_to_validate
+    : (report.critical_gaps && report.critical_gaps.length > 0)
+      ? report.critical_gaps.map((g) => ({
+          topic: g.topic || "Validation Topic",
+          reason: g.what_is_missing || g.why_it_matters || g.suggested_addition || "Candidate should elaborate on this in follow-up.",
+        }))
+      : [];
   const techEvidence = transcript_evidence?.filter(e =>
     e.dimension?.toLowerCase().includes("tech")
   ) ?? [];
 
+  const summary = technical_analysis?.summary || report.overall_summary;
+  const isCompleted = report.assessment?.status === "COMPLETED" || Boolean(report.overall_readiness);
+
   const hasContent = Boolean(
-    technical_analysis?.summary ||
+    summary ||
     strengths.length > 0 ||
     improvements.length > 0 ||
-    validationTopics.length > 0
+    validationTopics.length > 0 ||
+    isCompleted
   );
 
   if (!hasContent) {
@@ -80,6 +101,8 @@ export default function TechnicalReport({ report }: Props) {
       </p>
     );
   }
+
+  const depthAssessment = technical_analysis?.depth_assessment || (report.intro_quality?.technical_depth ? `Technical depth: ${formatBand(report.intro_quality.technical_depth)}` : undefined);
 
   return (
     <div className="space-y-6">
@@ -92,28 +115,30 @@ export default function TechnicalReport({ report }: Props) {
       </div>
 
       {/* 2. Compact Technical Assessment Card */}
-      {technical_analysis?.summary && (
+      {summary && (
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="size-4 text-violet-600" />
-              <h3 className="text-base font-bold text-slate-900">Technical Assessment</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                {technical_analysis?.summary ? "Technical Assessment" : "Performance & Technical Assessment"}
+              </h3>
             </div>
             {overallBand && <Badge status={overallBand} />}
           </div>
 
           <p className="text-sm leading-relaxed text-slate-700">
-            {technical_analysis.summary}
+            {summary}
           </p>
 
-          {technical_analysis.depth_assessment && (
+          {depthAssessment && (
             <div className="mt-3.5 rounded-lg bg-slate-50 border border-slate-100 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                   Architectural Depth
                 </p>
                 <p className="text-xs text-slate-600 italic line-clamp-2">
-                  {technical_analysis.depth_assessment}
+                  {depthAssessment}
                 </p>
               </div>
               <button
@@ -122,12 +147,12 @@ export default function TechnicalReport({ report }: Props) {
                   setActiveModal({
                     type: "depth",
                     title: "Architectural Depth Assessment",
-                    content: technical_analysis.depth_assessment!,
+                    content: depthAssessment,
                   })
                 }
-                className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 hover:text-violet-700 transition-colors shrink-0"
               >
-                View details <ArrowRight className="size-3" />
+                View details <ArrowRight className="size-3.5" />
               </button>
             </div>
           )}

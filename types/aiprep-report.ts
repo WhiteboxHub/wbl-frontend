@@ -22,27 +22,35 @@ import type { AssessmentDataResponse, AssessmentDetail, AssessmentReportResponse
 type Dict = Record<string, unknown>;
 const asRecord = (v: unknown): Dict =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Dict) : {};
-const asStr = (v: unknown): string | undefined =>
-  typeof v === "string" && v.trim() ? v.trim() : undefined;
+const asStr = (v: unknown): string | undefined => {
+  if (typeof v !== "string") return undefined;
+  const trimmed = v.trim();
+  if (!trimmed || trimmed.toLowerCase() === "null" || trimmed.toLowerCase() === "undefined") {
+    return undefined;
+  }
+  return trimmed;
+};
 const asStrArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.map(asStr).filter(Boolean) as string[] : [];
 const nested = (v: unknown, key: string): Dict => asRecord(asRecord(v)[key]);
 
-/** Convert backend band/readiness enum to display label */
+/** Convert backend band/readiness enum to display label (Good / Average / Needs Improvement) */
 export function formatBand(raw?: string | null): string | undefined {
   if (!raw) return undefined;
   const map: Record<string, string> = {
-    EXCELLENT:           "Excellent",
-    STRONG:              "Strong",
+    EXCELLENT:           "Good",
+    STRONG:              "Good",
     GOOD:                "Good",
-    ADEQUATE:            "Adequate",
-    DEVELOPING:          "Developing",
+    ADEQUATE:            "Average",
+    AVERAGE:             "Average",
+    DEVELOPING:          "Average",
     NEEDS_WORK:          "Needs Improvement",
     NEEDS_POLISH:        "Needs Improvement",
+    NEEDS_IMPROVEMENT:   "Needs Improvement",
     WEAK:                "Needs Improvement",
-    COVERED:             "Covered",
-    PARTIAL:             "Partial",
-    NOT_MENTIONED:       "Not Mentioned",
+    COVERED:             "Good",
+    PARTIAL:             "Needs Improvement",
+    NOT_MENTIONED:       "Needs Improvement",
     NOT_APPLICABLE:      "N/A",
     INSUFFICIENT_DATA:   "Insufficient Data",
   };
@@ -53,16 +61,19 @@ export function formatBand(raw?: string | null): string | undefined {
 export function bandColor(band?: string): string {
   switch (band?.toUpperCase()) {
     case "EXCELLENT":
-    case "STRONG":        return "bg-emerald-100 text-emerald-800";
+    case "STRONG":
     case "GOOD":
-    case "ADEQUATE":      return "bg-sky-100 text-sky-800";
-    case "DEVELOPING":
-    case "NEEDS_POLISH":  return "bg-amber-100 text-amber-800";
+    case "COVERED":       return "bg-emerald-100 text-emerald-800";
+    case "AVERAGE":
+    case "ADEQUATE":
+    case "DEVELOPING":    return "bg-sky-100 text-sky-800";
     case "NEEDS_WORK":
-    case "WEAK":          return "bg-rose-100 text-rose-800";
-    case "COVERED":       return "bg-green-100 text-green-800";
-    case "PARTIAL":       return "bg-yellow-100 text-yellow-800";
-    case "NOT_MENTIONED": return "bg-slate-100 text-slate-600";
+    case "NEEDS_POLISH":
+    case "NEEDS_IMPROVEMENT":
+    case "WEAK":
+    case "PARTIAL":
+    case "NOT_MENTIONED": return "bg-rose-100 text-rose-800";
+    case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500";
     default:              return "bg-slate-100 text-slate-500";
   }
 }
@@ -521,13 +532,7 @@ export function normalizeReport(
   } : undefined;
 
   // ── Technical analysis ───────────────────────────────────────────────────
-  const ta = asRecord(txEval.technical_analysis_json ?? repData.technical_analysis_json);
-  const technical_analysis = Object.keys(ta).length ? {
-    summary: asStr(ta.summary),
-    strengths: asStrArray(ta.strengths),
-    areas_for_improvement: asStrArray(ta.areas_for_improvement),
-    depth_assessment: asStr(ta.depth_assessment),
-  } : undefined;
+
 
   // ── Non-technical analysis ───────────────────────────────────────────────
   const nt = asRecord(txEval.non_technical_analysis_json ?? repData.non_technical_analysis_json);
@@ -608,20 +613,46 @@ export function normalizeReport(
     most_important_improvement: asStr(fa.most_important_improvement),
   } : undefined;
 
-  // ── Coaching suggestions ─────────────────────────────────────────────────
-  const rawCoaching = txEval.coaching_suggestions_json ?? repData.coaching_suggestions_json;
-  const coaching_suggestions: CoachingSuggestion[] = Array.isArray(rawCoaching)
-    ? rawCoaching.map((c: unknown) => {
-        const cs = asRecord(c);
-        return {
-          priority: typeof cs.priority === "number" ? cs.priority : undefined,
-          dimension: asStr(cs.dimension),
-          area: asStr(cs.area),
-          suggestion: asStr(cs.suggestion),
-          evidence: asStr(cs.evidence),
-        };
-      })
-    : [];
+  // ── Technical analysis (with fallbacks for intro & task evaluations) ──────
+  const ta = asRecord(txEval.technical_analysis_json ?? repData.technical_analysis_json);
+  const taSummary =
+    asStr(ta.summary) ??
+    asStr(overallAssessment.summary) ??
+    asStr(introEval.observation) ??
+    asStr(nt.communication_summary);
+  const taStrengths =
+    asStrArray(ta.strengths).length > 0
+      ? asStrArray(ta.strengths)
+      : asStrArray(introEval.strongest_points).length > 0
+        ? asStrArray(introEval.strongest_points)
+        : (overallAssessment.strongest_signal ? [overallAssessment.strongest_signal] : []);
+  const taImprovements =
+    asStrArray(ta.areas_for_improvement).length > 0
+      ? asStrArray(ta.areas_for_improvement)
+      : priority_improvements.length > 0
+        ? priority_improvements
+            .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
+            .filter(Boolean)
+        : critical_gaps.length > 0
+          ? critical_gaps
+              .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
+              .filter(Boolean)
+          : (overallAssessment.biggest_gap ? [overallAssessment.biggest_gap] : []);
+  const taDepth =
+    asStr(ta.depth_assessment) ??
+    asStr(final_assessment?.ai_engineering_depth) ??
+    asStr(final_assessment?.production_engineering_depth) ??
+    (intro_quality?.technical_depth ? `Technical depth: ${intro_quality.technical_depth}` : undefined);
+
+  const technical_analysis =
+    Object.keys(ta).length || taSummary || taStrengths.length > 0 || taImprovements.length > 0
+      ? {
+          summary: taSummary,
+          strengths: taStrengths,
+          areas_for_improvement: taImprovements,
+          depth_assessment: taDepth,
+        }
+      : undefined;
 
   // ── Improvements ─────────────────────────────────────────────────────────
   const rawImprovements = txEval.improvements_json ?? repData.improvements_json;
@@ -637,14 +668,83 @@ export function normalizeReport(
       })
     : [];
 
-  // ── Gaps to validate ─────────────────────────────────────────────────────
+  // ── Coaching suggestions (with fallbacks for completed evaluations) ──────
+  const rawCoaching = txEval.coaching_suggestions_json ?? repData.coaching_suggestions_json;
+  let coaching_suggestions: CoachingSuggestion[] = Array.isArray(rawCoaching)
+    ? rawCoaching.map((c: unknown) => {
+        const cs = asRecord(c);
+        return {
+          priority: typeof cs.priority === "number" ? cs.priority : undefined,
+          dimension: asStr(cs.dimension),
+          area: asStr(cs.area),
+          suggestion: asStr(cs.suggestion),
+          evidence: asStr(cs.evidence),
+        };
+      })
+    : [];
+
+  if (coaching_suggestions.length === 0) {
+    if (priority_improvements.length > 0) {
+      coaching_suggestions = priority_improvements.map((p, idx) => ({
+        priority: typeof p.priority === "number" ? p.priority : idx + 1,
+        dimension: "Delivery & Structure",
+        area: p.topic || `Priority ${idx + 1}`,
+        suggestion: [p.guidance, p.example ? `Example: ${p.example}` : ""].filter(Boolean).join(" "),
+        evidence: p.example,
+      }));
+    } else if (critical_gaps.length > 0) {
+      coaching_suggestions = critical_gaps.map((g, idx) => ({
+        priority: idx + 1,
+        dimension: "Content Coverage",
+        area: g.topic || `Focus Area ${idx + 1}`,
+        suggestion: [g.what_is_missing, g.suggested_addition ? `Recommendation: ${g.suggested_addition}` : ""].filter(Boolean).join(" ") || "Improve coverage and depth.",
+        evidence: g.why_it_matters,
+      }));
+    } else if (improvements.length > 0) {
+      coaching_suggestions = improvements.map((imp, idx) => ({
+        priority: typeof imp.priority === "number" ? imp.priority : idx + 1,
+        dimension: "Interview Performance",
+        area: imp.topic || `Recommendation ${idx + 1}`,
+        suggestion: imp.rationale || "",
+        evidence: imp.effort ? `Estimated effort: ${imp.effort}` : undefined,
+      }));
+    } else if (final_assessment?.most_important_improvement) {
+      coaching_suggestions = [
+        {
+          priority: 1,
+          dimension: "Core Focus",
+          area: "Primary Improvement",
+          suggestion: final_assessment.most_important_improvement,
+        },
+      ];
+    }
+  }
+
+  // ── Gaps to validate (with fallbacks) ─────────────────────────────────────
   const rawGaps = txEval.gaps_to_validate_json ?? repData.gaps_to_validate_json;
-  const gaps_to_validate: GapItem[] = Array.isArray(rawGaps)
+  let gaps_to_validate: GapItem[] = Array.isArray(rawGaps)
     ? rawGaps.map((g: unknown) => {
         const gap = asRecord(g);
         return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
       })
     : [];
+
+  if (gaps_to_validate.length === 0) {
+    if (critical_gaps.length > 0) {
+      gaps_to_validate = critical_gaps.map((g) => ({
+        topic: g.topic || "Validation Topic",
+        reason: g.what_is_missing || g.why_it_matters || g.suggested_addition || "Candidate should elaborate on this in follow-up.",
+      }));
+    } else {
+      const partials = intro_sections.filter((s) => s.status && s.status !== "COVERED");
+      if (partials.length > 0) {
+        gaps_to_validate = partials.map((s) => ({
+          topic: s.title,
+          reason: s.observation || "Not fully covered during delivery.",
+        }));
+      }
+    }
+  }
 
   // ── Transcript evidence ───────────────────────────────────────────────────
   const rawEvidence = txEval.transcript_evidence_json ?? repData.transcript_evidence_json;
@@ -673,9 +773,18 @@ export function normalizeReport(
     asStr(overallAssessment.summary) ??
     asStr(non_technical?.communication_summary);
 
+  const resolvedMediaUrl = assessment.youtube_url?.trim() || null;
+
+  const normalizedMediaType = (assessment.media_type || "AUDIO").toUpperCase();
+  const normalizedAssessment = {
+    ...assessment,
+    media_type: normalizedMediaType,
+    youtube_url: resolvedMediaUrl,
+  };
+
   return {
-    assessment,
-    youtube_url: assessment.youtube_url ?? null,
+    assessment: normalizedAssessment,
+    youtube_url: resolvedMediaUrl,
     overall_readiness: overallReadiness,
     overall_summary: overallSummary,
     overall_strongest_signal: asStr(overallAssessment.strongest_signal),
