@@ -707,7 +707,7 @@ export default function AiPrepReport({
   const { assessment } = report;
 
   return (
-    <div className="min-h-screen bg-[#f7f9fc] flex flex-col">
+    <div className="h-[100dvh] overflow-hidden bg-[#f7f9fc] flex flex-col">
       <ReportHeader
         assessment={assessment}
         assessmentId={assessmentId}
@@ -715,7 +715,7 @@ export default function AiPrepReport({
         onSelectTab={handleTabChange}
         performanceBand={report.scores?.overall_band || report.overall_readiness}
       />
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-5 sm:px-6 pb-12">
+      <main className="flex-1 min-h-0 w-full max-w-6xl mx-auto overflow-y-auto px-4 py-5 sm:px-6 pb-12">
         {activeTab === "Overview" && (
           <OverviewContent
             report={report}
