@@ -1379,7 +1379,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white dark:bg-slate-900">
 
           {/* Top Bar Header */}
-          <div className="relative w-full px-3 sm:px-6 py-2 sm:py-2.5 min-h-[44px] sm:min-h-[50px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
+          <div className="relative w-full px-3 sm:px-6 py-1.5 sm:py-2 min-h-[46px] sm:min-h-[48px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
             <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
               {[
                 { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
@@ -1391,20 +1391,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                 return (
                   <div key={key} className="flex items-center gap-1 sm:gap-2">
                     <div className="flex items-center gap-1 sm:gap-1.5">
-                      <span className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
+                      <span className={`w-6 h-6 sm:w-6.5 sm:h-6.5 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
                         {isDone ? <Check className="w-3 h-3 stroke-[3]" /> : num}
                       </span>
-                      <span className={`text-[11px] sm:text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
+                      <span className={`text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
                         <span className="hidden md:inline">{label}</span>
                         <span className="inline md:hidden">{shortLabel}</span></span>
                     </div>
-                    {idx < arr.length - 1 && <div className={`w-2 sm:w-4 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+                    {idx < arr.length - 1 && <div className={`w-2.5 sm:w-5 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
                   </div>);
               })}
             </div></div>
 
           {/* Content Body */}
-          <div className={`flex-1 min-h-0 min-w-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' || step === 'PRACTICE_START' ? 'overflow-hidden p-0' : 'overflow-y-auto p-2 sm:p-4 md:px-6 md:py-4'}`}>
+          <div className={`flex-1 min-h-0 min-w-0 flex flex-col items-center w-full ${step === 'DEVICE_CHECK' || step === 'PRACTICE_START' ? 'overflow-hidden p-0' : 'overflow-y-auto p-2 sm:p-3 md:px-5 md:py-3'}`}>
 
             {/* STEP 1: CONFIGURATION */}
             {step === 'CONFIGURATION' && (
@@ -1417,11 +1417,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
             {/* STEP 2: CONSENT */}
             {step === 'CONSENT' && (
-              <div className="w-full max-w-6xl mx-auto mt-0 mb-auto flex flex-col py-0"><ConsentStep
-                videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled} consentMic={consentMic} setConsentMic={setConsentMic}
-                consentCamera={consentCamera} setConsentCamera={setConsentCamera} videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
-                consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording} consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
-                onBack={handlePrevious} onNext={handleNext} /></div>
+              <div className="w-full max-w-4xl xl:max-w-5xl mx-auto mt-0 mb-auto flex flex-col py-0 px-1 sm:px-2">
+                <ConsentStep
+                  videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled} consentMic={consentMic} setConsentMic={setConsentMic}
+                  consentCamera={consentCamera} setConsentCamera={setConsentCamera} videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
+                  consentSaveRecording={consentSaveRecording} setConsentSaveRecording={setConsentSaveRecording} consentSaveTranscript={consentSaveTranscript} setConsentSaveTranscript={setConsentSaveTranscript}
+                  onBack={handlePrevious} onNext={handleNext} />
+              </div>
             )}
 
             {/* STEP 3: DEVICE CHECK */}
@@ -1445,16 +1447,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                     {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
                     <div className={`grid grid-cols-1 lg:grid-cols-12 ${isCompact ? 'gap-3 lg:gap-4' : 'gap-4 lg:gap-6'} items-start w-full mx-auto flex-1 min-h-0`}>
-                      <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col ${isCompact ? 'space-y-1.5' : (allChecksPass ? 'space-y-2.5 sm:space-y-3' : 'space-y-2')}`}>
+                      <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col mt-3 sm:mt-4 ${isCompact ? 'space-y-1.5' : (allChecksPass ? 'space-y-2.5 sm:space-y-3' : 'space-y-2')}`}>
                         {/* Video Viewport Frame */}
                         <div
                           style={{
                             minHeight: isCompact
-                              ? (hasVisibleErrorCard ? '280px' : '350px')
-                              : (hasVisibleErrorCard ? '320px' : '400px'),
+                              ? (hasVisibleErrorCard ? '275px' : '335px')
+                              : (hasVisibleErrorCard ? '295px' : '365px'),
                             height: isCompact
-                              ? (hasVisibleErrorCard ? '280px' : '350px')
-                              : (hasVisibleErrorCard ? '320px' : '400px'),
+                              ? (hasVisibleErrorCard ? '275px' : '335px')
+                              : (hasVisibleErrorCard ? '295px' : '365px'),
                           }}
                           className="relative w-full shrink-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-slate-950"
                         >
@@ -1592,9 +1594,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
-                                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><WifiOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+                                    <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                      <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><WifiOff className="w-4 h-4" /></div>
                                       <div className="space-y-0.5 flex-1 min-w-0">
                                         <h4 className={`${isCompact ? 'text-[11px]' : 'text-[11.5px] sm:text-xs'} font-bold text-rose-600 dark:text-rose-400 leading-tight`}>{internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}</h4>
                                         <ul className={`space-y-0.5 ${isCompact ? 'text-[10px]' : 'text-[10.5px] sm:text-[11.5px]'} text-slate-700 dark:text-slate-200 font-medium`}>
@@ -1627,9 +1629,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 </div>
                               )}
                               {showCameraCard && (
-                                <div className={`w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl text-left flex flex-col sm:flex-row items-start sm:items-center justify-between animate-in fade-in duration-200 shadow-2xs ${isCompact ? 'py-1.5 px-3 gap-2' : 'py-2 px-3.5 gap-2.5'}`}>
-                                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                                    <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VideoOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                <div className={`w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl text-left flex flex-col sm:flex-row items-start sm:items-center justify-between animate-in fade-in duration-200 shadow-2xs ${isCompact ? 'py-2 px-3 gap-2.5' : 'py-2.5 px-3.5 gap-3'}`}>
+                                  <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                    <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VideoOff className="w-4 h-4" /></div>
                                     <div className="space-y-0.5 flex-1 min-w-0">
                                       <h4 className={`${isCompact ? 'text-[11px]' : 'text-[11.5px] sm:text-xs'} font-bold text-rose-600 dark:text-rose-400 leading-tight`}>Camera not detected or access blocked. Please check:</h4>
                                       <ul className={`space-y-0.5 ${isCompact ? 'text-[10px]' : 'text-[10.5px] sm:text-[11.5px]'} text-slate-700 dark:text-slate-200 font-medium`}>
@@ -1662,9 +1664,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 </div>
                               )}
                               {showMicCard && (
-                                <div className={`w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl text-left flex flex-col sm:flex-row items-start sm:items-center justify-between animate-in fade-in duration-200 shadow-2xs ${isCompact ? 'py-1.5 px-3 gap-2' : 'py-2 px-3.5 gap-2.5'}`}>
-                                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                                    <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><MicOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                <div className={`w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl text-left flex flex-col sm:flex-row items-start sm:items-center justify-between animate-in fade-in duration-200 shadow-2xs ${isCompact ? 'py-2 px-3 gap-2.5' : 'py-2.5 px-3.5 gap-3'}`}>
+                                  <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                    <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><MicOff className="w-4 h-4" /></div>
                                     <div className="space-y-0.5 flex-1 min-w-0">
                                       <h4 className={`${isCompact ? 'text-[11px]' : 'text-[11.5px] sm:text-xs'} font-bold text-rose-600 dark:text-rose-400 leading-tight`}>Microphone not detected or no audio received. Please check:</h4>
                                       <ul className={`space-y-0.5 ${isCompact ? 'text-[10px]' : 'text-[10.5px] sm:text-[11.5px]'} text-slate-700 dark:text-slate-200 font-medium`}>
@@ -1697,9 +1699,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 </div>
                               )}
                               {showSpeakerCard && (
-                                <div className={`w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl text-left flex flex-col sm:flex-row items-start sm:items-center justify-between animate-in fade-in duration-200 shadow-2xs ${isCompact ? 'py-1.5 px-3 gap-2' : 'py-2 px-3.5 gap-2.5'}`}>
-                                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                                    <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VolumeX className="w-3 h-3 stroke-[2.5]" /></div>
+                                <div className={`w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl text-left flex flex-col sm:flex-row items-start sm:items-center justify-between animate-in fade-in duration-200 shadow-2xs ${isCompact ? 'py-2 px-3 gap-2.5' : 'py-2.5 px-3.5 gap-3'}`}>
+                                  <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                    <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VolumeX className="w-4 h-4" /></div>
                                     <div className="space-y-0.5 flex-1 min-w-0">
                                       <h4 className={`${isCompact ? 'text-[11px]' : 'text-[11.5px] sm:text-xs'} font-bold text-rose-600 dark:text-rose-400 leading-tight`}>We couldn&apos;t play the test sound. Please check:</h4>
                                       <ul className={`space-y-0.5 ${isCompact ? 'text-[10px]' : 'text-[10.5px] sm:text-[11.5px]'} text-slate-700 dark:text-slate-200 font-medium`}>
@@ -1745,7 +1747,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             : (audioDevices[0]?.deviceId || 'default');
 
                           return (
-                            <div className={`grid ${isCompact ? 'gap-2 pt-0.5 mt-1' : 'gap-3 sm:gap-3.5 pt-1 mt-1.5 sm:mt-2'} grid-cols-1 sm:grid-cols-3`}>
+                            <div className={`grid ${isCompact ? 'gap-2 pt-1 mt-2 sm:mt-2.5' : 'gap-3 sm:gap-3.5 pt-1 mt-2.5 sm:mt-3'} grid-cols-1 sm:grid-cols-3`}>
                               {/* Camera Column */}
                               <div className={`flex flex-col ${isCompact ? 'space-y-1' : 'space-y-1.5'}`}>
                                 <div>
@@ -1762,7 +1764,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         setAnalyticsTested(false);
                                         cleanup('VIDEO_ONLY');
                                       }}
-                                      className={`w-full ${isCompact ? 'h-8 text-xs pl-8.5 pr-6 rounded-lg' : 'h-8.5 sm:h-9 text-xs sm:text-[13px] pl-9 pr-7 rounded-xl'} bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600`}
+                                      className={`w-full ${isCompact ? 'h-8 text-xs pl-9 pr-6 rounded-lg' : 'h-9 text-xs sm:text-[13px] pl-10 pr-7 rounded-xl'} bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600`}
                                     >
                                       {videoDevices.length > 0 ? (
                                         videoDevices.map((d, i) => (
@@ -1779,7 +1781,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-rose-600 dark:text-rose-400 -mt-0.5 flex items-center gap-1 animate-in fade-in duration-150`}><VideoOff className="w-3 h-3 text-rose-500 shrink-0 stroke-[2.5]" /> Camera not working or access blocked</p>
                                 )}
                                 <div className="flex justify-start w-full">
-                                  <button type="button" onClick={() => testCamera()} disabled={testingCamera} className={`w-full max-w-[180px] ${isCompact ? 'h-8 px-3 text-xs rounded-lg' : 'h-8.5 sm:h-9 px-3.5 text-xs sm:text-[13px] rounded-xl'} font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${testingCamera ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
+                                  <button type="button" onClick={() => testCamera()} disabled={testingCamera} className={`w-full max-w-[180px] ${isCompact ? 'h-8 px-3 text-xs rounded-lg' : 'h-9 px-3.5 text-xs sm:text-[13px] rounded-xl'} font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${testingCamera ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
                                     {testingCamera ? (<span className="w-2 h-2 rounded-full bg-white animate-ping mr-0.5" />) : (<Video className="w-3.5 h-3.5 text-white stroke-[2.5]" />)}
                                     <span className="whitespace-nowrap">{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
                                   </button>
@@ -1800,7 +1802,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         setMicTested(false);
                                         cleanup('AUDIO_ONLY');
                                       }}
-                                      className={`w-full ${isCompact ? 'h-8 text-xs pl-8.5 pr-6 rounded-lg' : 'h-8.5 sm:h-9 text-xs sm:text-[13px] pl-9 pr-7 rounded-xl'} bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600`}
+                                      className={`w-full ${isCompact ? 'h-8 text-xs pl-9 pr-6 rounded-lg' : 'h-9 text-xs sm:text-[13px] pl-10 pr-7 rounded-xl'} bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600`}
                                     >
                                       {audioDevices.length > 0 ? (
                                         audioDevices.map((d, i) => (
@@ -1817,11 +1819,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-rose-600 dark:text-rose-400 -mt-0.5 flex items-center gap-1 animate-in fade-in duration-150`}><MicOff className="w-3 h-3 text-rose-500 shrink-0 stroke-[2.5]" /> Microphone not working or no audio</p>
                                 )}
                                 <div className="flex items-center justify-start gap-1.5 w-full">
-                                  <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`w-full max-w-[145px] ${isCompact ? 'h-8 px-2.5 text-xs rounded-lg' : 'h-8.5 sm:h-9 px-3 text-xs sm:text-[13px] rounded-xl'} font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${micTesting ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
+                                  <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`w-full max-w-[145px] ${isCompact ? 'h-8 px-2.5 text-xs rounded-lg' : 'h-9 px-3 text-xs sm:text-[13px] rounded-xl'} font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${micTesting ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
                                     {micTesting ? (<Mic className="w-3.5 h-3.5 text-white stroke-[2.5] animate-pulse" />) : (<Mic className="w-3.5 h-3.5 text-white stroke-[2.5]" />)}
                                     <span className="whitespace-nowrap">{micTesting ? 'Testing...' : micTested && micOk ? 'Retest Mic' : 'Test Mic'}</span>
                                   </button>
-                                  <div className={`${isCompact ? 'h-8 px-1.5 rounded-lg' : 'h-8.5 sm:h-9 px-2 rounded-xl'} bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 flex items-center justify-center gap-0.5 sm:gap-1 shrink-0 shadow-xs`}>
+                                  <div className={`${isCompact ? 'h-8 px-1.5 rounded-lg' : 'h-9 px-2 rounded-xl'} bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 flex items-center justify-center gap-0.5 sm:gap-1 shrink-0 shadow-xs`}>
                                     {[5, 12, 20, 30, 42, 55, 70, 85].map((threshold, i) => {
                                       const isLit = micTesting && micLevel >= threshold;
                                       return (
@@ -1841,7 +1843,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   <span className={`${isCompact ? 'text-[11px] mb-0.5' : 'text-xs sm:text-[13px] mb-1'} font-extrabold text-slate-950 dark:text-white block`}>Speaker</span>
                                   <div className="relative w-full">
                                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-300 pointer-events-none"><Volume2 className="w-3.5 h-3.5" /></div>
-                                    <div className={`w-full ${isCompact ? 'h-8 text-xs pl-8.5 pr-2.5 rounded-lg' : 'h-8.5 sm:h-9 text-xs sm:text-[13px] pl-9 pr-3 rounded-xl'} flex items-center bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 font-semibold text-slate-950 dark:text-white truncate shadow-xs`}>
+                                    <div className={`w-full ${isCompact ? 'h-8 text-xs pl-9 pr-2.5 rounded-lg' : 'h-9 text-xs sm:text-[13px] pl-10 pr-3 rounded-xl'} flex items-center bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 font-semibold text-slate-950 dark:text-white truncate shadow-xs`}>
                                       {speakerDevices[0]?.label || 'Default Speaker'}
                                     </div>
                                   </div>
@@ -1850,7 +1852,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-rose-600 dark:text-rose-400 -mt-0.5 flex items-center gap-1 animate-in fade-in duration-150`}><VolumeX className="w-3 h-3 text-rose-500 shrink-0 stroke-[2.5]" /> Speaker not working or no sound</p>
                                 )}
                                 {speakerTestState === 'confirming' ? (
-                                  <div className={`w-full max-w-[180px] mr-auto ${isCompact ? 'h-8 px-2 text-xs rounded-lg' : 'h-8.5 sm:h-9 px-2.5 text-xs rounded-xl'} inline-flex items-center justify-between bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 shadow-xs`}>
+                                  <div className={`w-full max-w-[180px] mr-auto ${isCompact ? 'h-8 px-2 text-xs rounded-lg' : 'h-9 px-2.5 text-xs rounded-xl'} inline-flex items-center justify-between bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 shadow-xs`}>
                                     <span className="font-bold text-[11px] text-slate-900 dark:text-white whitespace-nowrap">Hear sound?</span>
                                     <div className="flex items-center gap-1">
                                       <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-[10.5px] transition-colors shadow-xs cursor-pointer">Yes</button>
@@ -1859,7 +1861,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   </div>
                                 ) : (
                                   <div className="flex justify-start w-full">
-                                    <button type="button" onClick={() => playChimeTone()} className={`w-full max-w-[180px] ${isCompact ? 'h-8 px-3 text-xs rounded-lg' : 'h-8.5 sm:h-9 px-3.5 text-xs sm:text-[13px] rounded-xl'} font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${speakerTestState === 'playing' ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
+                                    <button type="button" onClick={() => playChimeTone()} className={`w-full max-w-[180px] ${isCompact ? 'h-8 px-3 text-xs rounded-lg' : 'h-9 px-3.5 text-xs sm:text-[13px] rounded-xl'} font-bold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 ${speakerTestState === 'playing' ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
                                       {speakerTestState === 'playing' ? (
                                         <Volume2 className="w-3.5 h-3.5 text-white stroke-[2.5] animate-pulse" />
                                       ) : (
@@ -1876,7 +1878,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       </div>
 
                       {/* Right Column: Device Status Card OR Permission Guide Card */}
-                      <div className={`col-span-1 lg:col-span-4 xl:col-span-4 flex flex-col ${isCompact ? 'space-y-1' : 'space-y-1.5 sm:space-y-2'}`}>
+                      <div className={`col-span-1 lg:col-span-4 xl:col-span-4 flex flex-col mt-3 sm:mt-4 ${isCompact ? 'space-y-1.5' : 'space-y-2'}`}>
                         {showPermissionGuide ? (
                           <div className={`bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl ${isCompact ? 'p-3 space-y-2' : 'p-4 sm:p-5 space-y-2.5 sm:space-y-3.5'} animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden`}>
                             <div className="flex items-start justify-between gap-3">
@@ -1940,18 +1942,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             </div>
                           </div>
                         ) : (
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200">
-                            <div className={`${isCompact ? 'px-3.5 pt-2 pb-1.5' : 'px-4 sm:px-5 pt-2.5 pb-2'}`}>
-                              <h3 className={`font-bold text-slate-900 dark:text-white leading-tight ${isCompact ? 'text-xs sm:text-sm' : 'text-sm sm:text-[15px]'}`}>Device Status</h3>
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200 flex flex-col">
+                            <div className="px-3.5 sm:px-4 py-2 sm:py-2.5 border-b border-slate-100 dark:border-slate-800/80">
+                              <h3 className="font-bold text-slate-900 dark:text-white leading-tight text-xs sm:text-[13px]">Device Status</h3>
                             </div>
-                            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800/80 flex flex-col">
                               {/* Browser support */}
-                              <div className={`flex items-center justify-between ${isCompact ? 'px-3.5 py-1.5' : 'px-4 sm:px-5 py-2 sm:py-2.25'}`}>
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0`}><Globe className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} /></div>
-                                  <span className={`${isCompact ? 'text-[11.5px]' : 'text-xs sm:text-[13px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Browser support</span>
+                              <div className="flex items-center justify-between px-3.5 sm:px-4 py-1.5 sm:py-2">
+                                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                  <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Globe className="w-3.5 h-3.5" /></div>
+                                  <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Browser support</span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px]' : 'text-xs sm:text-[12.5px]'} font-semibold text-emerald-600 shrink-0 ml-2`}>
+                                <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-emerald-600 shrink-0 ml-2">
                                   <CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" />
                                 </span>
                               </div>
@@ -1964,15 +1966,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     checkRealInternet().finally(() => setBandwidthChecking(false));
                                   }
                                 }}
-                                className={`flex items-center justify-between ${isCompact ? 'px-3.5 py-1.5' : 'px-4 sm:px-5 py-2 sm:py-2.25'} transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}
+                                className={`flex items-center justify-between px-3.5 sm:px-4 py-1.5 sm:py-2 transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`}
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full flex items-center justify-center shrink-0 ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' : internetStatus === 'unstable' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
-                                    {internetStatus === 'failed' ? <WifiOff className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} /> : <Wifi className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} />}
+                                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                  <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${internetStatus === 'passed' ? 'bg-emerald-50 text-emerald-600' : internetStatus === 'unstable' ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'bg-blue-50 text-blue-600' : 'bg-rose-50 text-rose-600'}`}>
+                                    {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
                                   </div>
-                                  <span className={`${isCompact ? 'text-[11.5px]' : 'text-xs sm:text-[13px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Internet connection</span>
+                                  <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Internet connection</span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px]' : 'text-xs sm:text-[12.5px]'} font-semibold shrink-0 ml-2 ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-purple-600' : 'text-rose-600'}`}>
+                                <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-2 ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-purple-600' : 'text-rose-600'}`}>
                                   {internetStatus === 'checking' ? (
                                     'Testing...'
                                   ) : internetStatus === 'passed' ? (
@@ -1995,15 +1997,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     testCamera();
                                   }
                                 }}
-                                className={`flex items-center justify-between ${isCompact ? 'px-3.5 py-1.5' : 'px-4 sm:px-5 py-2 sm:py-2.25'} transition-colors cursor-pointer ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
+                                className={`flex items-center justify-between px-3.5 sm:px-4 py-1.5 sm:py-2 transition-colors cursor-pointer ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : cameraTested && cameraOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                    {cameraTested && cameraOk === false ? <VideoOff className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} /> : <Video className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} />}
+                                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                  <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : cameraTested && cameraOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                    {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
                                   </div>
-                                  <span className={`${isCompact ? 'text-[11.5px]' : 'text-xs sm:text-[13px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Camera</span>
+                                  <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Camera</span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px]' : 'text-xs sm:text-[12.5px]'} font-semibold shrink-0 ml-2 ${testingCamera ? 'text-purple-600' : cameraTested && cameraOk ? 'text-emerald-600' : cameraTested && cameraOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-2 ${testingCamera ? 'text-purple-600' : cameraTested && cameraOk ? 'text-emerald-600' : cameraTested && cameraOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                   {testingCamera ? (
                                     'Testing...'
                                   ) : cameraTested && cameraOk ? (
@@ -2026,15 +2028,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     testMicrophone();
                                   }
                                 }}
-                                className={`flex items-center justify-between ${isCompact ? 'px-3.5 py-1.5' : 'px-4 sm:px-5 py-2 sm:py-2.25'} transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
+                                className={`flex items-center justify-between px-3.5 sm:px-4 py-1.5 sm:py-2 transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                    {micTested && micOk === false ? <MicOff className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} /> : <Mic className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} />}
+                                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                  <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                    {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                                   </div>
-                                  <span className={`${isCompact ? 'text-[11.5px]' : 'text-xs sm:text-[13px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Microphone</span>
+                                  <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Microphone</span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px]' : 'text-xs sm:text-[12.5px]'} font-semibold shrink-0 ml-2 ${micTesting ? 'text-purple-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-slate-500'}`}>
+                                <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-2 ${micTesting ? 'text-purple-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-slate-500'}`}>
                                   {micTesting ? (
                                     'Testing...'
                                   ) : micTested && micOk ? (
@@ -2050,20 +2052,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               {/* Speaker */}
                               <div
                                 onClick={() => playChimeTone()}
-                                className={`flex items-center justify-between ${isCompact ? 'px-3.5 py-1.5' : 'px-4 sm:px-5 py-2 sm:py-2.25'} cursor-pointer transition-colors ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
+                                className={`flex items-center justify-between px-3.5 sm:px-4 py-1.5 sm:py-2 cursor-pointer transition-colors ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                    {speakerTested && speakerOk === false ? <VolumeX className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} /> : <Volume2 className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} />}
+                                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                  <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                    {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                                   </div>
-                                  <span className={`${isCompact ? 'text-[11.5px]' : 'text-xs sm:text-[13px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Speaker</span>
+                                  <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Speaker</span>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px]' : 'text-xs sm:text-[12.5px]'} font-semibold shrink-0 ml-2 ${speakerTestState === 'playing' ? 'text-purple-600' : speakerTestState === 'confirming' ? 'text-amber-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-slate-500'}`}>
+                                <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-2 ${speakerTestState === 'playing' ? 'text-purple-600' : speakerTestState === 'confirming' ? 'text-amber-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-slate-500'}`}>
                                   {speakerTestState === 'playing' ? (
                                     'Playing...'
                                   ) : speakerTestState === 'confirming' ? (
                                     <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                      <span className="text-[10.5px] text-slate-500">Heard?</span>
+                                      <span className="text-[10px] text-slate-500">Heard?</span>
                                       <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition-colors">Yes</button>
                                       <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold transition-colors">No</button>
                                     </span>
@@ -2081,13 +2083,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               {videoAnalyticsEnabled && (
                                 <div
                                   onClick={testAnalytics}
-                                  className={`flex items-center justify-between ${isCompact ? 'px-3.5 py-1.5' : 'px-4 sm:px-5 py-2 sm:py-2.25'} transition-colors cursor-pointer ${analyticsTested && analyticsOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
+                                  className={`flex items-center justify-between px-3.5 sm:px-4 py-1.5 sm:py-2 transition-colors cursor-pointer ${analyticsTested && analyticsOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`}
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7 sm:w-8 sm:h-8'} rounded-full flex items-center justify-center shrink-0 ${analyticsTested && analyticsOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : analyticsTested && analyticsOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}><Activity className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'}`} /></div>
-                                    <span className={`${isCompact ? 'text-[11.5px]' : 'text-xs sm:text-[13px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Video analytics</span>
+                                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                    <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"><Activity className="w-3.5 h-3.5" /></div>
+                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Video analytics</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px]' : 'text-xs sm:text-[12.5px]'} font-semibold shrink-0 ml-2 ${analyticsTesting ? 'text-purple-600' : analyticsTested && analyticsOk ? 'text-emerald-600' : analyticsTested && analyticsOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-2 ${analyticsTesting ? 'text-purple-600' : analyticsTested && analyticsOk ? 'text-emerald-600' : analyticsTested && analyticsOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {analyticsTesting ? (
                                       'Testing...'
                                     ) : analyticsTested && analyticsOk ? (
@@ -2147,8 +2149,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       {/* Main Workspace Grid: Left Video/Audio card & Right Device Status card (Equal Height) */}
                       <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} items-stretch w-full mx-auto`}>
                         {/* Left Column: Video Viewport Frame / Audio-Only Card */}
-                        <div className="col-span-1 flex flex-col min-w-0 h-full">
-                          <div className={`relative w-full h-full flex-1 rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 ease-in-out ${!videoEnabled ? (isCompact ? 'min-h-[280px]' : 'min-h-[320px]') + ' bg-[#F7F9FE] dark:bg-slate-900/90' : 'aspect-video min-h-[240px] bg-slate-950'}`} >
+                        <div className="col-span-1 flex flex-col min-w-0 h-full mt-3 sm:mt-4">
+                          <div className={`relative w-full h-full flex-1 rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 ease-in-out ${!videoEnabled ? (isCompact ? 'min-h-[275px]' : 'min-h-[295px]') + ' bg-[#F7F9FE] dark:bg-slate-900/90' : 'aspect-video min-h-[275px] bg-slate-950'}`} >
                             {!videoEnabled ? (
                               <div className={`flex flex-col items-center justify-center text-center select-none w-full h-full ${hasVisibleErrorCard ? 'gap-1.5 p-3' : 'gap-2 p-3 sm:p-5'}`}>
                                 {speakerTested && speakerOk === false ? (
@@ -2303,7 +2305,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         </div>
 
                         {/* Right Column: Device Status Card OR Permission Guide Card */}
-                        <div className="col-span-1 flex flex-col space-y-1.5 min-w-0 h-full">
+                        <div className="col-span-1 flex flex-col space-y-2 min-w-0 mt-3 sm:mt-4">
                           {showPermissionGuide ? (
                             /* Browser Permissions Required Notice Card (Camera / Microphone) */
                             <div className="bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-2xl p-3.5 sm:p-4 space-y-2.5 animate-in fade-in zoom-in-95 duration-200 shadow-2xs text-left relative overflow-hidden">
@@ -2366,18 +2368,18 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               </div></div>
                           ) : (
                             /* Default Device Status Card */
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200 min-w-0">
-                              <div className={`${isCompact ? 'px-4 pt-2.5 pb-1.5' : 'px-4 sm:px-5 pt-3.5 pb-2'}`}>
-                                <h3 className={`font-bold text-slate-900 dark:text-white leading-tight ${isCompact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'}`}>Device Status</h3>
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200 min-w-0 flex flex-col">
+                              <div className="px-3.5 sm:px-4 py-2 sm:py-2.5 border-b border-slate-100 dark:border-slate-800/80">
+                                <h3 className="font-bold text-slate-900 dark:text-white leading-tight text-xs sm:text-[13px]">Device Status</h3>
                               </div>
-                              <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                                <div className={`flex items-center justify-between px-4 sm:px-5 min-w-0 ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'}`}>
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0`}><Globe className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /></div>
-                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Browser support</span>
+                              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 flex flex-col">
+                                <div className="flex items-center justify-between px-3.5 sm:px-4 min-w-0 py-1.5 sm:py-2">
+                                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                    <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Globe className="w-3.5 h-3.5" /></div>
+                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Browser support</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold text-emerald-600 shrink-0 ml-1.5 whitespace-nowrap`}>
-                                    <CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} />
+                                  <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-emerald-600 shrink-0 ml-1.5 whitespace-nowrap">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" />
                                   </span>
                                 </div>
                                 <div
@@ -2387,22 +2389,22 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       checkRealInternet().finally(() => setBandwidthChecking(false));
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`} >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600`}>
-                                      {internetStatus === 'failed' ? <WifiOff className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Wifi className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
+                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 py-1.5 sm:py-2 transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`} >
+                                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                    <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600">
+                                      {internetStatus === 'failed' ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
                                     </div>
-                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Internet connection</span>
+                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Internet connection</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-purple-600' : 'text-rose-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-purple-600' : 'text-rose-600'}`}>
                                     {internetStatus === 'checking' ? (
                                       'Testing...'
                                     ) : internetStatus === 'passed' ? (
-                                      <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     ) : internetStatus === 'unstable' ? (
-                                      <><AlertTriangle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Unstable <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><AlertTriangle className="w-3.5 h-3.5" /> Unstable <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     ) : (
-                                      <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     )}
                                   </span>
                                 </div>
@@ -2416,20 +2418,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                         testCamera();
                                       }
                                     }}
-                                    className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : cameraTested && cameraOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                        {cameraTested && cameraOk === false ? <VideoOff className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Video className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
+                                    className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 py-1.5 sm:py-2 transition-colors cursor-pointer ${cameraTested && cameraOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                      <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${cameraTested && cameraOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : cameraTested && cameraOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                        {cameraTested && cameraOk === false ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
                                       </div>
-                                      <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Camera</span>
+                                      <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Camera</span>
                                     </div>
-                                    <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${testingCamera ? 'text-purple-600' : cameraTested && cameraOk ? 'text-emerald-600' : cameraTested && cameraOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                    <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${testingCamera ? 'text-purple-600' : cameraTested && cameraOk ? 'text-emerald-600' : cameraTested && cameraOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                       {testingCamera ? (
                                         'Testing...'
                                       ) : cameraTested && cameraOk ? (
-                                        <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                        <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                       ) : cameraTested && cameraOk === false ? (
-                                        <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                        <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                       ) : (
                                         'Click to test'
                                       )}
@@ -2445,20 +2447,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       testMicrophone();
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                      {micTested && micOk === false ? <MicOff className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Mic className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
+                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 py-1.5 sm:py-2 transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                    <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                      {micTested && micOk === false ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                                     </div>
-                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Microphone</span>
+                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Microphone</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${micTesting ? 'text-purple-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${micTesting ? 'text-purple-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {micTesting ? (
                                       'Testing...'
                                     ) : micTested && micOk ? (
-                                      <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     ) : micTested && micOk === false ? (
-                                      <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     ) : (
                                       'Click to test'
                                     )}
@@ -2473,20 +2475,26 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       playChimeTone();
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                      {speakerTested && speakerOk === false ? <VolumeX className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> : <Volume2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />}
+                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 py-1.5 sm:py-2 transition-colors cursor-pointer ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                    <div className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                      {speakerTested && speakerOk === false ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                                     </div>
-                                    <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Speaker</span>
+                                    <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Speaker</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${speakerTestState === 'playing' ? 'text-purple-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${speakerTestState === 'playing' ? 'text-purple-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {speakerTestState === 'playing' ? (
                                       'Testing...'
+                                    ) : speakerTestState === 'confirming' ? (
+                                      <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <span className="text-[10px] text-slate-500">Heard?</span>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition-colors">Yes</button>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold transition-colors">No</button>
+                                      </span>
                                     ) : speakerTested && speakerOk ? (
-                                      <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     ) : speakerTested && speakerOk === false ? (
-                                      <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                      <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                     ) : (
                                       'Click to test'
                                     )}
@@ -2495,25 +2503,26 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                 {videoEnabled && videoAnalyticsEnabled && (
                                   <div
                                     onClick={testAnalytics}
-                                    className={`flex items-center justify-between px-4 sm:px-5 min-w-0 transition-colors cursor-pointer ${isCompact ? 'py-1.5 sm:py-2' : 'py-2.5 sm:py-3'} hover:bg-slate-50/70 dark:hover:bg-slate-800/40`} >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className={`${isCompact ? 'w-6.5 h-6.5' : 'w-8 h-8 sm:w-8.5 sm:h-8.5'} rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400`}><Activity className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /></div>
-                                      <span className={`${isCompact ? 'text-xs sm:text-[13px]' : 'text-[13px] sm:text-[14px]'} font-semibold text-slate-800 dark:text-slate-200 truncate`}>Video analytics</span>
+                                    className="flex items-center justify-between px-3.5 sm:px-4 min-w-0 py-1.5 sm:py-2 transition-colors cursor-pointer hover:bg-slate-50/70 dark:hover:bg-slate-800/40" >
+                                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                      <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"><Activity className="w-3.5 h-3.5" /></div>
+                                      <span className="text-xs sm:text-[12.5px] font-semibold text-slate-800 dark:text-slate-200 truncate">Video analytics</span>
                                     </div>
-                                    <span className={`inline-flex items-center gap-1 ${isCompact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-semibold shrink-0 ml-1.5 whitespace-nowrap ${analyticsTesting ? 'text-purple-600' : analyticsTested && analyticsOk ? 'text-emerald-600' : analyticsTested && analyticsOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                    <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${analyticsTesting ? 'text-purple-600' : analyticsTested && analyticsOk ? 'text-emerald-600' : analyticsTested && analyticsOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                       {analyticsTesting ? (
                                         'Testing...'
                                       ) : analyticsTested && analyticsOk ? (
-                                        <><CheckCircle2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Passed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                        <><CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                       ) : analyticsTested && analyticsOk === false ? (
-                                        <><XCircle className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /> Failed <ChevronRight className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} /></>
+                                        <><XCircle className="w-3.5 h-3.5" /> Failed <ChevronRight className="w-3 h-3 text-slate-400" /></>
                                       ) : (
                                         'Click to test'
                                       )}
                                     </span>
                                   </div>
                                 )}
-                              </div></div>
+                              </div>
+                            </div>
                           )}
                           {allChecksPass && (
                             <div className={`bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl flex items-center shadow-2xs min-w-0 ${isCompact ? 'p-2 gap-2' : 'p-2.5 sm:p-3 gap-2.5 sm:gap-3'}`}>
@@ -2565,9 +2574,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                           <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Latency</div></div></div></div>
 
                                     {/* Alert Card Header & Advice List with Try Again button */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
-                                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                                        <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5"><WifiOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+                                      <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                        <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><WifiOff className="w-4 h-4" /></div>
                                         <div className="space-y-0.5 flex-1 min-w-0">
                                           <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">{internetStatus === 'failed' ? 'Internet connection offline. Please check:' : 'Your connection may lead to a poor interview experience. Try:'}</h4>
                                           <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
@@ -2600,9 +2609,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                                 {/* Camera Troubleshooting Alert Card */}
                                 {showCameraCard && (
-                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
-                                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VideoOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
+                                    <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                      <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VideoOff className="w-4 h-4" /></div>
                                       <div className="space-y-0.5 flex-1 min-w-0">
                                         <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">Camera not detected or access blocked. Please check:</h4>
                                         <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
@@ -2634,9 +2643,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                                 {/* Microphone Troubleshooting Alert Card */}
                                 {showMicCard && (
-                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
-                                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><MicOff className="w-3 h-3 stroke-[2.5]" /></div>
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
+                                    <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                      <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><MicOff className="w-4 h-4" /></div>
                                       <div className="space-y-0.5 flex-1 min-w-0">
                                         <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">Microphone not detected or no audio received. Please check:</h4>
                                         <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
@@ -2668,9 +2677,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                                 {/* Speaker Troubleshooting Alert Card */}
                                 {showSpeakerCard && (
-                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-1.5 px-3 sm:py-2 sm:px-3 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in duration-200 shadow-2xs">
-                                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                                      <div className="w-4.5 h-4.5 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VolumeX className="w-3 h-3 stroke-[2.5]" /></div>
+                                  <div className="w-full bg-[#FFF5F5] dark:bg-rose-950/30 border border-rose-200/90 dark:border-rose-900/60 rounded-xl py-2 px-3 sm:py-2.5 sm:px-3.5 text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 animate-in fade-in duration-200 shadow-2xs">
+                                    <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+                                      <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs"><VolumeX className="w-4 h-4" /></div>
                                       <div className="space-y-0.5 flex-1 min-w-0">
                                         <h4 className="text-[11px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 leading-tight">We couldn&apos;t play the test sound. Please check:</h4>
                                         <ul className="space-y-0.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-200 font-medium">
@@ -2706,7 +2715,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       })()}
 
                       {/* Hardware Selectors: Left Column matches width of Left Video/Audio card */}
-                      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] ${isCompact ? 'gap-2.5 lg:gap-3' : 'gap-3 lg:gap-4'} w-full mx-auto`}>
+                      <div className={`grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] ${isCompact ? 'gap-2.5 lg:gap-3 mt-28 sm:mt-32' : 'gap-3 lg:gap-4 mt-32 sm:mt-36'} w-full mx-auto`}>
                         <div className="col-span-1 min-w-0">
                           {(() => {
                             const activeVideoValue = videoDevices.some((d) => d.deviceId === selectedVideoDevice)
@@ -2717,7 +2726,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               : (audioDevices[0]?.deviceId || 'default');
 
                             return (
-                              <div className={`grid transition-all duration-300 ${isCompact ? 'gap-2 sm:gap-2.5 pt-0.5 mt-0.5' : 'gap-3 sm:gap-4 pt-1 mt-1'} ${videoEnabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                              <div className={`grid transition-all duration-300 ${isCompact ? 'gap-2 sm:gap-2.5 pt-1 mt-1' : 'gap-3 sm:gap-4 pt-1.5 mt-1.5'} ${videoEnabled ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
                                 {videoEnabled && (
                                   <div className={`flex flex-col min-w-0 ${isCompact ? 'space-y-1 sm:space-y-1.5' : 'space-y-2 sm:space-y-2.5'}`}>
                                     <div>
@@ -2734,7 +2743,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                             setAnalyticsTested(false);
                                             cleanup('VIDEO_ONLY');
                                           }}
-                                          className={`w-full bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 ${isCompact ? 'pl-9 pr-6 h-9 sm:h-9.5 text-xs sm:text-[12.5px]' : 'pl-10 pr-8 h-10.5 sm:h-11 text-xs sm:text-[13.5px]'}`} >
+                                          className={`w-full bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 ${isCompact ? 'pl-9 pr-6 h-9 sm:h-10 text-xs sm:text-[12.5px]' : 'pl-10 pr-8 h-10 sm:h-11 text-xs sm:text-[13.5px]'}`} >
                                           {videoDevices.length > 0 ? (
                                             videoDevices.map((d, i) => (
                                               <option key={d.deviceId || `cam-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1.5 font-medium">{d.label || `Camera ${i + 1}`}</option>
@@ -2751,7 +2760,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     )}
 
                                     <div className="flex justify-start w-full">
-                                      <button type="button" onClick={() => testCamera()} disabled={testingCamera} className={`w-full ${isCompact ? 'max-w-[145px] px-3 h-9 sm:h-9.5 text-xs sm:text-[12.5px] gap-1.5' : 'max-w-[155px] sm:max-w-[165px] px-3.5 sm:px-4 h-10 sm:h-10.5 text-xs sm:text-[13px] gap-2'} rounded-xl font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${testingCamera ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
+                                      <button type="button" onClick={() => testCamera()} disabled={testingCamera} className={`w-full ${isCompact ? 'max-w-[145px] px-3 h-9 sm:h-10 text-xs sm:text-[12.5px] gap-1.5' : 'max-w-[155px] sm:max-w-[165px] px-3.5 sm:px-4 h-10 sm:h-11 text-xs sm:text-[13px] gap-2'} rounded-xl font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${testingCamera ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
                                         {testingCamera ? (<span className="w-2 h-2 rounded-full bg-white animate-ping mr-0.5" />) : (<Video className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-white stroke-[2.5]`} />)}
                                         <span className="whitespace-nowrap truncate">{testingCamera ? 'Testing...' : cameraTested && cameraOk ? 'Retest Camera' : 'Test Camera'}</span>
                                       </button>
@@ -2771,7 +2780,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                           setMicTested(false);
                                           cleanup('AUDIO_ONLY');
                                         }}
-                                        className={`w-full bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 ${isCompact ? 'pl-9 pr-6 h-9 sm:h-9.5 text-xs sm:text-[12.5px]' : 'pl-10 pr-8 h-10.5 sm:h-11 text-xs sm:text-[13.5px]'}`} >
+                                        className={`w-full bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl font-semibold text-slate-950 dark:text-white appearance-none cursor-pointer truncate shadow-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 ${isCompact ? 'pl-9 pr-6 h-9 sm:h-10 text-xs sm:text-[12.5px]' : 'pl-10 pr-8 h-10 sm:h-11 text-xs sm:text-[13.5px]'}`} >
                                         {audioDevices.length > 0 ? (
                                           audioDevices.map((d, i) => (
                                             <option key={d.deviceId || `mic-${i}`} value={d.deviceId} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-1.5 font-medium">{d.label || `Microphone ${i + 1}`}</option>
@@ -2788,11 +2797,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   )}
 
                                   <div className={`flex items-center justify-start ${isCompact ? 'gap-1.5' : 'gap-2'} w-full min-w-0`}>
-                                    <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`flex-1 min-w-0 ${isCompact ? 'max-w-[135px] px-2.5 h-9 sm:h-9.5 text-xs sm:text-[12.5px] gap-1.5' : 'max-w-[145px] sm:max-w-[155px] px-3 sm:px-3.5 h-10 sm:h-10.5 text-xs sm:text-[13px] gap-2'} rounded-xl font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${micTesting ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
+                                    <button type="button" onClick={() => testMicrophone()} disabled={micTesting} className={`flex-1 min-w-0 ${isCompact ? 'max-w-[135px] px-2.5 h-9 sm:h-10 text-xs sm:text-[12.5px] gap-1.5' : 'max-w-[145px] sm:max-w-[155px] px-3 sm:px-3.5 h-10 sm:h-11 text-xs sm:text-[13px] gap-2'} rounded-xl font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${micTesting ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
                                       <Mic className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-white stroke-[2.5]`} />
                                       <span className="whitespace-nowrap truncate">{micTesting ? 'Testing...' : micTested && micOk ? 'Retest Mic' : 'Test Mic'}</span>
                                     </button>
-                                    <div className={`${isCompact ? 'h-9 sm:h-9.5 px-2 gap-0.5' : 'h-10 sm:h-10.5 px-2.5 gap-1'} rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 flex items-center justify-center shrink-0 shadow-xs`}>
+                                    <div className={`${isCompact ? 'h-9 sm:h-10 px-2 gap-0.5' : 'h-10 sm:h-11 px-2.5 gap-1'} rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 flex items-center justify-center shrink-0 shadow-xs`}>
                                       {[5, 12, 20, 30, 42, 55, 70, 85].map((threshold, i) => {
                                         const isLit = micTesting && micLevel >= threshold;
                                         return (
@@ -2807,7 +2816,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     <span className={`font-extrabold text-slate-950 dark:text-white block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-[14px] mb-1.5'}`}>Speaker</span>
                                     <div className="relative w-full min-w-0">
                                       <div className={`absolute ${isCompact ? 'left-3' : 'left-3.5'} top-1/2 -translate-y-1/2 text-slate-600 dark:text-slate-300 pointer-events-none`}><Volume2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} /></div>
-                                      <div className={`w-full ${isCompact ? 'pl-9 pr-3 h-9 sm:h-9.5 text-xs sm:text-[12.5px]' : 'pl-10 pr-3 h-10.5 sm:h-11 text-xs sm:text-[13.5px]'} flex items-center bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl font-semibold text-slate-950 dark:text-white truncate shadow-xs`}>
+                                      <div className={`w-full ${isCompact ? 'pl-9 pr-3 h-9 sm:h-10 text-xs sm:text-[12.5px]' : 'pl-10 pr-3 h-10 sm:h-11 text-xs sm:text-[13.5px]'} flex items-center bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl font-semibold text-slate-950 dark:text-white truncate shadow-xs`}>
                                         {speakerDevices[0]?.label || 'Default Speaker'}
                                       </div></div></div>
 
@@ -2816,7 +2825,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   )}
 
                                   {speakerTestState === 'confirming' ? (
-                                    <div className={`w-full ${isCompact ? 'max-w-[160px] h-9 sm:h-9.5 px-2 text-[11px]' : 'max-w-[175px] h-10 sm:h-10.5 px-2.5 text-xs'} mr-auto rounded-xl inline-flex items-center justify-between bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 shadow-xs`}>
+                                    <div className={`w-full ${isCompact ? 'max-w-[160px] h-9 sm:h-10 px-2 text-[11px]' : 'max-w-[175px] h-10 sm:h-11 px-2.5 text-xs'} mr-auto rounded-xl inline-flex items-center justify-between bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 shadow-xs`}>
                                       <span className={`font-bold ${isCompact ? 'text-[11px]' : 'text-xs'} text-slate-900 dark:text-white whitespace-nowrap`}>Hear sound?</span>
                                       <div className="flex items-center gap-1.5">
                                         <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs transition-colors shadow-xs cursor-pointer">Yes</button>
@@ -2824,7 +2833,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       </div></div>
                                   ) : (
                                     <div className="flex justify-start w-full">
-                                      <button type="button" onClick={() => playChimeTone()} className={`w-full ${isCompact ? 'max-w-[145px] px-3 h-9 sm:h-9.5 text-xs sm:text-[12.5px] gap-1.5' : 'max-w-[155px] sm:max-w-[165px] px-3.5 sm:px-4 h-10 sm:h-10.5 text-xs sm:text-[13px] gap-2'} rounded-xl font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${speakerTestState === 'playing' ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
+                                      <button type="button" onClick={() => playChimeTone()} className={`w-full ${isCompact ? 'max-w-[145px] px-3 h-9 sm:h-10 text-xs sm:text-[12.5px] gap-1.5' : 'max-w-[155px] sm:max-w-[165px] px-3.5 sm:px-4 h-10 sm:h-11 text-xs sm:text-[13px] gap-2'} rounded-xl font-bold inline-flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 ${speakerTestState === 'playing' ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'}`}>
                                         {speakerTestState === 'playing' ? (
                                           <Volume2 className={`${isCompact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-white stroke-[2.5] animate-pulse`} />
                                         ) : (
