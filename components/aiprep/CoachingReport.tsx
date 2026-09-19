@@ -35,10 +35,55 @@ export default function CoachingReport({ report }: Props) {
     };
   }, [selected]);
 
-  const rawSuggestions = report.coaching_suggestions ?? [];
+  const rawSuggestions = (report.coaching_suggestions && report.coaching_suggestions.length > 0)
+    ? report.coaching_suggestions
+    : (report.priority_improvements && report.priority_improvements.length > 0)
+      ? report.priority_improvements.map((p, idx) => ({
+          priority: typeof p.priority === "number" ? p.priority : idx + 1,
+          dimension: "Delivery & Structure",
+          area: p.topic || `Priority ${idx + 1}`,
+          suggestion: [p.guidance, p.example ? `Example: ${p.example}` : ""].filter(Boolean).join(" "),
+          evidence: p.example,
+        }))
+      : (report.critical_gaps && report.critical_gaps.length > 0)
+        ? report.critical_gaps.map((g, idx) => ({
+            priority: idx + 1,
+            dimension: "Content Coverage",
+            area: g.topic || `Focus Area ${idx + 1}`,
+            suggestion: [g.what_is_missing, g.suggested_addition ? `Recommendation: ${g.suggested_addition}` : ""].filter(Boolean).join(" ") || "Improve depth and coverage.",
+            evidence: g.why_it_matters,
+          }))
+        : (report.improvements && report.improvements.length > 0)
+          ? report.improvements.map((imp, idx) => ({
+              priority: typeof imp.priority === "number" ? imp.priority : idx + 1,
+              dimension: "Interview Performance",
+              area: imp.topic || `Recommendation ${idx + 1}`,
+              suggestion: imp.rationale || "",
+              evidence: imp.effort ? `Estimated effort: ${imp.effort}` : undefined,
+            }))
+          : report.final_assessment?.most_important_improvement
+            ? [
+                {
+                  priority: 1,
+                  dimension: "Core Focus",
+                  area: "Primary Improvement",
+                  suggestion: report.final_assessment.most_important_improvement,
+                },
+              ]
+            : report.overall_biggest_gap
+              ? [
+                  {
+                    priority: 1,
+                    dimension: "Core Focus",
+                    area: "Key Gap to Address",
+                    suggestion: report.overall_biggest_gap,
+                  },
+                ]
+              : [];
+
   const hasCoaching = rawSuggestions.length > 0;
 
-  // Empty state if coaching_suggestions_json is empty or missing
+  // Empty state if no coaching suggestions or fallbacks available
   if (!hasCoaching) {
     return (
       <div className="space-y-4">
