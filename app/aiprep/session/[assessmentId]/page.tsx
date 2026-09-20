@@ -172,10 +172,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionInitializedRef = useRef<boolean>(false);
 
-  // Live Speech Recognition Transcript
+  // Live Speech Recognition Transcript & Retention Buffers
   const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const accumulatedTranscriptRef = useRef<string>('');
+  const currentInterimRef = useRef<string>('');
+  const transcriptSegmentsRef = useRef<
+    Array<{ speaker: string; text: string; timestamp: string; timestamp_s: number }>
+  >([]);
   const recognitionRef = useRef<any>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
+  const elapsedTimeRef = useRef<number>(0);
 
   // Exit Modal
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
@@ -451,6 +457,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   }, [currentQuestionIndex, isLoading, questions, isRecording, speakAiText]);
 
+  useEffect(() => {
+    elapsedTimeRef.current = elapsedTime;
+  }, [elapsedTime]);
+
   // ── Live Speech Recognition ────────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -465,13 +475,54 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         recognitionRef.current = recognition;
 
         recognition.onresult = (event: any) => {
-          let currentText = '';
-          for (let i = 0; i < event.results.length; i++) {
-            currentText += event.results[i][0].transcript + ' ';
+          let sessionFinal = '';
+          let sessionInterim = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            const text = res[0]?.transcript || '';
+            if (res.isFinal) {
+              const trimmed = text.trim();
+              if (trimmed) {
+                sessionFinal += trimmed + ' ';
+                const currentSec = Math.floor(elapsedTimeRef.current);
+                const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
+                const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
+                transcriptSegmentsRef.current.push({
+                  speaker: 'Candidate',
+                  text: trimmed,
+                  timestamp: `${m}:${s}`,
+                  timestamp_s: currentSec,
+                });
+              }
+            } else {
+              sessionInterim += text;
+            }
           }
-          if (currentText.trim()) {
-            setLiveTranscript(currentText.trim());
+
+          if (sessionFinal.trim()) {
+            accumulatedTranscriptRef.current = [
+              accumulatedTranscriptRef.current,
+              sessionFinal.trim(),
+            ]
+              .filter(Boolean)
+              .join(' ');
           }
+
+          currentInterimRef.current = sessionInterim.trim();
+
+          const combinedText = [
+            accumulatedTranscriptRef.current,
+            currentInterimRef.current,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+
+          if (combinedText) {
+            setLiveTranscript(combinedText);
+          }
+
           if (transcriptScrollRef.current) {
             transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
           }
@@ -482,6 +533,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         };
 
         recognition.onend = () => {
+          // If there was any pending interim text, commit it to accumulated text
+          if (currentInterimRef.current) {
+            const pendingText = currentInterimRef.current;
+            accumulatedTranscriptRef.current = [
+              accumulatedTranscriptRef.current,
+              pendingText,
+            ]
+              .filter(Boolean)
+              .join(' ');
+
+            const currentSec = Math.floor(elapsedTimeRef.current);
+            const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
+            const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
+            transcriptSegmentsRef.current.push({
+              speaker: 'Candidate',
+              text: pendingText,
+              timestamp: `${m}:${s}`,
+              timestamp_s: currentSec,
+            });
+            currentInterimRef.current = '';
+          }
+
+          // Keep listening seamlessly across silent pauses
           if (isRecording && recognitionRef.current === recognition) {
             try {
               recognition.start();
@@ -538,13 +612,51 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 1. Stop recording and flush final 30s slice
       await stopRecording();
 
+      // Commit any pending interim speech before submitting
+      if (currentInterimRef.current) {
+        accumulatedTranscriptRef.current = [
+          accumulatedTranscriptRef.current,
+          currentInterimRef.current,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        const currentSec = Math.floor(elapsedTimeRef.current);
+        const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
+        const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
+        transcriptSegmentsRef.current.push({
+          speaker: 'Candidate',
+          text: currentInterimRef.current,
+          timestamp: `${m}:${s}`,
+          timestamp_s: currentSec,
+        });
+        currentInterimRef.current = '';
+      }
+
+      const actualTranscript =
+        accumulatedTranscriptRef.current.trim() ||
+        liveTranscript.trim() ||
+        questions[currentQuestionIndex]?.question_text ||
+        'Assessment completed.';
+
       // 2. Calculate telemetry metrics
-      const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
+      const wordCount = actualTranscript.split(/\s+/).filter(Boolean).length;
       const durationMin = Math.max(0.1, elapsedTime / 60);
       const calculatedWpm = Math.round(wordCount / durationMin);
 
+      const finalSegments =
+        transcriptSegmentsRef.current.length > 0
+          ? transcriptSegmentsRef.current
+          : [
+              {
+                speaker: 'Candidate',
+                text: actualTranscript,
+                timestamp: '00:00',
+                timestamp_s: 0,
+              },
+            ];
+
       // 3. Assemble full contract telemetry payload from actual live session metrics
-      const actualTranscript = liveTranscript.trim() || questions[currentQuestionIndex]?.question_text || 'Assessment completed.';
       const telemetryPayload = {
         questions: questions.map((q) => ({
           question_id: q.id,
@@ -552,7 +664,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         })),
         transcript: {
           full_text: actualTranscript,
-          segments: [],
+          segments: finalSegments,
         },
         audio_telemetry: {
           words_per_minute: calculatedWpm > 0 ? calculatedWpm : 135,
