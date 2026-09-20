@@ -15,14 +15,44 @@ interface Props {
   report: NormalizedReport;
 }
 
+function formatCommRating(status?: string): string | undefined {
+  if (!status) return undefined;
+  const s = status.toUpperCase().trim();
+  if (["STRONG", "EXCELLENT", "GOOD", "HIGH"].includes(s)) return "Good";
+  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING"].includes(s)) return "Average";
+  if (["NEEDS_WORK", "NEEDS_POLISH", "WEAK", "LOW", "POOR"].includes(s)) return "Needs Improvement";
+  if (["INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) return "Insufficient Data";
+  return formatBand(status);
+}
+
+function commRatingColor(status?: string): string {
+  if (!status) return "bg-slate-100 text-slate-500";
+  const s = status.toUpperCase().trim();
+  if (["STRONG", "EXCELLENT", "GOOD", "HIGH"].includes(s)) return "bg-emerald-100 text-emerald-800";
+  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING"].includes(s)) return "bg-sky-100 text-sky-800";
+  if (["NEEDS_WORK", "NEEDS_POLISH", "WEAK", "LOW", "POOR"].includes(s)) return "bg-rose-100 text-rose-800";
+  if (["INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) return "bg-slate-100 text-slate-600";
+  return bandColor(status);
+}
+
 function Badge({ status }: { status?: string }) {
   if (!status) return null;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${bandColor(status)}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${commRatingColor(status)}`}>
       <span className="size-1.5 rounded-full bg-current opacity-70" />
-      {formatBand(status)}
+      {formatCommRating(status)}
     </span>
   );
+}
+
+function cleanCommDetail(text?: string): string | undefined {
+  if (!text) return undefined;
+  return text
+    .replace(/within the preferred range of \d+[–-]\d+\s*WPM\.?/gi, "at an optimal, comfortable conversational pace.")
+    .replace(/\b\d+[–-]\d+\s*WPM\b/gi, "conversational pace")
+    .replace(/\b\d+\s*WPM\b/gi, "conversational pace")
+    .replace(/\b\d+\s*words\s*per\s*minute\b/gi, "conversational pace")
+    .replace(/\bwords per minute\b/gi, "speaking pace");
 }
 
 interface MetricItem {
@@ -67,7 +97,7 @@ export default function CommunicationReport({ report }: Props) {
         key: "confidence_vocal_presence",
         label: "Confidence & Vocal Presence",
         status: audio.factors.confidence_vocal_presence.status,
-        detail: audio.factors.confidence_vocal_presence.observation,
+        detail: cleanCommDetail(audio.factors.confidence_vocal_presence.observation),
       });
     }
     if (audio.factors.fluency) {
@@ -75,7 +105,7 @@ export default function CommunicationReport({ report }: Props) {
         key: "fluency",
         label: "Fluency",
         status: audio.factors.fluency.status,
-        detail: audio.factors.fluency.observation,
+        detail: cleanCommDetail(audio.factors.fluency.observation),
       });
     }
     if (audio.factors.pace) {
@@ -83,7 +113,7 @@ export default function CommunicationReport({ report }: Props) {
         key: "pace",
         label: "Pace",
         status: audio.factors.pace.status,
-        detail: audio.factors.pace.observation,
+        detail: cleanCommDetail(audio.factors.pace.observation),
       });
     }
     if (audio.factors.volume) {
@@ -91,7 +121,7 @@ export default function CommunicationReport({ report }: Props) {
         key: "volume",
         label: "Volume",
         status: audio.factors.volume.status,
-        detail: audio.factors.volume.observation,
+        detail: cleanCommDetail(audio.factors.volume.observation),
       });
     }
     if (audio.factors.filler_word_usage) {
@@ -99,7 +129,7 @@ export default function CommunicationReport({ report }: Props) {
         key: "filler_word_usage",
         label: "Filler Word Usage",
         status: audio.factors.filler_word_usage.status,
-        detail: audio.factors.filler_word_usage.observation,
+        detail: cleanCommDetail(audio.factors.filler_word_usage.observation),
       });
     }
     if (audio.factors.pausing) {
@@ -107,7 +137,7 @@ export default function CommunicationReport({ report }: Props) {
         key: "pausing",
         label: "Pausing",
         status: audio.factors.pausing.status,
-        detail: audio.factors.pausing.observation,
+        detail: cleanCommDetail(audio.factors.pausing.observation),
       });
     }
   }
@@ -126,8 +156,44 @@ export default function CommunicationReport({ report }: Props) {
     for (const [field, label] of flatAudioFields) {
       const val = typeof rawAudio[field] === "string" ? rawAudio[field] : undefined;
       if (val) {
-        audioItems.push({ key: field, label, detail: val });
+        audioItems.push({ key: field, label, detail: cleanCommDetail(val) });
       }
+    }
+  }
+
+  // Fallback to intro_quality and vocal delivery if audioItems is empty
+  if (audioItems.length === 0) {
+    if (report.intro_quality?.clarity) {
+      audioItems.push({
+        key: "clarity",
+        label: "Speech Clarity",
+        status: report.intro_quality.clarity,
+        detail: report.intro_quality.observation ? cleanCommDetail(report.intro_quality.observation) : undefined,
+      });
+    }
+    if (report.intro_quality?.coherence) {
+      audioItems.push({
+        key: "coherence",
+        label: "Spoken Flow & Coherence",
+        status: report.intro_quality.coherence,
+        detail: report.intro_quality.observation ? cleanCommDetail(report.intro_quality.observation) : undefined,
+      });
+    }
+    if (audio?.primary_vocal_strength) {
+      audioItems.push({
+        key: "vocal_strength",
+        label: "Vocal Strength",
+        status: audio.overall_readiness || undefined,
+        detail: cleanCommDetail(audio.primary_vocal_strength),
+      });
+    }
+    if (audio?.primary_vocal_gap) {
+      audioItems.push({
+        key: "vocal_gap",
+        label: "Pacing & Delivery Polish",
+        status: undefined,
+        detail: cleanCommDetail(audio.primary_vocal_gap),
+      });
     }
   }
 
@@ -195,13 +261,37 @@ export default function CommunicationReport({ report }: Props) {
   }
 
   // ── 3. Communication Quality Content ───────────────────────────────────────
-  const commSummary = non_technical?.communication_summary;
-  const structureQuality = non_technical?.structure_quality;
-  const confidenceNotes = non_technical?.confidence_notes;
+  const commSummary =
+    non_technical?.communication_summary ||
+    (report.intro_quality?.observation
+      ? report.intro_quality.observation.toLowerCase().includes("lacks clarity, coherence, and technical depth") ||
+        report.intro_quality.observation.toLowerCase().startsWith("the introduction lacks")
+        ? "Focus on structuring your journey smoothly, mentioning key technologies, and highlighting your personal contributions."
+        : report.intro_quality.observation
+      : undefined) ||
+    audio?.executive_summary ||
+    (report.scores.non_technical?.band
+      ? `Overall spoken communication and conversational engagement evaluated at ${formatBand(report.scores.non_technical.band)} readiness.`
+      : undefined) ||
+    report.overall_summary;
+
+  const structureQuality =
+    non_technical?.structure_quality ||
+    (report.intro_quality?.coherence
+      ? `Story structure and narrative flow evaluated as ${formatBand(report.intro_quality.coherence)}.`
+      : undefined);
+
+  const confidenceNotes =
+    non_technical?.confidence_notes ||
+    (audio?.primary_vocal_strength ? cleanCommDetail(audio.primary_vocal_strength) : undefined) ||
+    (report.intro_quality?.clarity
+      ? `Voice projection and articulation assessed as ${formatBand(report.intro_quality.clarity)}.`
+      : undefined);
+
   const hasCommQuality = Boolean(commSummary || structureQuality || confidenceNotes);
 
   const isAudioOnly = assessment.media_type === "AUDIO";
-  const hasAudioContent = audioItems.length > 0 || Boolean(audio?.executive_summary);
+  const hasAudioContent = audioItems.length > 0 || Boolean(audio?.executive_summary) || Boolean(report.intro_quality?.clarity);
   const hasVideoContent = !isAudioOnly && (videoItems.length > 0 || Boolean(video?.overall_summary));
 
 
@@ -229,7 +319,7 @@ export default function CommunicationReport({ report }: Props) {
 
         {audio?.executive_summary && (
           <p className="text-xs sm:text-sm leading-relaxed text-slate-700">
-            {audio.executive_summary}
+            {cleanCommDetail(audio.executive_summary)}
           </p>
         )}
 
@@ -411,7 +501,7 @@ export default function CommunicationReport({ report }: Props) {
               </p>
               <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-3.5">
                 <p className="text-xs sm:text-sm leading-relaxed text-slate-800">
-                  {selectedMetric.detail}
+                  {cleanCommDetail(selectedMetric.detail)}
                 </p>
               </div>
             </div>

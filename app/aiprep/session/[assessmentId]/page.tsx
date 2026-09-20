@@ -553,7 +553,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // ── Complete Session & Submit Telemetry to Pure Engines ─────────────────────
   const handleEndSession = async () => {
-    if (!assessmentId) return;
+    if (!assessmentId || isEnding || countdownValue !== null) return;
 
     try {
       setIsEnding(true);
@@ -828,8 +828,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       <span>Start Answer</span>
                     </button>
                   ) : (
-                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Starting countdown…
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
+                      <span>Starting countdown{countdownValue !== null ? ` (${countdownValue}s)` : ''}…</span>
                     </div>
                   )
                 ) : (
@@ -846,8 +847,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               <button
                 type="button"
                 onClick={handleEndSession}
-                disabled={isEnding}
-                className="px-6 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
+                disabled={isEnding || countdownValue !== null}
+                className={`px-6 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 shrink-0 ${
+                  countdownValue !== null
+                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
+                }`}
+                title={countdownValue !== null ? `Starting in ${countdownValue}s...` : 'Finish Assessment'}
               >
                 {isEnding ? (
                   <>
