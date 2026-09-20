@@ -405,7 +405,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             setCountdownValue((prev) => {
               if (prev === null || prev <= 1) {
                 if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-                startAnswerRef.current();
+                setTimeout(() => {
+                  startAnswerRef.current();
+                }, 0);
                 return null;
               }
               return prev - 1;
