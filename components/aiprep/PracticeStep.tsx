@@ -102,8 +102,8 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     setLiveVideoElement(node);
   }, []);
 
-  // Vision Hook Integration for Real-time Video Analytics
-  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision();
+  // Vision Hook Integration for Real-time Video Analytics (only when video is enabled)
+  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision({ enabled: videoEnabled });
 
   // Helper to get currently active media playback element
   const getActiveMediaEl = () => {
