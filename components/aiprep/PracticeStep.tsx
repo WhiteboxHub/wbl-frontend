@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 
 interface PracticeStepProps {
+  assessmentType?: string;
   videoEnabled: boolean;
   videoAnalyticsEnabled: boolean;
   cameraStream: MediaStream | null;
@@ -46,6 +47,7 @@ interface PracticeStepProps {
 }
 
 export const PracticeStep: React.FC<PracticeStepProps> = ({
+  assessmentType,
   videoEnabled,
   videoAnalyticsEnabled,
   cameraStream,
