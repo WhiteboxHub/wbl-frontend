@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
+import { aiPrepApi } from '@/lib/aiprep-api';
 import {
   Mic,
   Video,
@@ -20,6 +21,7 @@ import {
   Lock,
   Play,
   Pause,
+  Check,
   CheckCircle2,
   Info,
   Sparkles,
@@ -69,6 +71,25 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState<boolean>(false);
+  const [dbQuestion, setDbQuestion] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    const typeToQuery = assessmentType || 'INTRO';
+    if (typeof (aiPrepApi as any)?.getQuestions === 'function') {
+      (aiPrepApi as any).getQuestions(typeToQuery)
+        .then((res: any) => {
+          if (!active) return;
+          const items = Array.isArray(res) ? res : res?.items || res?.questions || [];
+          if (items.length > 0 && items[0]?.question_text) {
+            setDbQuestion(items[0].question_text);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => { active = false; };
+  }, [assessmentType]);
 
   const recordTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -447,8 +468,10 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-col justify-between h-full p-2 sm:p-4 space-y-4 animate-in fade-in duration-300">
-      {/* Hidden audio player for audio-only local playback */}
+    <div className="w-full h-full flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden animate-in fade-in duration-300">
+      {/* Central Content Area - fits exactly in viewport */}
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden w-full px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 space-y-2.5 sm:space-y-3 max-w-7xl mx-auto flex flex-col justify-between">
+        {/* Hidden audio player for audio-only local playback */}
       {testAudioUrl && !videoEnabled && (
         <audio
           ref={audioPlaybackRef}
@@ -466,7 +489,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           {modeVariant === 'VIDEO_STANDARD' && '4. Practice recording – Video (Camera + Mic)'}
           {modeVariant === 'VIDEO_ANALYTICS' && '4. Practice recording – Video with Analytics'}
         </h2>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-xs sm:text-xs text-slate-500 dark:text-slate-400">
           {modeVariant === 'AUDIO_ONLY' &&
             'Record a short sample response to make sure your microphone and speakers are working properly.'}
           {modeVariant === 'VIDEO_STANDARD' &&
@@ -764,26 +787,26 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           </div>
 
         {/* ── COLUMN 2: Sample Question & Media Player Bar (5 cols) ───────── */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs space-y-4">
+        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs h-full min-h-0">
           {/* Top: Sample Question Card */}
-          <div className="space-y-2">
+          <div className="space-y-2 sm:space-y-2.5">
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Sample question
               </span>
             </div>
 
-            <p className="text-sm sm:text-base font-semibold text-slate-800 dark:text-slate-100 leading-relaxed">
-              &ldquo;{sampleQuestion}&rdquo;
+            <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-snug">
+              {dbQuestion ? <>&ldquo;{dbQuestion}&rdquo;</> : 'Test your microphone and video clarity before starting the live assessment session.'}
             </p>
           </div>
 
           {/* Device Error Banner */}
           {deviceError && (
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold animate-in fade-in duration-200">
               <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
               <span>{deviceError}</span>
             </div>
@@ -795,7 +818,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <button
                   type="button"
                   onClick={startTestRecording}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-white dark:bg-slate-800 border-2 border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
+                  className="px-5 py-2 rounded-xl font-bold text-xs bg-white dark:bg-slate-800 border-2 border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center gap-2 shadow-xs active:scale-95 transition-all cursor-pointer"
                 >
                   <Video className="w-4 h-4 text-rose-500 fill-rose-500" />
                   <span>Start recording</span>
@@ -804,7 +827,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <button
                   type="button"
                   onClick={stopTestRecording}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 shadow-md shadow-rose-600/30 active:scale-95 transition-all cursor-pointer animate-pulse"
+                  className="px-5 py-2 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-2 shadow-md shadow-rose-600/30 active:scale-95 transition-all cursor-pointer animate-pulse"
                 >
                   <span className="w-2.5 h-2.5 rounded-sm bg-white" />
                   <span>Stop recording ({30 - recordTime}s)</span>
@@ -813,21 +836,21 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
             </div>
 
           {/* Bottom: Interactive Scrubber & Audio Player Bar */}
-          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
               {/* Play / Pause Toggle */}
               <button
                 type="button"
                 onClick={togglePlayback}
                 disabled={!testAudioUrl || isRecording}
-                className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                className="w-8 h-8 rounded-lg bg-indigo-100/80 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-200 disabled:opacity-40 flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
                 title={testAudioUrl ? 'Play test recording' : 'Record a sample first to listen'}
               >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
               </button>
 
               {/* Time display */}
-              <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
+              <span className="text-[10.5px] font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
                 {formatSeconds(isPlaying ? playbackTime : isRecording ? recordTime : 0)} / {formatSeconds(totalDuration)}
               </span>
 
@@ -850,7 +873,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   onClick={toggleMute}
                   className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                 >
-                  {isMuted || volume === 0 ? <VolumeX className="w-4 h-4 text-rose-500" /> : <Volume2 className="w-4 h-4" />}
+                  {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 text-rose-500" /> : <Volume2 className="w-3.5 h-3.5" />}
                 </button>
                 <input
                   type="range"
@@ -859,80 +882,86 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
-                  className="w-14 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  className="w-12 sm:w-14 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
               </div>
             </div>
 
-            {/* Note banner: "This is just a test. Your recording will not be saved." */}
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs px-2">
-              <Info className="w-4 h-4 text-indigo-500 shrink-0" />
+            {/* Note banner */}
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px] px-1">
+              <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               <span>This is just a test. Your recording will not be saved.</span>
             </div>
           </div>
         </div>
 
         {/* ── COLUMN 3: Device Status OR Real-time Analytics (3 cols) ─────── */}
-        <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs">
+        <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs h-full min-h-0">
           {modeVariant !== 'VIDEO_ANALYTICS' ? (
             /* Variant 1 & 2: Device Status Card */
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Device status
-              </h3>
-
+            <div className="flex flex-col justify-between h-full space-y-3">
               <div className="space-y-3">
-                {videoEnabled && (
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Device status
+                </h3>
+
+                <div className="space-y-3">
+                  {videoEnabled && (
+                    <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                        <Camera className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-semibold">Camera</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
+                        <span className="truncate">{selectedVideoLabel}</span>
+                        <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                      <Camera className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-semibold">Camera</span>
+                      <Mic className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-semibold">Microphone</span>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                      <span className="truncate">{selectedVideoLabel}</span>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
+                      <span className="truncate">{selectedAudioLabel}</span>
                       <Lock className="w-3 h-3 text-slate-400 shrink-0" />
                     </div>
                   </div>
-                )}
 
-                <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Mic className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Microphone</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedAudioLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs py-1">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Volume2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Speaker</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedSpeakerLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                  <div className="flex items-center justify-between text-xs py-1">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                      <Volume2 className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-semibold">Speaker</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px]">
+                      <span className="truncate">{selectedSpeakerLabel}</span>
+                      <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium leading-snug">
-                  {videoEnabled
-                    ? 'Video and audio devices verified and locked for this session.'
-                    : 'Audio devices verified and locked for this session.'}
+              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <p className="text-[11.5px] font-semibold text-emerald-800 dark:text-emerald-300 leading-snug">
+                  Audio devices verified and locked for this session.
                 </p>
               </div>
             </div>
           ) : (
-            /* Variant 3: Real-time Analytics (Driven by MediaPipe Vision Telemetry) */
+            /* Variant 3: Real-time Analytics Visualizer */
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Analytics (live during practice)
-              </h3>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Real-time signals</span>
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                  Live
+                </span>
+              </div>
 
               <div className="space-y-2.5 text-xs">
                 {[
@@ -1072,5 +1101,6 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     </div>
   );
 };
+
 export default PracticeStep;
 

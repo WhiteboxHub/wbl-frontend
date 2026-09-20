@@ -9,7 +9,7 @@ import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
 import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AIPrepPage() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function AIPrepPage() {
   const { isAuthenticated } = useAuth();
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -24,6 +25,15 @@ export default function AIPrepPage() {
 
   useEffect(() => {
     setIsMounted(true);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
     if (!isUserAuthenticated) {
       if (typeof window !== 'undefined') {
         if (window.top && window.top !== window.self) {
@@ -143,7 +153,7 @@ export default function AIPrepPage() {
               detail: { active: true, fullscreen: true, headerCollapsed: true }
             }));
           }
-        }, 2000);
+        }, 500);
       }
     } else {
       if (autoCollapseTimerRef.current) {
@@ -198,6 +208,20 @@ export default function AIPrepPage() {
     router.replace(isEmbeddedCheck ? '/aiprep?embed=true' : '/aiprep');
   };
 
+  const toggleHeader = () => {
+    if (autoCollapseTimerRef.current) {
+      clearTimeout(autoCollapseTimerRef.current);
+      autoCollapseTimerRef.current = null;
+    }
+    const nextCollapsed = !headerCollapsed;
+    setHeaderCollapsed(nextCollapsed);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
+        detail: { active: true, fullscreen: nextCollapsed, headerCollapsed: nextCollapsed }
+      }));
+    }
+  };
+
   if (!isMounted) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-8">
@@ -207,17 +231,53 @@ export default function AIPrepPage() {
     );
   }
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+        <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm border border-indigo-100 dark:border-indigo-900/50">
+          <Laptop className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Desktop Only Feature</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mb-6 leading-relaxed">
+          AI PrepTool is only available on desktop and laptop devices with camera and microphone support. Please access Whitebox from a desktop computer to practice your assessments.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push('/user_dashboard')}
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all cursor-pointer"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+
   // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
   if (!showWizard && !isSaving && !errorMsg) {
     return (
-      <div className={isEmbedded ? "min-h-screen bg-slate-50 dark:bg-[#0b0f19]" : "pt-24 pb-12 min-h-screen bg-slate-50 dark:bg-[#0b0f19]"}>
+      <div className={isEmbedded ? "min-h-screen bg-slate-50 dark:bg-[#0b0f19] p-4 sm:p-6" : "pt-24 pb-12 min-h-screen bg-slate-50 dark:bg-[#0b0f19] px-4 sm:px-6"}>
         <AIPrepDashboard />
       </div>
     );
   }
   return (
-    <div className={`w-full h-screen bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${!isEmbedded && !headerCollapsed ? 'pt-[72px] lg:pt-[76px]' : 'pt-0'
+    <div className={`w-full h-[100dvh] h-screen flex-1 min-h-0 bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${!isEmbedded && !headerCollapsed ? 'pt-[72px] lg:pt-[76px]' : 'pt-0'
       }`}>
+      {showWizard && !isEmbedded && (
+        <button
+          type="button"
+          onClick={toggleHeader}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center py-3 px-2 rounded-r-xl bg-[#7C3AED] hover:bg-[#6D28D9] shadow-xl shadow-purple-500/25 text-white hover:pr-3 transition-all duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 group animate-in fade-in"
+          title={headerCollapsed ? "Expand navigation header" : "Minimize navigation header"}
+          aria-label={headerCollapsed ? "Expand navigation header" : "Minimize navigation header"}
+        >
+          {headerCollapsed ? (
+            <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform text-white" />
+          ) : (
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform text-white" />
+          )}
+        </button>
+      )}
       {errorMsg ? (
         <div className="flex flex-col items-center justify-center flex-1 text-center p-8 max-w-md mx-auto my-12 animate-in fade-in zoom-in-95 duration-300">
           <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
