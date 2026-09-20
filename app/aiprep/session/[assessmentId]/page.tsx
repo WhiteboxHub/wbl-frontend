@@ -295,6 +295,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   startRecorderRef.current = startRecorderCore;
   const cleanupRecorderRef = useRef(cleanupRecorder);
   cleanupRecorderRef.current = cleanupRecorder;
+  const startAnswerRef = useRef<() => void>(() => {});
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
@@ -386,18 +387,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // 2. Query Question Bank API dynamically for this track (Backend First)
         let loadedQuestions: QuestionBankItem[] = [];
         try {
-          const qResponse = await aiprepApi.getQuestions(finalType);
-          if (qResponse?.items && qResponse.items.length > 0) {
-            loadedQuestions = qResponse.items as unknown as QuestionBankItem[];
+          const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
+          if (dataRes?.questions && dataRes.questions.length > 0) {
+            loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
           }
         } catch (qErr) {
-          console.warn('Questions API note (fetching assessment session data):', qErr);
-          try {
-            const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
-            if (dataRes?.questions && dataRes.questions.length > 0) {
-              loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
-            }
-          } catch (_) { }
+          console.warn('Questions API fallback failed:', qErr);
         }
 
         setQuestions(loadedQuestions);
@@ -410,7 +405,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             setCountdownValue((prev) => {
               if (prev === null || prev <= 1) {
                 if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-                startRecorderRef.current();
+                startAnswerRef.current();
                 return null;
               }
               return prev - 1;
@@ -445,11 +440,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [stream]);
 
   // Read question aloud when question index changes or when recording starts
-  useEffect(() => {
-    if (!isLoading && questions[currentQuestionIndex] && isRecording) {
-      speakAiText(questions[currentQuestionIndex].question_text);
-    }
-  }, [currentQuestionIndex, isLoading, questions, isRecording, speakAiText]);
+  // (Removed to prevent double-speak since handleStartAnswer handles the AI dictation before recording)
 
   // ── Live Speech Recognition ────────────────────────────────────────────────
   useEffect(() => {
@@ -510,9 +501,40 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [isRecording]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
+  // Recording starts only AFTER the AI finishes reading the question aloud.
   const handleStartAnswer = () => {
-    startRecorderCore();
+    const activeQ = questions[currentQuestionIndex];
+    if (!isSpeechMuted && activeQ?.question_text && 'speechSynthesis' in window) {
+      stopAiSpeech();
+      try {
+        const cleanText = activeQ.question_text.replace(/^"|"$/g, '').trim();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice =
+          voices.find((v) => v.name.includes('Google US English') || v.name.includes('Google')) ||
+          voices.find((v) => v.name.includes('Natural') || v.name.includes('Samantha')) ||
+          voices.find((v) => v.lang.startsWith('en')) ||
+          voices[0];
+        if (preferredVoice) utterance.voice = preferredVoice;
+        utterance.rate = 0.95;
+        utterance.onstart = () => setIsAiSpeaking(true);
+        utterance.onend = () => {
+          setIsAiSpeaking(false);
+          startRecorderCore();
+        };
+        utterance.onerror = () => {
+          setIsAiSpeaking(false);
+          startRecorderCore();
+        };
+        window.speechSynthesis.speak(utterance);
+      } catch (_) {
+        startRecorderCore();
+      }
+    } else {
+      startRecorderCore();
+    }
   };
+  startAnswerRef.current = handleStartAnswer;
 
   // ── Navigation Between Questions ───────────────────────────────────────────
   const handleNextQuestion = () => {
@@ -611,7 +633,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
           <IconLoader2 size={24} className="animate-spin" />
         </div>
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Practice Room</h2>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Assessment Room</h2>
         <p className="text-slate-500 dark:text-slate-400 text-xs">Calibrating media slicing and dynamic questions…</p>
       </div>
     );
@@ -758,10 +780,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <button
                   type="button"
                   onClick={() => setShowExitModal(true)}
-                  className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                  title="Quit Session"
+                  className="h-10 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold"
+                  title="Exit Assessment"
                 >
-                  <IconLogout size={19} stroke={2} />
+                  <IconLogout size={16} stroke={2} />
+                  <span>Exit Assessment</span>
                 </button>
 
                 {/* 2. Question Navigation Arrows (if multiple questions exist) */}
