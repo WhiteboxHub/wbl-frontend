@@ -132,12 +132,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const isAudioOnlyMode = useMemo(() => {
     if (initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO') return false;
     if (initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO' || audioOnly) return true;
-    if (typeof window !== 'undefined') {
-      const savedMode = sessionStorage.getItem('aiprep_active_mode');
-      if (savedMode === 'VIDEO_AUDIO' || savedMode === 'VIDEO') return false;
-      if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO') return true;
-    }
-    // Default to Audio Only
+    // Safe SSR default: default to Audio Only, client-side saved mode restored in useEffect
     return true;
   }, [initialMode, audioOnly]);
   const initialConsent = useMemo(() => {
@@ -149,6 +144,20 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
+
+  // Hydrate client-side saved mode safely in useEffect to prevent Next.js SSR hydration mismatch
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (initialMode || audioOnly) return; // Props take precedence
+    const savedMode = sessionStorage.getItem('aiprep_active_mode');
+    if (savedMode === 'VIDEO_AUDIO' || savedMode === 'VIDEO') {
+      setVideoEnabled(true);
+      setConsentCamera(true);
+    } else if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO') {
+      setVideoEnabled(false);
+      setConsentCamera(false);
+    }
+  }, [initialMode, audioOnly]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
     return '';
