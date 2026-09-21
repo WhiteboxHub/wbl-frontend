@@ -218,7 +218,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                 <input
                   type="checkbox"
                   checked={videoAnalyticsEnabled}
-                  onChange={(e) => setVideoAnalyticsEnabled(e.target.checked)}
+                  onChange={(e) => setVideoAnalyticsEnabled && setVideoAnalyticsEnabled(e.target.checked)}
                   className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
                 />
                 <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
