@@ -39,6 +39,10 @@ export interface BlendshapeCategory {
   score: number;
 }
 
+export interface BlendshapeResult {
+  categories: BlendshapeCategory[];
+}
+
 export interface UseMediaPipeVisionOptions {
   enabled?: boolean;
 }
