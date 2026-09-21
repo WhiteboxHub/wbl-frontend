@@ -13,6 +13,7 @@ import {
   Settings,
   Edit,
   Trash2,
+  X,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
@@ -23,6 +24,7 @@ interface AssessmentGridProps {
   error: string | null;
   onRetry: () => void;
   onView: (assessment: AssessmentGridItem) => void;
+  onViewDetails?: (assessment: AssessmentGridItem) => void;
   onEdit?: (assessment: AssessmentGridItem) => void;
   onDelete?: (assessment: AssessmentGridItem) => void;
   currentPage: number;
@@ -144,6 +146,11 @@ function getCanonicalStatus(raw?: string): string {
   return s;
 }
 
+export function getAssessmentDisplayId(a: AssessmentGridItem): string {
+  if (!a) return "";
+  return `AS-${a.id}`;
+}
+
 const FunnelFilterIcon = ({ isActive }: { isActive?: boolean }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -229,6 +236,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   error,
   onRetry,
   onView,
+  onViewDetails,
   onEdit,
   onDelete,
   currentPage,
@@ -261,12 +269,14 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
   const handleRowDoubleClick = (a: AssessmentGridItem) => {
     setSelectedRow(a);
-    onView(a);
+    if (onViewDetails) onViewDetails(a);
+    else if (onEdit) onEdit(a);
+    else onView(a);
   };
 
   const allColumnsList = useMemo(() => {
     const list = [
-      { field: "id", label: "Assessment ID" },
+      { field: "id", label: "Assessment UUID" },
     ];
     if (isAdmin) {
       list.push({ field: "candidate", label: "Candidate" });
@@ -587,12 +597,15 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
     return assessments.filter((a) => {
-      // 1. Search term filter (Assessment ID only)
+      // 1. Search term filter (Assessment ID / UUID)
       if (filters?.search?.trim()) {
         const term = filters.search.toLowerCase().trim();
+        const displayId = getAssessmentDisplayId(a).toLowerCase();
         const matchId =
+          displayId.includes(term) ||
           `as-${a.id}`.toLowerCase().includes(term) ||
-          String(a.id).toLowerCase().includes(term);
+          String(a.id).toLowerCase().includes(term) ||
+          Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(term));
         if (!matchId) {
           return false;
         }
@@ -716,7 +729,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       displayedAssessments.length > 0 ? displayedAssessments : assessments;
     if (!listToExport || listToExport.length === 0) return;
     const headers = [
-      "Assessment ID",
+      "Assessment UUID",
       "Candidate Name",
       "Candidate ID",
       "Candidate Email",
@@ -727,7 +740,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       "Date",
     ];
     const rows = listToExport.map((a) => [
-      `AS-${a.id}`,
+      getAssessmentDisplayId(a),
       `"${a.candidate_name || ""}"`,
       a.candidate_id || "",
       `"${a.candidate_email || ""}"`,
@@ -770,82 +783,117 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       {/* Sub-toolbar: title/records count + settings and export buttons */}
       <div className="flex items-center justify-between">
         {isAdmin ? (
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Candidate Assessment List ({recordCount})
-          </h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Candidate Assessment List ({recordCount})
+            </h3>
+            {filters?.search && filters.search.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-2xs">
+                <span>{filters.search.trim()}</span>
+                <button
+                  type="button"
+                  onClick={() => onFilterChange?.({ search: "" })}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer ml-0.5"
+                  title="Clear filter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            )}
+          </div>
         ) : (
-          <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 text-xs font-semibold shadow-2xs">
-            {recordCount} records
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 text-xs font-semibold shadow-2xs">
+              {recordCount} records
+            </div>
+            {filters?.search && filters.search.trim() && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-2xs">
+                <span>{filters.search.trim()}</span>
+                <button
+                  type="button"
+                  onClick={() => onFilterChange?.({ search: "" })}
+                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer ml-0.5"
+                  title="Clear filter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            )}
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          {/* Toggle Columns */}
-          <button
-            type="button"
-            onClick={() => setIsColumnModalOpen(true)}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
-            title="Toggle Columns"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            {/* Toggle Columns */}
+            <button
+              type="button"
+              onClick={() => setIsColumnModalOpen(true)}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+              title="Toggle Columns"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
 
-          {isAdmin && (
-            <>
-              {/* View Details */}
-              <button
-                type="button"
-                onClick={() => selectedRow && onView(selectedRow)}
-                disabled={!selectedRow}
-                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
-                title="View"
-              >
-                <Eye className="h-4 w-4" />
-              </button>
+            {/* View Details */}
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedRow) {
+                  if (onViewDetails) onViewDetails(selectedRow);
+                  else if (onEdit) onEdit(selectedRow);
+                  else onView(selectedRow);
+                }
+              }}
+              disabled={!selectedRow}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+              title="View Details"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
 
-              {/* Edit */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedRow) {
-                    if (onEdit) onEdit(selectedRow);
-                    else onView(selectedRow);
-                  }
-                }}
-                disabled={!selectedRow}
-                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
-                title="Edit"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
+            {/* Edit */}
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedRow) {
+                  if (onEdit) onEdit(selectedRow);
+                  else if (onViewDetails) onViewDetails(selectedRow);
+                  else onView(selectedRow);
+                }
+              }}
+              disabled={!selectedRow}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-blue-400 shadow-2xs transition-colors cursor-pointer"
+              title="Edit Details"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
 
-              {/* Delete */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedRow) {
-                    setIsDeleteDialogOpen(true);
-                  }
-                }}
-                disabled={!selectedRow}
-                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-red-600 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
-                title="Delete"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </>
-          )}
+            {/* Delete */}
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedRow) {
+                  setIsDeleteDialogOpen(true);
+                }
+              }}
+              disabled={!selectedRow}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-red-600 hover:bg-gray-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
 
-          {/* Download CSV */}
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-green-600 hover:bg-gray-50 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
-            title="Download CSV"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-        </div>
+            {/* Download CSV */}
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white text-green-600 hover:bg-gray-50 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700 shadow-2xs transition-colors cursor-pointer"
+              title="Download CSV"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Table Container */}
@@ -887,8 +935,8 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
               <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-xs">
                 <tr className="border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-gray-100">
                   {!hiddenColumns.has("id") && (
-                    <th className="py-3 px-4 w-32 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
-                      Assessment ID
+                    <th className="py-3 px-4 w-36 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
+                      Assessment UUID
                     </th>
                   )}
                   {isAdmin && !hiddenColumns.has("candidate") && (
@@ -1039,8 +1087,23 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         }`}
                       >
                         {!hiddenColumns.has("id") && (
-                          <td className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100">
-                            AS-{a.id}
+                          <td className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const val = getAssessmentDisplayId(a);
+                                if (onFilterChange) {
+                                  onFilterChange({ search: val });
+                                } else {
+                                  onView(a);
+                                }
+                              }}
+                              className="hover:underline text-purple-600 dark:text-purple-400 font-semibold cursor-pointer text-left whitespace-nowrap font-mono"
+                              title="Click to filter"
+                            >
+                              {getAssessmentDisplayId(a)}
+                            </button>
                           </td>
                         )}
 
@@ -1173,7 +1236,9 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             }
           }}
           title="Delete Assessment"
-          message={`Are you sure you want to delete assessment AS-${selectedRow?.id}${
+          message={`Are you sure you want to delete assessment ${
+            selectedRow ? getAssessmentDisplayId(selectedRow) : ""
+          }${
             selectedRow?.candidate_name ? ` for ${selectedRow.candidate_name}` : ""
           }? This action cannot be undone.`}
           confirmText="Delete"

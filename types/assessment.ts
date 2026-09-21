@@ -16,6 +16,7 @@ export type MediaType = 'VIDEO_AUDIO' | 'AUDIO_ONLY' | 'VIDEO' | 'AUDIO' | strin
 
 export interface AssessmentGridItem {
   id: number;
+  assessment_uuid?: string | null;
   candidate_id?: number;
   candidate_name?: string | null;
   candidate_email?: string | null;

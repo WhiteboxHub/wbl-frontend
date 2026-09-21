@@ -10,6 +10,8 @@ interface AssessmentFiltersProps {
   filters: AssessmentFiltersState;
   onFilterChange: (filters: Partial<AssessmentFiltersState>) => void;
   onReset: () => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
   isAdmin?: boolean;
 }
 
@@ -17,6 +19,8 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
   filters,
   onFilterChange,
   onReset,
+  onRefresh,
+  isLoading = false,
   isAdmin = true,
 }) => {
   const isFiltered =
@@ -26,6 +30,11 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
     (filters.media_type && filters.media_type !== "all") ||
     (filters.status && filters.status !== "all") ||
     Boolean(filters.date_value);
+
+  const handleAction = () => {
+    onReset();
+    onRefresh?.();
+  };
 
   return (
     <div className="flex flex-wrap items-end gap-3 max-w-2xl">
@@ -42,7 +51,7 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
           <Input
             id="assessment-search-input"
             type="text"
-            placeholder="Search by ID..."
+            placeholder="Search by ID or UUID..."
             value={filters.search}
             onChange={(e) => onFilterChange({ search: e.target.value })}
             className="pl-10"
@@ -73,16 +82,29 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
         </div>
       )}
 
-      {/* Reset Button */}
-      {isFiltered && (
+      {/* Refresh Button (styled matching Image 1) */}
+      {(isFiltered || onRefresh) && (
         <button
           type="button"
-          onClick={onReset}
-          className="inline-flex h-10 items-center gap-1.5 shrink-0 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-600 shadow-2xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-          title="Reset all filters"
+          onClick={handleAction}
+          disabled={isLoading}
+          className="inline-flex h-10 items-center gap-1.5 shrink-0 px-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
+          title="Refresh assessments"
         >
-          <RotateCcw className="h-4 w-4 text-gray-400" />
-          <span>Reset</span>
+          <svg
+            className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-purple-600" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          <span>Refresh</span>
         </button>
       )}
     </div>

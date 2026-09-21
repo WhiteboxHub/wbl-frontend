@@ -12,8 +12,6 @@ let lastClickTime = null;
 
 const SYNC_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-console.log('[SW] Service Worker v5 (12-Hour Sync + Inactivity Flush) loaded');
-
 function openDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 2);
@@ -118,8 +116,6 @@ async function attemptFlush(force = false) {
             const cleanBase = baseUrl.replace(/\/+$/, '').replace(/\/api$/, '');
             const url = `${cleanBase}/api${path}`;
 
-            console.log(`[SW]  Sync Triggered (Force: ${force}). Shipping ${clicks.length} total clicks to: ${url}`);
-
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -132,16 +128,12 @@ async function attemptFlush(force = false) {
             if (response.ok) {
                 await clearClicks(clicks.map(c => c.job_listing_id));
                 await setLastSyncedAt(Date.now());
-                console.log(`[SW] ✅ Sync Complete: ${clicks.length} clicks flushed. last_synced_at updated.`);
             } else {
                 console.error('[SW] ❌ Sync Error: HTTP', response.status);
             }
         } catch (err) {
             console.error('[SW] ❌ Sync Error:', err);
         }
-    } else {
-        const hoursLeft = ((SYNC_THRESHOLD_MS - (now - lastSyncedAt)) / (1000 * 60 * 60)).toFixed(1);
-        console.log(`[SW] Sync skipped. Last sync was recent. Next sync in ~${hoursLeft} hours.`);
     }
 }
 
@@ -156,7 +148,6 @@ setInterval(async () => {
     const oneHour = 60 * 60 * 1000
 
     if (idleMs >= oneHour) {
-        console.log('[SW] 1 hour inactivity detected → flushing');
         await attemptFlush(true);
         lastClickTime = null;
     }
@@ -165,7 +156,6 @@ setInterval(async () => {
 self.addEventListener('message', (event) => {
     if (event.data.type === 'SET_API_URL') {
         baseUrl = event.data.url;
-        console.log('[SW] Config received.');
     }
 
     if (event.data.type === 'SET_TOKEN') {
@@ -176,12 +166,10 @@ self.addEventListener('message', (event) => {
 
     if (event.data.type === 'TRACK_CLICK') {
         lastClickTime = Date.now();
-        console.log(`[SW] Click for ${event.data.id} received. Flushing immediately to backend...`);
         attemptFlush(true);
     }
 
     if (event.data.type === 'FLUSH') {
-        console.log('[SW] FLUSH event received. Flushing immediately to backend...');
         attemptFlush(true);
     }
 });

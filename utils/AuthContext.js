@@ -3,9 +3,8 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { isTokenExpired, fetchUserRole, getUserTeamRole } from "./auth";
+import { isTokenExpired, fetchUserRole, getUserTeamRole, clearUserRoleCache } from "./auth";
 
 const AuthContext = createContext();
 
@@ -199,6 +198,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    clearUserRoleCache();
     // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
     localStorage.removeItem("prep_token");
