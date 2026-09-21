@@ -153,9 +153,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (savedMode === 'VIDEO_AUDIO' || savedMode === 'VIDEO') {
       setVideoEnabled(true);
       setConsentCamera(true);
+      setVideoAnalyticsEnabled(true);
     } else if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO') {
       setVideoEnabled(false);
       setConsentCamera(false);
+      setVideoAnalyticsEnabled(false);
     }
   }, [initialMode, audioOnly]);
   const [jdText, setJdText] = useState<string>(() => {
@@ -802,9 +804,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             const rmsLvl = Math.min(100, Math.round(rms * 450));
             const freqLvl = freqAvg < 4 ? 0 : Math.min(100, Math.round(((freqAvg - 4) / 45) * 100));
             const rawTarget = Math.max(rmsLvl, freqLvl);
-            const targetLvl = rawTarget > 0 ? rawTarget : (15 + Math.round(Math.sin(Date.now() / 150) * 10));
+            const targetLvl = rawTarget;
 
-            const lvl = Math.max(10, Math.min(100, Math.round(targetLvl)));
+            const lvl = Math.max(0, Math.min(100, Math.round(targetLvl)));
             setMicLevel(lvl);
             if (lvl > maxLevelSeenRef.current) maxLevelSeenRef.current = lvl;
             animFrameRef.current = requestAnimationFrame(update);
@@ -1084,11 +1086,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             const freqLvl = freqAvg < 4 ? 0 : Math.min(100, Math.round(((freqAvg - 4) / 45) * 100));
             const rawTarget = Math.max(rmsLvl, freqLvl);
 
-            // Active visual feedback while testing
-            const targetLvl = rawTarget > 0 ? rawTarget : (15 + Math.round(Math.sin(Date.now() / 150) * 10));
+            // Only show actual raw input levels without faking active levels when silent
+            const targetLvl = rawTarget;
 
             currentSmoothed = currentSmoothed * 0.6 + targetLvl * 0.4;
-            const lvl = Math.max(10, Math.min(100, Math.round(currentSmoothed)));
+            const lvl = Math.max(0, Math.min(100, Math.round(currentSmoothed)));
             setMicLevel(lvl);
             if (lvl > maxLevelSeenRef.current) maxLevelSeenRef.current = lvl;
             animFrameRef.current = requestAnimationFrame(update);
