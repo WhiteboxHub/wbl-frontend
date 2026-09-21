@@ -413,8 +413,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [hasMissingFields, setHasMissingFields] = useState(true);
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [onboardingDocSubmittedAt, setOnboardingDocSubmittedAt] = useState<string | null>(null);
-    const [retryCount, setRetryCount] = useState(0);
     const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(defaultTab));
+    const [prevDefaultTab, setPrevDefaultTab] = useState(defaultTab);
+    if (defaultTab !== prevDefaultTab) {
+        setPrevDefaultTab(defaultTab);
+        setActiveTab(normalizeTab(defaultTab));
+    }
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
@@ -2354,7 +2358,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         void loadTotalClickSummary();
     }, [activeTab, candidateId, getCandidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
-    const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep' || (typeof window !== 'undefined' && (window.location.pathname.toLowerCase().includes('/ai-prep') || window.location.pathname.toLowerCase().includes('/aiprep') || window.location.pathname.toLowerCase().includes('/wbl-smartprep')));
+    const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
 
     if (loading && !isAiPrep) {
         return (
@@ -2651,7 +2655,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         />
                                     </div>
                                 )}
-                                {activeTab === 'overview' && (
+                                 {activeTab === 'overview' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Job Board Clicks Status Banner */}
                                         {(() => {
@@ -2896,7 +2900,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'my-sessions' && (
+                                 {activeTab === 'my-sessions' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
@@ -2924,7 +2928,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classes Attended</h3>
                                                     <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.classes_joined ?? 0}
+                                                        {data?.candidate_stats?.classes_joined ?? 0}
                                                     </p>
                                                 </div>
 
@@ -2941,7 +2945,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Sessions Attended</h3>
                                                     <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.sessions_joined ?? 0}
+                                                        {data?.candidate_stats?.sessions_joined ?? 0}
                                                     </p>
                                                 </div>
 
@@ -3023,7 +3027,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'my-interviews' && (
+                                {activeTab === 'my-interviews' && data && (
                                     <div className="flex-1 overflow-y-auto p-0  space-y-4">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4">
                                             <div className="flex items-center justify-between mb-2">
@@ -3585,7 +3589,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
-                                {activeTab === 'my-applications' && (
+                                {activeTab === 'my-applications' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
                                             {/* Header */}
@@ -3644,14 +3648,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <div className="flex flex-col items-center flex-1">
                                                             <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Daily Outreach</p>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                                {data.candidate_stats?.daily_outreach_count ?? 0}
+                                                                {data?.candidate_stats?.daily_outreach_count ?? 0}
                                                             </p>
                                                         </div>
                                                         <div className="w-px h-10 bg-purple-100 dark:bg-purple-900/30"></div>
                                                         <div className="flex flex-col items-center flex-1">
                                                             <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Complete Outreach</p>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                                {data.candidate_stats?.complete_outreach_count ?? 0}
+                                                                {data?.candidate_stats?.complete_outreach_count ?? 0}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -3660,7 +3664,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                 {/* Card 3: Easy Apply Counter */}
                                                 {(() => {
-                                                    const easyApplyCount = easyApplyApplications.length > 0 ? easyApplyApplications.length : (data.candidate_stats?.easy_apply_counter ?? 0);
+                                                    const easyApplyCount = easyApplyApplications.length > 0 ? easyApplyApplications.length : (data?.candidate_stats?.easy_apply_counter ?? 0);
                                                     return (
                                                         <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md group">
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">
