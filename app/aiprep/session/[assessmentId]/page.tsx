@@ -297,6 +297,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const isRecording = recordingStatus === 'recording';
   const isInactive = recordingStatus === 'idle';
 
+  const isRecordingRef = useRef<boolean>(isRecording);
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
   const startRecorderRef = useRef(startRecorderCore);
   startRecorderRef.current = startRecorderCore;
   const cleanupRecorderRef = useRef(cleanupRecorder);
@@ -556,7 +561,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
 
           // Keep listening seamlessly across silent pauses
-          if (isRecording && recognitionRef.current === recognition) {
+          if (isRecordingRef.current && recognitionRef.current === recognition) {
             try {
               recognition.start();
             } catch (_) { }
