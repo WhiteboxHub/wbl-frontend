@@ -28,9 +28,10 @@ import {
   Lightbulb,
   FileText,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   Download,
+  X,
+  Copy,
+  Check,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
@@ -55,8 +56,8 @@ export type { ReportTab };
 
 function QualitativeBadge({ status }: { status?: string }) {
   if (!status) return null;
-  const raw = status.toUpperCase();
-  const label = formatBand(status) || status;
+  const raw = status.toUpperCase().trim();
+  const formatted = formatBand(status);
 
   const isGood =
     [
@@ -67,19 +68,48 @@ function QualitativeBadge({ status }: { status?: string }) {
       "COVERED",
       "POSITIVE",
     ].includes(raw) ||
-    label.toLowerCase().includes("strong") ||
-    label.toLowerCase().includes("good") ||
-    label.toLowerCase().includes("positive");
+    formatted === "Good" ||
+    raw.includes("GOOD") ||
+    raw.includes("STRONG");
 
   const isAvg =
-    ["ADEQUATE", "AVERAGE", "DEVELOPING", "PARTIAL"].includes(raw) ||
-    label.toLowerCase().includes("developing") ||
-    label.toLowerCase().includes("average");
+    !isGood &&
+    ([
+      "ADEQUATE",
+      "AVERAGE",
+      "DEVELOPING",
+      "PARTIAL",
+      "MODERATE",
+    ].includes(raw) ||
+      formatted === "Average" ||
+      raw.includes("AVG") ||
+      raw.includes("AVERAGE") ||
+      raw.includes("DEVELOPING"));
 
+  const isSpecialNA = raw === "NOT_APPLICABLE" || raw === "N/A";
+  const isSpecialNoData = raw === "INSUFFICIENT_DATA";
+
+  // Strictly 3 standardized rating labels:
+  const displayLabel = isGood
+    ? "Good"
+    : isAvg
+    ? "Average"
+    : isSpecialNA
+    ? "N/A"
+    : isSpecialNoData
+    ? "Insufficient Data"
+    : "Needs Improvement";
+
+  // Strictly 3 standardized rating colors:
+  // 1. Good -> Green
+  // 2. Average -> Amber
+  // 3. Needs Improvement (bad) -> Red
   const colorClasses = isGood
     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
     : isAvg
-    ? "bg-sky-50 text-sky-700 border-sky-200"
+    ? "bg-amber-50 text-amber-700 border-amber-200"
+    : isSpecialNA || isSpecialNoData
+    ? "bg-slate-50 text-slate-600 border-slate-200"
     : "bg-rose-50 text-rose-700 border-rose-200";
 
   return (
@@ -87,7 +117,7 @@ function QualitativeBadge({ status }: { status?: string }) {
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${colorClasses}`}
     >
       <span className="size-1.5 rounded-full bg-current opacity-70" />
-      {label}
+      {displayLabel}
     </span>
   );
 }
@@ -104,14 +134,14 @@ function HighlightCard({
   status?: string;
 }) {
   return (
-    <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs transition-shadow hover:shadow-sm">
+    <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-xs transition-all hover:shadow-sm">
       <div>
-        <div className="flex items-center gap-2 text-blue-600 mb-2">
+        <div className="flex items-center gap-2 text-blue-600 mb-1">
           {icon}
-          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          <h3 className="text-xs sm:text-sm font-bold text-slate-800">{title}</h3>
         </div>
         {observation ? (
-          <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+          <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
             {observation}
           </p>
         ) : (
@@ -120,8 +150,8 @@ function HighlightCard({
           </p>
         )}
       </div>
-      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-        <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+      <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
           Rating
         </span>
         {status ? (
@@ -226,6 +256,10 @@ function sanitizeQualitativeText(text?: string | null): string {
     .replace(/and the silence ratio was \d+%/gi, "with minimal pause duration (Average)")
     .replace(/the silence ratio was \d+%/gi, "pause ratio was minimal")
     .replace(/silence ratio was \d+%/gi, "pause ratio was minimal")
+    .replace(/The average volume was [+-]?\d+(?:\.\d+)?\s*dBFS,?\s*(?:which is)?\s*within the (?:strong|preferred|good) range\.?/gi, "Volume was clear and well-projected (Good).")
+    .replace(/The average volume was [+-]?\d+(?:\.\d+)?\s*dBFS,?\s*(?:which is)?\s*below the (?:preferred|optimal) range\.?/gi, "Volume was low and could be projected more clearly (Needs Improvement).")
+    .replace(/The average volume was [+-]?\d+(?:\.\d+)?\s*dBFS\.?/gi, "Volume was at an audible level (Good).")
+    .replace(/[+-]?\d+(?:\.\d+)?\s*dBFS/gi, "optimal volume")
     .replace(/\b0%\b/g, "minimal")
     .replace(/\b\d+%\b/g, "moderate");
 }
@@ -239,7 +273,7 @@ export interface OverviewProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   seekTo: (seconds: number) => void;
   assessmentId: string;
-  onSelectTab: (tab: ReportTab) => void;
+  onSelectTab: (tab: ReportTab, subTab?: string) => void;
 }
 
 export function EvaluationContent({
@@ -272,7 +306,16 @@ export function EvaluationContent({
       "career_arc_covered",
     ].includes(s.key)
   );
-  const introResumeBand = introSection?.status ?? scores.overall_band;
+  const introResumeBand =
+    introSection?.status ??
+    scores.overall_band ??
+    report.overall_readiness ??
+    "AVERAGE";
+  const introResumeObs =
+    introSection?.observation ??
+    final_assessment?.career_story ??
+    final_assessment?.current_project_clarity ??
+    report.overall_summary;
 
   const aiEngSection = intro_sections.find((s) =>
     [
@@ -286,9 +329,12 @@ export function EvaluationContent({
   const aiEngBand =
     scores.ai_engineering?.band ??
     aiEngSection?.status ??
-    report.intro_quality?.technical_depth;
+    report.intro_quality?.technical_depth ??
+    "AVERAGE";
   const aiEngObs =
-    aiEngSection?.observation ?? report.technical_analysis?.summary;
+    aiEngSection?.observation ??
+    final_assessment?.ai_engineering_depth ??
+    report.technical_analysis?.summary;
 
   const coreEngSection = intro_sections.find((s) =>
     [
@@ -299,22 +345,40 @@ export function EvaluationContent({
       "memory_context_engineering_mentioned",
     ].includes(s.key)
   );
-  const coreEngBand = scores.core_engineering?.band ?? coreEngSection?.status;
+  const coreEngBand =
+    scores.core_engineering?.band ??
+    coreEngSection?.status ??
+    "AVERAGE";
   const coreEngObs =
     coreEngSection?.observation ??
+    final_assessment?.production_engineering_depth ??
     report.technical_analysis?.depth_assessment;
 
-  const rawAudioStrength = audio?.primary_vocal_strength?.toLowerCase() === "pace" ? "Speaking Speed" : audio?.primary_vocal_strength;
+  const rawAudioStrength =
+    audio?.primary_vocal_strength?.toLowerCase() === "pace"
+      ? "Speaking Speed"
+      : audio?.primary_vocal_strength;
   const audioObs = sanitizeQualitativeText(
-    audio?.executive_summary ?? rawAudioStrength ?? undefined
+    audio?.executive_summary ??
+      rawAudioStrength ??
+      audio?.factors?.fluency?.observation ??
+      undefined
   );
-  const audioBand = audio?.overall_readiness;
+  const audioBand =
+    audio?.overall_readiness ??
+    scores.non_technical?.band ??
+    "AVERAGE";
 
   const videoObs = sanitizeQualitativeText(
-    video?.overall_summary ?? video?.primary_setup_strength ?? undefined
+    video?.overall_summary ??
+      video?.primary_setup_strength ??
+      video?.factors?.camera_framing_centering?.observation ??
+      undefined
   );
   const videoBand = video
-    ? video.factors.camera_framing_centering?.status ?? scores.non_technical?.band
+    ? video.factors.camera_framing_centering?.status ??
+      scores.non_technical?.band ??
+      "AVERAGE"
     : undefined;
 
   const addlSection = intro_sections.find((s) =>
@@ -327,9 +391,14 @@ export function EvaluationContent({
   const addlBand =
     scores.non_technical?.band ??
     scores.business_acumen?.band ??
-    addlSection?.status;
+    addlSection?.status ??
+    "AVERAGE";
   const addlObs =
-    addlSection?.observation ?? report.non_technical?.communication_summary;
+    addlSection?.observation ??
+    final_assessment?.transition_quality ??
+    report.priority_improvements?.[0]?.guidance ??
+    report.non_technical?.communication_summary ??
+    (report.strongest_points && report.strongest_points[0]);
 
   const rawTip =
     final_assessment?.most_important_improvement ??
@@ -343,14 +412,21 @@ export function EvaluationContent({
     report.assessment.media_type === "AUDIO" ||
     report.assessment.media_type === "AUDIO_ONLY";
 
+  const hasRecording = Boolean(
+    youtube_url &&
+    youtube_url.trim().length > 0 &&
+    youtube_url.trim().toLowerCase() !== "null" &&
+    youtube_url.trim().toLowerCase() !== "undefined"
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-3.5">
       {/* ── 1. Overall Assessment (Wide Horizontal Card) ────────────────── */}
-      <section className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+      <section className="rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2">
-            <span className="text-amber-500 text-lg">✦</span>
-            <h2 className="text-base font-bold text-slate-900">
+            <span className="text-amber-500 text-sm">✦</span>
+            <h2 className="text-xs sm:text-sm font-bold text-slate-900">
               Overall Assessment
             </h2>
           </div>
@@ -359,11 +435,11 @@ export function EvaluationContent({
           />
         </div>
         {overall_summary ? (
-          <p className="mt-3.5 text-xs sm:text-sm leading-relaxed text-slate-700">
+          <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700">
             {overall_summary}
           </p>
         ) : (
-          <p className="mt-3.5 text-xs sm:text-sm text-slate-400 italic">
+          <p className="mt-2 text-xs sm:text-sm text-slate-400 italic">
             {report.assessment.status === "EVALUATING"
               ? "Your assessment is currently being evaluated. Summary will appear shortly."
               : "No overall assessment summary recorded for this session."}
@@ -373,14 +449,14 @@ export function EvaluationContent({
 
       {/* ── 2. Evaluation Highlights (Dynamic Grid) ─────────────────────── */}
       <section>
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500">
+        <h2 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
           Evaluation Highlights
         </h2>
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           <HighlightCard
             icon={<User size={18} />}
             title="Introduction & Resume"
-            observation={introSection?.observation}
+            observation={introResumeObs}
             status={introResumeBand}
           />
           <HighlightCard
@@ -418,101 +494,157 @@ export function EvaluationContent({
         </div>
       </section>
 
-      {/* ── 3. Recording Playback & Transcript Preview (2-Column Desktop) ── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* LEFT: Recording Playback */}
-        <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-          <div className="mb-3 flex items-center gap-2 text-slate-800">
-            {isAudioOnly ? (
-              <AudioWaveform size={16} className="text-blue-600" />
-            ) : (
-              <Video size={16} className="text-blue-600" />
-            )}
-            <h2 className="text-sm font-bold">
-              {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
-            </h2>
-          </div>
-          <div className="flex-1 min-h-[260px] flex flex-col justify-center">
-            <VideoPlayer youtubeUrl={youtube_url} videoRef={videoRef} />
-          </div>
-        </section>
+      {/* ── 3. Recording Playback & Transcript Preview ── */}
+      {hasRecording ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* LEFT: Recording Playback */}
+          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
+            <div className="mb-3 flex items-center gap-2 text-slate-800">
+              {isAudioOnly ? (
+                <AudioWaveform size={16} className="text-blue-600" />
+              ) : (
+                <Video size={16} className="text-blue-600" />
+              )}
+              <h2 className="text-sm font-bold">
+                {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
+              </h2>
+            </div>
+            <div className="flex-1 min-h-[260px] flex flex-col justify-center">
+              <VideoPlayer youtubeUrl={youtube_url} videoRef={videoRef} />
+            </div>
+          </section>
 
-        {/* RIGHT: Transcript Preview */}
+          {/* RIGHT: Transcript Preview */}
+          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
+            <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2 text-slate-800">
+                <FileText size={16} className="text-blue-600" />
+                <h2 className="text-sm font-bold">Transcript Preview</h2>
+                {getTranscriptDuration(report) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    <Clock size={11} className="text-blue-600" />
+                    {getTranscriptDuration(report)}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onSelectTab("Details", "transcript")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+              >
+                <ExternalLink size={12} />
+                Open Full Transcript
+              </button>
+            </div>
+
+            {previewSegments.length > 0 ? (
+              <div className="flex-1 space-y-2.5 overflow-hidden">
+                {previewSegments.map((seg, i) => {
+                  const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
+                  return (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      {seg.timestamp_s != null ? (
+                        <button
+                          type="button"
+                          onClick={() => seekTo(seg.timestamp_s!)}
+                          className="w-11 shrink-0 font-mono text-blue-600 hover:text-blue-800 hover:underline text-left transition-colors cursor-pointer"
+                          title={`Seek recording to ${seg.timestamp}`}
+                        >
+                          {seg.timestamp ?? fmtTime(seg.timestamp_s)}
+                        </button>
+                      ) : (
+                        <span className="w-11 shrink-0 font-mono text-slate-400">
+                          {seg.timestamp ?? "—"}
+                        </span>
+                      )}
+                      <span className="shrink-0 font-semibold text-slate-700">
+                        {seg.speaker || "Candidate"}:
+                      </span>
+                      <p className="flex-1 leading-relaxed text-slate-600">
+                        {cleanText}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : transcript.full_text ? (
+              <div className="flex-1 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
+                {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
+              </div>
+            ) : (
+              <p className="flex-1 text-xs text-slate-400 italic">
+                Transcript not available for this session.
+              </p>
+            )}
+          </section>
+        </div>
+      ) : (
+        /* Full-width clean transcript preview when no recording is stored in DB */
         <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-          <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2 text-slate-800">
               <FileText size={16} className="text-blue-600" />
-              <h2 className="text-sm font-bold">Transcript Preview</h2>
+              <h2 className="text-sm font-bold text-slate-900">Transcript Preview</h2>
               {getTranscriptDuration(report) && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                  <Clock size={11} className="text-blue-600" />
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                  <Clock size={12} className="text-blue-600" />
                   {getTranscriptDuration(report)}
                 </span>
               )}
             </div>
             <button
               type="button"
-              onClick={() => onSelectTab("Details")}
+              onClick={() => onSelectTab("Details", "transcript")}
               className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
             >
-              <ExternalLink size={12} />
+              <ExternalLink size={13} />
               Open Full Transcript
             </button>
           </div>
 
           {previewSegments.length > 0 ? (
-            <div className="flex-1 space-y-2.5 overflow-hidden">
-              {previewSegments.map((seg, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs">
-                  {seg.timestamp_s != null ? (
-                    <button
-                      type="button"
-                      onClick={() => seekTo(seg.timestamp_s!)}
-                      className="w-11 shrink-0 font-mono text-blue-600 hover:text-blue-800 hover:underline text-left transition-colors cursor-pointer"
-                      title={`Seek recording to ${seg.timestamp}`}
-                    >
-                      {seg.timestamp ?? fmtTime(seg.timestamp_s)}
-                    </button>
-                  ) : (
-                    <span className="w-11 shrink-0 font-mono text-slate-400">
-                      {seg.timestamp ?? "—"}
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              {previewSegments.map((seg, i) => {
+                const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
+                return (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <span className="shrink-0 font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/70 text-[10px]">
+                      {seg.timestamp ?? fmtTime(seg.timestamp_s) ?? "—"}
                     </span>
-                  )}
-                  <span className="shrink-0 font-semibold text-slate-700">
-                    {seg.speaker || "Candidate"}:
-                  </span>
-                  <p className="flex-1 leading-relaxed text-slate-600">
-                    {seg.text}
-                  </p>
-                </div>
-              ))}
+                    <span className="shrink-0 font-semibold text-slate-800 text-xs">
+                      {seg.speaker || "Candidate"}:
+                    </span>
+                    <p className="flex-1 leading-snug text-slate-600 text-xs">
+                      {cleanText}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           ) : transcript.full_text ? (
-            <div className="flex-1 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
-              {transcript.full_text}
+            <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600 whitespace-pre-wrap select-text">
+              {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
             </div>
           ) : (
-            <p className="flex-1 text-xs text-slate-400 italic">
+            <p className="text-xs text-slate-400 italic">
               Transcript not available for this session.
             </p>
           )}
         </section>
-      </div>
-
-      {/* ── 4. Tip Section ───────────────────────────────────────────────── */}
-      {rawTip && (
-        <section className="flex items-start gap-3 rounded-xl border border-blue-200/80 bg-blue-50/50 p-4">
-          <Lightbulb size={18} className="mt-0.5 shrink-0 text-blue-600" />
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-900">
-              Tip
-            </p>
-            <p className="mt-0.5 text-xs sm:text-sm leading-relaxed text-slate-700">
-              {rawTip}
-            </p>
-          </div>
-        </section>
       )}
+
+      {/* ── 4. Tip Banner (Full Width, styled matching the reference image) ── */}
+      <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-4 shadow-2xs">
+        <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
+        <div className="space-y-0.5 flex-1">
+          <h3 className="text-sm font-bold text-slate-900">
+            Tip
+          </h3>
+          <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
+            {rawTip || "Go to the Details tab to see the complete evaluation across all AI Engineering criteria, audio and video analytics (if applicable), and improvement suggestions."}
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
@@ -523,7 +655,9 @@ export function EvaluationContent({
 
 interface DetailSectionData {
   id: string;
+  tabLabel?: string;
   icon: React.ReactNode;
+  iconContainerClass: string;
   title: string;
   status?: string;
   rightElement?: React.ReactNode;
@@ -535,102 +669,402 @@ interface DetailSectionData {
 export function DetailsContent({
   report,
   seekTo,
+  initialSubTab = "intro",
 }: {
   report: NormalizedReport;
   seekTo: (seconds: number) => void;
+  initialSubTab?: string;
 }) {
   const {
-    intro_sections,
+    intro_sections = [],
     intro_quality,
     technical_analysis,
     scores,
     audio,
     video,
     transcript,
-    coaching_suggestions,
-    priority_improvements,
-    critical_gaps,
+    coaching_suggestions = [],
+    priority_improvements = [],
+    critical_gaps = [],
+    final_assessment,
+    strongest_points = [],
   } = report;
 
-  // Assemble dynamic evaluation sections based on real available report data
+  const isAudioOnly =
+    report.assessment.media_type === "AUDIO" ||
+    report.assessment.media_type === "AUDIO_ONLY";
+
+  const [transcriptFilter, setTranscriptFilter] = useState("");
+  const [showFullTranscriptModal, setShowFullTranscriptModal] = useState(false);
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
+
+  // Reconstruct clean continuous paragraph without fragmented speaker / timestamp artifacts
+  const fullParagraphText = (() => {
+    let raw = transcript.full_text?.trim() || "";
+    if (!raw && transcript.segments && transcript.segments.length > 0) {
+      raw = transcript.segments.map((s) => s.text).join(" ");
+    }
+    return raw
+      .replace(/<\/?s>/gi, "")
+      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*|\w+):\s*/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  })();
+
+  const handleCopyTranscript = () => {
+    if (fullParagraphText) {
+      navigator.clipboard.writeText(fullParagraphText);
+      setCopiedTranscript(true);
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    }
+  };
+
+  // Helper to extract real observation from intro sections by key
+  const getSecObs = (key: string): string | undefined => {
+    const s = intro_sections.find((item) => item.key === key);
+    return s?.observation?.trim() || undefined;
+  };
+
   const sections: DetailSectionData[] = [];
 
-  // 1. Introduction Evaluation Section
+  // 1. Introduction Evaluation (AI Engineering Focus)
   const introObs: string[] = [];
-  intro_sections.forEach((s) => {
-    if (s.observation) {
-      introObs.push(`${s.title}: ${s.observation}`);
-    }
-  });
-  if (intro_quality?.clarity) {
-    introObs.push(`Speech Clarity: Evaluated as ${formatBand(intro_quality.clarity)}.`);
+  const careerStoryObs = getSecObs("career_story");
+  if (careerStoryObs) introObs.push(careerStoryObs);
+
+  const currentRoleObs = getSecObs("current_role");
+  if (currentRoleObs) introObs.push(currentRoleObs);
+
+  const currentProjObs = getSecObs("current_project");
+  if (currentProjObs) introObs.push(currentProjObs);
+
+  const evolutionObs = getSecObs("ai_engineering_evolution");
+  if (evolutionObs) introObs.push(evolutionObs);
+
+  if (final_assessment?.current_project_clarity?.trim()) {
+    introObs.push(final_assessment.current_project_clarity.trim());
   }
-  if (intro_quality?.coherence) {
-    introObs.push(`Story Flow: Structured as ${formatBand(intro_quality.coherence)}.`);
+
+  if (final_assessment?.most_important_improvement?.trim()) {
+    introObs.push(final_assessment.most_important_improvement.trim());
   }
-  if (intro_quality?.technical_depth) {
-    introObs.push(`Technical Depth: Assessed as ${formatBand(intro_quality.technical_depth)}.`);
+
+  if (report.resume_alignment?.missed_highlights && report.resume_alignment.missed_highlights.length > 0) {
+    report.resume_alignment.missed_highlights.forEach((h) => {
+      if (h?.trim()) introObs.push(`Resume Highlight to Mention: ${h.trim()}`);
+    });
   }
+
+  if (report.resume_alignment?.unverified_claims && report.resume_alignment.unverified_claims.length > 0) {
+    report.resume_alignment.unverified_claims.forEach((c) => {
+      if (c?.trim()) introObs.push(`Unverified Spoken Claim: ${c.trim()}`);
+    });
+  }
+
+  // If specific keys were not present, collect non-empty observations from intro_sections
+  if (introObs.length === 0) {
+    intro_sections.slice(0, 5).forEach((s) => {
+      if (s.observation?.trim()) introObs.push(s.observation.trim());
+    });
+  }
+
+  const introDesc =
+    final_assessment?.career_story?.trim() ||
+    intro_quality?.observation?.trim() ||
+    report.overall_summary?.trim() ||
+    careerStoryObs;
+
+  const introStatus =
+    scores.overall_band ||
+    report.overall_readiness ||
+    intro_sections.find((s) => ["career_story", "current_role", "current_project"].includes(s.key))?.status ||
+    "NEEDS_IMPROVEMENT";
 
   sections.push({
     id: "intro",
-    icon: <User size={18} className="text-blue-600" />,
-    title: "Introduction Evaluation",
-    status: scores.overall_band || report.overall_readiness,
-    description: intro_quality?.observation || undefined,
-    observations: introObs.length > 0 ? introObs.slice(0, 6) : undefined,
+    tabLabel: "Introduction",
+    icon: <User size={16} className="text-blue-600" />,
+    iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
+    title: "Introduction Evaluation (AI Engineering Focus)",
+    status: introStatus,
+    description: introDesc,
+    observations: introObs.length > 0 ? introObs : undefined,
   });
 
-  // 2. AI Engineering Concepts Section
+  // 2. AI Engineering Concepts
   const aiObs: string[] = [];
+  const agenticSec = intro_sections.find((s) => s.key === "agentic_ai");
+  const ragSec = intro_sections.find((s) => s.key === "rag_and_retrieval");
+  const modelsSec = intro_sections.find((s) => s.key === "models_and_ai_platforms");
+
+  const agenticObs = agenticSec?.observation?.trim();
+  if (agenticObs) aiObs.push(agenticObs);
+
+  const ragObs = ragSec?.observation?.trim();
+  if (ragObs) aiObs.push(ragObs);
+
+  const modelsObs = modelsSec?.observation?.trim();
+  if (modelsObs) aiObs.push(modelsObs);
+
   if (technical_analysis?.strengths && technical_analysis.strengths.length > 0) {
-    technical_analysis.strengths.forEach((s) => aiObs.push(s));
+    technical_analysis.strengths.forEach((s) => {
+      if (s?.trim()) aiObs.push(s.trim());
+    });
   }
-  if (
-    technical_analysis?.areas_for_improvement &&
-    technical_analysis.areas_for_improvement.length > 0
-  ) {
-    technical_analysis.areas_for_improvement.forEach((i) =>
-      aiObs.push(`Growth Opportunity: ${i}`)
-    );
+
+  if (technical_analysis?.areas_for_improvement && technical_analysis.areas_for_improvement.length > 0) {
+    technical_analysis.areas_for_improvement.forEach((i) => {
+      if (i?.trim()) aiObs.push(i.trim());
+    });
   }
-  if (technical_analysis?.depth_assessment) {
-    aiObs.push(`Depth Assessment: ${technical_analysis.depth_assessment}`);
+
+  if (technical_analysis?.depth_assessment?.trim()) {
+    aiObs.push(technical_analysis.depth_assessment.trim());
   }
+
+  // Extract explicit AI Engineering Concept Coverage signals from backend LLM evaluation
+  const aiConceptsList: { label: string; status: string }[] = [];
+  [agenticSec, ragSec, modelsSec].forEach((sec) => {
+    if (sec?.concepts) {
+      Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
+        if (conceptStatus && conceptStatus !== "NOT_APPLICABLE") {
+          aiConceptsList.push({
+            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            status: String(conceptStatus).toUpperCase(),
+          });
+        }
+      });
+    }
+  });
+
+  // Collect technologies mentioned across all AI sections
+  const aiTechnologies = Array.from(
+    new Set([
+      ...(agenticSec?.technologies_mentioned || []),
+      ...(ragSec?.technologies_mentioned || []),
+      ...(modelsSec?.technologies_mentioned || []),
+      ...(report.technology_inventory?.agent_frameworks || []),
+      ...(report.technology_inventory?.retrieval_and_rag || []),
+      ...(report.technology_inventory?.vector_databases || []),
+      ...(report.technology_inventory?.models || []),
+      ...(report.technology_inventory?.model_platforms || []),
+    ])
+  ).filter(Boolean);
+
+  const aiDesc =
+    final_assessment?.ai_engineering_depth?.trim() ||
+    technical_analysis?.summary?.trim() ||
+    agenticObs;
+
+  const resolvedAiStatus =
+    scores.ai_engineering?.band ||
+    agenticSec?.status ||
+    ragSec?.status ||
+    modelsSec?.status ||
+    report.intro_quality?.technical_depth ||
+    (aiConceptsList.filter((c) => c.status === "COVERED").length > 0
+      ? "GOOD"
+      : aiConceptsList.filter((c) => c.status === "PARTIAL").length > 0
+      ? "AVERAGE"
+      : "NEEDS_IMPROVEMENT");
 
   sections.push({
     id: "ai_engineering",
-    icon: <Cpu size={18} className="text-blue-600" />,
+    tabLabel: "AI Engineering",
+    icon: <Cpu size={16} className="text-purple-600" />,
+    iconContainerClass: "bg-purple-50 text-purple-600 border-purple-100",
     title: "AI Engineering Concepts",
-    status: scores.ai_engineering?.band,
-    description: technical_analysis?.summary || undefined,
+    status: resolvedAiStatus,
+    description: aiDesc,
     observations: aiObs.length > 0 ? aiObs : undefined,
+    customContent: (
+      <div className="space-y-3 pt-1">
+        {/* Concept Coverage Matrix */}
+        {aiConceptsList.length > 0 && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                AI Engineering Concept Coverage
+              </span>
+              <span className="text-[11px] font-semibold text-slate-500">
+                {aiConceptsList.filter((c) => c.status === "COVERED").length} of {aiConceptsList.length} Covered
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {aiConceptsList.map((c, idx) => {
+                const isCovered = c.status === "COVERED";
+                const isPartial = c.status === "PARTIAL";
+                return (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${
+                      isCovered
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : isPartial
+                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                        : "bg-slate-100 text-slate-500 border-slate-200 opacity-75"
+                    }`}
+                  >
+                    {isCovered ? "✓" : isPartial ? "≈" : "✕"} {c.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Technologies Mentioned */}
+        {aiTechnologies.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+            <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
+              Technologies Mentioned:
+            </span>
+            {aiTechnologies.map((t, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-mono font-medium"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    ),
   });
 
-  // 3. Software Engineering Section
+  // 3. Software Engineering / QA / Data / DevOps
   const seObs: string[] = [];
-  const seSection = intro_sections.find((s) =>
-    ["software_engineering", "cloud_and_infrastructure", "cicd_and_delivery"].includes(
-      s.key
+  const seSec = intro_sections.find((s) => s.key === "software_engineering");
+  const cloudSec = intro_sections.find((s) => s.key === "cloud_and_infrastructure");
+  const cicdSec = intro_sections.find((s) => s.key === "cicd_and_delivery");
+
+  const seSectionObs = getSecObs("software_engineering");
+  if (seSectionObs) seObs.push(seSectionObs);
+
+  const cloudObs = getSecObs("cloud_and_infrastructure");
+  if (cloudObs) seObs.push(cloudObs);
+
+  const cicdObs = getSecObs("cicd_and_delivery");
+  if (cicdObs) seObs.push(cicdObs);
+
+  const seDesc =
+    final_assessment?.production_engineering_depth?.trim() ||
+    seSectionObs ||
+    cloudObs;
+
+  const resolvedSeStatus =
+    scores.core_engineering?.band ||
+    seSec?.status ||
+    cloudSec?.status ||
+    cicdSec?.status ||
+    (seObs.length > 0 &&
+    seObs.every(
+      (o) =>
+        o.toLowerCase().includes("not mention") ||
+        o.toLowerCase().includes("does not") ||
+        o.toLowerCase().includes("not cover")
     )
-  );
-  if (seSection?.observation) seObs.push(seSection.observation);
-  if (scores.core_engineering?.band) {
-    seObs.push(
-      `Core Engineering: Rated ${formatBand(scores.core_engineering.band)}.`
-    );
-  }
+      ? "NEEDS_IMPROVEMENT"
+      : "AVERAGE");
+
+  // Extract software engineering and DevOps concept coverage signals
+  const seConceptsList: { label: string; status: string }[] = [];
+  [seSec, cloudSec, cicdSec].forEach((sec) => {
+    if (sec?.concepts) {
+      Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
+        if (conceptStatus && conceptStatus !== "NOT_APPLICABLE") {
+          seConceptsList.push({
+            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            status: String(conceptStatus).toUpperCase(),
+          });
+        }
+      });
+    }
+  });
+
+  // Collect technologies mentioned across software, cloud, and DevOps
+  const seTechnologies = Array.from(
+    new Set([
+      ...(seSec?.technologies_mentioned || []),
+      ...(cloudSec?.technologies_mentioned || []),
+      ...(cicdSec?.technologies_mentioned || []),
+      ...(report.technology_inventory?.backend_and_api || []),
+      ...(report.technology_inventory?.frontend || []),
+      ...(report.technology_inventory?.databases || []),
+      ...(report.technology_inventory?.cloud || []),
+      ...(report.technology_inventory?.containers_and_orchestration || []),
+      ...(report.technology_inventory?.infrastructure_as_code || []),
+      ...(report.technology_inventory?.cicd || []),
+    ])
+  ).filter(Boolean);
 
   sections.push({
     id: "software_engineering",
-    icon: <Code2 size={18} className="text-blue-600" />,
-    title: "Software Engineering",
-    status: scores.core_engineering?.band || seSection?.status,
-    description: seSection?.observation || undefined,
+    tabLabel: "Software Engineering",
+    icon: <Code2 size={16} className="text-blue-600" />,
+    iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
+    title: "Software Engineering / QA / Data / DevOps",
+    status: resolvedSeStatus,
+    description: seDesc,
     observations: seObs.length > 0 ? seObs : undefined,
+    customContent: (seConceptsList.length > 0 || seTechnologies.length > 0) ? (
+      <div className="space-y-3 pt-1">
+        {/* Concept Coverage Matrix */}
+        {seConceptsList.length > 0 && (
+          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                Software & Infrastructure Coverage
+              </span>
+              <span className="text-[11px] font-semibold text-slate-500">
+                {seConceptsList.filter((c) => c.status === "COVERED").length} of {seConceptsList.length} Covered
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {seConceptsList.map((c, idx) => {
+                const isCovered = c.status === "COVERED";
+                const isPartial = c.status === "PARTIAL";
+                return (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${
+                      isCovered
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : isPartial
+                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                        : "bg-slate-100 text-slate-500 border-slate-200 opacity-75"
+                    }`}
+                  >
+                    {isCovered ? "✓" : isPartial ? "≈" : "✕"} {c.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Technologies Mentioned */}
+        {seTechnologies.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+            <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
+              Technologies Mentioned:
+            </span>
+            {seTechnologies.map((t, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-mono font-medium"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : undefined,
   });
 
-  // 4. Audio Analysis Section
+  // 4. Audio Analysis (Communication Skills) - Compact & Space-Efficient
   const audioObs: string[] = [];
   if (audio?.primary_vocal_strength) {
     const strength = audio.primary_vocal_strength.toLowerCase() === "pace" ? "Speaking Speed" : audio.primary_vocal_strength;
@@ -641,31 +1075,74 @@ export function DetailsContent({
     audioObs.push(`Primary Opportunity: ${sanitizeQualitativeText(gap)}`);
   }
   if (audio?.key_findings && audio.key_findings.length > 0) {
-    audio.key_findings.forEach((kf) => {
+    audio.key_findings.slice(0, 2).forEach((kf) => {
       const factorName = kf.factor.toLowerCase() === "pace" ? "Speaking Speed" : kf.factor;
       const cleanFinding = sanitizeQualitativeText(kf.finding);
       if (cleanFinding) audioObs.push(`${factorName}: ${cleanFinding}`);
     });
   }
 
+  // Compute qualitative status for pace (handles raw WPM numbers and enums)
+  let paceStatus = audio?.factors?.pace?.status;
+  if (!paceStatus && audio?.factors?.pace?.wpm_recorded != null) {
+    const wpm = Number(audio.factors.pace.wpm_recorded);
+    if (!isNaN(wpm)) {
+      if (wpm < 110 || wpm > 185) paceStatus = "NEEDS_IMPROVEMENT";
+      else if (wpm < 125 || wpm > 165) paceStatus = "AVERAGE";
+      else paceStatus = "GOOD";
+    }
+  }
+  if (paceStatus && /^\d+$/.test(paceStatus.trim())) {
+    const wpm = Number(paceStatus.trim());
+    if (wpm < 110 || wpm > 185) paceStatus = "NEEDS_IMPROVEMENT";
+    else if (wpm < 125 || wpm > 165) paceStatus = "AVERAGE";
+    else paceStatus = "GOOD";
+  }
+  if (!paceStatus) paceStatus = "AVERAGE";
+
+  const fluencyRating = audio?.factors?.fluency?.status || "AVERAGE";
+  const fillerRating = audio?.factors?.filler_word_usage?.status || "AVERAGE";
+  const vocalRating = audio?.factors?.confidence_vocal_presence?.status || audio?.factors?.volume?.status || "AVERAGE";
+
   sections.push({
     id: "audio_analysis",
-    icon: <AudioWaveform size={18} className="text-blue-600" />,
-    title: "Audio Analysis",
-    status: audio?.overall_readiness,
+    tabLabel: "Audio Analysis",
+    icon: <AudioWaveform size={16} className="text-amber-600" />,
+    iconContainerClass: "bg-amber-50 text-amber-600 border-amber-100",
+    title: "Audio Analysis (Communication Skills)",
+    status: audio?.overall_readiness || scores.non_technical?.band || "AVERAGE",
     description: audio?.executive_summary ? sanitizeQualitativeText(audio.executive_summary) : undefined,
     observations: audioObs.length > 0 ? audioObs : undefined,
+    customContent: (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
+          <QualitativeBadge status={paceStatus} />
+        </div>
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
+          <QualitativeBadge status={fluencyRating} />
+        </div>
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
+          <QualitativeBadge status={fillerRating} />
+        </div>
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
+          <QualitativeBadge status={vocalRating} />
+        </div>
+      </div>
+    ),
   });
 
-  // 5. Video & On-Camera Section (only if not audio-only)
-  const isAudioOnly =
-    report.assessment.media_type === "AUDIO" ||
-    report.assessment.media_type === "AUDIO_ONLY";
-
+  // 5. Video Analysis (On-Camera Presentation) - Omit if audio only
   if (!isAudioOnly) {
     const videoObs: string[] = [];
     if (video?.primary_setup_strength) {
       videoObs.push(`Setup Strength: ${sanitizeQualitativeText(video.primary_setup_strength)}`);
+    }
+    if (video?.primary_setup_gap) {
+      videoObs.push(`Setup Opportunity: ${sanitizeQualitativeText(video.primary_setup_gap)}`);
     }
     if (video?.key_findings && video.key_findings.length > 0) {
       video.key_findings.forEach((kf) => {
@@ -674,263 +1151,383 @@ export function DetailsContent({
       });
     }
 
+    const framingRating = video?.factors?.camera_framing_centering?.status;
+    const gazeRating = video?.factors?.camera_angle_gaze_alignment?.status;
+    const screenGazeRating = video?.factors?.off_screen_gaze_duration?.status;
+    const tensionRating = video?.factors?.observable_physical_tension?.status;
+    const hasVideoFactors = Boolean(framingRating || gazeRating || screenGazeRating || tensionRating);
+
     sections.push({
       id: "video_analysis",
-      icon: <Video size={18} className="text-blue-600" />,
-      title: "Video & On-Camera",
-      status: video?.factors?.camera_framing_centering?.status,
+      tabLabel: "Video Presentation",
+      icon: <Video size={16} className="text-rose-600" />,
+      iconContainerClass: "bg-rose-50 text-rose-600 border-rose-100",
+      title: "Video Analysis (On-Camera Presentation)",
+      status: video?.factors?.camera_framing_centering?.status || scores.non_technical?.band || "AVERAGE",
       description: video?.overall_summary ? sanitizeQualitativeText(video.overall_summary) : undefined,
       observations: videoObs.length > 0 ? videoObs : undefined,
+      customContent: hasVideoFactors ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+          {framingRating && (
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Framing</span>
+              <QualitativeBadge status={framingRating} />
+            </div>
+          )}
+          {gazeRating && (
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Eye Contact</span>
+              <QualitativeBadge status={gazeRating} />
+            </div>
+          )}
+          {screenGazeRating && (
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Screen Focus</span>
+              <QualitativeBadge status={screenGazeRating} />
+            </div>
+          )}
+          {tensionRating && (
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Composure</span>
+              <QualitativeBadge status={tensionRating} />
+            </div>
+          )}
+        </div>
+      ) : undefined,
     });
   }
 
-  // 6. Transcript Section
+  // 6. Transcript
   const transcriptDuration = getTranscriptDuration(report);
+  const segments = transcript.segments || [];
+  const filteredSegments = transcriptFilter.trim()
+    ? segments.filter((seg) =>
+        seg.text.toLowerCase().includes(transcriptFilter.toLowerCase())
+      )
+    : segments;
+
   sections.push({
     id: "transcript",
-    icon: <FileText size={18} className="text-blue-600" />,
+    tabLabel: "Transcript",
+    icon: <FileText size={16} className="text-violet-600" />,
+    iconContainerClass: "bg-violet-50 text-violet-600 border-violet-100",
     title: "Transcript",
     status: undefined,
     rightElement: transcriptDuration ? (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
-        <Clock size={12} className="text-blue-600" />
-        <span>{transcriptDuration}</span>
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+        <Clock size={11} className="text-blue-600" />
+        {transcriptDuration}
       </span>
     ) : undefined,
-    description: undefined,
     customContent: (
-      <div className="mt-3 space-y-2 max-h-[420px] overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/50 p-3.5">
-        {transcriptDuration && (
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/70 text-xs text-slate-500">
-            <span className="font-semibold text-slate-700">Recorded Speech</span>
-            <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
-              <Clock size={12} className="text-blue-600" />
-              Time Taken: <strong className="text-slate-900 font-bold">{transcriptDuration}</strong>
-            </span>
-          </div>
-        )}
-        {transcript.segments && transcript.segments.length > 0 ? (
-          transcript.segments.map((seg, idx) => (
-            <div key={idx} className="flex items-start gap-2.5 text-xs py-1">
-              {seg.timestamp_s != null ? (
-                <button
-                  type="button"
-                  onClick={() => seekTo(seg.timestamp_s!)}
-                  className="w-12 shrink-0 font-mono text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer"
-                  title={`Seek video to ${seg.timestamp}`}
-                >
-                  {seg.timestamp ?? fmtTime(seg.timestamp_s)}
-                </button>
-              ) : (
-                <span className="w-12 shrink-0 font-mono text-slate-400">
-                  {seg.timestamp ?? "—"}
-                </span>
-              )}
-              <span className="shrink-0 font-semibold text-slate-700">
-                {seg.speaker || "Candidate"}:
+      <div className="space-y-3 pt-1">
+        {fullParagraphText ? (
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5 space-y-2.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                Spoken Transcript (Full Paragraph)
               </span>
-              <p className="flex-1 text-slate-600 leading-relaxed">{seg.text}</p>
+              <button
+                type="button"
+                onClick={handleCopyTranscript}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
+              >
+                {copiedTranscript ? (
+                  <>
+                    <Check size={12} className="text-emerald-600" />
+                    <span className="text-emerald-700 font-bold">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} className="text-slate-500" />
+                    <span>Copy Text</span>
+                  </>
+                )}
+              </button>
             </div>
-          ))
-        ) : transcript.full_text ? (
-          <p className="text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">
-            {transcript.full_text}
-          </p>
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed sm:leading-loose whitespace-pre-wrap">
+              {fullParagraphText}
+            </p>
+          </div>
         ) : (
-          <p className="text-xs text-slate-400 italic">No transcript recorded.</p>
+          <p className="text-xs text-slate-400 italic py-2">No transcript recorded for this session.</p>
         )}
       </div>
     ),
   });
 
-  // 7. Additional Observations (replacing Coaching)
+  // 7. Additional Observations
   const addlObs: string[] = [];
-  if (report.non_technical?.communication_summary) {
-    addlObs.push(`Communication: ${report.non_technical.communication_summary}`);
+  const addlSec = intro_sections.find((s) =>
+    [
+      "ai_engineering_evolution",
+      "guardrails_evals_observability_mentioned",
+      "additional_observations",
+    ].includes(s.key)
+  );
+  if (addlSec?.observation?.trim()) {
+    addlObs.push(addlSec.observation.trim());
   }
-  if (report.non_technical?.structure_quality) {
-    addlObs.push(`Structure: ${report.non_technical.structure_quality}`);
+
+  if (report.non_technical?.communication_summary?.trim()) {
+    addlObs.push(`Communication: ${report.non_technical.communication_summary.trim()}`);
   }
-  if (report.non_technical?.confidence_notes) {
-    addlObs.push(`Confidence: ${report.non_technical.confidence_notes}`);
+  if (report.non_technical?.structure_quality?.trim()) {
+    addlObs.push(`Structure: ${report.non_technical.structure_quality.trim()}`);
   }
-  if (report.strongest_points && report.strongest_points.length > 0) {
-    report.strongest_points.forEach((p) => {
-      if (p) addlObs.push(p);
+  if (report.non_technical?.confidence_notes?.trim()) {
+    addlObs.push(`Confidence: ${report.non_technical.confidence_notes.trim()}`);
+  }
+  if (final_assessment?.transition_quality?.trim()) {
+    addlObs.push(`Transition Quality: ${final_assessment.transition_quality.trim()}`);
+  }
+  if (strongest_points && strongest_points.length > 0) {
+    strongest_points.forEach((p) => {
+      if (p?.trim()) addlObs.push(p.trim());
     });
   }
   if (priority_improvements && priority_improvements.length > 0) {
     priority_improvements.forEach((p) => {
-      if (p.guidance) {
-        addlObs.push(`${p.topic ? `${p.topic}: ` : ""}${p.guidance}`);
-      }
-    });
-  }
-  if (coaching_suggestions && coaching_suggestions.length > 0) {
-    coaching_suggestions.forEach((c) => {
-      if (c.suggestion) {
-        addlObs.push(`${c.area ? `${c.area}: ` : ""}${c.suggestion}`);
+      const guidance = p.guidance?.trim();
+      const topic = p.topic?.trim();
+      const example = p.example?.trim();
+      if (guidance) {
+        addlObs.push(`Priority Improvement (${topic || "Focus Area"}): ${guidance}${example ? ` — Example: "${example}"` : ""}`);
       }
     });
   }
   if (critical_gaps && critical_gaps.length > 0) {
     critical_gaps.forEach((g) => {
-      if (g.what_is_missing) {
-        addlObs.push(`${g.topic ? `${g.topic}: ` : ""}${g.what_is_missing}`);
+      const topic = g.topic?.trim();
+      const missing = g.what_is_missing?.trim();
+      const why = g.why_it_matters?.trim();
+      const addition = g.suggested_addition?.trim();
+      if (missing || addition || why) {
+        const textParts = [missing, addition ? `Suggested addition: "${addition}"` : "", why ? `Context: ${why}` : ""].filter(Boolean);
+        addlObs.push(`Identified Gap (${topic || "Content"}): ${textParts.join(" — ")}`);
       }
     });
   }
 
   const addlStatus =
-    scores.non_technical?.band
-      ? formatBand(scores.non_technical.band)
-      : scores.business_acumen?.band
-      ? formatBand(scores.business_acumen.band)
-      : undefined;
+    scores.non_technical?.band ||
+    scores.business_acumen?.band ||
+    addlSec?.status ||
+    "AVERAGE";
+
+  const addlDesc =
+    report.non_technical?.communication_summary?.trim() ||
+    addlSec?.observation?.trim() ||
+    "Delivery, structure, and overall presentation signals evaluated during the interview.";
 
   sections.push({
     id: "additional_observations",
-    icon: <Lightbulb size={18} className="text-emerald-600" />,
+    tabLabel: "Additional Observations",
+    icon: <ShieldCheck size={16} className="text-emerald-600" />,
+    iconContainerClass: "bg-emerald-50 text-emerald-600 border-emerald-100",
     title: "Additional Observations",
     status: addlStatus,
-    description: undefined,
+    description: sanitizeQualitativeText(addlDesc),
     observations: addlObs.length > 0 ? addlObs : undefined,
   });
 
-  // Manage expandable states
-  const [openSectionIds, setOpenSectionIds] = useState<Record<string, boolean>>(() => {
-    // Default: first 3 sections expanded
-    const init: Record<string, boolean> = {};
-    sections.slice(0, 3).forEach((s) => {
-      init[s.id] = true;
-    });
-    return init;
-  });
+  // ── Active Sub-Tab State (Zero-Scroll Single-View Layout) ──
+  const [activeSectionId, setActiveSectionId] = useState<string>(initialSubTab);
 
-  const allExpanded = sections.every((s) => openSectionIds[s.id]);
-
-  const handleToggleAll = () => {
-    if (allExpanded) {
-      setOpenSectionIds({});
-    } else {
-      const next: Record<string, boolean> = {};
-      sections.forEach((s) => {
-        next[s.id] = true;
-      });
-      setOpenSectionIds(next);
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSectionId(initialSubTab);
     }
-  };
+  }, [initialSubTab]);
 
-  const toggleSection = (id: string) => {
-    setOpenSectionIds((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
+  const activeSection =
+    sections.find((s) => s.id === activeSectionId) || sections[0];
 
   return (
     <div className="space-y-4">
-      {/* Top Controls: Expand All / Collapse All */}
-      <div className="flex items-center justify-between pb-1">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-          Detailed Evaluation Sections
-        </h2>
-        <button
-          type="button"
-          onClick={handleToggleAll}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
-        >
-          {allExpanded ? (
-            <>
-              <ChevronUp size={14} className="text-slate-500" />
-              Collapse All
-            </>
-          ) : (
-            <>
-              <ChevronDown size={14} className="text-slate-500" />
-              Expand All
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Expandable Sections List */}
-      <div className="space-y-3">
+      {/* Horizontal Sub-Tabs Bar (Fits comfortably on wide screens without cutting off) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none no-scrollbar w-full">
         {sections.map((section) => {
-          const isOpen = Boolean(openSectionIds[section.id]);
+          const isActive = section.id === activeSection.id;
           return (
-            <div
+            <button
               key={section.id}
-              className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-xs transition-colors"
+              type="button"
+              onClick={() => setActiveSectionId(section.id)}
+              className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all border cursor-pointer ${
+                isActive
+                  ? "bg-white text-blue-700 border-blue-400 shadow-2xs ring-2 ring-blue-500/15"
+                  : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+              }`}
             >
-              {/* Header (Clickable) */}
-              <button
-                type="button"
-                onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center justify-between p-4 sm:px-5 text-left hover:bg-slate-50/80 transition-colors cursor-pointer"
-                aria-expanded={isOpen}
+              <span
+                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${
+                  isActive
+                    ? section.iconContainerClass
+                    : "bg-slate-100 text-slate-500 border-slate-200"
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className="shrink-0 flex items-center">{section.icon}</span>
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                    {section.title}
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  {section.rightElement}
-                  {section.status && <QualitativeBadge status={section.status} />}
-                  <span className="text-slate-400">
-                    {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </span>
-                </div>
-              </button>
-
-              {/* Body (Expanded) */}
-              {isOpen && (
-                <div className="border-t border-slate-100 p-4 sm:p-5 space-y-4 bg-white">
-                  {section.description && (
-                    <div>
-                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        Description
-                      </h4>
-                      <p className="text-xs sm:text-sm leading-relaxed text-slate-700">
-                        {section.description}
-                      </p>
-                    </div>
-                  )}
-
-                  {section.observations && section.observations.length > 0 && (
-                    <div>
-                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                        Key Observations
-                      </h4>
-                      <ul className="space-y-2">
-                        {section.observations.map((obs, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-start gap-2 text-xs sm:text-sm text-slate-600"
-                          >
-                            <span className="text-blue-500 mt-0.5">•</span>
-                            <span className="leading-relaxed">{obs}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {(!section.observations || section.observations.length === 0) && !section.customContent && (
-                    <p className="text-xs text-slate-400 italic">
-                      No specific observations recorded for this section.
-                    </p>
-                  )}
-
-                  {section.customContent}
-                </div>
+                {section.icon}
+              </span>
+              <span>{section.tabLabel || section.title}</span>
+              {section.status && (
+                <span
+                  className={`size-2 rounded-full shrink-0 ${
+                    ["EXCELLENT", "STRONG", "GOOD", "COVERED", "POSITIVE"].includes(
+                      section.status.toUpperCase()
+                    )
+                      ? "bg-emerald-500"
+                      : ["AVERAGE", "ADEQUATE", "DEVELOPING", "PARTIAL", "MODERATE"].includes(
+                          section.status.toUpperCase()
+                        )
+                      ? "bg-amber-500"
+                      : "bg-rose-500"
+                  }`}
+                  title={section.status}
+                />
               )}
-            </div>
+            </button>
           );
         })}
       </div>
+
+      {/* Active Section Content Card (Zero Page Scroll) */}
+      <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-4 animate-in fade-in-50 duration-150">
+        {/* Card Header: Icon, Full Title, Right Element, and Qualitative Status Badge */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-3">
+            <span
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border ${activeSection.iconContainerClass}`}
+            >
+              {activeSection.icon}
+            </span>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              {activeSection.title}
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {activeSection.rightElement}
+            {activeSection.status && (
+              <QualitativeBadge status={activeSection.status} />
+            )}
+          </div>
+        </div>
+
+        {/* Executive Description */}
+        {activeSection.description && (
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              Executive Description
+            </span>
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              {activeSection.description}
+            </p>
+          </div>
+        )}
+
+        {/* Key Observations */}
+        {activeSection.observations && activeSection.observations.length > 0 && (
+          <div className="rounded-xl bg-[#f0f7ff] border border-blue-100/90 p-4 sm:p-5">
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2.5">
+              Key Observations
+            </h4>
+            <ul className="space-y-2">
+              {activeSection.observations.map((obs, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700"
+                >
+                  <span className="text-blue-500 font-bold shrink-0 leading-none mt-1">
+                    •
+                  </span>
+                  <span className="leading-relaxed">{obs}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(!activeSection.observations || activeSection.observations.length === 0) &&
+          !activeSection.customContent &&
+          !activeSection.description && (
+            <p className="text-xs text-slate-400 italic py-2">
+              No specific observations recorded for this section.
+            </p>
+          )}
+
+        {/* Custom Content (e.g. Concept Matrix, Tech Badges, Audio/Video Factor Badges, Spoken Transcript) */}
+        {activeSection.customContent}
+      </div>
+
+      {/* Full Transcript Modal */}
+      {showFullTranscriptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center border border-violet-100">
+                  <FileText size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Full Assessment Transcript</h3>
+                  {transcriptDuration && (
+                    <p className="text-xs text-slate-500">Duration: {transcriptDuration}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFullTranscriptModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Continuous Spoken Narrative
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyTranscript}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
+                >
+                  {copiedTranscript ? (
+                    <>
+                      <Check size={13} className="text-emerald-600" />
+                      <span className="text-emerald-700 font-bold">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={13} className="text-slate-500" />
+                      <span>Copy Full Transcript</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-5 sm:p-6">
+                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed sm:leading-loose whitespace-pre-wrap">
+                  {fullParagraphText || "No transcript recorded for this assessment."}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFullTranscriptModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1018,7 +1615,7 @@ export function ReportHeader({
   };
 
   return (
-    <header className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-xs mb-6 print:border-none print:shadow-none print:p-0">
+    <header className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs mb-4 sm:mb-5 print:border-none print:shadow-none print:p-0">
       {/* Top Row: Back to My Assessments & Download Report */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
@@ -1040,12 +1637,12 @@ export function ReportHeader({
       </div>
 
       {/* Title */}
-      <h1 className="mt-3 text-xl sm:text-2xl font-bold tracking-tight text-[#071d49]">
+      <h1 className="mt-2.5 text-xl sm:text-2xl font-bold tracking-tight text-[#071d49]">
         {title}
       </h1>
 
       {/* Metadata Row with Subtle Dividers */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
         {completedDateStr && <span>Completed on {completedDateStr}</span>}
         {completedDateStr && durationStr && <span className="text-slate-300">|</span>}
         {durationStr && <span>Duration {durationStr}</span>}
@@ -1059,7 +1656,7 @@ export function ReportHeader({
 
       {/* Horizontal Tabs: Evaluation & Details */}
       <nav
-        className="mt-5 flex gap-8 border-b border-slate-200 print:hidden"
+        className="mt-4 flex gap-8 border-b border-slate-200 print:hidden"
         aria-label="Report sections"
       >
         {REPORT_TABS.map((tab) => {
@@ -1196,10 +1793,18 @@ export default function AiPrepReport({
     loadReport();
   }, [loadReport]);
 
-  const handleTabChange = (tabLabel: ReportTab) => {
+  const [detailsSubTab, setDetailsSubTab] = useState<string>(() => {
+    return searchParams.get("section") || "intro";
+  });
+
+  const handleTabChange = (tabLabel: ReportTab, subTab?: string) => {
     setActiveTab(tabLabel);
+    if (subTab) {
+      setDetailsSubTab(subTab);
+    }
     const param = paramFromTab(tabLabel);
-    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}`;
+    const sectionParam = subTab ? `&section=${subTab}` : "";
+    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}`;
     router.push(targetUrl, { scroll: false });
   };
 
@@ -1290,8 +1895,7 @@ export default function AiPrepReport({
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900">
-      {/* Wide centered container matching the report-only reference */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 w-full space-y-3 sm:space-y-3.5">
         <ReportHeader
           assessment={assessment}
           report={report}
@@ -1299,7 +1903,7 @@ export default function AiPrepReport({
           onSelectTab={handleTabChange}
         />
 
-        <main>
+        <main className="space-y-3 sm:space-y-3.5">
           {isEvaluationTab ? (
             <EvaluationContent
               report={report}
@@ -1309,7 +1913,11 @@ export default function AiPrepReport({
               onSelectTab={handleTabChange}
             />
           ) : (
-            <DetailsContent report={report} seekTo={seekTo} />
+            <DetailsContent
+              report={report}
+              seekTo={seekTo}
+              initialSubTab={detailsSubTab}
+            />
           )}
         </main>
       </div>

@@ -41,16 +41,23 @@ export function formatBand(raw?: string | null): string | undefined {
     EXCELLENT:           "Good",
     STRONG:              "Good",
     GOOD:                "Good",
+    POSITIVE:            "Good",
     ADEQUATE:            "Average",
     AVERAGE:             "Average",
     DEVELOPING:          "Average",
+    PARTIAL:             "Average",
     NEEDS_WORK:          "Needs Improvement",
     NEEDS_POLISH:        "Needs Improvement",
     NEEDS_IMPROVEMENT:   "Needs Improvement",
     WEAK:                "Needs Improvement",
     COVERED:             "Good",
-    PARTIAL:             "Needs Improvement",
+    LOW:                 "Good",
+    MINIMAL:             "Good",
+    MODERATE:            "Average",
+    HIGH:                "Needs Improvement",
+    EXCESSIVE:           "Needs Improvement",
     NOT_MENTIONED:       "Needs Improvement",
+    NEGATIVE:            "Needs Improvement",
     NOT_APPLICABLE:      "N/A",
     INSUFFICIENT_DATA:   "Insufficient Data",
   };
@@ -63,18 +70,25 @@ export function bandColor(band?: string): string {
     case "EXCELLENT":
     case "STRONG":
     case "GOOD":
-    case "COVERED":       return "bg-emerald-100 text-emerald-800";
+    case "COVERED":
+    case "POSITIVE":
+    case "LOW":
+    case "MINIMAL":       return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "AVERAGE":
     case "ADEQUATE":
-    case "DEVELOPING":    return "bg-sky-100 text-sky-800";
+    case "DEVELOPING":
+    case "PARTIAL":
+    case "MODERATE":      return "bg-amber-100 text-amber-800 border-amber-200";
     case "NEEDS_WORK":
     case "NEEDS_POLISH":
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
-    case "PARTIAL":
-    case "NOT_MENTIONED": return "bg-rose-100 text-rose-800";
-    case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500";
-    default:              return "bg-slate-100 text-slate-500";
+    case "NOT_MENTIONED":
+    case "NEGATIVE":
+    case "HIGH":
+    case "EXCESSIVE":     return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
+    default:              return "bg-slate-100 text-slate-500 border-slate-200";
   }
 }
 
@@ -206,7 +220,12 @@ export interface NormalizedReport {
     status?: string;
     observation?: string;
     evidence?: string[];
+    technologies_mentioned?: string[];
+    concepts?: Record<string, string>;
   }[];
+
+  // ── Technology inventory (from technology_inventory) ──
+  technology_inventory?: Record<string, string[]>;
 
   // ── Strongest points and critical gaps from intro ──
   strongest_points: string[];
@@ -293,7 +312,7 @@ export interface NormalizedReport {
 
 function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
   const rec = asRecord(raw);
-  const full_text = asStr(rec.full_text) ?? asStr(rec.text) ?? asStr(rec.transcript_text);
+  let full_text = asStr(rec.full_text) ?? asStr(rec.text) ?? asStr(rec.transcript_text);
   const rawSegs = Array.isArray(rec.segments) ? rec.segments : Array.isArray(rec.items) ? rec.items : [];
   const segments: TranscriptSegment[] = rawSegs
     .map((item: unknown) => {
@@ -312,6 +331,21 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       };
     })
     .filter(Boolean) as TranscriptSegment[];
+
+  // If full_text is missing or fragmented, construct a cohesive paragraph from segments
+  if (!full_text && segments.length > 0) {
+    full_text = segments.map((s) => s.text).join(" ");
+  }
+
+  // Clean speech artifacts, </S>, repetitive candidate prefixes, and double spaces into a continuous paragraph
+  if (full_text) {
+    full_text = full_text
+      .replace(/<\/?s>/gi, "")
+      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*|\w+):\s*/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   return { full_text, segments };
 }
 
@@ -550,12 +584,34 @@ export function normalizeReport(
       const observation = asStr(sec.observation);
       const status = asStr(sec.overall_status);
       if (!observation && !status) return [];
+
+      const techList = Array.from(new Set([
+        ...asStrArray(sec.technologies_mentioned),
+        ...asStrArray(sec.frameworks_mentioned),
+        ...asStrArray(sec.models_mentioned),
+        ...asStrArray(sec.model_platforms_mentioned),
+        ...asStrArray(sec.patterns_mentioned),
+        ...asStrArray(sec.cloud_providers),
+        ...asStrArray(sec.compute_services),
+        ...asStrArray(sec.tools_mentioned),
+        ...asStrArray(sec.stages_mentioned),
+      ])).filter(Boolean);
+
+      const rawConcepts = asRecord(sec.concepts);
+      const concepts: Record<string, string> = {};
+      for (const [ck, cv] of Object.entries(rawConcepts)) {
+        const val = asStr(cv);
+        if (val) concepts[ck] = val;
+      }
+
       return [{
         key,
         title: SECTION_LABEL[key] ?? key.replaceAll("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
         status,
         observation,
         evidence: asStrArray(sec.evidence),
+        technologies_mentioned: techList.length > 0 ? techList : undefined,
+        concepts: Object.keys(concepts).length > 0 ? concepts : undefined,
       }];
     });
 
@@ -575,6 +631,14 @@ export function normalizeReport(
         evidence: asStrArray(item.evidence),
       });
     }
+  }
+
+  // ── Technology inventory ─────────────────────────────────────────────────
+  const tiRaw = asRecord(introEval.technology_inventory ?? repData.technology_inventory);
+  const technology_inventory: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(tiRaw)) {
+    const arr = asStrArray(v);
+    if (arr.length > 0) technology_inventory[k] = arr;
   }
 
   // ── Critical gaps & improvements ─────────────────────────────────────────
@@ -769,9 +833,16 @@ export function normalizeReport(
     asStr(overallAssessment.readiness);
 
   const overallSummary =
-    asStr(technical_analysis?.summary) ??
     asStr(overallAssessment.summary) ??
-    asStr(non_technical?.communication_summary);
+    asStr(technical_analysis?.summary) ??
+    asStr(repData.overall_summary) ??
+    asStr(bundled.overall_summary) ??
+    asStr(txEval.summary) ??
+    asStr(txEval.overall_summary) ??
+    asStr(introEval.observation) ??
+    asStr(intro_quality?.observation) ??
+    asStr(non_technical?.communication_summary) ??
+    asStr(final_assessment?.most_important_improvement);
 
   const resolvedMediaUrl = assessment.youtube_url?.trim() || null;
 
@@ -801,6 +872,7 @@ export function normalizeReport(
     technical_analysis,
     non_technical,
     intro_sections,
+    technology_inventory: Object.keys(technology_inventory).length > 0 ? technology_inventory : undefined,
     strongest_points: asStrArray(introEval.strongest_points),
     critical_gaps,
     priority_improvements,

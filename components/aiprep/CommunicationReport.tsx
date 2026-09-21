@@ -29,7 +29,7 @@ function commRatingColor(status?: string): string {
   if (!status) return "bg-slate-100 text-slate-500";
   const s = status.toUpperCase().trim();
   if (["STRONG", "EXCELLENT", "GOOD", "HIGH"].includes(s)) return "bg-emerald-100 text-emerald-800";
-  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING"].includes(s)) return "bg-sky-100 text-sky-800";
+  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING", "PARTIAL"].includes(s)) return "bg-amber-100 text-amber-800";
   if (["NEEDS_WORK", "NEEDS_POLISH", "WEAK", "LOW", "POOR"].includes(s)) return "bg-rose-100 text-rose-800";
   if (["INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) return "bg-slate-100 text-slate-600";
   return bandColor(status);
