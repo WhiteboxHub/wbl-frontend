@@ -159,7 +159,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setConsentCamera(false);
       setVideoAnalyticsEnabled(false);
     }
-  }, [initialMode, audioOnly]);
+  }, [initialMode, audioOnly, setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
     return '';
