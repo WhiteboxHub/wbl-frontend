@@ -400,7 +400,11 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
     const AIPREP_API = getAiPrepApiUrl();
 
-    const [loading, setLoading] = useState(true);
+    const isInitialAiPrep = Boolean(
+        (typeof defaultTab === 'string' && (defaultTab.startsWith('ai-prep') || defaultTab.startsWith('aiprep') || defaultTab === 'wbl-smartprep')) ||
+        (typeof window !== 'undefined' && (window.location.pathname.toLowerCase().includes('/ai-prep') || window.location.pathname.toLowerCase().includes('/aiprep') || window.location.pathname.toLowerCase().includes('/wbl-smartprep')))
+    );
+    const [loading, setLoading] = useState(!isInitialAiPrep);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -409,8 +413,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     const [hasMissingFields, setHasMissingFields] = useState(true);
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [onboardingDocSubmittedAt, setOnboardingDocSubmittedAt] = useState<string | null>(null);
-    const [retryCount, setRetryCount] = useState(0);
-    const [activeTab, setActiveTab] = useState<TabType>(defaultTab as TabType);
+    const [activeTab, setActiveTab] = useState<TabType>(() => normalizeTab(defaultTab));
+    const [prevDefaultTab, setPrevDefaultTab] = useState(defaultTab);
+    if (defaultTab !== prevDefaultTab) {
+        setPrevDefaultTab(defaultTab);
+        setActiveTab(normalizeTab(defaultTab));
+    }
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
     // Local click count — optimistically updated on every job board click
     const [jobBoardClickCount, setJobBoardClickCount] = useState(0);
@@ -438,35 +446,27 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const loadTodayClickSummary = useCallback(async () => {
         try {
-            console.log("[CLICK_DEBUG] loadTodayClickSummary START");
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-            console.log("Requesting /api/candidates/job-clicks/today...");
             const response: any = await apiFetch("candidates/job-clicks/today", {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            console.log("[CLICK_DEBUG] GET response:", response);
             if (response && typeof response === "object") {
-                console.log("[CLICK_DEBUG] job_board_clicks:", response.job_board_clicks);
-                console.log("[CLICK_DEBUG] setting todayClickSummary:", response);
                 setTodayClickSummary(response);
                 if (typeof response.job_board_clicks === "number") {
                     setJobBoardClickCount(response.job_board_clicks);
                 }
             }
         } catch (err) {
-            console.error("[CLICK_DEBUG] Failed to fetch today's click summary:", err);
+            // Silently handled
         }
     }, []);
 
     const loadTotalClickSummary = useCallback(async () => {
         try {
-            console.log("[CLICK_DEBUG] loadTotalClickSummary START");
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-            console.log("Requesting /api/candidates/job-clicks/total...");
             const response: any = await apiFetch("candidates/job-clicks/total", {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            console.log("[CLICK_DEBUG] GET total response:", response);
             if (response && typeof response === "object") {
                 const total = typeof response.total_job_board_clicks === "number"
                     ? response.total_job_board_clicks
@@ -474,7 +474,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 setTotalJobBoardClickCount(total);
             }
         } catch (err) {
-            console.error("[CLICK_DEBUG] Failed to fetch total click summary:", err);
+            // Silently handled
         }
     }, []);
 
@@ -493,9 +493,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         }
 
-        console.log("[CLICK_DEBUG] handleJobClick START");
-        console.log("[CLICK_DEBUG] jobListingId:", jobListingId);
-
         // 1. Open the job link synchronously to bypass browser popup blockers
         if (url) {
             window.open(url, '_blank');
@@ -504,12 +501,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         // 2. Perform click tracking POST request immediately to backend
         void (async () => {
             try {
-                console.log("[CLICK_DEBUG] POST request: candidates/track-clicks-batch payload:", { clicks: [{ job_listing_id: jobListingId, count: 1 }] });
-                const res = await apiFetch("candidates/track-clicks-batch", {
+                await apiFetch("candidates/track-clicks-batch", {
                     method: "POST",
                     body: { clicks: [{ job_listing_id: jobListingId, count: 1 }] },
                 });
-                console.log("[CLICK_DEBUG] POST response:", res);
 
                 if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
                     navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
@@ -519,7 +514,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 await loadTodayClickSummary();
                 await loadTotalClickSummary();
             } catch (e) {
-                console.warn("[CLICK_DEBUG] Job click tracking failed:", e);
+                // Tracking failure handled gracefully
             }
         })();
     }, [loadTodayClickSummary, loadTotalClickSummary]);
@@ -593,11 +588,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [currentSubPath, pathname]);
 
     const isWizardActive = Boolean(
-        (activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') &&
+        (activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep') &&
         (
             isAiPrepWizardActive ||
-            isWizardPath() ||
-            (typeof window !== "undefined" && Boolean(sessionStorage.getItem('aiprep_wizard_step')))
+            isWizardPath()
         )
     );
 
@@ -689,11 +683,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         setActiveTab(normalized);
         if (!normalized.startsWith("ai-prep") || !WIZARD_SLUGS.some((slug) => tab.toLowerCase().includes(slug))) {
             setIsAiPrepWizardActive(false);
+            if (typeof window !== "undefined") {
+                sessionStorage.removeItem('aiprep_wizard_step');
+            }
         }
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         const targetUrl = `/user_dashboard/${tab}${searchString}`;
         setCurrentSubPath(targetUrl.toLowerCase());
-        window.history.pushState(null, "", targetUrl);
+        router.push(targetUrl);
     };
 
     useEffect(() => {
@@ -939,7 +936,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         try {
             setLoadingEasyApply(true);
             setEasyApplyError(null);
-            const logs = await apiFetch("job_activity_logs");
+            // Candidates do not have access to admin-only job_activity_logs; prevent 403 error
+            if (userRole !== 'employee' && userRole !== 'admin') {
+                setEasyApplyApplications([]);
+                return;
+            }
+            const logs = await apiFetch("job_activity_logs").catch(() => []);
+            if (!logs || !Array.isArray(logs)) {
+                setEasyApplyApplications([]);
+                return;
+            }
 
             const parsedApps: any[] = [];
             let candidateLogs = Array.isArray(logs) ? logs.filter((log: any) => log.candidate_id === candidateId) : [];
@@ -1031,10 +1037,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [candidateId]);
 
     useEffect(() => {
-        if (candidateId) {
+        if (candidateId && easyApplyPopupOpen) {
             fetchEasyApplyData();
         }
-    }, [candidateId, fetchEasyApplyData]);
+    }, [candidateId, easyApplyPopupOpen, fetchEasyApplyData]);
 
     useEffect(() => {
         if (uploadResumeOpen) {
@@ -1352,9 +1358,36 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             // fallback
         }
 
+        // If we already have prefetchedSession summary data, use it directly without duplicate network calls
+        if (prefetchedSession?.summaryData) {
+            const s = prefetchedSession.summaryData;
+            const hasKeys = s.has_api_key === true || (Array.isArray(s.llm_keys) && s.llm_keys.length > 0);
+            const hasResume = s.has_binary_resume === true || s.resume_text === "Exists" || (s.resume_json != null && typeof s.resume_json === "object");
+            const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && hasKeys);
+            return {
+                resume_uploaded: hasResume,
+                api_keys_configured: isConfigured,
+                setup_complete: hasResume && isConfigured,
+                has_binary_resume: !!s.has_binary_resume,
+                binary_resume_filename: s.binary_resume_filename || null,
+            };
+        }
+
+        const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
+        const accessToken = typeof window !== "undefined" ? (localStorage.getItem("access_token") || localStorage.getItem("token")) : null;
+
+        // If candidateId or tokens are not yet available, don't fire blind/stale requests
+        if (!candidateId || !prepToken || !accessToken) {
+            return {
+                resume_uploaded: false,
+                api_keys_configured: hasValidDefaultKey || hasAnyKeyInBackend,
+                setup_complete: false,
+                has_binary_resume: false,
+            };
+        }
+
         try {
-            const d: any = await setupApi.getStatus(true);
-            // Fallback: if cache miss but they have keys in both places, assume AI prep status
+            const d: any = await setupApi.getStatus(false);
             const isConfigured = hasValidDefaultKey || (hasAnyKeyInBackend && (d.has_api_key === true || (Array.isArray(d.llm_keys) && d.llm_keys.length > 0)));
             const resolvedStatus = {
                 ...d,
@@ -1406,9 +1439,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 setPrefetchedSession({ sessionId: sid, summaryData });
                 setPrefetchDone(true);
 
-                // Re-fetch accurate status after AI prep session is initialized
-                const status = await loadSetupStatus();
-                if (status) setSetupStatus(status);
+                // Derive accurate status directly from init-and-summary response without duplicate API calls
+                if (summaryData) {
+                    const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                    const hasResume = summaryData.has_binary_resume === true || summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                    setSetupStatus({
+                        resume_uploaded: hasResume,
+                        api_keys_configured: hasKeys,
+                        setup_complete: hasResume && hasKeys,
+                        has_binary_resume: !!summaryData.has_binary_resume,
+                        binary_resume_filename: summaryData.binary_resume_filename || null,
+                    });
+                }
             } catch {
                 // Silently fail — wizard will fall back to its own fetch
             }
@@ -2210,14 +2252,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [router, loadUserProfile, getCandidateId, setCandidateId, setHasMissingFields, setAgreementStatus, setOnboardingDocSubmittedAt, setServerTime, setShowOnboarding, setData, setLoading, setError]);
 
     useEffect(() => {
-        if (data) {
+        if (data && activeTab === 'my-sessions') {
             const timeoutId = setTimeout(() => {
                 loadSessions();
             }, 500);
 
             return () => clearTimeout(timeoutId);
         }
-    }, [data]);
+    }, [data, activeTab]);
 
     // Sync jobBoardClickCount from server data (today's clicks counter)
     useEffect(() => {
@@ -2299,13 +2341,26 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [isProfileOpen]);
 
     useEffect(() => {
+        const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
+        if (isAiPrep) {
+            setLoading(false);
+            if (!candidateId) {
+                getCandidateId().then((id) => {
+                    if (id) setCandidateId(id);
+                }).catch(() => {});
+            }
+            return;
+        }
+
         sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
         void loadTodayClickSummary();
         void loadTotalClickSummary();
-    }, [loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
+    }, [activeTab, candidateId, getCandidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
-    if (loading) {
+    const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
+
+    if (loading && !isAiPrep) {
         return (
             <div className="min-h-[400px] flex items-center justify-center">
                 <div className="text-center">
@@ -2321,7 +2376,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         );
     }
 
-    if (error || !data) {
+    if ((error || !data) && !isAiPrep) {
         return (
             <div className="min-h-[400px] flex items-center justify-center px-4">
                 <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
@@ -2339,7 +2394,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         );
     }
 
-    if (showOnboarding && candidateId) {
+    if (showOnboarding && candidateId && !isAiPrep) {
         return (
             <CandidateOnboarding
                 candidateId={candidateId}
@@ -2361,7 +2416,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         );
     }
 
-    const firstName = data.basic_info.full_name.split(" ")[0];
+    const firstName = data?.basic_info?.full_name?.split(" ")[0] || userProfile?.full_name?.split(" ")[0] || "Candidate";
 
     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
@@ -2426,12 +2481,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                             <button
                                 onClick={() => goToTab('ai-prep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold select-none cursor-pointer transition-all duration-150 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep'
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold select-none cursor-pointer transition-all duration-150 ${activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                     }`}
                             >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>AI PrepTool</span>
                             </button>
                         </div>
@@ -2600,11 +2655,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         />
                                     </div>
                                 )}
-                                {activeTab === 'overview' && (
+                                 {activeTab === 'overview' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Job Board Clicks Status Banner */}
                                         {(() => {
-                                            console.log("[CLICK_DEBUG] rendered todayClickSummary:", todayClickSummary);
                                             const clickData = todayClickSummary ?? {
                                                 job_board_clicks: jobBoardClickCount,
                                                 target_clicks: 30,
@@ -2613,8 +2667,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 status_label: jobBoardClickCount >= 30 ? 'GOAL COMPLETED' : 'BELOW TARGET',
                                                 message: jobBoardClickCount >= 30 ? "Today's goal completed." : `You need ${Math.max(0, 30 - jobBoardClickCount)} more clicks to reach today's goal.`,
                                             };
-                                            console.log("[CLICK_DEBUG] rendered clickData:", clickData);
-                                            console.log("[CLICK_DEBUG] displayed job_board_clicks:", clickData.job_board_clicks);
                                             const isGoalMet = clickData.status === 'TARGET_COMPLETED' || clickData.status === 'GOAL_MET' || clickData.status === 'goal_met' || clickData.job_board_clicks >= clickData.target_clicks;
                                             return (
                                                 <div
@@ -2848,7 +2900,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'my-sessions' && (
+                                 {activeTab === 'my-sessions' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
@@ -2876,7 +2928,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Classes Attended</h3>
                                                     <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.classes_joined ?? 0}
+                                                        {data?.candidate_stats?.classes_joined ?? 0}
                                                     </p>
                                                 </div>
 
@@ -2893,7 +2945,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                     </div>
                                                     <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Sessions Attended</h3>
                                                     <p className="text-2xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.sessions_joined ?? 0}
+                                                        {data?.candidate_stats?.sessions_joined ?? 0}
                                                     </p>
                                                 </div>
 
@@ -2975,7 +3027,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {activeTab === 'my-interviews' && (
+                                {activeTab === 'my-interviews' && data && (
                                     <div className="flex-1 overflow-y-auto p-0  space-y-4">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4">
                                             <div className="flex items-center justify-between mb-2">
@@ -3469,7 +3521,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                {(activeTab === 'ai-prep' || activeTab === 'aiprep' || activeTab === 'wbl-smartprep') && (
+                                {(activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep') && (
                                     isMobile ? (
                                         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-white dark:bg-gray-900 animate-in fade-in duration-200">
                                             <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm border border-indigo-100 dark:border-indigo-900/50">
@@ -3504,7 +3556,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             ) : (
                                                 <div className="p-4 lg:p-6">
                                                     <AIPrepDashboard
-                                                        setupStatus={{
+                                                        view={currentSubPath.includes('/assessments') ? 'assessments' : 'home'}
+                                                        setupStatus={setupStatus ? {
                                                             resume_uploaded: Boolean(
                                                                 setupStatus?.resume_uploaded ||
                                                                 setupStatus?.has_binary_resume ||
@@ -3513,11 +3566,17 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                             ),
                                                             api_keys_configured: Boolean(setupStatus?.api_keys_configured),
                                                             setup_complete: Boolean(setupStatus?.setup_complete),
-                                                        }}
+                                                        } : undefined}
                                                         onStartAssessment={() => {
                                                             sessionStorage.setItem('aiprep_wizard_step', 'CONFIGURATION');
                                                             setIsAiPrepWizardActive(true);
                                                             goToTab('ai-prep/assessment-type');
+                                                        }}
+                                                        onViewAssessments={() => {
+                                                            goToTab('ai-prep/assessments');
+                                                        }}
+                                                        onBackToHome={() => {
+                                                            goToTab('ai-prep');
                                                         }}
                                                     />
                                                 </div>
@@ -3530,7 +3589,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
-                                {activeTab === 'my-applications' && (
+                                {activeTab === 'my-applications' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
                                             {/* Header */}
@@ -3589,14 +3648,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         <div className="flex flex-col items-center flex-1">
                                                             <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Daily Outreach</p>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                                {data.candidate_stats?.daily_outreach_count ?? 0}
+                                                                {data?.candidate_stats?.daily_outreach_count ?? 0}
                                                             </p>
                                                         </div>
                                                         <div className="w-px h-10 bg-purple-100 dark:bg-purple-900/30"></div>
                                                         <div className="flex flex-col items-center flex-1">
                                                             <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 whitespace-nowrap">Complete Outreach</p>
                                                             <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                                {data.candidate_stats?.complete_outreach_count ?? 0}
+                                                                {data?.candidate_stats?.complete_outreach_count ?? 0}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -3605,7 +3664,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
                                                 {/* Card 3: Easy Apply Counter */}
                                                 {(() => {
-                                                    const easyApplyCount = easyApplyApplications.length > 0 ? easyApplyApplications.length : (data.candidate_stats?.easy_apply_counter ?? 0);
+                                                    const easyApplyCount = easyApplyApplications.length > 0 ? easyApplyApplications.length : (data?.candidate_stats?.easy_apply_counter ?? 0);
                                                     return (
                                                         <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/60 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-6 shadow-sm transition-all hover:shadow-md group">
                                                             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300 pointer-events-none">

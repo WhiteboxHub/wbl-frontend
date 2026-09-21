@@ -18,6 +18,9 @@ const Footer = () => {
     script.src =
       "https://seal.godaddy.com/getSeal?sealID=v3KT7oJ1lPBg9VtkckOTfJJAwgbvIXY1mAuP0Qzb9OBFhXLj5FvNJFdMjtjF";
     script.async = true;
+    script.onerror = () => {
+      // Ignored if blocked by client adblocker/privacy extension
+    };
 
     if (sitesealElement) {
       sitesealElement.appendChild(script);

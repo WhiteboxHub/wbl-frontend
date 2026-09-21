@@ -125,35 +125,9 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab("overview")}
-              className={`pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-                activeTab === "overview"
-                  ? "border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
-                  : "border-transparent text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-gray-200"
-              }`}
+              className="pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
             >
               Overview & Metadata
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("report")}
-              className={`pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-                activeTab === "report"
-                  ? "border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
-                  : "border-transparent text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-gray-200"
-              }`}
-            >
-              Evaluation Report
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("telemetry")}
-              className={`pb-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
-                activeTab === "telemetry"
-                  ? "border-blue-600 text-blue-700 dark:border-blue-400 dark:text-blue-300"
-                  : "border-transparent text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-gray-200"
-              }`}
-            >
-              Questions & Telemetry
             </button>
           </div>
 
