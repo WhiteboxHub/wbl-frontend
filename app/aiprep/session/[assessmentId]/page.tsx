@@ -184,6 +184,36 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const [isSpeechMuted, setIsSpeechMuted] = useState<boolean>(false);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [cachedVoices, setCachedVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Cross-browser voice caching & compatibility
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const populateVoices = () => {
+      try {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) {
+          setCachedVoices(v);
+        }
+      } catch (_) {}
+    };
+    populateVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', populateVoices);
+    };
+  }, []);
+
+  const getBestVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
+    if (!voices || voices.length === 0) return undefined;
+    return (
+      voices.find((v) => v.name.includes('Google US English') || (v.name.includes('Google') && v.lang.startsWith('en'))) ||
+      voices.find((v) => (v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Karen')) && v.lang.startsWith('en')) ||
+      voices.find((v) => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang.startsWith('en')) ||
+      voices[0]
+    );
+  }, []);
 
   // Video element ref
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -295,14 +325,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   startRecorderRef.current = startRecorderCore;
   const cleanupRecorderRef = useRef(cleanupRecorder);
   cleanupRecorderRef.current = cleanupRecorder;
+  const startAnswerRef = useRef<() => void>(() => {});
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+      speechTimeoutRef.current = null;
+    }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
       } catch (_) { }
     }
+    speechUtteranceRef.current = null;
     setIsAiSpeaking(false);
   }, []);
 
@@ -317,27 +353,30 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const utterance = new SpeechSynthesisUtterance(cleanText);
         speechUtteranceRef.current = utterance;
 
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice =
-          voices.find((v) => v.name.includes('Google US English') || v.name.includes('Google')) ||
-          voices.find((v) => v.name.includes('Natural') || v.name.includes('Samantha')) ||
-          voices.find((v) => v.lang.startsWith('en')) ||
-          voices[0];
+        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+        const preferredVoice = getBestVoice(currentVoices);
 
         if (preferredVoice) utterance.voice = preferredVoice;
         utterance.rate = 0.95;
 
         utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => setIsAiSpeaking(false);
-        utterance.onerror = () => setIsAiSpeaking(false);
+        utterance.onend = () => {
+          speechUtteranceRef.current = null;
+          setIsAiSpeaking(false);
+        };
+        utterance.onerror = () => {
+          speechUtteranceRef.current = null;
+          setIsAiSpeaking(false);
+        };
 
         window.speechSynthesis.speak(utterance);
       } catch (err) {
         console.warn('Speech synthesis error:', err);
+        speechUtteranceRef.current = null;
         setIsAiSpeaking(false);
       }
     },
-    [isSpeechMuted, stopAiSpeech]
+    [isSpeechMuted, stopAiSpeech, cachedVoices, getBestVoice]
   );
 
   const toggleAiVoiceMute = () => {
@@ -386,18 +425,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // 2. Query Question Bank API dynamically for this track (Backend First)
         let loadedQuestions: QuestionBankItem[] = [];
         try {
-          const qResponse = await aiprepApi.getQuestions(finalType);
-          if (qResponse?.items && qResponse.items.length > 0) {
-            loadedQuestions = qResponse.items as unknown as QuestionBankItem[];
+          const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
+          if (dataRes?.questions && dataRes.questions.length > 0) {
+            loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
           }
         } catch (qErr) {
-          console.warn('Questions API note (fetching assessment session data):', qErr);
-          try {
-            const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
-            if (dataRes?.questions && dataRes.questions.length > 0) {
-              loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
-            }
-          } catch (_) { }
+          console.warn('Questions API fallback failed:', qErr);
         }
 
         setQuestions(loadedQuestions);
@@ -405,16 +438,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // If intro track, trigger 5-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
           hasAutoStartedRef.current = true;
-          setCountdownValue(5);
+          let currentCount = 5;
+          setCountdownValue(currentCount);
           countdownIntervalRef.current = setInterval(() => {
-            setCountdownValue((prev) => {
-              if (prev === null || prev <= 1) {
-                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-                startRecorderRef.current();
-                return null;
+            currentCount -= 1;
+            if (currentCount <= 0) {
+              if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+                countdownIntervalRef.current = null;
               }
-              return prev - 1;
-            });
+              setCountdownValue(null);
+              startAnswerRef.current();
+            } else {
+              setCountdownValue(currentCount);
+            }
           }, 1000);
         }
       } catch (err: any) {
@@ -445,11 +482,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [stream]);
 
   // Read question aloud when question index changes or when recording starts
-  useEffect(() => {
-    if (!isLoading && questions[currentQuestionIndex] && isRecording) {
-      speakAiText(questions[currentQuestionIndex].question_text);
-    }
-  }, [currentQuestionIndex, isLoading, questions, isRecording, speakAiText]);
+  // (Removed to prevent double-speak since handleStartAnswer handles the AI dictation before recording)
 
   // ── Live Speech Recognition ────────────────────────────────────────────────
   useEffect(() => {
@@ -510,9 +543,60 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [isRecording]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
+  // Recording starts only AFTER the AI finishes reading the question aloud.
   const handleStartAnswer = () => {
-    startRecorderCore();
+    const activeQ = questions[currentQuestionIndex];
+    if (!isSpeechMuted && activeQ?.question_text && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      stopAiSpeech();
+      let hasStartedRecording = false;
+
+      const triggerStartRecording = () => {
+        if (hasStartedRecording) return;
+        hasStartedRecording = true;
+        if (speechTimeoutRef.current) {
+          clearTimeout(speechTimeoutRef.current);
+          speechTimeoutRef.current = null;
+        }
+        speechUtteranceRef.current = null;
+        setIsAiSpeaking(false);
+        startRecorderCore();
+      };
+
+      try {
+        const cleanText = activeQ.question_text.replace(/^"|"$/g, '').trim();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        speechUtteranceRef.current = utterance;
+
+        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+        const preferredVoice = getBestVoice(currentVoices);
+        if (preferredVoice) utterance.voice = preferredVoice;
+        utterance.rate = 0.95;
+
+        utterance.onstart = () => setIsAiSpeaking(true);
+        utterance.onend = () => triggerStartRecording();
+        utterance.onerror = () => triggerStartRecording();
+
+        // Safeguard timeout: calculate based on word count (avg ~2.5 words/sec + 5s buffer, min 8s, max 20s)
+        const wordCount = cleanText.split(/\s+/).length;
+        const maxWaitMs = Math.min(Math.max(Math.ceil((wordCount / 2.5) * 1000) + 5000, 8000), 20000);
+
+        speechTimeoutRef.current = setTimeout(() => {
+          console.warn('[Assessment] Speech synthesis safeguard timeout triggered');
+          try {
+            window.speechSynthesis.cancel();
+          } catch (_) {}
+          triggerStartRecording();
+        }, maxWaitMs);
+
+        window.speechSynthesis.speak(utterance);
+      } catch (_) {
+        triggerStartRecording();
+      }
+    } else {
+      startRecorderCore();
+    }
   };
+  startAnswerRef.current = handleStartAnswer;
 
   // ── Navigation Between Questions ───────────────────────────────────────────
   const handleNextQuestion = () => {
@@ -611,7 +695,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
           <IconLoader2 size={24} className="animate-spin" />
         </div>
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Practice Room</h2>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Assessment Room</h2>
         <p className="text-slate-500 dark:text-slate-400 text-xs">Calibrating media slicing and dynamic questions…</p>
       </div>
     );
@@ -758,10 +842,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <button
                   type="button"
                   onClick={() => setShowExitModal(true)}
-                  className="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                  title="Quit Session"
+                  className="h-10 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold"
+                  title="Exit Assessment"
                 >
-                  <IconLogout size={19} stroke={2} />
+                  <IconLogout size={16} stroke={2} />
+                  <span>Exit Assessment</span>
                 </button>
 
                 {/* 2. Question Navigation Arrows (if multiple questions exist) */}
