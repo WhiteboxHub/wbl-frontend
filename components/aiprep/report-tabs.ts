@@ -26,9 +26,8 @@ export function tabFromParam(param: string | null | undefined): ReportTab {
   const p = param.toLowerCase().trim();
   if (p === "evaluation" || p === "overview") return "Evaluation";
   if (p === "details") return "Details";
-  if (p === "transcript") return "Transcript";
   if (
-    ["performance", "technical", "communication", "coaching", "next-steps"].includes(p)
+    ["transcript", "performance", "technical", "communication", "coaching", "next-steps"].includes(p)
   ) {
     return "Details";
   }
@@ -38,8 +37,7 @@ export function tabFromParam(param: string | null | undefined): ReportTab {
 /** Resolve a ReportTab label → URL query-param value */
 export function paramFromTab(tab: ReportTab): string {
   if (tab === "Evaluation" || tab === "Overview") return "evaluation";
-  if (tab === "Details") return "details";
-  if (tab === "Transcript") return "transcript";
+  if (tab === "Details" || tab === "Transcript") return "details";
   return "evaluation";
 }
 

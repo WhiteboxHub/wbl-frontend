@@ -577,9 +577,11 @@ export function normalizeReport(
   } : undefined;
 
   // ── Intro section items ──────────────────────────────────────────────────
-  const intro_sections = Object.entries(introEval)
+  type IntroSection = NormalizedReport["intro_sections"][number];
+
+  const intro_sections: IntroSection[] = Object.entries(introEval)
     .filter(([key]) => !SKIP_KEYS.has(key) && !key.startsWith("_") && key !== "checklist_verification")
-    .flatMap(([key, value]) => {
+    .flatMap(([key, value]): IntroSection[] => {
       const sec = asRecord(value);
       const observation = asStr(sec.observation);
       const status = asStr(sec.overall_status);
@@ -607,8 +609,8 @@ export function normalizeReport(
       return [{
         key,
         title: SECTION_LABEL[key] ?? key.replaceAll("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
-        status,
-        observation,
+        status: status ?? undefined,
+        observation: observation ?? undefined,
         evidence: asStrArray(sec.evidence),
         technologies_mentioned: techList.length > 0 ? techList : undefined,
         concepts: Object.keys(concepts).length > 0 ? concepts : undefined,
@@ -626,8 +628,8 @@ export function normalizeReport(
       intro_sections.push({
         key: k,
         title,
-        status,
-        observation,
+        status: status ?? undefined,
+        observation: observation || undefined,
         evidence: asStrArray(item.evidence),
       });
     }
@@ -844,9 +846,35 @@ export function normalizeReport(
     asStr(non_technical?.communication_summary) ??
     asStr(final_assessment?.most_important_improvement);
 
-  const resolvedMediaUrl = assessment.youtube_url?.trim() || null;
+  const resolvedMediaUrl =
+    assessment.youtube_url?.trim() ||
+    (apiReport as any)?.youtube_url?.trim() ||
+    (apiReport as any)?.recording_url?.trim() ||
+    (apiReport as any)?.video_url?.trim() ||
+    (data as any)?.youtube_url?.trim() ||
+    (data as any)?.recording_url?.trim() ||
+    (data as any)?.video_url?.trim() ||
+    (assessment as any)?.video_url?.trim() ||
+    (assessment as any)?.recording_url?.trim() ||
+    (assessment as any)?.media_url?.trim() ||
+    null;
 
-  const normalizedMediaType = (assessment.media_type || "AUDIO").toUpperCase();
+  const rawMediaType = (
+    assessment.media_type ||
+    (data as any)?.media_type ||
+    (data as any)?.assessment?.media_type ||
+    (apiReport as any)?.media_type ||
+    (apiReport as any)?.assessment?.media_type ||
+    (Object.keys(rawVideo).length > 0 ? "VIDEO" : "") ||
+    (resolvedMediaUrl ? "VIDEO" : "") ||
+    "AUDIO"
+  ).toUpperCase();
+
+  const normalizedMediaType =
+    rawMediaType.includes("VIDEO") || rawMediaType === "VIDEO_AUDIO" || rawMediaType === "AUDIO_VIDEO"
+      ? "VIDEO"
+      : "AUDIO";
+
   const normalizedAssessment = {
     ...assessment,
     media_type: normalizedMediaType,

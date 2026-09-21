@@ -373,13 +373,12 @@ export function EvaluationContent({
     video?.overall_summary ??
       video?.primary_setup_strength ??
       video?.factors?.camera_framing_centering?.observation ??
-      undefined
+      "Eye contact, framing, and visual presentation evaluated."
   );
-  const videoBand = video
-    ? video.factors.camera_framing_centering?.status ??
-      scores.non_technical?.band ??
-      "AVERAGE"
-    : undefined;
+  const videoBand =
+    video?.factors?.camera_framing_centering?.status ??
+    scores.non_technical?.band ??
+    "AVERAGE";
 
   const addlSection = intro_sections.find((s) =>
     [
@@ -408,9 +407,10 @@ export function EvaluationContent({
 
 
   const previewSegments = transcript.segments.slice(0, 5);
+  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
   const isAudioOnly =
-    report.assessment.media_type === "AUDIO" ||
-    report.assessment.media_type === "AUDIO_ONLY";
+    rawMediaType === "AUDIO" ||
+    rawMediaType === "AUDIO_ONLY";
 
   const hasRecording = Boolean(
     youtube_url &&
@@ -495,7 +495,7 @@ export function EvaluationContent({
       </section>
 
       {/* ── 3. Recording Playback & Transcript Preview ── */}
-      {hasRecording ? (
+      {!isAudioOnly || hasRecording ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* LEFT: Recording Playback */}
           <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
@@ -690,9 +690,10 @@ export function DetailsContent({
     strongest_points = [],
   } = report;
 
+  const rawMedia = (report.assessment.media_type || "").toUpperCase();
   const isAudioOnly =
-    report.assessment.media_type === "AUDIO" ||
-    report.assessment.media_type === "AUDIO_ONLY";
+    rawMedia === "AUDIO" ||
+    rawMedia === "AUDIO_ONLY";
 
   const [transcriptFilter, setTranscriptFilter] = useState("");
   const [showFullTranscriptModal, setShowFullTranscriptModal] = useState(false);
@@ -1605,12 +1606,12 @@ export function ReportHeader({
       ? assessment.assessment_type.replaceAll("_", " ")
       : undefined;
 
-  const modeStr =
-    assessment.media_type === "AUDIO" || assessment.media_type === "AUDIO_ONLY"
-      ? "Audio Only"
-      : assessment.media_type
-      ? "Video"
-      : undefined;
+  const rawMedia = (assessment.media_type || "").toUpperCase();
+  const isAudioOnly =
+    rawMedia === "AUDIO" ||
+    rawMedia === "AUDIO_ONLY";
+
+  const modeStr = isAudioOnly ? "Audio Only" : "Audio + Video";
 
   const handleDownload = () => {
     window.print();
@@ -1799,13 +1800,24 @@ export default function AiPrepReport({
     return searchParams.get("section") || "intro";
   });
 
+  useEffect(() => {
+    const sec = searchParams.get("section");
+    if (sec) {
+      setDetailsSubTab(sec);
+    } else if (tabParam === "details") {
+      setDetailsSubTab("intro");
+    }
+  }, [tabParam, searchParams]);
+
   const handleTabChange = (tabLabel: ReportTab, subTab?: string) => {
     setActiveTab(tabLabel);
-    if (subTab) {
-      setDetailsSubTab(subTab);
+    // When clicking Details directly, always default to "intro" (Introduction)
+    const resolvedSubTab = subTab ?? (tabLabel === "Details" ? "intro" : undefined);
+    if (resolvedSubTab) {
+      setDetailsSubTab(resolvedSubTab);
     }
     const param = paramFromTab(tabLabel);
-    const sectionParam = subTab ? `&section=${subTab}` : "";
+    const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
     const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}`;
     router.push(targetUrl, { scroll: false });
   };
