@@ -39,11 +39,18 @@ export interface BlendshapeCategory {
   score: number;
 }
 
-export interface BlendshapeResult {
-  categories: BlendshapeCategory[];
+export interface UseMediaPipeVisionOptions {
+  enabled?: boolean;
 }
 
-export function useMediaPipeVision(enabled: boolean = false) {
+export function useMediaPipeVision(
+  optionsOrEnabled: boolean | UseMediaPipeVisionOptions = false
+) {
+  const enabled =
+    typeof optionsOrEnabled === 'object' && optionsOrEnabled !== null
+      ? Boolean(optionsOrEnabled.enabled)
+      : Boolean(optionsOrEnabled);
+
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
