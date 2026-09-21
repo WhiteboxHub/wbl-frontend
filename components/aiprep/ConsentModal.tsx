@@ -59,7 +59,7 @@ export const syncConsentToSessionStorage = (state: Partial<ConsentState>) => {
 
 export interface ConsentStepProps {
   videoEnabled: boolean; setVideoEnabled: (v: boolean) => void; consentMic?: boolean; setConsentMic?: (v: boolean) => void;
-  consentCamera?: boolean; setConsentCamera?: (v: boolean) => void; videoAnalyticsEnabled: boolean; setVideoAnalyticsEnabled: (v: boolean) => void;
+  consentCamera?: boolean; setConsentCamera?: (v: boolean) => void; videoAnalyticsEnabled: boolean; setVideoAnalyticsEnabled?: (v: boolean) => void;
   consentSaveRecording?: boolean; setConsentSaveRecording?: (v: boolean) => void; consentSaveTranscript: boolean; setConsentSaveTranscript: (v: boolean) => void;
   onBack: () => void; onNext: () => void;
 }
@@ -92,21 +92,23 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     setVideoEnabled(false);
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(false);
-    syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false });
+    if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(false);
+    syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false, videoAnalyticsEnabled: false });
   };
 
   const handleSelectVideoAudio = () => {
     setVideoEnabled(true);
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(true);
-    syncConsentToSessionStorage({ videoEnabled: true, consentMic: true, consentCamera: true });
+    if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(true);
+    syncConsentToSessionStorage({ videoEnabled: true, consentMic: true, consentCamera: true, videoAnalyticsEnabled: true });
   };
 
   const handleNextClick = () => {
     try {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('aiprep_active_mode', videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
-        syncConsentToSessionStorage({ videoEnabled, consentMic: true, consentCamera: videoEnabled });
+        syncConsentToSessionStorage({ videoEnabled, consentMic: true, consentCamera: videoEnabled, videoAnalyticsEnabled });
       }
     } catch (e) { }
     onNext();
