@@ -43,7 +43,7 @@ export interface BlendshapeResult {
   categories: BlendshapeCategory[];
 }
 
-export function useMediaPipeVision() {
+export function useMediaPipeVision(enabled: boolean = false) {
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -53,9 +53,13 @@ export function useMediaPipeVision() {
   const consecutiveNoFaceFramesRef = useRef<number>(0);
   const lastProcessedTimestampRef = useRef<number>(0);
 
-  // Initialize MediaPipe only on client side (SSR Safe)
+  // Initialize MediaPipe only if enabled on client side (SSR Safe)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !enabled) {
+      setIsLoading(false);
+      setIsReady(false);
+      return;
+    }
 
     const lifecycle = { cancelled: false };
     setIsLoading(true);

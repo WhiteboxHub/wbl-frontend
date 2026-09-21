@@ -410,13 +410,20 @@ export function ReportHeader({
       <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6">
         {/* Top bar: Back link + Top-right status */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/user_dashboard/ai-prep"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-violet-700 transition-colors"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                window.history.back();
+              } else {
+                window.location.href = "/user_dashboard/ai-prep/assessments";
+              }
+            }}
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 hover:text-violet-700 transition-colors cursor-pointer"
           >
             <ArrowLeft size={15} />
-            Dashboard
-          </Link>
+            Back to Assessments
+          </button>
 
           {/* Top-right status: VIDEO | Completed | Performance Band */}
           <div className="flex items-center gap-2">
@@ -656,12 +663,19 @@ export default function AiPrepReport({
             >
               <RefreshCw size={15} /> Check Status
             </button>
-            <Link
-              href="/user_dashboard/ai-prep"
-              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = "/user_dashboard/ai-prep/assessments";
+                }
+              }}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto cursor-pointer"
             >
-              My Assessments
-            </Link>
+              Assessments List
+            </button>
           </div>
         </section>
       </main>

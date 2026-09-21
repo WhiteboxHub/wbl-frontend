@@ -18,7 +18,6 @@ interface UserProfile {
 
 // ── Candidate sub-component with setup-status banner ─────────────────────────
 function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }) {
-  const [setupStatus, setSetupStatus] = React.useState<any>(null);
   const [headerCollapsed, setHeaderCollapsed] = React.useState<boolean>(false);
   const [isWizardActive, setIsWizardActive] = React.useState<boolean>(false);
   const [activeTabState, setActiveTabState] = React.useState<string>(currentTab);
@@ -26,13 +25,6 @@ function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }
   React.useEffect(() => {
     setActiveTabState(currentTab);
   }, [currentTab]);
-
-  React.useEffect(() => {
-    setupApi
-      .getStatus()
-      .then((data: any) => setSetupStatus(data))
-      .catch(() => setSetupStatus(null));
-  }, []);
 
   React.useEffect(() => {
     const handleLayoutMode = (e: any) => {
@@ -81,7 +73,9 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
   const [loading, setLoading] = React.useState(false);
 
-  const currentTab = params.tab?.[0] || "overview";
+  const currentTab = Array.isArray(params.tab)
+    ? params.tab.filter(Boolean).join("/") || "overview"
+    : "overview";
 
   React.useEffect(() => {
     // If regular user (not candidate/employee), load profile

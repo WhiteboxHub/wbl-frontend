@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 import { assessmentService } from "@/services/assessmentService";
@@ -36,6 +37,7 @@ const getCanonicalStatus = (raw?: string): string => {
 };
 
 export default function CandidateAssessmentsPage() {
+  const router = useRouter();
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +122,11 @@ export default function CandidateAssessmentsPage() {
   };
 
   const handleViewAssessment = (assessment: AssessmentGridItem) => {
+    const reportTarget = assessment.id || assessment.assessment_uuid;
+    router.push(`/aiprep/reports/${reportTarget}`);
+  };
+
+  const handleOpenModal = (assessment: AssessmentGridItem) => {
     setSelectedAssessment(assessment);
     setIsModalOpen(true);
   };
@@ -152,6 +159,8 @@ export default function CandidateAssessmentsPage() {
         filters={filters}
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}
+        onRefresh={loadAssessments}
+        isLoading={isLoading}
         isAdmin={true}
       />
 
@@ -162,7 +171,8 @@ export default function CandidateAssessmentsPage() {
         error={error}
         onRetry={loadAssessments}
         onView={handleViewAssessment}
-        onEdit={handleViewAssessment}
+        onViewDetails={handleOpenModal}
+        onEdit={handleOpenModal}
         onDelete={handleDeleteAssessment}
         currentPage={currentPage}
         totalPages={totalPages}

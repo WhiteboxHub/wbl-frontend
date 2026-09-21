@@ -8,8 +8,6 @@ export default function GlobalServiceWorker() {
         if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
             navigator.serviceWorker.register('/api/sw.js', { scope: '/' })
                 .then(registration => {
-                    console.log('✅ Global SW Active');
-
                     const token = localStorage.getItem("access_token") || localStorage.getItem("token");
                     const config = { token, url: API_BASE_URL };
 
@@ -25,13 +23,14 @@ export default function GlobalServiceWorker() {
                     sendConfig(registration.waiting);
                     sendConfig(registration.installing);
                 })
-                .catch(err => console.error('SW Registration failed:', err));
+                .catch(err => {
+                    if (process.env.NODE_ENV === 'development') console.error('SW Registration failed:', err);
+                });
 
             // Sync token if it changes or when SW becomes active
             navigator.serviceWorker.oncontrollerchange = () => {
                 const token = localStorage.getItem("access_token") || localStorage.getItem("token");
                 if (navigator.serviceWorker.controller) {
-                    console.log('🔄 SW Control changed, sending config...');
                     navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
                     if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
                 }

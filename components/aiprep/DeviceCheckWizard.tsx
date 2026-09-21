@@ -54,7 +54,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   assessmentId: initialAssessmentId,
   assessmentType: initialType,
   assessmentMode: initialMode,
-  audioOnly = false,
+  audioOnly = true,
   initialStep = 'CONFIGURATION',
   isSidebarCollapsed: isSidebarCollapsedProp,
   onComplete,
@@ -447,8 +447,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Vision Hook Integration
-  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision();
+  // Vision Hook Integration (Only active when in DEVICE_CHECK step with active camera stream)
+  const isVisionActive = step === 'DEVICE_CHECK' && !isAudioOnlyMode && videoEnabled && !!cameraStream;
+  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision(isVisionActive);
   const lastTelemetryUpdateRef = useRef<number>(0);
   const [isFaceLive, setIsFaceLive] = useState<boolean>(false);
 
