@@ -229,15 +229,7 @@ export function useMediaRecorder({
       stopTimer();
       isFinalizingRef.current = true;
 
-      // Safety fallback: if onstop event is delayed or fails to fire in browser, resolve after 1.5s
-      const safetyTimeout = setTimeout(() => {
-        setStatus('stopped');
-        cleanupStream();
-        resolve();
-      }, 1500);
-
       if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
-        clearTimeout(safetyTimeout);
         setStatus('stopped');
         cleanupStream();
         resolve();
@@ -245,7 +237,6 @@ export function useMediaRecorder({
       }
 
       mediaRecorderRef.current.onstop = () => {
-        clearTimeout(safetyTimeout);
         setStatus('stopped');
         cleanupStream();
         resolve();
@@ -256,7 +247,6 @@ export function useMediaRecorder({
         mediaRecorderRef.current.requestData();
         mediaRecorderRef.current.stop();
       } catch (e) {
-        clearTimeout(safetyTimeout);
         setStatus('stopped');
         cleanupStream();
         resolve();

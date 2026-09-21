@@ -878,15 +878,15 @@ export function DetailsContent({
     description: aiDesc,
     observations: aiObs.length > 0 ? aiObs : undefined,
     customContent: (
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1">
         {/* Concept Coverage Matrix */}
         {aiConceptsList.length > 0 && (
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
+          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
                 AI Engineering Concept Coverage
               </span>
-              <span className="text-[11px] font-semibold text-slate-500">
+              <span className="text-[10px] font-semibold text-slate-500">
                 {aiConceptsList.filter((c) => c.status === "COVERED").length} of {aiConceptsList.length} Covered
               </span>
             </div>
@@ -897,7 +897,7 @@ export function DetailsContent({
                 return (
                   <span
                     key={idx}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${
                       isCovered
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                         : isPartial
@@ -915,14 +915,14 @@ export function DetailsContent({
 
         {/* Technologies Mentioned */}
         {aiTechnologies.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
-            <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
+            <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
               Technologies Mentioned:
             </span>
             {aiTechnologies.map((t, idx) => (
               <span
                 key={idx}
-                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-mono font-medium"
+                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
               >
                 {t}
               </span>
@@ -1009,15 +1009,15 @@ export function DetailsContent({
     description: seDesc,
     observations: seObs.length > 0 ? seObs : undefined,
     customContent: (seConceptsList.length > 0 || seTechnologies.length > 0) ? (
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1">
         {/* Concept Coverage Matrix */}
         {seConceptsList.length > 0 && (
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3 space-y-2">
+          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
                 Software & Infrastructure Coverage
               </span>
-              <span className="text-[11px] font-semibold text-slate-500">
+              <span className="text-[10px] font-semibold text-slate-500">
                 {seConceptsList.filter((c) => c.status === "COVERED").length} of {seConceptsList.length} Covered
               </span>
             </div>
@@ -1028,7 +1028,7 @@ export function DetailsContent({
                 return (
                   <span
                     key={idx}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${
                       isCovered
                         ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                         : isPartial
@@ -1046,14 +1046,14 @@ export function DetailsContent({
 
         {/* Technologies Mentioned */}
         {seTechnologies.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
-            <span className="font-semibold text-slate-700 text-[11px] uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
+            <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
               Technologies Mentioned:
             </span>
             {seTechnologies.map((t, idx) => (
               <span
                 key={idx}
-                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-mono font-medium"
+                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
               >
                 {t}
               </span>
@@ -1114,21 +1114,21 @@ export function DetailsContent({
     description: audio?.executive_summary ? sanitizeQualitativeText(audio.executive_summary) : undefined,
     observations: audioObs.length > 0 ? audioObs : undefined,
     customContent: (
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
           <QualitativeBadge status={paceStatus} />
         </div>
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
           <QualitativeBadge status={fluencyRating} />
         </div>
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
           <QualitativeBadge status={fillerRating} />
         </div>
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
+        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
           <QualitativeBadge status={vocalRating} />
         </div>
       </div>
@@ -1167,28 +1167,28 @@ export function DetailsContent({
       description: video?.overall_summary ? sanitizeQualitativeText(video.overall_summary) : undefined,
       observations: videoObs.length > 0 ? videoObs : undefined,
       customContent: hasVideoFactors ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
           {framingRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Framing</span>
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Framing</span>
               <QualitativeBadge status={framingRating} />
             </div>
           )}
           {gazeRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Eye Contact</span>
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Eye Contact</span>
               <QualitativeBadge status={gazeRating} />
             </div>
           )}
           {screenGazeRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Screen Focus</span>
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Screen Focus</span>
               <QualitativeBadge status={screenGazeRating} />
             </div>
           )}
           {tensionRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2.5 text-center flex flex-col items-center justify-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Composure</span>
+            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Composure</span>
               <QualitativeBadge status={tensionRating} />
             </div>
           )}
@@ -1220,34 +1220,36 @@ export function DetailsContent({
       </span>
     ) : undefined,
     customContent: (
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1">
         {fullParagraphText ? (
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5 space-y-2.5">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 sm:p-3.5 space-y-2">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
                 Spoken Transcript (Full Paragraph)
               </span>
               <button
                 type="button"
                 onClick={handleCopyTranscript}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
               >
                 {copiedTranscript ? (
                   <>
-                    <Check size={12} className="text-emerald-600" />
+                    <Check size={11} className="text-emerald-600" />
                     <span className="text-emerald-700 font-bold">Copied</span>
                   </>
                 ) : (
                   <>
-                    <Copy size={12} className="text-slate-500" />
+                    <Copy size={11} className="text-slate-500" />
                     <span>Copy Text</span>
                   </>
                 )}
               </button>
             </div>
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed sm:leading-loose whitespace-pre-wrap">
-              {fullParagraphText}
-            </p>
+            <div className="max-h-60 sm:max-h-72 overflow-y-auto pr-1">
+              <p className="text-xs text-slate-700 leading-snug sm:leading-normal whitespace-pre-wrap select-text">
+                {fullParagraphText}
+              </p>
+            </div>
           </div>
         ) : (
           <p className="text-xs text-slate-400 italic py-2">No transcript recorded for this session.</p>
@@ -1344,9 +1346,9 @@ export function DetailsContent({
     sections.find((s) => s.id === activeSectionId) || sections[0];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Horizontal Sub-Tabs Bar (Fits comfortably on wide screens without cutting off) */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none no-scrollbar w-full">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none no-scrollbar w-full">
         {sections.map((section) => {
           const isActive = section.id === activeSection.id;
           return (
@@ -1354,14 +1356,14 @@ export function DetailsContent({
               key={section.id}
               type="button"
               onClick={() => setActiveSectionId(section.id)}
-              className={`inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all border cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
                 isActive
                   ? "bg-white text-blue-700 border-blue-400 shadow-2xs ring-2 ring-blue-500/15"
                   : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
               }`}
             >
               <span
-                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${
+                className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
                   isActive
                     ? section.iconContainerClass
                     : "bg-slate-100 text-slate-500 border-slate-200"
@@ -1372,7 +1374,7 @@ export function DetailsContent({
               <span>{section.tabLabel || section.title}</span>
               {section.status && (
                 <span
-                  className={`size-2 rounded-full shrink-0 ${
+                  className={`size-1.5 rounded-full shrink-0 ${
                     ["EXCELLENT", "STRONG", "GOOD", "COVERED", "POSITIVE"].includes(
                       section.status.toUpperCase()
                     )
@@ -1392,21 +1394,21 @@ export function DetailsContent({
       </div>
 
       {/* Active Section Content Card (Zero Page Scroll) */}
-      <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs space-y-4 animate-in fade-in-50 duration-150">
+      <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs space-y-3 animate-in fade-in-50 duration-150">
         {/* Card Header: Icon, Full Title, Right Element, and Qualitative Status Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2.5">
             <span
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border ${activeSection.iconContainerClass}`}
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 border ${activeSection.iconContainerClass}`}
             >
               {activeSection.icon}
             </span>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900">
               {activeSection.title}
             </h3>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {activeSection.rightElement}
             {activeSection.status && (
               <QualitativeBadge status={activeSection.status} />
@@ -1417,10 +1419,10 @@ export function DetailsContent({
         {/* Executive Description */}
         {activeSection.description && (
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
               Executive Description
             </span>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-snug sm:leading-normal">
               {activeSection.description}
             </p>
           </div>
@@ -1428,20 +1430,20 @@ export function DetailsContent({
 
         {/* Key Observations */}
         {activeSection.observations && activeSection.observations.length > 0 && (
-          <div className="rounded-xl bg-[#f0f7ff] border border-blue-100/90 p-4 sm:p-5">
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 mb-2.5">
+          <div className="rounded-xl bg-[#f0f7ff] border border-blue-100/90 p-3 sm:p-3.5">
+            <h4 className="text-xs font-bold text-slate-900 mb-1.5">
               Key Observations
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {activeSection.observations.map((obs, idx) => (
                 <li
                   key={idx}
-                  className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700"
+                  className="flex items-start gap-2 text-xs text-slate-600"
                 >
-                  <span className="text-blue-500 font-bold shrink-0 leading-none mt-1">
+                  <span className="text-blue-500 font-bold shrink-0 leading-none mt-0.5">
                     •
                   </span>
-                  <span className="leading-relaxed">{obs}</span>
+                  <span className="leading-snug sm:leading-normal">{obs}</span>
                 </li>
               ))}
             </ul>
@@ -1509,8 +1511,8 @@ export function DetailsContent({
                 </button>
               </div>
 
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-5 sm:p-6">
-                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed sm:leading-loose whitespace-pre-wrap">
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
+                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
                   {fullParagraphText || "No transcript recorded for this assessment."}
                 </p>
               </div>
