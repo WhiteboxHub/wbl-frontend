@@ -94,48 +94,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     }
   }, [sidebarOpen, isAuthenticated]);
 
-  // Fetch placements + interviews with Authorization header
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-          console.error("No access token found");
-          return;
-        }
-
-        const placementsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        const sortedData = (placementsRes.data.data || placementsRes.data).sort(
-          (a, b) => b.id - a.id
-        );
-        setPlacementsData(placementsRes.data.data || placementsRes.data);
-
-        const interviewsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        setInterviewsData(interviewsRes.data || []);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      }
-    };
-
-    if (isAuthenticated) {
-      fetchData();
-    }
-  }, [isAuthenticated]);
-
   // Sidebar disabled completely
   return null;
 

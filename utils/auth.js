@@ -22,44 +22,70 @@ export function getAuthHeaders(token = null) {
   };
 }
 
+let userRoleCache = { token: null, data: null, timestamp: 0 };
+let inFlightUserRolePromise = null;
+
+export const clearUserRoleCache = () => {
+  userRoleCache = { token: null, data: null, timestamp: 0 };
+  inFlightUserRolePromise = null;
+};
+
 /**
- * Call backend /user_role to get role + status.
+ * Call backend /user_role to get role + status with in-memory caching and deduplication.
  * Backend response expected: { role: string, status: "active" | "inactive" | "registered", ... }
  */
-export const fetchUserRole = async (token) => {
-  try {
-    const t = token || localStorage.getItem("access_token");
-    if (!t) return { role: null, status: "inactive" };
+export const fetchUserRole = async (token, forceRefresh = false) => {
+  const t = token || (typeof window !== "undefined" ? localStorage.getItem("access_token") : null);
+  if (!t) return { role: null, status: "inactive" };
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${t}`,
-      },
-    });
-
-    if (!response.ok) {
-      // try to parse error body
-      try {
-        const err = await response.json();
-        // if token invalid or user inactive backend should return proper status code & message
-        return { role: null, status: err.status || "inactive", detail: err.detail || null };
-      } catch (e) {
-        return { role: null, status: "inactive", detail: null };
-      }
-    }
-
-    const data = await response.json();
-    // Normalise shape
-    return {
-      role: data.role ?? null,
-      status: (data.status ?? "active").toString().toLowerCase(),
-      raw: data,
-    };
-  } catch (error) {
-    console.error("Error in fetchUserRole:", error);
-    return { role: null, status: "inactive" };
+  // Return cached result if valid for 60 seconds
+  if (!forceRefresh && userRoleCache.token === t && (Date.now() - userRoleCache.timestamp < 60000) && userRoleCache.data) {
+    return userRoleCache.data;
   }
+
+  // Deduplicate concurrent in-flight requests
+  if (inFlightUserRolePromise) {
+    return inFlightUserRolePromise;
+  }
+
+  inFlightUserRolePromise = (async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${t}`,
+        },
+      });
+
+      if (!response.ok) {
+        try {
+          const err = await response.json();
+          return { role: null, status: err.status || "inactive", detail: err.detail || null };
+        } catch (e) {
+          return { role: null, status: "inactive", detail: null };
+        }
+      }
+
+      const data = await response.json();
+      const res = {
+        role: data.role ?? null,
+        status: (data.status ?? "active").toString().toLowerCase(),
+        raw: data,
+      };
+
+      userRoleCache = { token: t, data: res, timestamp: Date.now() };
+      return res;
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("fetchUserRole network error:", error);
+      }
+      return { role: null, status: "inactive" };
+    } finally {
+      inFlightUserRolePromise = null;
+    }
+  })();
+
+  return inFlightUserRolePromise;
 };
 
 /**

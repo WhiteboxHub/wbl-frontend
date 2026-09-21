@@ -1619,15 +1619,22 @@ export function ReportHeader({
 
   return (
     <header className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs mb-4 sm:mb-5 print:border-none print:shadow-none print:p-0">
-      {/* Top Row: Back to My Assessments & Download Report */}
+      {/* Top Row: Back link + Download Report */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/user_dashboard/ai-prep"
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors print:hidden"
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              window.history.back();
+            } else {
+              window.location.href = "/user_dashboard/ai-prep/assessments";
+            }
+          }}
+          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors print:hidden cursor-pointer"
         >
           <ArrowLeft size={15} />
-          Back to My Assessments
-        </Link>
+          Back to Assessments
+        </button>
 
         <button
           type="button"
@@ -1857,12 +1864,19 @@ export default function AiPrepReport({
             >
               <RefreshCw size={15} /> Check Status
             </button>
-            <Link
-              href="/user_dashboard/ai-prep"
-              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = "/user_dashboard/ai-prep/assessments";
+                }
+              }}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto cursor-pointer"
             >
-              Back to My Assessments
-            </Link>
+              Assessments List
+            </button>
           </div>
         </section>
       </main>
@@ -1891,12 +1905,19 @@ export default function AiPrepReport({
             >
               <RefreshCw size={15} /> Try Again
             </button>
-            <Link
-              href="/user_dashboard/ai-prep"
-              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = "/user_dashboard/ai-prep/assessments";
+                }
+              }}
+              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto cursor-pointer"
             >
-              Back to My Assessments
-            </Link>
+              Assessments List
+            </button>
           </div>
         </section>
       </main>
