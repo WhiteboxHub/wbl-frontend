@@ -446,6 +446,23 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // ── Launch Assessment / Teardown Helper ──────────────────────────────────
+  const handleLaunchAssessment = async () => {
+    if (isRecording || isLaunching) return;
+    setIsLaunching(true);
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+      if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+      await onStartAssessment();
+    } catch (err) {
+      console.error('[PracticeStep] Launch assessment failed:', err);
+      setIsLaunching(false);
+    }
+  };
+
   return (
     <div className="w-full flex flex-col justify-between h-full p-2 sm:p-4 space-y-4 animate-in fade-in duration-300">
       {/* Hidden audio player for audio-only local playback */}
@@ -1009,21 +1026,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           {/* Skip to Assessment — jumps directly without practice */}
           <button
             type="button"
-            onClick={async () => {
-              if (isRecording || isLaunching) return;
-              setIsLaunching(true);
-              try {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                  mediaRecorderRef.current.stop();
-                }
-                if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
-                if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
-                await onStartAssessment();
-              } catch (err) {
-                console.error('[PracticeStep] Skip to assessment failed:', err);
-                setIsLaunching(false);
-              }
-            }}
+            onClick={handleLaunchAssessment}
             disabled={isRecording || isLaunching}
             className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -1031,42 +1034,28 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           </button>
 
           <button
-          type="button"
-          onClick={async () => {
-            if (isRecording || isLaunching) return;
-            setIsLaunching(true);
-            try {
-              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
-              }
-              if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
-              if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
-              await onStartAssessment();
-            } catch (err) {
-              console.error('[PracticeStep] Launch assessment failed:', err);
-              setIsLaunching(false);
-            }
-          }}
-          disabled={isRecording || isLaunching}
-          className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
-            isRecording || isLaunching
-              ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
-              : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
-          }`}
-          title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
-        >
-          {isLaunching ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
-              <span>Launching Assessment...</span>
-            </>
-          ) : (
-            <>
-              <span>Start Assessment</span>
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-            </>
-          )}
-        </button>
+            type="button"
+            onClick={handleLaunchAssessment}
+            disabled={isRecording || isLaunching}
+            className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
+              isRecording || isLaunching
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
+                : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
+            }`}
+            title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
+          >
+            {isLaunching ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Launching Assessment...</span>
+              </>
+            ) : (
+              <>
+                <span>Start Assessment</span>
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

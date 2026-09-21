@@ -184,6 +184,36 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
   const [isSpeechMuted, setIsSpeechMuted] = useState<boolean>(false);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [cachedVoices, setCachedVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Cross-browser voice caching & compatibility
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const populateVoices = () => {
+      try {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) {
+          setCachedVoices(v);
+        }
+      } catch (_) {}
+    };
+    populateVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', populateVoices);
+    };
+  }, []);
+
+  const getBestVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
+    if (!voices || voices.length === 0) return undefined;
+    return (
+      voices.find((v) => v.name.includes('Google US English') || (v.name.includes('Google') && v.lang.startsWith('en'))) ||
+      voices.find((v) => (v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Karen')) && v.lang.startsWith('en')) ||
+      voices.find((v) => v.lang === 'en-US' || v.lang === 'en-GB' || v.lang.startsWith('en')) ||
+      voices[0]
+    );
+  }, []);
 
   // Video element ref
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -299,11 +329,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
+    if (speechTimeoutRef.current) {
+      clearTimeout(speechTimeoutRef.current);
+      speechTimeoutRef.current = null;
+    }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
       } catch (_) { }
     }
+    speechUtteranceRef.current = null;
     setIsAiSpeaking(false);
   }, []);
 
@@ -318,27 +353,30 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const utterance = new SpeechSynthesisUtterance(cleanText);
         speechUtteranceRef.current = utterance;
 
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice =
-          voices.find((v) => v.name.includes('Google US English') || v.name.includes('Google')) ||
-          voices.find((v) => v.name.includes('Natural') || v.name.includes('Samantha')) ||
-          voices.find((v) => v.lang.startsWith('en')) ||
-          voices[0];
+        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+        const preferredVoice = getBestVoice(currentVoices);
 
         if (preferredVoice) utterance.voice = preferredVoice;
         utterance.rate = 0.95;
 
         utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => setIsAiSpeaking(false);
-        utterance.onerror = () => setIsAiSpeaking(false);
+        utterance.onend = () => {
+          speechUtteranceRef.current = null;
+          setIsAiSpeaking(false);
+        };
+        utterance.onerror = () => {
+          speechUtteranceRef.current = null;
+          setIsAiSpeaking(false);
+        };
 
         window.speechSynthesis.speak(utterance);
       } catch (err) {
         console.warn('Speech synthesis error:', err);
+        speechUtteranceRef.current = null;
         setIsAiSpeaking(false);
       }
     },
-    [isSpeechMuted, stopAiSpeech]
+    [isSpeechMuted, stopAiSpeech, cachedVoices, getBestVoice]
   );
 
   const toggleAiVoiceMute = () => {
@@ -400,18 +438,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // If intro track, trigger 5-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
           hasAutoStartedRef.current = true;
-          setCountdownValue(5);
+          let currentCount = 5;
+          setCountdownValue(currentCount);
           countdownIntervalRef.current = setInterval(() => {
-            setCountdownValue((prev) => {
-              if (prev === null || prev <= 1) {
-                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-                setTimeout(() => {
-                  startAnswerRef.current();
-                }, 0);
-                return null;
+            currentCount -= 1;
+            if (currentCount <= 0) {
+              if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+                countdownIntervalRef.current = null;
               }
-              return prev - 1;
-            });
+              setCountdownValue(null);
+              startAnswerRef.current();
+            } else {
+              setCountdownValue(currentCount);
+            }
           }, 1000);
         }
       } catch (err: any) {
@@ -506,31 +546,51 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Recording starts only AFTER the AI finishes reading the question aloud.
   const handleStartAnswer = () => {
     const activeQ = questions[currentQuestionIndex];
-    if (!isSpeechMuted && activeQ?.question_text && 'speechSynthesis' in window) {
+    if (!isSpeechMuted && activeQ?.question_text && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       stopAiSpeech();
+      let hasStartedRecording = false;
+
+      const triggerStartRecording = () => {
+        if (hasStartedRecording) return;
+        hasStartedRecording = true;
+        if (speechTimeoutRef.current) {
+          clearTimeout(speechTimeoutRef.current);
+          speechTimeoutRef.current = null;
+        }
+        speechUtteranceRef.current = null;
+        setIsAiSpeaking(false);
+        startRecorderCore();
+      };
+
       try {
         const cleanText = activeQ.question_text.replace(/^"|"$/g, '').trim();
         const utterance = new SpeechSynthesisUtterance(cleanText);
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice =
-          voices.find((v) => v.name.includes('Google US English') || v.name.includes('Google')) ||
-          voices.find((v) => v.name.includes('Natural') || v.name.includes('Samantha')) ||
-          voices.find((v) => v.lang.startsWith('en')) ||
-          voices[0];
+        speechUtteranceRef.current = utterance;
+
+        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+        const preferredVoice = getBestVoice(currentVoices);
         if (preferredVoice) utterance.voice = preferredVoice;
         utterance.rate = 0.95;
+
         utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => {
-          setIsAiSpeaking(false);
-          startRecorderCore();
-        };
-        utterance.onerror = () => {
-          setIsAiSpeaking(false);
-          startRecorderCore();
-        };
+        utterance.onend = () => triggerStartRecording();
+        utterance.onerror = () => triggerStartRecording();
+
+        // Safeguard timeout: calculate based on word count (avg ~2.5 words/sec + 5s buffer, min 8s, max 20s)
+        const wordCount = cleanText.split(/\s+/).length;
+        const maxWaitMs = Math.min(Math.max(Math.ceil((wordCount / 2.5) * 1000) + 5000, 8000), 20000);
+
+        speechTimeoutRef.current = setTimeout(() => {
+          console.warn('[Assessment] Speech synthesis safeguard timeout triggered');
+          try {
+            window.speechSynthesis.cancel();
+          } catch (_) {}
+          triggerStartRecording();
+        }, maxWaitMs);
+
         window.speechSynthesis.speak(utterance);
       } catch (_) {
-        startRecorderCore();
+        triggerStartRecording();
       }
     } else {
       startRecorderCore();
