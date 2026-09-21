@@ -127,10 +127,11 @@ export function useMediaPipeVision(enabled: boolean = false) {
         try { faceLandmarkerRef.current.close(); } catch {}
         faceLandmarkerRef.current = null;
       }
+      setIsReady(false);
       // If init hasn't finished yet, the .then() above will see
       // lifecycle.cancelled === true and close the instance itself.
     };
-  }, []);
+  }, [enabled]);
 
   const resetTelemetry = useCallback(() => {
     consecutiveNoFaceFramesRef.current = 0;
@@ -295,13 +296,14 @@ export function useMediaPipeVision(enabled: boolean = false) {
         is_instant_straight: currentInstantStraight,
         face_box: currentFaceBox,
       });
+      return true;
     },
     [calculateEyeGazeRatio]
   );
 
   const detectVideoFrame = useCallback(
-    (videoElement: HTMLVideoElement, timestamp: number) => {
-      if (!videoElement || videoElement.readyState < 2) return;
+    (videoElement: HTMLVideoElement, timestamp: number): { hasFace: boolean } => {
+      if (!videoElement || videoElement.readyState < 2) return { hasFace: false };
 
       let safeTimestamp = timestamp;
       if (!safeTimestamp || isNaN(safeTimestamp) || safeTimestamp <= lastProcessedTimestampRef.current) {
@@ -331,7 +333,8 @@ export function useMediaPipeVision(enabled: boolean = false) {
         }
       }
 
-      processFrame(faceLandmarks, blendshapes);
+      const hasFace = processFrame(faceLandmarks, blendshapes);
+      return { hasFace: !!hasFace };
     },
     [processFrame]
   );
