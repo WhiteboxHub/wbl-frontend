@@ -59,7 +59,7 @@ export const syncConsentToSessionStorage = (state: Partial<ConsentState>) => {
 
 export interface ConsentStepProps {
   videoEnabled: boolean; setVideoEnabled: (v: boolean) => void; consentMic?: boolean; setConsentMic?: (v: boolean) => void;
-  consentCamera?: boolean; setConsentCamera?: (v: boolean) => void; videoAnalyticsEnabled: boolean; setVideoAnalyticsEnabled: (v: boolean) => void;
+  consentCamera?: boolean; setConsentCamera?: (v: boolean) => void; videoAnalyticsEnabled: boolean; setVideoAnalyticsEnabled?: (v: boolean) => void;
   consentSaveRecording?: boolean; setConsentSaveRecording?: (v: boolean) => void; consentSaveTranscript: boolean; setConsentSaveTranscript: (v: boolean) => void;
   onBack: () => void; onNext: () => void;
 }
@@ -92,7 +92,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     setVideoEnabled(false);
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(false);
-    setVideoAnalyticsEnabled(false);
+    if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(false);
     syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false, videoAnalyticsEnabled: false });
   };
 
@@ -100,7 +100,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     setVideoEnabled(true);
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(true);
-    setVideoAnalyticsEnabled(true);
+    if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(true);
     syncConsentToSessionStorage({ videoEnabled: true, consentMic: true, consentCamera: true, videoAnalyticsEnabled: true });
   };
 
