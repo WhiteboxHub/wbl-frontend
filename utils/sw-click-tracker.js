@@ -126,6 +126,7 @@ async function attemptFlush(force = false) {
 
     // 2. Prevent duplicate concurrent flushes
     if (isFlushing) {
+        pendingFlush = true;
         if (force) {
             pendingFlushForce = true;
         }
