@@ -1,22 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Plus,
-  RefreshCw,
   ArrowLeft,
   Brain,
-  PlusCircle,
-  FileText,
-  CheckCircle2,
-  Sparkles,
-  Clock,
 } from "lucide-react";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 import { assessmentService } from "@/services/assessmentService";
 import { AssessmentGrid } from "./AssessmentGrid";
 import { AssessmentFilters } from "./AssessmentFilters";
-import { AssessmentDetailModal } from "./AssessmentDetailModal";
 
 interface CandidateAssessmentsPanelProps {
   onStartAssessment?: () => void;
@@ -27,6 +20,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
   onStartAssessment,
   onBack,
 }) => {
+  const router = useRouter();
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,22 +38,35 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const limit = 50;
+  const isMountedRef = React.useRef(true);
+  const reqIdRef = React.useRef(0);
 
-  const [selectedAssessment, setSelectedAssessment] = useState<AssessmentGridItem | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const loadAssessments = useCallback(async () => {
+    const currentReqId = ++reqIdRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const res = await assessmentService.fetchCandidateAssessments(filters, currentPage, limit);
-      setAssessments(res.items);
-      setTotalPages(res.totalPages);
+      if (isMountedRef.current && currentReqId === reqIdRef.current) {
+        setAssessments(res.items);
+        setTotalPages(res.totalPages);
+      }
     } catch (err: any) {
-      console.error("Failed to load candidate assessments:", err);
-      setError(err?.message || "Failed to load your assessments.");
+      if (isMountedRef.current && currentReqId === reqIdRef.current) {
+        console.error("Failed to load candidate assessments:", err);
+        setError(err?.message || "Failed to load your assessments.");
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current && currentReqId === reqIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [filters, currentPage, limit]);
 
@@ -86,58 +93,38 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
   };
 
   const handleViewAssessment = (assessment: AssessmentGridItem) => {
-    setSelectedAssessment(assessment);
-    setIsModalOpen(true);
+    const reportTarget = assessment.id || assessment.assessment_uuid;
+    router.push(`/aiprep/reports/${reportTarget}`);
   };
-
-  const stats = useMemo(() => {
-    let completed = 0;
-    let evaluating = 0;
-    let inProgress = 0;
-
-    assessments.forEach((a) => {
-      const s = (a.status || "").toUpperCase();
-      if (s === "COMPLETED") completed++;
-      else if (s === "EVALUATING") evaluating++;
-      else if (s === "IN_PROGRESS" || s === "PROCESSING" || s === "TESTING") inProgress++;
-    });
-
-    return {
-      total: assessments.length,
-      completed,
-      evaluating,
-      inProgress,
-    };
-  }, [assessments]);
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-2.5 border-b border-gray-100 dark:border-gray-800">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs shrink-0">
-            <Brain className="h-4.5 w-4.5" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs shrink-0">
+            <Brain className="h-5 w-5" />
           </div>
 
-          <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">
-              My Assessments
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight truncate">
+              My Assessment List
             </h1>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
               Review your completed practice sessions, performance analytics, and AI evaluation reports.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs transition-all cursor-pointer"
+              className="inline-flex h-9 items-center gap-2 px-3.5 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
               title="Back to AI Prep"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-4 h-4 shrink-0 text-gray-600 dark:text-gray-300" />
               <span>Back</span>
             </button>
           )}
@@ -146,85 +133,24 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
             type="button"
             onClick={() => loadAssessments()}
             disabled={isLoading}
-            className="inline-flex h-8 w-8 items-center justify-center text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs transition-all cursor-pointer"
-            title="Refresh Assessments"
+            className="inline-flex h-9 items-center gap-2 px-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs sm:text-sm font-semibold rounded-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
+            title="Refresh assessments"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-purple-600" : ""}`} />
-          </button>
-
-          {onStartAssessment && (
-            <button
-              type="button"
-              onClick={onStartAssessment}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-2xs transition-all cursor-pointer"
+            <svg
+              className={`w-4 h-4 shrink-0 ${isLoading ? "animate-spin text-purple-600" : "text-gray-600 dark:text-gray-300"}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Start Practice Assessment</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Stat Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {/* Total Sessions */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
-              Total Sessions
-            </span>
-            <span className="p-0.5 text-purple-600 dark:text-purple-400">
-              <FileText className="w-3.5 h-3.5" />
-            </span>
-          </div>
-          <p className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1">
-            {stats.total}
-          </p>
-        </div>
-
-        {/* Completed */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">
-              Completed
-            </span>
-            <span className="p-0.5 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            </span>
-          </div>
-          <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-            {stats.completed}
-          </p>
-        </div>
-
-        {/* Evaluating */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 tracking-wider uppercase">
-              Evaluating
-            </span>
-            <span className="p-0.5 text-amber-600 dark:text-amber-400">
-              <Sparkles className="w-3.5 h-3.5" />
-            </span>
-          </div>
-          <p className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-            {stats.evaluating}
-          </p>
-        </div>
-
-        {/* In Progress */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase">
-              In Progress
-            </span>
-            <span className="p-0.5 text-blue-600 dark:text-blue-400">
-              <Clock className="w-3.5 h-3.5" />
-            </span>
-          </div>
-          <p className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-            {stats.inProgress}
-          </p>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 
@@ -236,7 +162,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         isAdmin={false}
       />
 
-      {/* Grid */}
+      {/* Assessments Grid */}
       <AssessmentGrid
         assessments={assessments}
         isLoading={isLoading}
@@ -249,14 +175,6 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         isAdmin={false}
         filters={filters}
         onFilterChange={handleFilterChange}
-      />
-
-      {/* Detail Modal */}
-      <AssessmentDetailModal
-        isOpen={isModalOpen}
-        assessment={selectedAssessment}
-        onClose={() => setIsModalOpen(false)}
-        isAdmin={false}
       />
     </div>
   );

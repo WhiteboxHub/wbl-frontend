@@ -43,7 +43,18 @@ export interface BlendshapeResult {
   categories: BlendshapeCategory[];
 }
 
-export function useMediaPipeVision() {
+export interface UseMediaPipeVisionOptions {
+  enabled?: boolean;
+}
+
+export function useMediaPipeVision(
+  optionsOrEnabled: boolean | UseMediaPipeVisionOptions = false
+) {
+  const enabled =
+    typeof optionsOrEnabled === 'object' && optionsOrEnabled !== null
+      ? Boolean(optionsOrEnabled.enabled)
+      : Boolean(optionsOrEnabled);
+
   const [isReady, setIsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -53,9 +64,17 @@ export function useMediaPipeVision() {
   const consecutiveNoFaceFramesRef = useRef<number>(0);
   const lastProcessedTimestampRef = useRef<number>(0);
 
-  // Initialize MediaPipe only on client side (SSR Safe)
+  // Initialize MediaPipe only if enabled on client side (SSR Safe)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !enabled) {
+      if (faceLandmarkerRef.current) {
+        try { faceLandmarkerRef.current.close(); } catch {}
+        faceLandmarkerRef.current = null;
+      }
+      setIsReady(false);
+      setIsLoading(false);
+      return;
+    }
 
     const lifecycle = { cancelled: false };
     setIsLoading(true);
@@ -123,10 +142,11 @@ export function useMediaPipeVision() {
         try { faceLandmarkerRef.current.close(); } catch {}
         faceLandmarkerRef.current = null;
       }
+      setIsReady(false);
       // If init hasn't finished yet, the .then() above will see
       // lifecycle.cancelled === true and close the instance itself.
     };
-  }, []);
+  }, [enabled]);
 
   const resetTelemetry = useCallback(() => {
     consecutiveNoFaceFramesRef.current = 0;
@@ -291,13 +311,14 @@ export function useMediaPipeVision() {
         is_instant_straight: currentInstantStraight,
         face_box: currentFaceBox,
       });
+      return true;
     },
     [calculateEyeGazeRatio]
   );
 
   const detectVideoFrame = useCallback(
-    (videoElement: HTMLVideoElement, timestamp: number) => {
-      if (!videoElement || videoElement.readyState < 2) return;
+    (videoElement: HTMLVideoElement, timestamp: number): { hasFace: boolean } => {
+      if (!videoElement || videoElement.readyState < 2) return { hasFace: false };
 
       let safeTimestamp = timestamp;
       if (!safeTimestamp || isNaN(safeTimestamp) || safeTimestamp <= lastProcessedTimestampRef.current) {
@@ -327,7 +348,8 @@ export function useMediaPipeVision() {
         }
       }
 
-      processFrame(faceLandmarks, blendshapes);
+      const hasFace = processFrame(faceLandmarks, blendshapes);
+      return { hasFace: !!hasFace };
     },
     [processFrame]
   );

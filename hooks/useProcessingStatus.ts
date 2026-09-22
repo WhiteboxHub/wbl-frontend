@@ -15,7 +15,7 @@ export interface ProcessingPipelineSteps {
 }
 
 export interface UseProcessingStatusOptions {
-  assessmentId: number | null;
+  assessmentId: number | string | null;
   pollIntervalMs?: number;
   onCompleted?: () => void;
   onFailed?: (error: string) => void;
