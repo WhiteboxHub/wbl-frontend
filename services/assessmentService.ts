@@ -8,48 +8,68 @@ import {
 /**
  * Assessment Service for Candidate and Admin/Employee assessment operations.
  */
+// In-flight request deduplication map to prevent duplicate concurrent network calls
+const inFlightCandidateAssessments = new Map<string, Promise<AssessmentListApiResponse>>();
+
 export const assessmentService = {
   fetchCandidateAssessments: async (
     filters: Partial<AssessmentFiltersState> = {},
     page: number = 1,
     limit: number = 50
   ): Promise<AssessmentListApiResponse> => {
-    try {
-      const offset = (page - 1) * limit;
-      const queryParams = new URLSearchParams({
-        limit: String(limit),
-        offset: String(offset),
-      });
+    const offset = (page - 1) * limit;
+    const queryParams = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
 
-      if (filters.candidate_id?.trim()) {
-        queryParams.set("candidate_id", filters.candidate_id.trim());
-      }
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || '') : '';
+    const urlCid = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('candidateId') || '') : '';
+    const effectiveCandidateId = filters.candidate_id?.trim() || urlCid.trim();
 
-      const res = await apiFetch(
-        `api/aiprep/candidate/assessments?${queryParams.toString()}`
-      );
-
-      const items: AssessmentGridItem[] = res?.items || [];
-      const total: number = res?.total ?? items.length;
-      const totalPages = Math.max(1, Math.ceil(total / limit));
-
-      return {
-        items,
-        total,
-        page,
-        limit,
-        totalPages,
-      };
-    } catch (err: any) {
-      console.warn("fetchCandidateAssessments error:", err?.message);
-      return {
-        items: [],
-        total: 0,
-        page,
-        limit,
-        totalPages: 1,
-      };
+    if (effectiveCandidateId) {
+      queryParams.set("candidate_id", effectiveCandidateId);
     }
+
+    const tokenSnippet = token ? token.slice(-25) : 'anon';
+    const cacheKey = `candidate_${tokenSnippet}_${queryParams.toString()}`;
+    if (inFlightCandidateAssessments.has(cacheKey)) {
+      return inFlightCandidateAssessments.get(cacheKey)!;
+    }
+
+    const fetchPromise = (async (): Promise<AssessmentListApiResponse> => {
+      try {
+        const res = await apiFetch(
+          `api/aiprep/candidate/assessments?${queryParams.toString()}`
+        );
+
+        const items: AssessmentGridItem[] = res?.items || [];
+        const total: number = res?.total ?? items.length;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+
+        return {
+          items,
+          total,
+          page,
+          limit,
+          totalPages,
+        };
+      } catch (err: any) {
+        console.warn("fetchCandidateAssessments error:", err?.message);
+        return {
+          items: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 1,
+        };
+      } finally {
+        setTimeout(() => inFlightCandidateAssessments.delete(cacheKey), 500);
+      }
+    })();
+
+    inFlightCandidateAssessments.set(cacheKey, fetchPromise);
+    return fetchPromise;
   },
 
   fetchEmployeeAssessments: async (

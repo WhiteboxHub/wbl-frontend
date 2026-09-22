@@ -4,14 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
+  ArrowLeft,
   BarChart3,
+  Brain,
+  ChevronRight,
   ClipboardList,
+  Clock,
   FileText,
   KeyRound,
+  LayoutList,
   Lock,
   LoaderCircle,
   Play,
+  PlusCircle,
+  Search,
   Sparkles,
+  Table,
   X,
 } from "lucide-react";
 import { DeviceCheckWizard } from "./DeviceCheckWizard";
@@ -44,18 +52,26 @@ const formatDate = (value?: string | null) =>
 
 export interface AIPrepDashboardProps {
   initialView?: View;
+  view?: View;
+  onViewChange?: (view: View) => void;
   setupStatus?: {
     resume_uploaded?: boolean;
     api_keys_configured?: boolean;
     setup_complete?: boolean;
   };
   onStartAssessment?: () => void;
+  onViewAssessments?: () => void;
+  onBackToHome?: () => void;
 }
 
 export function AIPrepDashboard({
   initialView = "home",
+  view: controlledView,
+  onViewChange,
   setupStatus,
   onStartAssessment,
+  onViewAssessments,
+  onBackToHome,
 }: AIPrepDashboardProps) {
   const router = useRouter();
 
@@ -64,78 +80,29 @@ export function AIPrepDashboard({
   const [llmStatus, setLlmStatus] = useState<LlmKeyStatus | null>(null);
   const [resumeStatus, setResumeStatus] = useState<ResumeStatus | null>(null);
   const [assessments, setAssessments] = useState<AssessmentSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   // ── UI state ──────────────────────────────────────────────────────────────
-  const [view, setView] = useState<View>(initialView);
+  const [internalView, setInternalView] = useState<View>(initialView);
+  const view = controlledView !== undefined ? controlledView : internalView;
+
+  const setView = (v: View) => {
+    setInternalView(v);
+    onViewChange?.(v);
+  };
+
+  useEffect(() => {
+    if (controlledView === undefined && typeof window !== "undefined") {
+      const p = window.location.pathname.toLowerCase();
+      if (p.includes("/assessments")) {
+        setInternalView("assessments");
+      }
+    }
+  }, [controlledView]);
+
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [starting, setStarting] = useState(false);
-
-  // ── Fetch all data on mount ───────────────────────────────────────────────
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadData() {
-      setLoading(true);
-      setApiError(null);
-
-      const [readinessRes, llmRes, resumeRes, listRes] =
-        await Promise.allSettled([
-          aiPrepApi.getReadiness(),
-          aiPrepApi.getLlmKeys(),
-          aiPrepApi.getResumeStatus(),
-          aiPrepApi.listAssessments(),
-        ]);
-
-      if (!isMounted) return;
-
-      if (readinessRes.status === "fulfilled") {
-        setReadiness(readinessRes.value);
-      } else {
-        console.warn("[AIPrepDashboard] getReadiness failed:", readinessRes.reason);
-      }
-
-      if (llmRes.status === "fulfilled") {
-        setLlmStatus(llmRes.value);
-      } else {
-        console.warn("[AIPrepDashboard] getLlmKeys failed:", llmRes.reason);
-      }
-
-      if (resumeRes.status === "fulfilled") {
-        setResumeStatus(resumeRes.value);
-      } else {
-        console.warn("[AIPrepDashboard] getResumeStatus failed:", resumeRes.reason);
-      }
-
-      if (listRes.status === "fulfilled") {
-        setAssessments(listRes.value?.items ?? []);
-      } else {
-        console.warn("[AIPrepDashboard] listAssessments failed:", listRes.reason);
-        setAssessments([]);
-      }
-
-      const allFailed =
-        readinessRes.status === "rejected" &&
-        llmRes.status === "rejected" &&
-        resumeRes.status === "rejected" &&
-        listRes.status === "rejected";
-
-      if (allFailed) {
-        setApiError(
-          "Could not connect to the AI Prep service. Please refresh the page or try again later."
-        );
-      }
-
-      setLoading(false);
-    }
-
-    void loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // ── Readiness flags ───────────────────────────────────────────────────────
   const hasLlmKey = useMemo(() => {
@@ -145,7 +112,10 @@ export function AIPrepDashboard({
     if (readiness?.llm_check) {
       return readiness.llm_check.is_configured === true;
     }
-    return Boolean(setupStatus?.api_keys_configured);
+    if (setupStatus?.api_keys_configured !== undefined) {
+      return Boolean(setupStatus.api_keys_configured);
+    }
+    return true;
   }, [llmStatus, readiness, setupStatus]);
 
   const hasResume = useMemo(() => {
@@ -155,15 +125,21 @@ export function AIPrepDashboard({
     if (readiness?.resume_check) {
       return readiness.resume_check.has_resume === true;
     }
-    return Boolean(setupStatus?.resume_uploaded);
+    if (setupStatus?.resume_uploaded !== undefined) {
+      return Boolean(setupStatus.resume_uploaded);
+    }
+    return true;
   }, [resumeStatus, readiness, setupStatus]);
 
   const isReady = useMemo(() => {
     if (readiness !== null) {
       return readiness.eligible === true;
     }
+    if (setupStatus?.setup_complete !== undefined) {
+      return Boolean(setupStatus.setup_complete);
+    }
     return hasLlmKey && hasResume;
-  }, [readiness, hasLlmKey, hasResume]);
+  }, [readiness, setupStatus, hasLlmKey, hasResume]);
 
   const readinessBannerMessage = useMemo(() => {
     if (!hasLlmKey && !hasResume) {
@@ -217,7 +193,11 @@ export function AIPrepDashboard({
 
   const cardAction = (name: string) => {
     if (name === "View assessments") {
-      setView("assessments");
+      if (onViewAssessments) {
+        onViewAssessments();
+      } else {
+        setView("assessments");
+      }
       return;
     }
     if (!isReady) {
@@ -248,46 +228,6 @@ export function AIPrepDashboard({
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Your AI-powered interview preparation platform.
             </p>
-          </div>
-        )}
-
-        {/* Readiness banner */}
-        {!loading && view === "home" && !isReady && readinessBannerMessage && (
-          <div className="mt-4 flex items-center gap-3 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-rose-700 dark:text-rose-300">
-            <AlertBadge />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">{readinessBannerMessage.title}</p>
-              <p className="text-xs text-rose-600 dark:text-rose-400">{readinessBannerMessage.body}</p>
-            </div>
-            {readinessBannerMessage.fix === "both" ? (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => goToSetup("my-llm-setup")}
-                  className="whitespace-nowrap rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
-                >
-                  LLM Setup →
-                </button>
-                <button
-                  onClick={() => goToSetup("my-resume")}
-                  className="whitespace-nowrap rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
-                >
-                  Resume →
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() =>
-                  goToSetup(
-                    readinessBannerMessage.fix === "llm"
-                      ? "my-llm-setup"
-                      : "my-resume"
-                  )
-                }
-                className="whitespace-nowrap rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
-              >
-                Complete setup →
-              </button>
-            )}
           </div>
         )}
 
@@ -374,9 +314,15 @@ export function AIPrepDashboard({
             </div>
           </section>
         ) : (
-          <div className="mt-4 rounded-[22px] border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-gray-800 dark:bg-gray-900">
+          <div className="mt-4">
             <CandidateAssessmentsPanel
-              onBack={() => setView("home")}
+              onBack={() => {
+                if (onBackToHome) {
+                  onBackToHome();
+                } else {
+                  setView("home");
+                }
+              }}
               onStartAssessment={() => startAssessment()}
             />
           </div>
