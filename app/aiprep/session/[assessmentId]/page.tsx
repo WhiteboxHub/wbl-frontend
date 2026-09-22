@@ -647,17 +647,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         } catch (_) { }
       }
     };
-  }, [isRecording]);
-
-  // ── Max Recording Duration Enforcer ───────────────────────────────────────
-  // Auto-ends the session when the type-specific time limit is reached
-  useEffect(() => {
-    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding) {
-      console.warn(`[Assessment] Max recording time (${MAX_RECORDING_SECONDS / 60} min) reached — auto-ending session.`);
-      handleEndSession();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS]);
+  }, [
+    isRecording,
+    finalTranscriptRef,
+    recognitionRef,
+    currentInterimRef,
+    setLiveTranscript,
+    transcriptScrollRef,
+    elapsedTimeRef,
+    transcriptSegmentsRef,
+  ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
   // Recording starts only AFTER the AI finishes reading the question aloud.
@@ -829,6 +828,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsEnding(false);
     }
   };
+
+  // ── Max Recording Duration Enforcer ───────────────────────────────────────
+  // Auto-ends the session when the type-specific time limit is reached
+  useEffect(() => {
+    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding) {
+      console.warn(`[Assessment] Max recording time (${MAX_RECORDING_SECONDS / 60} min) reached — auto-ending session.`);
+      handleEndSession();
+    }
+  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS, handleEndSession]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
