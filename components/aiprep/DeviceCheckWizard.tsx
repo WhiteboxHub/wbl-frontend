@@ -1078,12 +1078,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           
           // FIX: For some devices/browsers (especially Safari and certain macOS mics),
           // the AudioContext will not process audio data if the graph doesn't connect 
-          // to a destination. We use a muted dummy gain node to force processing.
+          // to a destination. We use a MediaStreamDestination to force processing
+          // without outputting sound to active hardware.
           if (actx.state === 'running') {
-            const dummyGain = actx.createGain();
-            dummyGain.gain.value = 0;
-            analyser.connect(dummyGain);
-            dummyGain.connect(actx.destination);
+            const dummyDestination = actx.createMediaStreamDestination();
+            analyser.connect(dummyDestination);
           }
           
           analyserRef.current = analyser;
