@@ -1071,6 +1071,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           analyser.fftSize = 256;
           analyser.smoothingTimeConstant = 0.5;
           source.connect(analyser);
+          
+          // FIX: For some devices/browsers (especially Safari and certain macOS mics),
+          // the AudioContext will not process audio data if the graph doesn't connect 
+          // to a destination. We use a muted dummy gain node to force processing.
+          const dummyGain = actx.createGain();
+          dummyGain.gain.value = 0;
+          analyser.connect(dummyGain);
+          dummyGain.connect(actx.destination);
+          
           analyserRef.current = analyser;
 
           const timeData = new Uint8Array(analyser.fftSize);
