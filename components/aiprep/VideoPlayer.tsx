@@ -44,7 +44,16 @@ function extractYoutubeId(url: string): string | null {
 }
 
 export default function VideoPlayer({ youtubeUrl, videoRef, className }: Props) {
-  const ytId = youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
+  if (!youtubeUrl || !youtubeUrl.trim() || youtubeUrl.trim().toLowerCase() === "null" || youtubeUrl.trim().toLowerCase() === "undefined") {
+    return (
+      <div className={`flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg bg-slate-100 text-slate-400 ${className ?? ""}`}>
+        <VideoOff size={28} />
+        <p className="text-sm font-medium">Recording unavailable</p>
+      </div>
+    );
+  }
+
+  const ytId = extractYoutubeId(youtubeUrl);
 
   if (ytId) {
     // YouTube embed — no JS seeking possible; use iframe
