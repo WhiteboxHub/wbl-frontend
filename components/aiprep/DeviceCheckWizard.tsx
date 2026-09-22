@@ -1062,7 +1062,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
         const actx = audioContextRef.current;
         if (actx.state === 'suspended') {
-          await actx.resume();
+          try {
+            await actx.resume();
+          } catch (e) {
+            console.warn('[testMicrophone] AudioContext resume failed:', e);
+          }
         }
 
         try {
@@ -1075,10 +1079,12 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           // FIX: For some devices/browsers (especially Safari and certain macOS mics),
           // the AudioContext will not process audio data if the graph doesn't connect 
           // to a destination. We use a muted dummy gain node to force processing.
-          const dummyGain = actx.createGain();
-          dummyGain.gain.value = 0;
-          analyser.connect(dummyGain);
-          dummyGain.connect(actx.destination);
+          if (actx.state === 'running') {
+            const dummyGain = actx.createGain();
+            dummyGain.gain.value = 0;
+            analyser.connect(dummyGain);
+            dummyGain.connect(actx.destination);
+          }
           
           analyserRef.current = analyser;
 
