@@ -224,7 +224,7 @@ export function CandidateLlmKeysPanel({
         const firstActive = currentRows.find((r) => r.validation_status === "active");
 
         if (firstActive) {
-            void apiFetch(`coderpad/me/llm-keys/${firstActive.id}/set-default`, { method: "POST" }).catch(() => {});
+            void apiFetch(`coderpad/me/llm-keys/${firstActive.id}/is-default`, { method: "PATCH", body: { is_default: true }, }).catch(() => { });
             return currentRows.map((r) => ({
                 ...r,
                 is_default: r.id === firstActive.id,
@@ -934,8 +934,8 @@ export function CandidateLlmKeysPanel({
                                             Speech enabled
                                             <Mic
                                                 className={`h-3.5 w-3.5 ${formVoice === "yes"
-                                                        ? "text-emerald-600"
-                                                        : "text-gray-400"
+                                                    ? "text-emerald-600"
+                                                    : "text-gray-400"
                                                     }`}
                                             />
                                         </Label>
@@ -1007,8 +1007,8 @@ export function CandidateLlmKeysPanel({
                                     {detectionResult && !autoDetecting && (
                                         <div
                                             className={`p-2.5 border rounded-lg text-xs space-y-0.5 ${detectionResult.status === "active"
-                                                    ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
-                                                    : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200"
+                                                ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
+                                                : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200"
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2 font-semibold">
@@ -1178,8 +1178,8 @@ export function CandidateLlmKeysPanel({
                                                     <div className="flex items-center gap-1.5">
                                                         <select
                                                             className={`rounded-md border px-2 py-1 text-xs font-semibold min-w-[4.5rem] disabled:opacity-60 ${row.voice_enabled
-                                                                    ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                                                    : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                                                                ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                                                : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                                                                 }`}
                                                             value={row.voice_enabled ? "yes" : "no"}
                                                             disabled={voiceUpdatingId === row.id}
@@ -1199,8 +1199,8 @@ export function CandidateLlmKeysPanel({
                                                         ) : (
                                                             <Mic
                                                                 className={`h-3.5 w-3.5 shrink-0 ${row.voice_enabled
-                                                                        ? "text-emerald-600 dark:text-emerald-400"
-                                                                        : "text-gray-300 dark:text-gray-600"
+                                                                    ? "text-emerald-600 dark:text-emerald-400"
+                                                                    : "text-gray-300 dark:text-gray-600"
                                                                     }`}
                                                                 aria-hidden
                                                             />
@@ -1210,8 +1210,8 @@ export function CandidateLlmKeysPanel({
                                                 <td className="px-4 py-3">
                                                     <span
                                                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${row.is_default && row.validation_status === "active"
-                                                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                                                                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+                                                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                                                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
                                                             }`}
                                                     >
                                                         {row.is_default && row.validation_status === "active" ? "Yes" : "No"}
