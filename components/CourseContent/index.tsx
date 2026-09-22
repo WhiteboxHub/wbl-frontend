@@ -15,16 +15,6 @@ const CourseContent = () => {
       ? localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("auth_token")
       : null;
 
-    if (!token) {
-      toast.error("Please log in to access course content");
-    
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      setLoading(false);
-      return;
-    }
-
     const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
     const endpointsToTry = ["/course-content", "/course-content?limit=100"];
 
@@ -42,14 +32,19 @@ const CourseContent = () => {
       for (const ep of endpointsToTry) {
         try {
           const fullUrl = base + (ep.startsWith("/") ? ep : `/${ep}`);
-          
+
+          // Build headers — attach token if available, omit if guest user
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
+
           const response = await fetch(fullUrl, {
             method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers,
             credentials: 'include',
           });
 
@@ -65,7 +60,7 @@ const CourseContent = () => {
           const data = await response.json();
           const normalizedData = normalize(data);
           setSubjects(normalizedData);
-          
+
           if (normalizedData.length > 0) {
             return;
           }
@@ -75,8 +70,8 @@ const CourseContent = () => {
         }
       }
 
-      toast.error("Unable to load course content. Please check your permissions.");
-      
+      toast.error("Unable to load course content. Please check your connection.");
+
     } catch (err: any) {
       console.error("[fetchCourseContent] unexpected error:", err);
       toast.error(err?.message || "Failed to load course content");
