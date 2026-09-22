@@ -35,8 +35,7 @@ export default function RootLayout({
   const isCoderpad = pathname.startsWith("/coderpad");
   const isAiPrepReport = pathname.startsWith("/aiprep/reports");
   const isAiPrepSession = pathname.startsWith("/aiprep/session");
-  const isSessionRoom = isAiPrepSession;
-  const isStandalone = isAvatarSection || isCoderpad || isSessionRoom;
+
   const [isOpen, setIsOpen] = useState(false);
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
@@ -132,7 +131,7 @@ export default function RootLayout({
           <AuthProvider>
             <Providers>
               <GlobalServiceWorker />
-              {isAvatarSection || isCoderpad || isAiPrepReport || isSessionRoom ? (
+              {isAvatarSection || isCoderpad || isAiPrepReport || isAiPrepSession ? (
                 <>{children}</>
               ) : (
                 <>

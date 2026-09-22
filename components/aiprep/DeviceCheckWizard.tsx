@@ -41,6 +41,7 @@ const filterDevs = (devs: any[], kind: string, fallback: string): MediaDev[] => 
   return list.length > 0 ? list : [{ deviceId: 'default', label: fallback }];
 };
 interface DeviceCheckWizardProps {
+  candidateId?: number;
   assessmentId?: number;
   assessmentType?: string;
   assessmentMode?: string;
@@ -51,10 +52,11 @@ interface DeviceCheckWizardProps {
   onCancel?: () => void;
 }
 export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
+  candidateId: propCandidateId,
   assessmentId: initialAssessmentId,
   assessmentType: initialType,
   assessmentMode: initialMode,
-  audioOnly = true,
+  audioOnly = false,
   initialStep = 'CONFIGURATION',
   isSidebarCollapsed: isSidebarCollapsedProp,
   onComplete,
@@ -403,7 +405,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
 
     const probes = [
-      'https://www.google.com/generate_204', 'https://connectivitycheck.gstatic.com/generate_204', 'https://1.1.1.1/cdn-cgi/trace'
+      'https://www.google.com/generate_204',
+      'https://connectivitycheck.gstatic.com/generate_204',
     ];
 
     const probeEndpoint = async (url: string): Promise<number> => {
@@ -431,7 +434,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       minLatency = await Promise.any(probes.map((url) => probeEndpoint(url)));
       success = true;
     } catch {
-      success = false;
+      try {
+        const localOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+        if (localOrigin) {
+          minLatency = await probeEndpoint(`${localOrigin}/favicon.ico`);
+          success = true;
+        }
+      } catch {
+        success = false;
+      }
     }
 
     if (!success) {
@@ -466,9 +477,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Vision Hook Integration (Only active when in DEVICE_CHECK step with active camera stream)
-  const isVisionActive = step === 'DEVICE_CHECK' && !isAudioOnlyMode && videoEnabled && !!cameraStream;
-  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision(isVisionActive);
+  // Vision Hook Integration (Lazy-loaded: initialized when candidate reaches Device Check or Practice with video enabled)
+  const isVisionNeeded = (step === 'DEVICE_CHECK' || step === 'PRACTICE_START') && videoEnabled;
+  const { isReady: isVisionReady, detectVideoFrame, realtimeTelemetry } = useMediaPipeVision({ enabled: isVisionNeeded });
   const lastTelemetryUpdateRef = useRef<number>(0);
   const [isFaceLive, setIsFaceLive] = useState<boolean>(false);
 
@@ -561,9 +572,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setAnalyticsTested(true);
         if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'true');
       } else {
+        // If vision is still initializing/downloading models, do not fail yet
+        if (!isVisionReady) {
+          noFaceGraceTimerRef.current = 0;
+          return;
+        }
         // If camera is streaming but NO face is detected in the video feed (e.g. OBS virtual camera, covered lens)
         if (!noFaceGraceTimerRef.current) noFaceGraceTimerRef.current = Date.now();
-        if (Date.now() - noFaceGraceTimerRef.current > 1200) {
+        if (Date.now() - noFaceGraceTimerRef.current > 3000) {
           setAnalyticsOk(false);
           setAnalyticsTested(true);
           if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'false');
@@ -575,7 +591,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setAnalyticsTested(true);
       if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'false');
     }
-  }, [step, videoEnabled, videoAnalyticsEnabled, cameraOk, cameraStream, realtimeTelemetry, isFaceLive]);
+  }, [step, videoEnabled, videoAnalyticsEnabled, cameraOk, cameraStream, realtimeTelemetry, isFaceLive, isVisionReady]);
 
   const [micLevel, setMicLevel] = useState<number>(0);
   const [micTesting, setMicTesting] = useState<boolean>(false);
@@ -1213,9 +1229,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
     // Periodic Heartbeat check (every 1.5 seconds on DEVICE_CHECK step for real-time network and hardware sanity)
     let intervalId: any = null;
+    let heartbeatTick = 0;
     if (step === 'DEVICE_CHECK') {
       intervalId = setInterval(() => {
-        checkRealInternet();
+        heartbeatTick++;
+        // Throttle WAN ping probe to run once every ~7.5 seconds (every 5 ticks) to avoid network flooding
+        if (heartbeatTick % 5 === 0) {
+          checkRealInternet();
+        }
 
         // Hardware sanity check: if mic was marked OK but tracks are dead/unplugged
         if (micOk === true) {
@@ -1289,11 +1310,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   // Candidate resolution & backend assessment creation
   const getCandidateId = async (): Promise<number | undefined> => {
+    if (propCandidateId) return propCandidateId;
     try {
       const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (userStr) {
         const parsed = JSON.parse(userStr);
         if (parsed?.candidate_id || parsed?.id) return parsed.candidate_id || parsed.id;
+      }
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null;
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload?.candidate_id) return payload.candidate_id;
+        } catch {}
       }
       const userResponse = await apiFetch("user_dashboard");
       if (userResponse?.candidate_id || userResponse?.id) return userResponse.candidate_id || userResponse.id;
