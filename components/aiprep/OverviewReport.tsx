@@ -2512,17 +2512,6 @@ export default function AiPrepReport({
     loadReport();
   }, [loadReport]);
 
-  // Seamlessly update legacy single-parameter route /aiprep/reports/[assessmentId] to /aiprep/reports/[candidateId]/[assessmentId]
-  useEffect(() => {
-    if (report?.assessment?.candidate_id && !initialCandidateId && typeof window !== "undefined") {
-      const cid = report.assessment.candidate_id;
-      if (window.location.pathname === `/aiprep/reports/${assessmentId}`) {
-        const query = window.location.search;
-        router.replace(`/aiprep/reports/${cid}/${assessmentId}${query}`);
-      }
-    }
-  }, [report, initialCandidateId, assessmentId, router]);
-
   // Ensure document and body allow natural vertical scrolling for both Evaluation and Details pages
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
@@ -2565,9 +2554,13 @@ export default function AiPrepReport({
     }
     const param = paramFromTab(tabLabel);
     const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
-    const effectiveCandidateId = candidateId || report?.assessment?.candidate_id;
-    const targetUrl = effectiveCandidateId
-      ? `/aiprep/reports/${effectiveCandidateId}/${assessmentId}?tab=${param}${sectionParam}`
+
+    const isTwoSegmentRoute =
+      typeof window !== "undefined" &&
+      window.location.pathname.split("/").filter(Boolean).length === 4;
+
+    const targetUrl = isTwoSegmentRoute && candidateId
+      ? `/aiprep/reports/${candidateId}/${assessmentId}?tab=${param}${sectionParam}`
       : `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}`;
     router.push(targetUrl, { scroll: false });
   };
