@@ -22,7 +22,9 @@ import GlobalServiceWorker from "@/components/GlobalServiceWorker";
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  variable: "--font-poppins",
   display: "swap",
+  preload: true,
 });
 
 export default function RootLayout({
@@ -95,7 +97,7 @@ export default function RootLayout({
   }, [isAssessment]);
 
   return (
-    <html suppressHydrationWarning lang="en" className={isAssessment ? "h-full overflow-hidden" : ""}>
+    <html lang="en" suppressHydrationWarning className={`${poppins.variable} ${isAssessment ? "h-full overflow-hidden" : ""}`}>
       <head>
         <title>
           Whitebox-Learning - AIML Training and Placements in Bay area
@@ -111,14 +113,8 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
       </head>
-      <body className={`${poppins.className} dark:bg-black overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
+      <body className={`font-sans bg-white dark:bg-black text-dark dark:text-white overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>

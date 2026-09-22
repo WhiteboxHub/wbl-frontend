@@ -190,6 +190,8 @@ module.exports = {
         "spin-slow": "spin 0.5s linear 1",
       },
       fontFamily: {
+        sans: ["var(--font-poppins)", "sans-serif"],
+        poppins: ["var(--font-poppins)", "sans-serif"],
         comic: ['"Comic Sans MS"', "cursive"],
       },
     },
