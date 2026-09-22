@@ -224,25 +224,10 @@ export function CandidateLlmKeysPanel({
         const firstActive = currentRows.find((r) => r.validation_status === "active");
 
         if (firstActive) {
-            const syncDefaultKey = async () => {
-                try {
-                    await apiFetch(`coderpad/me/llm-keys/${firstActive.id}/is-default`, {
-                        method: "PATCH",
-                        body: { is_default: true },
-                    });
-                    setRows((prev) =>
-                        prev.map((r) => ({
-                            ...r,
-                            is_default: r.id === firstActive.id,
-                        }))
-                    );
-                } catch (err) {
-                    console.error("Failed to update default key:", err);
-                    toast.error("Could not update default key.");
-                }
-            };
-            syncDefaultKey();
-            return currentRows;
+            return currentRows.map((r) => ({
+                ...r,
+                is_default: r.id === firstActive.id,
+            }));
         }
 
         // 3. No active key exists (all keys invalid or credits exhausted)
@@ -260,6 +245,8 @@ export function CandidateLlmKeysPanel({
     const applyValidationResults = useCallback(
         (results: Array<{ id: number; status: string; message?: string | null }>) => {
             const byId = new Map(results.map((r) => [r.id, r]));
+            let autoAssignedDefaultId: number | null = null;
+
             setRows((prev) => {
                 const next = prev.map((row) => {
                     const hit = byId.get(row.id);
@@ -276,8 +263,32 @@ export function CandidateLlmKeysPanel({
                         validation_message: hit.message ?? null,
                     };
                 });
+
+                // Detect if a default key needs to be auto-assigned
+                const currentDefault = next.find((r) => r.is_default);
+                const firstActive = next.find((r) => r.validation_status === "active");
+                if ((!currentDefault || currentDefault.validation_status !== "active") && firstActive) {
+                    autoAssignedDefaultId = firstActive.id;
+                }
+
                 return recomputeDefaultKey(next);
             });
+
+            // Asynchronous side-effect moved OUTSIDE the React state updater
+            if (autoAssignedDefaultId !== null) {
+                const idToSet = autoAssignedDefaultId;
+                (async () => {
+                    try {
+                        await apiFetch(`coderpad/me/llm-keys/${idToSet}/is-default`, {
+                            method: "PATCH",
+                            body: { is_default: true },
+                        });
+                    } catch (err) {
+                        console.error("Failed to update default key:", err);
+                        toast.error("Could not update default key.");
+                    }
+                })();
+            }
         },
         [recomputeDefaultKey]
     );
