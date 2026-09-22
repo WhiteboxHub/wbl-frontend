@@ -363,7 +363,7 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
   if (full_text) {
     full_text = full_text
       .replace(/<\/?s>/gi, "")
-      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*|\w+):\s*/gi, " ")
+      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
