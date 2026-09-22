@@ -23,11 +23,16 @@ export const assessmentService = {
       offset: String(offset),
     });
 
-    if (filters.candidate_id?.trim()) {
-      queryParams.set("candidate_id", filters.candidate_id.trim());
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || '') : '';
+    const urlCid = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('candidateId') || '') : '';
+    const effectiveCandidateId = filters.candidate_id?.trim() || urlCid.trim();
+
+    if (effectiveCandidateId) {
+      queryParams.set("candidate_id", effectiveCandidateId);
     }
 
-    const cacheKey = `candidate_${queryParams.toString()}`;
+    const tokenSnippet = token ? token.slice(-25) : 'anon';
+    const cacheKey = `candidate_${tokenSnippet}_${queryParams.toString()}`;
     if (inFlightCandidateAssessments.has(cacheKey)) {
       return inFlightCandidateAssessments.get(cacheKey)!;
     }
