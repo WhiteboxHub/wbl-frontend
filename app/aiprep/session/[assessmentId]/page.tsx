@@ -155,11 +155,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   const isEmbedded = searchParams?.get('embed') === 'true';
 
+
   // Core session metadata
   const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
   const [mediaType, setMediaType] = useState<MediaType>('VIDEO');
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+
+  // Maximum recording duration — 5 min for INTRO/JD_INTRO, 30 min for all other types
+  // Derived via useMemo so it updates once assessmentType is resolved from the backend
+  const MAX_RECORDING_SECONDS = React.useMemo(() => {
+    if (assessmentType === 'INTRO' || assessmentType === 'JD_INTRO') return 5 * 60;
+    return 30 * 60;
+  }, [assessmentType]);
 
   // Status & loading
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -485,36 +493,60 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // (Removed to prevent double-speak since handleStartAnswer handles the AI dictation before recording)
 
   // ── Live Speech Recognition ────────────────────────────────────────────────
+  // Accumulates finalized sentences separately from interim results so the
+  // transcript preserves full sentence history instead of overwriting on each event.
+  const finalTranscriptRef = useRef<string>('');
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (isRecording && SpeechRecognition) {
+      // Reset accumulated transcript when a fresh recording session begins
+      finalTranscriptRef.current = '';
+      setLiveTranscript('');
+
       try {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
+        recognition.maxAlternatives = 1;
         recognitionRef.current = recognition;
 
         recognition.onresult = (event: any) => {
-          let currentText = '';
-          for (let i = 0; i < event.results.length; i++) {
-            currentText += event.results[i][0].transcript + ' ';
+          let interimText = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              // Append finalized sentence with a space separator
+              finalTranscriptRef.current += transcript.trim() + ' ';
+            } else {
+              interimText += transcript;
+            }
           }
-          if (currentText.trim()) {
-            setLiveTranscript(currentText.trim());
+
+          // Combine persisted final sentences with the current interim preview
+          const combinedText = (finalTranscriptRef.current + interimText).trim();
+          if (combinedText) {
+            setLiveTranscript(combinedText);
           }
+
           if (transcriptScrollRef.current) {
             transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
           }
         };
 
         recognition.onerror = (e: any) => {
-          console.warn('[Speech Recognition Note]:', e.error);
+          // 'no-speech' is expected during silent pauses — suppress noisy logs
+          if (e.error !== 'no-speech') {
+            console.warn('[Speech Recognition Note]:', e.error);
+          }
         };
 
         recognition.onend = () => {
+          // Auto-restart to maintain continuous recognition across browser-imposed limits
           if (isRecording && recognitionRef.current === recognition) {
             try {
               recognition.start();
@@ -541,6 +573,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
     };
   }, [isRecording]);
+
+  // ── Max Recording Duration Enforcer ───────────────────────────────────────
+  // Auto-ends the session when the type-specific time limit is reached
+  useEffect(() => {
+    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding) {
+      console.warn(`[Assessment] Max recording time (${MAX_RECORDING_SECONDS / 60} min) reached — auto-ending session.`);
+      handleEndSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
   // Recording starts only AFTER the AI finishes reading the question aloud.
@@ -744,13 +786,35 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           </div>
         </div>
 
-        {/* CENTER: Interview Total Duration Clock */}
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
-          <IconClock size={15} className="text-indigo-600 dark:text-indigo-400" />
-          <span className="font-mono text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-            {formatTime(elapsedTime)}
-          </span>
-        </div>
+        {/* CENTER: Countdown Timer — counts down from the max allowed time */}
+        {(() => {
+          const remaining = Math.max(0, MAX_RECORDING_SECONDS - elapsedTime);
+          const isLow = remaining <= 60;
+          const isCritical = remaining <= 30;
+          return (
+            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-xs transition-colors duration-300 ${
+              isCritical
+                ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700'
+                : isLow
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700'
+                  : 'bg-slate-100 dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/80'
+            }`}>
+              <IconClock
+                size={15}
+                className={isCritical ? 'text-rose-500 animate-pulse' : isLow ? 'text-amber-500' : 'text-indigo-600 dark:text-indigo-400'}
+              />
+              <span className={`font-mono text-xs sm:text-sm font-bold tracking-tight ${
+                isCritical
+                  ? 'text-rose-600 dark:text-rose-400 animate-pulse'
+                  : isLow
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-slate-800 dark:text-slate-100'
+              }`}>
+                {formatTime(remaining)}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
         <div className="flex items-center gap-2">
@@ -803,7 +867,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
             )}
 
-            {/* Video Stream Element */}
+            {/* Video Stream Element — hidden in audio-only mode */}
             <video
               ref={videoRef}
               autoPlay
@@ -812,6 +876,33 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${!isAudioOnly ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
             />
+
+            {/* Audio-Only Placeholder: Centered mic with live waveform animation */}
+            {isAudioOnly && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-10 pointer-events-none">
+                {/* Pulsing mic icon rings */}
+                <div className="relative flex items-center justify-center">
+                  {isRecording && (
+                    <>
+                      <span className="absolute w-28 h-28 rounded-full bg-indigo-500/10 animate-ping" />
+                      <span className="absolute w-20 h-20 rounded-full bg-indigo-500/15 animate-pulse" />
+                    </>
+                  )}
+                  <div className={`relative w-16 h-16 rounded-full flex items-center justify-center shadow-xl border-2 transition-colors duration-300 ${
+                    isRecording
+                      ? 'bg-indigo-600 border-indigo-400'
+                      : 'bg-slate-700 border-slate-600'
+                  }`}>
+                    <IconMicrophone size={30} className={isRecording ? 'text-white' : 'text-slate-400'} />
+                  </div>
+                </div>
+                {/* Live audio waveform bars */}
+                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
+                <span className="text-xs font-semibold text-slate-400">
+                  {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
+                </span>
+              </div>
+            )}
 
             {/* Top-Left Live REC Badge */}
             <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/85 border border-slate-700/80 text-xs font-bold text-white px-3.5 py-1.5 rounded-xl backdrop-blur-md shadow-lg">
@@ -824,14 +915,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               <span className="font-mono text-xs text-white font-bold">{formatTime(elapsedTime)}</span>
             </div>
 
-            {/* Bottom-Left: Embedded Audio Waveform Equalizer */}
-            <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1">
-              <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200 drop-shadow">
-                <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                <span>{isRecording ? 'Mic & Camera Active' : 'Ready to Start'}</span>
+            {/* Bottom-Left: Embedded Audio Waveform Equalizer (video mode only) */}
+            {!isAudioOnly && (
+              <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1">
+                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200 drop-shadow">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span>{isRecording ? 'Mic & Camera Active' : 'Ready to Start'}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* FLOATING GLASS MEETING DOCK */}
@@ -968,16 +1061,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 shrink-0">
-                {/* AI Voice Narration Pill */}
+                {/* AI Voice Narration — plays the question text aloud via speech synthesis */}
                 <button
                   type="button"
                   onClick={() => speakAiText(activeQuestion.question_text)}
                   disabled={isQuestionBlurred}
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold cursor-pointer transition-all"
-                  title={isQuestionBlurred ? 'Available once answer recording starts' : 'Read Question Aloud'}
+                  title={isQuestionBlurred ? 'Available once answer recording starts' : 'Play question audio'}
                 >
                   {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
-                  <span>{isAiSpeaking ? 'Speaking…' : 'Read Question Aloud'}</span>
+                  <span>{isAiSpeaking ? 'Speaking…' : 'Play Question'}</span>
                 </button>
 
                 {activeQuestion.difficulty_level && (

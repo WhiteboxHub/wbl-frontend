@@ -1023,39 +1023,43 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         </button>
 
         <div className="flex items-center gap-2">
-          {/* Skip to Assessment — jumps directly without practice */}
-          <button
-            type="button"
-            onClick={handleLaunchAssessment}
-            disabled={isRecording || isLaunching}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Skip to Assessment
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLaunchAssessment}
-            disabled={isRecording || isLaunching}
-            className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
-              isRecording || isLaunching
-                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
-                : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
-            }`}
-            title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
-          >
-            {isLaunching ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>Launching Assessment...</span>
-              </>
-            ) : (
-              <>
-                <span>Start Assessment</span>
-                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-              </>
-            )}
-          </button>
+          {/* Show Skip when the user has NOT done any practice recording yet.
+              Show Start Assessment only after the user has recorded (testAudioUrl is set),
+              indicating they are done testing and ready to begin the real assessment. */}
+          {!testAudioUrl ? (
+            <button
+              type="button"
+              onClick={handleLaunchAssessment}
+              disabled={isRecording || isLaunching}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Skip to Assessment
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLaunchAssessment}
+              disabled={isRecording || isLaunching}
+              className={`px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center gap-2 border transition-all ${
+                isRecording || isLaunching
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 cursor-not-allowed opacity-60'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 hover:border-indigo-500 shadow-md active:scale-95 cursor-pointer'
+              }`}
+              title={isRecording ? 'Please stop recording before starting assessment' : isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
+            >
+              {isLaunching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Launching Assessment...</span>
+                </>
+              ) : (
+                <>
+                  <span>Start Assessment</span>
+                  <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
