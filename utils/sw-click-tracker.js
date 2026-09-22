@@ -143,8 +143,6 @@ async function attemptFlush(force = false) {
         if (force || lastSyncedAt === null || (now - lastSyncedAt) > SYNC_THRESHOLD_MS) {
             const clicks = await getPendingClicks();
             if (clicks.length === 0) {
-                pendingFlush = false;
-                pendingFlushForce = false;
                 return;
             }
 
@@ -164,8 +162,6 @@ async function attemptFlush(force = false) {
             if (response.ok) {
                 await clearClicks(clicks.map(c => c.job_listing_id));
                 await setLastSyncedAt(Date.now());
-                pendingFlush = false;
-                pendingFlushForce = false;
             } else {
                 console.error('[SW] ❌ Sync Error: HTTP', response.status);
             }
