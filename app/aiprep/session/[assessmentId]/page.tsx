@@ -649,7 +649,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     };
   }, [
     isRecording,
-    finalTranscriptRef,
+    accumulatedTranscriptRef,
     recognitionRef,
     currentInterimRef,
     setLiveTranscript,
