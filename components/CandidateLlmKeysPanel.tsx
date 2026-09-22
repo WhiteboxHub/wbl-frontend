@@ -224,7 +224,10 @@ export function CandidateLlmKeysPanel({
         const firstActive = currentRows.find((r) => r.validation_status === "active");
 
         if (firstActive) {
-            void apiFetch(`coderpad/me/llm-keys/${firstActive.id}/set-default`, { method: "POST" }).catch(() => {});
+            void apiFetch(`coderpad/me/llm-keys/${firstActive.id}/is-default`, {
+                method: "PATCH",
+                body: { is_default: true },
+            }).catch(() => {});
             return currentRows.map((r) => ({
                 ...r,
                 is_default: r.id === firstActive.id,
