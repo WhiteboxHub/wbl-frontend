@@ -78,7 +78,7 @@ const CourseContent = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setLoading, setSubjects]);
 
   useEffect(() => {
     fetchCourseContent();
