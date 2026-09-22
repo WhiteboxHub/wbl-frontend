@@ -1940,7 +1940,7 @@ export default function AiPrepReport({
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 w-full space-y-3 sm:space-y-3.5">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 w-full space-y-3.5">
         <ReportHeader
           assessment={assessment}
           report={report}

@@ -70,7 +70,6 @@ export default function VideoPlayer({ youtubeUrl, videoRef, className }: Props) 
         controls
         playsInline
         preload="metadata"
-        poster="/images/candidate-interview-poster.jpg"
         className="w-full h-auto max-h-[340px] rounded-lg bg-black object-cover"
       >
         Your browser does not support video playback.
