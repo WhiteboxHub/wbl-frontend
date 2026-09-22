@@ -1400,12 +1400,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     };
 
+    const isAssessmentsView = Boolean(
+        currentSubPath?.includes('/assessments') ||
+        (typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/assessments'))
+    );
+
     useEffect(() => {
-        const isAssessmentsView = typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/assessments');
-        if (!isAssessmentsView) {
+        if (!isAssessmentsView && !setupStatus) {
             loadSetupStatus().then(setSetupStatus);
         }
-    }, []);
+    }, [isAssessmentsView, setupStatus]);
 
     useEffect(() => {
         if (setupStatus?.has_binary_resume) {
