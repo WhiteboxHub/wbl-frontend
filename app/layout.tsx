@@ -72,7 +72,15 @@ export default function RootLayout({
     activeTabFromEvent.startsWith("ai-prep") ||
     activeTabFromEvent.startsWith("aiprep") ||
     activeTabFromEvent === "wbl-smartprep";
-  const isAssessment = isAssessmentLayout || isAiprepRoute;
+  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepRoute);
+
+  useEffect(() => {
+    if (isAiPrepReport) {
+      setIsAssessmentLayout(false);
+      setHeaderCollapsed(false);
+      setActiveTabFromEvent("");
+    }
+  }, [isAiPrepReport]);
 
   useEffect(() => {
     if (isAssessment) {

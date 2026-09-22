@@ -390,25 +390,6 @@ export function EvaluationContent({
     scores.non_technical?.band ??
     "AVERAGE";
 
-  const addlSection = intro_sections.find((s) =>
-    [
-      "ai_engineering_evolution",
-      "cicd_and_delivery",
-      "guardrails_evals_observability_mentioned",
-    ].includes(s.key)
-  );
-  const addlBand =
-    scores.non_technical?.band ??
-    scores.business_acumen?.band ??
-    addlSection?.status ??
-    "AVERAGE";
-  const addlObs =
-    addlSection?.observation ??
-    final_assessment?.transition_quality ??
-    report.priority_improvements?.[0]?.guidance ??
-    report.non_technical?.communication_summary ??
-    (report.strongest_points && report.strongest_points[0]);
-
   const rawTip =
     final_assessment?.most_important_improvement ??
     priority_improvements[0]?.guidance ??
@@ -495,12 +476,6 @@ export function EvaluationContent({
               status={videoBand}
             />
           )}
-          <HighlightCard
-            icon={<ShieldCheck size={18} />}
-            title="Additional Factors"
-            observation={addlObs}
-            status={addlBand}
-          />
         </div>
       </section>
 
@@ -548,7 +523,7 @@ export function EvaluationContent({
             </div>
 
             {previewSegments.length > 0 ? (
-              <div className="flex-1 space-y-2.5 overflow-hidden">
+              <div className="flex-1 space-y-2.5 max-h-56 overflow-y-auto pr-1">
                 {previewSegments.map((seg, i) => {
                   const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
                   return (
@@ -1812,6 +1787,22 @@ export default function AiPrepReport({
   useEffect(() => {
     loadReport();
   }, [loadReport]);
+
+  // Ensure document and body allow natural vertical scrolling for both Evaluation and Details pages
+  useEffect(() => {
+    document.documentElement.style.removeProperty("overflow");
+    document.documentElement.style.removeProperty("height");
+    document.body.style.removeProperty("overflow");
+    document.body.style.removeProperty("height");
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("aiprep-layout-mode", {
+          detail: { active: false, fullscreen: false, isWizardActive: false, headerCollapsed: false },
+        })
+      );
+    }
+  }, []);
 
   const [detailsSubTab, setDetailsSubTab] = useState<string>(() => {
     return searchParams.get("section") || "intro";
