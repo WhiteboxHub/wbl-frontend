@@ -7,6 +7,7 @@ import CandidateDashboard from "@/components/CandidateDashboard";
 import Link from "next/link";
 import { User, Phone, Mail, Activity, Sparkles, AlertTriangle } from "lucide-react";
 import { setupApi } from "@/lib/api";
+import { isTokenExpired } from "@/utils/auth";
 import { Toaster } from "sonner";
 
 interface UserProfile {
@@ -113,14 +114,29 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
   React.useEffect(() => {
     if (mounted && !isAuthenticated) {
       const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-      if (!token) {
+      if (!token || isTokenExpired(token)) {
         if (typeof window !== "undefined") {
+          localStorage.removeItem("access_token");
           if (window.top && window.top !== window.self) {
             window.top.location.href = "/login";
           } else {
             window.location.href = "/login";
           }
         }
+      } else {
+        // Fallback: If token exists but auth verification fails or hangs, redirect to login after timeout
+        const fallbackTimer = setTimeout(() => {
+          if (!isAuthenticated) {
+            if (typeof window !== "undefined") {
+              if (window.top && window.top !== window.self) {
+                window.top.location.href = "/login";
+              } else {
+                window.location.href = "/login";
+              }
+            }
+          }
+        }, 3000);
+        return () => clearTimeout(fallbackTimer);
       }
     }
   }, [mounted, isAuthenticated]);
@@ -137,20 +153,14 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
 
   if (!isAuthenticated) {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    if (token) {
-      return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="text-xl font-semibold text-gray-800 dark:text-gray-100 animate-pulse">
-            Loading...
-          </div>
-        </div>
-      );
-    }
+    const hasUnexpiredToken = Boolean(token && !isTokenExpired(token));
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Redirecting to login...</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            {hasUnexpiredToken ? "Loading..." : "Redirecting to login..."}
+          </p>
         </div>
       </div>
     );
