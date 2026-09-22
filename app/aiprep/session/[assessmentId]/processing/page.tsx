@@ -82,8 +82,12 @@ export default function AssessmentProcessingPage() {
   // Detect audio-only mode from session storage (set during wizard) to hide video step
   const isAudioOnly = React.useMemo(() => {
     if (typeof window === 'undefined') return false;
-    const mode = sessionStorage.getItem('aiprep_active_mode');
-    return mode === 'AUDIO' || mode === 'AUDIO_ONLY';
+    try {
+      const mode = sessionStorage.getItem('aiprep_active_mode');
+      return mode === 'AUDIO' || mode === 'AUDIO_ONLY';
+    } catch (_) {
+      return false;
+    }
   }, []);
 
   const {

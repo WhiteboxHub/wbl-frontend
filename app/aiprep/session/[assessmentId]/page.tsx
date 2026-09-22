@@ -44,7 +44,7 @@ import {
 /**
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
  */
-const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream | null; isMuted: boolean }) => {
+const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stream: MediaStream | null; isMuted: boolean; isLight?: boolean }) => {
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(3));
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -113,14 +113,22 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
   if (isMuted) return null;
 
   return (
-    <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 px-3 py-1.5 rounded-full backdrop-blur-xl shadow-lg">
-      <IconMicrophone size={14} stroke={2} className="text-emerald-400 shrink-0" />
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors ${
+      isLight
+        ? 'bg-slate-100/90 border border-slate-200 text-slate-700'
+        : 'bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg'
+    }`}>
+      <IconMicrophone size={14} stroke={2} className={`${isLight ? 'text-indigo-600' : 'text-emerald-400'} shrink-0`} />
       <div className="flex items-center gap-[2.5px] h-4 overflow-hidden">
         {audioLevels.map((height, i) => (
           <div
             key={i}
             style={{ height: `${height}px` }}
-            className="w-[2.5px] rounded-full bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300 shrink-0 transition-all duration-75"
+            className={`w-[2.5px] rounded-full shrink-0 transition-all duration-75 ${
+              isLight
+                ? 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
+                : 'bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300'
+            }`}
           />
         ))}
       </div>
@@ -758,11 +766,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         questions[currentQuestionIndex]?.question_text ||
         'Assessment completed.';
 
-      // 2. Calculate telemetry metrics
-      const wordCount = actualTranscript.split(/\s+/).filter(Boolean).length;
-      const durationMin = Math.max(0.1, elapsedTime / 60);
-      const calculatedWpm = Math.round(wordCount / durationMin);
-
       const finalSegments =
         transcriptSegmentsRef.current.length > 0
           ? transcriptSegmentsRef.current
@@ -775,7 +778,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               },
             ];
 
-      // 3. Assemble full contract telemetry payload from actual live session metrics
+      // 3. Assemble session questions & transcript payload without client-mocked audio telemetry
       const telemetryPayload = {
         questions: questions.map((q) => ({
           question_id: q.id,
@@ -785,11 +788,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           full_text: actualTranscript,
           segments: finalSegments,
         },
-        audio_telemetry: {
-          words_per_minute: calculatedWpm > 0 ? calculatedWpm : 135,
-          silence_ratio_pct: 0,
-          speaking_duration_seconds: Math.max(elapsedTime, 1),
-        },
         video_telemetry: {
           is_video_mode: !isAudioOnly,
           face_visible_pct: 100,
@@ -797,18 +795,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         },
       };
 
-      // 4. Submit captured telemetry data to POST /api/aiprep/assessments/{id}/data
+      // 4. Submit captured questions & live transcript to POST /api/aiprep/assessments/{id}/data
       try {
         await aiprepApi.submitTelemetryData(assessmentId, telemetryPayload);
       } catch (submitErr) {
         console.warn('Telemetry submission note:', submitErr);
       }
 
-      // 5. Trigger evaluation orchestrator to POST /api/aiprep/assessments/{id}/evaluate
+      // 5. Trigger backend media assembly & audio engine
       try {
-        await aiprepApi.triggerEvaluation(assessmentId);
-      } catch (evalErr) {
-        console.warn('Evaluation trigger note:', evalErr);
+        await aiprepApi.assembleMedia(assessmentId);
+      } catch (assembleErr) {
+        console.warn('Media assembly trigger note, falling back to evaluation:', assembleErr);
+        try {
+          await aiprepApi.triggerEvaluation(assessmentId);
+        } catch (_) {}
       }
 
       // 6. Clean up browser session storage flags
@@ -959,14 +960,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
         <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-3">
           {/* CINEMA CAMERA STAGE */}
-          <div className="relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl flex items-center justify-center min-h-[260px] sm:min-h-[360px]">
+          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${
+            isAudioOnly
+              ? 'bg-white border-slate-200/90 shadow-sm'
+              : 'bg-slate-950 border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl'
+          }`}>
             {/* 3-2-1 Countdown Overlay for Intro Track */}
             {countdownValue !== null && (
-              <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md">
+              <div className={`absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md ${
+                isAudioOnly ? 'bg-white/95' : 'bg-slate-950/90'
+              }`}>
                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-5xl flex items-center justify-center animate-bounce shadow-2xl shadow-indigo-500/50">
                   {countdownValue}
                 </div>
-                <p className="mt-4 text-white text-sm font-bold uppercase tracking-widest animate-pulse">
+                <p className={`mt-4 text-sm font-bold uppercase tracking-widest animate-pulse ${
+                  isAudioOnly ? 'text-slate-700' : 'text-white'
+                }`}>
                   Get ready! Recording starts automatically…
                 </p>
               </div>
@@ -984,40 +993,47 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
             {/* Audio-Only Placeholder: Centered mic with live waveform animation */}
             {isAudioOnly && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 z-10 pointer-events-none">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-10 pointer-events-none">
+                {/* Soft ambient background glow */}
+                <div className="absolute w-96 h-96 rounded-full bg-gradient-to-tr from-indigo-100/60 to-purple-100/60 blur-3xl pointer-events-none" />
+
                 {/* Pulsing mic icon rings */}
                 <div className="relative flex items-center justify-center">
                   {isRecording && (
                     <>
-                      <span className="absolute w-28 h-28 rounded-full bg-indigo-500/10 animate-ping" />
-                      <span className="absolute w-20 h-20 rounded-full bg-indigo-500/15 animate-pulse" />
+                      <span className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-indigo-500/10 animate-ping" />
+                      <span className="absolute w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-indigo-500/15 animate-pulse" />
                     </>
                   )}
-                  <div className={`relative w-16 h-16 rounded-full flex items-center justify-center shadow-xl border-2 transition-colors duration-300 ${
+                  <div className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex items-center justify-center shadow-xl border-4 transition-all duration-300 ${
                     isRecording
-                      ? 'bg-indigo-600 border-indigo-400'
-                      : 'bg-slate-700 border-slate-600'
+                      ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 border-indigo-200/80 shadow-indigo-500/25 ring-8 ring-indigo-50'
+                      : 'bg-slate-100 border-slate-200'
                   }`}>
-                    <IconMicrophone size={30} className={isRecording ? 'text-white' : 'text-slate-400'} />
+                    <IconMicrophone size={44} stroke={2} className={isRecording ? 'text-white' : 'text-slate-400'} />
                   </div>
                 </div>
-                {/* Live audio waveform bars */}
-                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
-                <span className="text-xs font-semibold text-slate-400">
+                {/* Live audio waveform bars in light mode */}
+                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
+                <span className="text-xs sm:text-sm font-semibold text-slate-500">
                   {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
                 </span>
               </div>
             )}
 
             {/* Top-Left Live REC Badge */}
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/85 border border-slate-700/80 text-xs font-bold text-white px-3.5 py-1.5 rounded-xl backdrop-blur-md shadow-lg">
+            <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
+              isAudioOnly
+                ? 'bg-slate-50/90 border border-slate-200 text-slate-700'
+                : 'bg-slate-900/85 border border-slate-700/80 text-white backdrop-blur-md shadow-lg'
+            }`}>
               <span
-                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-500'
+                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-400'
                   }`}
               />
-              <span className="text-red-400 uppercase font-extrabold text-[11px]">REC</span>
-              <span className="text-slate-300 text-xs">{isRecording ? 'Live •' : 'Standby •'}</span>
-              <span className="font-mono text-xs text-white font-bold">{formatTime(elapsedTime)}</span>
+              <span className={`${isAudioOnly ? 'text-red-600' : 'text-red-400'} uppercase font-extrabold text-[11px]`}>REC</span>
+              <span className={`${isAudioOnly ? 'text-slate-600' : 'text-slate-300'} text-xs`}>{isRecording ? 'Live •' : 'Standby •'}</span>
+              <span className={`font-mono text-xs font-bold ${isAudioOnly ? 'text-slate-900' : 'text-white'}`}>{formatTime(elapsedTime)}</span>
             </div>
 
             {/* Bottom-Left: Embedded Audio Waveform Equalizer (video mode only) */}
