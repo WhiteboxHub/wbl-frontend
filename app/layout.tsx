@@ -66,7 +66,7 @@ export default function RootLayout({
   }, []);
 
   const isAiprepRoute =
-    pathname.startsWith("/aiprep") ||
+    (pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
     pathname.startsWith("/user_dashboard/ai-prep") ||
     pathname.startsWith("/user_dashboard/aiprep") ||
     activeTabFromEvent.startsWith("ai-prep") ||
