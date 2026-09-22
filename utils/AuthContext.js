@@ -102,10 +102,12 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
         setUserRole(null);
         setSidebarOpen(false);
-        try {
-          router.push("/login");
-        } catch (err) {
-          // router might not be ready in some contexts
+        if (typeof window !== "undefined") {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = "/login";
+          } else {
+            window.location.href = "/login";
+          }
         }
       }
     };
@@ -145,14 +147,6 @@ export const AuthProvider = ({ children }) => {
 
   const handleTokenExpiration = () => {
     logout();
-    // redirect to login page
-    try {
-      router.push("/login");
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("Router push failed:", e);
-      }
-    }
   };
 
   const login = async (token) => {
@@ -224,14 +218,19 @@ export const AuthProvider = ({ children }) => {
     clearNextAuthCookies();
 
     // sign out from next-auth (server) but don't auto-redirect; we'll navigate explicitly
-    signOut({ redirect: false });
+    try {
+      signOut({ redirect: false });
+    } catch (e) {
+      // ignore
+    }
 
     // ensure current tab navigates to login
-    try {
-      router.push("/login");
-    } catch (err) {
-      // fall back: reload the page
-      window.location.href = "/login";
+    if (typeof window !== "undefined") {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = "/login";
+      } else {
+        window.location.href = "/login";
+      }
     }
   };
 

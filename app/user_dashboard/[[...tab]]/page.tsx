@@ -79,7 +79,7 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
 
   React.useEffect(() => {
     // If regular user (not candidate/employee), load profile
-    if (isAuthenticated && !["employee", "candidate"].includes(userRole || "")) {
+    if (isAuthenticated && userRole && !["employee", "candidate"].includes(userRole)) {
       loadUserProfile();
     }
   }, [isAuthenticated, userRole]);
@@ -104,8 +104,56 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
     }
   };
 
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (mounted && !isAuthenticated) {
+      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+      if (!token) {
+        if (typeof window !== "undefined") {
+          if (window.top && window.top !== window.self) {
+            window.top.location.href = "/login";
+          } else {
+            window.location.href = "/login";
+          }
+        }
+      }
+    }
+  }, [mounted, isAuthenticated]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-xl font-semibold text-gray-800 dark:text-gray-100 animate-pulse">
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <div className="min-h-screen flex items-center justify-center">Please log in to view this page.</div>;
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    if (token) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-xl font-semibold text-gray-800 dark:text-gray-100 animate-pulse">
+            Loading...
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   // Render Role-Based Dashboards

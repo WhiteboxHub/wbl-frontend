@@ -1401,7 +1401,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     useEffect(() => {
-        loadSetupStatus().then(setSetupStatus);
+        const isAssessmentsView = typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/assessments');
+        if (!isAssessmentsView) {
+            loadSetupStatus().then(setSetupStatus);
+        }
     }, []);
 
     useEffect(() => {
@@ -3544,6 +3547,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             {isWizardActive ? (
                                                 <div className="w-full h-full flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
                                                     <DeviceCheckWizard
+                                                        candidateId={candidateId || undefined}
                                                         initialStep="CONFIGURATION"
                                                         isSidebarCollapsed={isSidebarCollapsed}
                                                         onCancel={() => {

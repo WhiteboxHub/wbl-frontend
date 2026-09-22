@@ -39,6 +39,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
   const [totalPages, setTotalPages] = useState(1);
   const limit = 50;
   const isMountedRef = React.useRef(true);
+  const loadingRef = React.useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -48,6 +49,8 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
   }, []);
 
   const loadAssessments = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setIsLoading(true);
     setError(null);
     try {
@@ -62,6 +65,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         setError(err?.message || "Failed to load your assessments.");
       }
     } finally {
+      loadingRef.current = false;
       if (isMountedRef.current) {
         setIsLoading(false);
       }
