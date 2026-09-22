@@ -189,7 +189,7 @@ function getTranscriptDuration(report: NormalizedReport): string {
   const assessment = report.assessment;
   let totalSec: number | null = null;
 
-  // 1. Audio telemetry speaking duration
+  // 1. Audio telemetry speaking duration from assessment data
   const dataRec = assessment.data as any;
   if (dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
     const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
@@ -198,7 +198,31 @@ function getTranscriptDuration(report: NormalizedReport): string {
     }
   }
 
-  // 2. Timestamps from segments (last segment timestamp_s)
+  // 2. Audio evaluation recording environment speaking duration
+  if (!totalSec && report.audio?.recording_environment?.speaking_duration_seconds != null) {
+    const sec = Number(report.audio.recording_environment.speaking_duration_seconds);
+    if (!isNaN(sec) && sec > 0) {
+      totalSec = Math.round(sec);
+    }
+  }
+
+  // 3. Audio / Video telemetry duration_seconds
+  if (!totalSec && dataRec?.audio_telemetry?.duration_seconds != null) {
+    const sec = Number(dataRec.audio_telemetry.duration_seconds);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+  if (!totalSec && dataRec?.video_telemetry?.duration_seconds != null) {
+    const sec = Number(dataRec.video_telemetry.duration_seconds);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+
+  // 4. Assessment duration_seconds directly
+  if (!totalSec && (assessment as any)?.duration_seconds != null) {
+    const sec = Number((assessment as any).duration_seconds);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+
+  // 5. Timestamps from segments (last segment timestamp_s)
   if (!totalSec && report.transcript?.segments && report.transcript.segments.length > 0) {
     const segs = report.transcript.segments;
     const lastSeg = segs[segs.length - 1];
@@ -207,7 +231,7 @@ function getTranscriptDuration(report: NormalizedReport): string {
     }
   }
 
-  // 3. Started_at and completed_at difference
+  // 6. Started_at and completed_at difference
   if (!totalSec && assessment.started_at && assessment.completed_at) {
     const start = new Date(assessment.started_at).getTime();
     const end = new Date(assessment.completed_at).getTime();
@@ -219,11 +243,11 @@ function getTranscriptDuration(report: NormalizedReport): string {
     }
   }
 
-  // 4. Fallback based on word count (conversational ~130 wpm)
+  // 7. Fallback based on word count (conversational ~130 wpm)
   if (!totalSec && report.transcript?.full_text) {
     const words = report.transcript.full_text.trim().split(/\s+/).filter(Boolean).length;
     if (words > 0) {
-      totalSec = Math.max(10, Math.round((words / 130) * 60));
+      totalSec = Math.max(1, Math.round((words / 130) * 60));
     }
   }
 
@@ -1531,12 +1555,59 @@ export interface ReportHeaderProps {
   onSelectTab: (tab: ReportTab) => void;
 }
 
+export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem("aiprep_wizard_step", "CONFIGURATION");
+      sessionStorage.removeItem("aiprep_active_id");
+      window.dispatchEvent(
+        new CustomEvent("aiprep-layout-mode", {
+          detail: { active: true, step: "CONFIGURATION", slug: "assessment-type", isWizardActive: true },
+        })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }
+  router.push("/user_dashboard/ai-prep/assessment-type");
+}
+
+export function navigateToAssessmentsList(router: ReturnType<typeof useRouter>) {
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.removeItem("aiprep_wizard_step");
+      sessionStorage.removeItem("aiprep_active_id");
+      sessionStorage.removeItem("aiprep_active_type");
+      sessionStorage.removeItem("aiprep_active_mode");
+      window.dispatchEvent(
+        new CustomEvent("aiprep-layout-mode", {
+          detail: { active: false, isWizardActive: false, headerCollapsed: false },
+        })
+      );
+    } catch {
+      // Ignore storage errors
+    }
+
+    if (document.referrer && document.referrer.includes("/avatar/assessments")) {
+      router.push("/avatar/assessments");
+      return;
+    }
+    if (document.referrer && document.referrer.includes("/aiprep/reports/dashboard")) {
+      router.push("/aiprep/reports/dashboard");
+      return;
+    }
+  }
+  router.push("/user_dashboard/ai-prep/assessments");
+}
+
 export function ReportHeader({
   assessment,
   report,
   activeTab,
   onSelectTab,
 }: ReportHeaderProps) {
+  const router = useRouter();
+
   // Dynamic role resolution from job description or resume
   const roleStr = (() => {
     const jd = assessment.job_description;
@@ -1576,13 +1647,7 @@ export function ReportHeader({
       })
     : undefined;
 
-  const speakingSec =
-    report.audio?.recording_environment?.speaking_duration_seconds;
-  const durationStr = speakingSec
-    ? `${Math.max(1, Math.round(speakingSec / 60))} mins`
-    : assessment.started_at && assessment.completed_at
-    ? `${Math.max(1, Math.round((new Date(assessment.completed_at).getTime() - new Date(assessment.started_at).getTime()) / 60000))} mins`
-    : undefined;
+  const durationStr = getTranscriptDuration(report) || undefined;
 
   const typeStr =
     assessment.assessment_type === "INTRO"
@@ -1608,13 +1673,7 @@ export function ReportHeader({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) {
-              window.history.back();
-            } else {
-              window.location.href = "/user_dashboard/ai-prep/assessments";
-            }
-          }}
+          onClick={() => navigateToAssessmentType(router)}
           className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors print:hidden cursor-pointer"
         >
           <ArrowLeft size={15} />
@@ -1686,16 +1745,28 @@ export function ReportHeader({
 
 export interface ShellProps {
   assessmentId: string;
+  candidateId?: string | number;
   initialTab?: ReportTab;
 }
 
 export default function AiPrepReport({
   assessmentId,
+  candidateId: initialCandidateId,
   initialTab,
 }: ShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+
+  const [candidateId, setCandidateId] = useState<string | number | undefined>(
+    initialCandidateId
+  );
+
+  useEffect(() => {
+    if (initialCandidateId) {
+      setCandidateId(initialCandidateId);
+    }
+  }, [initialCandidateId]);
 
   const [activeTab, setActiveTab] = useState<ReportTab>(() => {
     if (tabParam) return tabFromParam(tabParam);
@@ -1734,6 +1805,9 @@ export default function AiPrepReport({
 
     try {
       const assessment = await aiPrepApi.getAssessment(assessmentId);
+      if (assessment.candidate_id) {
+        setCandidateId(assessment.candidate_id);
+      }
       const statusUpper = (assessment.status || "").toUpperCase();
 
       if (
@@ -1788,6 +1862,17 @@ export default function AiPrepReport({
     loadReport();
   }, [loadReport]);
 
+  // Seamlessly update legacy single-parameter route /aiprep/reports/[assessmentId] to /aiprep/reports/[candidateId]/[assessmentId]
+  useEffect(() => {
+    if (report?.assessment?.candidate_id && !initialCandidateId && typeof window !== "undefined") {
+      const cid = report.assessment.candidate_id;
+      if (window.location.pathname === `/aiprep/reports/${assessmentId}`) {
+        const query = window.location.search;
+        router.replace(`/aiprep/reports/${cid}/${assessmentId}${query}`);
+      }
+    }
+  }, [report, initialCandidateId, assessmentId, router]);
+
   // Ensure document and body allow natural vertical scrolling for both Evaluation and Details pages
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
@@ -1826,7 +1911,10 @@ export default function AiPrepReport({
     }
     const param = paramFromTab(tabLabel);
     const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
-    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}`;
+    const effectiveCandidateId = candidateId || report?.assessment?.candidate_id;
+    const targetUrl = effectiveCandidateId
+      ? `/aiprep/reports/${effectiveCandidateId}/${assessmentId}?tab=${param}${sectionParam}`
+      : `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}`;
     router.push(targetUrl, { scroll: false });
   };
 
@@ -1867,13 +1955,7 @@ export default function AiPrepReport({
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  window.location.href = "/user_dashboard/ai-prep/assessments";
-                }
-              }}
+              onClick={() => navigateToAssessmentsList(router)}
               className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto cursor-pointer"
             >
               Assessments List
@@ -1908,13 +1990,7 @@ export default function AiPrepReport({
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  window.location.href = "/user_dashboard/ai-prep/assessments";
-                }
-              }}
+              onClick={() => navigateToAssessmentsList(router)}
               className="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto cursor-pointer"
             >
               Assessments List

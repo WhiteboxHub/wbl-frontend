@@ -97,7 +97,14 @@ export default function AssessmentCard({
           </p>
 
           <button
-            onClick={() => router.push(`/aiprep/reports/${resolvedId}`)}
+            onClick={() => {
+              const candidateId = assessment?.candidate_id;
+              if (candidateId) {
+                router.push(`/aiprep/reports/${candidateId}/${resolvedId}`);
+              } else {
+                router.push(`/aiprep/reports/${resolvedId}`);
+              }
+            }}
             className="mt-6 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700"
           >
             View assessment details

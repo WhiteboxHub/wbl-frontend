@@ -14,6 +14,19 @@ const nextConfig = {
     NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY,
     NEXT_PUBLIC_GOOGLE_CALENDAR_ID: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ID,
   },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "unload=*",
+          },
+        ],
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     config.module.rules.push({
       test: /\.hbs$/, // Handle .hbs files

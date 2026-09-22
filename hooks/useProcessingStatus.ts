@@ -17,7 +17,7 @@ export interface ProcessingPipelineSteps {
 export interface UseProcessingStatusOptions {
   assessmentId: number | string | null;
   pollIntervalMs?: number;
-  onCompleted?: () => void;
+  onCompleted?: (candidateId?: number | string | null) => void;
   onFailed?: (error: string) => void;
 }
 
@@ -28,6 +28,7 @@ export interface UseProcessingStatusReturn {
   isCompleted: boolean;
   isFailed: boolean;
   errorMessage: string | null;
+  candidateId: number | string | null;
   refetch: () => Promise<void>;
 }
 
@@ -51,6 +52,7 @@ export function useProcessingStatus({
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [isFailed, setIsFailed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [candidateId, setCandidateId] = useState<number | string | null>(null);
 
   const hasTriggeredCompleteRef = useRef<boolean>(false);
   const hasTriggeredFailedRef = useRef<boolean>(false);
@@ -76,6 +78,10 @@ export function useProcessingStatus({
         const assessment = await aiprepApi.getAssessment(assessmentId);
         if (!active) return;
 
+        if (assessment?.candidate_id) {
+          setCandidateId(assessment.candidate_id);
+        }
+
         const currentStatus = assessment?.status || 'EVALUATING';
         setStatus(currentStatus);
 
@@ -93,7 +99,7 @@ export function useProcessingStatus({
 
           if (!hasTriggeredCompleteRef.current) {
             hasTriggeredCompleteRef.current = true;
-            if (onCompletedRef.current) onCompletedRef.current();
+            if (onCompletedRef.current) onCompletedRef.current(assessment?.candidate_id ?? null);
           }
           return;
         }
@@ -173,6 +179,7 @@ export function useProcessingStatus({
     isCompleted,
     isFailed,
     errorMessage,
+    candidateId,
     refetch,
   };
 }

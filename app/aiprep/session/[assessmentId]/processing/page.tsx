@@ -85,12 +85,16 @@ export default function AssessmentProcessingPage() {
     isCompleted,
     isFailed,
     errorMessage,
+    candidateId,
     refetch,
   } = useProcessingStatus({
     assessmentId: isNaN(assessmentId) || !assessmentId ? null : assessmentId,
-    onCompleted: () => {
+    onCompleted: (completedCandidateId) => {
       // Auto-redirect to candidate's standalone full-page report
-      const targetUrl = `/aiprep/reports/${assessmentId}`;
+      const targetCandidateId = completedCandidateId || candidateId;
+      const targetUrl = targetCandidateId
+        ? `/aiprep/reports/${targetCandidateId}/${assessmentId}`
+        : `/aiprep/reports/${assessmentId}`;
       setTimeout(() => {
         router.push(targetUrl);
       }, 1200);
@@ -240,7 +244,10 @@ export default function AssessmentProcessingPage() {
             <button
               type="button"
               onClick={() => {
-                router.push(`/aiprep/reports/${assessmentId}`);
+                const targetUrl = candidateId
+                  ? `/aiprep/reports/${candidateId}/${assessmentId}`
+                  : `/aiprep/reports/${assessmentId}`;
+                router.push(targetUrl);
               }}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md hover:shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
             >
