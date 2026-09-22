@@ -169,20 +169,17 @@ async function attemptFlush(force = false) {
             } else {
                 console.error('[SW] ❌ Sync Error: HTTP', response.status);
             }
-        } else {
-            pendingFlush = false;
-            pendingFlushForce = false;
         }
     } catch (err) {
         console.error('[SW] ❌ Sync Error:', err);
     } finally {
         isFlushing = false;
-        // If a forced flush was queued while flushing, process it now
+        // The finally block exclusively consumes and resets the pending state
         if (pendingFlush) {
-            const force = pendingFlushForce;
+            const nextforce = pendingFlushForce;
             pendingFlush = false;
             pendingFlushForce = false;
-            attemptFlush(force);
+            attemptFlush(nextforce);
         }
     }
 }
