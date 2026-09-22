@@ -1400,9 +1400,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
     };
 
+    const isAssessmentsView = Boolean(
+        currentSubPath?.includes('/assessments') ||
+        (typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/assessments'))
+    );
+
     useEffect(() => {
-        loadSetupStatus().then(setSetupStatus);
-    }, []);
+        if (!isAssessmentsView && !setupStatus) {
+            loadSetupStatus().then(setSetupStatus);
+        }
+    }, [isAssessmentsView, setupStatus]);
 
     useEffect(() => {
         if (setupStatus?.has_binary_resume) {
@@ -3544,6 +3551,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             {isWizardActive ? (
                                                 <div className="w-full h-full flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
                                                     <DeviceCheckWizard
+                                                        candidateId={candidateId || undefined}
                                                         initialStep="CONFIGURATION"
                                                         isSidebarCollapsed={isSidebarCollapsed}
                                                         onCancel={() => {

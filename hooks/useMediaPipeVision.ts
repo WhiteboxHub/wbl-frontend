@@ -67,8 +67,12 @@ export function useMediaPipeVision(
   // Initialize MediaPipe only if enabled on client side (SSR Safe)
   useEffect(() => {
     if (typeof window === 'undefined' || !enabled) {
-      setIsLoading(false);
+      if (faceLandmarkerRef.current) {
+        try { faceLandmarkerRef.current.close(); } catch {}
+        faceLandmarkerRef.current = null;
+      }
       setIsReady(false);
+      setIsLoading(false);
       return;
     }
 

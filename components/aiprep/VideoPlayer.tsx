@@ -44,11 +44,11 @@ function extractYoutubeId(url: string): string | null {
 }
 
 export default function VideoPlayer({ youtubeUrl, videoRef, className }: Props) {
-  if (!youtubeUrl) {
+  if (!youtubeUrl || !youtubeUrl.trim() || youtubeUrl.trim().toLowerCase() === "null" || youtubeUrl.trim().toLowerCase() === "undefined") {
     return (
       <div className={`flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg bg-slate-100 text-slate-400 ${className ?? ""}`}>
         <VideoOff size={28} />
-        <p className="text-sm">Recording unavailable</p>
+        <p className="text-sm font-medium">Recording unavailable</p>
       </div>
     );
   }
@@ -70,16 +70,19 @@ export default function VideoPlayer({ youtubeUrl, videoRef, className }: Props) 
     );
   }
 
-  // Direct media URL — use <video> with shared ref for timestamp seeking
+  // Direct media URL or HTML5 video player with controls matching candidate recording
   return (
-    <video
-      ref={videoRef as RefObject<HTMLVideoElement>}
-      src={youtubeUrl}
-      controls
-      className={`w-full rounded-lg bg-black ${className ?? ""}`}
-      style={{ maxHeight: 340 }}
-    >
-      Your browser does not support video playback.
-    </video>
+    <div className={`relative w-full overflow-hidden rounded-lg bg-black flex items-center justify-center ${className ?? ""}`}>
+      <video
+        ref={videoRef as RefObject<HTMLVideoElement>}
+        src={youtubeUrl || undefined}
+        controls
+        playsInline
+        preload="metadata"
+        className="w-full h-auto max-h-[340px] rounded-lg bg-black object-cover"
+      >
+        Your browser does not support video playback.
+      </video>
+    </div>
   );
 }

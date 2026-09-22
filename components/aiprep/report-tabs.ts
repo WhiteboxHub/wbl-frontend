@@ -4,27 +4,40 @@
  */
 
 export const REPORT_TABS = [
-  { label: "Overview",      queryParam: "overview" },
-  { label: "Performance",   queryParam: "performance" },
-  { label: "Technical",     queryParam: "technical" },
-  { label: "Communication", queryParam: "communication" },
-  { label: "Coaching",      queryParam: "coaching" },
-  { label: "Transcript",    queryParam: "transcript" },
-  { label: "Next Steps",    queryParam: "next-steps" },
+  { label: "Evaluation", queryParam: "evaluation" },
+  { label: "Details",    queryParam: "details" },
 ] as const;
 
-export type ReportTab = typeof REPORT_TABS[number]["label"];
+export type PrimaryReportTab = typeof REPORT_TABS[number]["label"];
+export type ReportTab =
+  | "Evaluation"
+  | "Details"
+  | "Overview"
+  | "Performance"
+  | "Technical"
+  | "Communication"
+  | "Coaching"
+  | "Transcript"
+  | "Next Steps";
 
-/** Resolve a raw ?tab= query-param string → ReportTab label (falls back to Overview) */
+/** Resolve a raw ?tab= query-param string → ReportTab label (falls back to Evaluation) */
 export function tabFromParam(param: string | null | undefined): ReportTab {
-  if (!param) return "Overview";
-  const found = REPORT_TABS.find(
-    (t) => t.queryParam === param.toLowerCase().trim()
-  );
-  return found?.label ?? "Overview";
+  if (!param) return "Evaluation";
+  const p = param.toLowerCase().trim();
+  if (p === "evaluation" || p === "overview") return "Evaluation";
+  if (p === "details") return "Details";
+  if (
+    ["transcript", "performance", "technical", "communication", "coaching", "next-steps"].includes(p)
+  ) {
+    return "Details";
+  }
+  return "Evaluation";
 }
 
 /** Resolve a ReportTab label → URL query-param value */
 export function paramFromTab(tab: ReportTab): string {
-  return REPORT_TABS.find((t) => t.label === tab)?.queryParam ?? "overview";
+  if (tab === "Evaluation" || tab === "Overview") return "evaluation";
+  if (tab === "Details" || tab === "Transcript") return "details";
+  return "evaluation";
 }
+
