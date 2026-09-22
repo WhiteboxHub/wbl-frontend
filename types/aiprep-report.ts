@@ -34,9 +34,26 @@ const asStrArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.map(asStr).filter(Boolean) as string[] : [];
 const nested = (v: unknown, key: string): Dict => asRecord(asRecord(v)[key]);
 
-/** Convert backend band/readiness enum to display label (Good / Average / Needs Improvement) */
-export function formatBand(raw?: string | null): string | undefined {
+/**
+ * Convert backend band/readiness enum to display label (Good / Average / Needs Improvement).
+ * @param raw - The raw status string from backend.
+ * @param inverted - When true, indicates an inverted metric where LOW is desirable and HIGH is undesirable (e.g., filler words, tension, off-screen gaze).
+ *                   Defaults to false, where HIGH is desirable and LOW is undesirable (e.g., volume, vocal presence, technical depth).
+ */
+export function formatBand(raw?: string | null, inverted: boolean = false): string | undefined {
   if (!raw) return undefined;
+  const upper = raw.toUpperCase().trim();
+
+  if (inverted) {
+    if (upper === "LOW" || upper === "MINIMAL") return "Good";
+    if (upper === "MODERATE") return "Average";
+    if (upper === "HIGH" || upper === "EXCESSIVE") return "Needs Improvement";
+  } else {
+    if (upper === "HIGH") return "Good";
+    if (upper === "MODERATE") return "Average";
+    if (upper === "LOW" || upper === "MINIMAL" || upper === "EXCESSIVE") return "Needs Improvement";
+  }
+
   const map: Record<string, string> = {
     EXCELLENT:           "Good",
     STRONG:              "Good",
@@ -50,43 +67,48 @@ export function formatBand(raw?: string | null): string | undefined {
     NEEDS_POLISH:        "Needs Improvement",
     NEEDS_IMPROVEMENT:   "Needs Improvement",
     WEAK:                "Needs Improvement",
+    POOR:                "Needs Improvement",
     COVERED:             "Good",
-    LOW:                 "Good",
-    MINIMAL:             "Good",
-    MODERATE:            "Average",
-    HIGH:                "Needs Improvement",
-    EXCESSIVE:           "Needs Improvement",
     NOT_MENTIONED:       "Needs Improvement",
     NEGATIVE:            "Needs Improvement",
     NOT_APPLICABLE:      "N/A",
     INSUFFICIENT_DATA:   "Insufficient Data",
   };
-  return map[raw.toUpperCase()] ?? raw;
+  return map[upper] ?? raw;
 }
 
 /** Tailwind colour tokens for a status badge */
-export function bandColor(band?: string): string {
-  switch (band?.toUpperCase()) {
+export function bandColor(band?: string, inverted: boolean = false): string {
+  if (!band) return "bg-slate-100 text-slate-500 border-slate-200";
+  const upper = band.toUpperCase().trim();
+
+  if (inverted) {
+    if (upper === "LOW" || upper === "MINIMAL") return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    if (upper === "MODERATE") return "bg-amber-100 text-amber-800 border-amber-200";
+    if (upper === "HIGH" || upper === "EXCESSIVE") return "bg-rose-100 text-rose-800 border-rose-200";
+  } else {
+    if (upper === "HIGH") return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    if (upper === "MODERATE") return "bg-amber-100 text-amber-800 border-amber-200";
+    if (upper === "LOW" || upper === "MINIMAL" || upper === "EXCESSIVE") return "bg-rose-100 text-rose-800 border-rose-200";
+  }
+
+  switch (upper) {
     case "EXCELLENT":
     case "STRONG":
     case "GOOD":
     case "COVERED":
-    case "POSITIVE":
-    case "LOW":
-    case "MINIMAL":       return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    case "POSITIVE":      return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "AVERAGE":
     case "ADEQUATE":
     case "DEVELOPING":
-    case "PARTIAL":
-    case "MODERATE":      return "bg-amber-100 text-amber-800 border-amber-200";
+    case "PARTIAL":       return "bg-amber-100 text-amber-800 border-amber-200";
     case "NEEDS_WORK":
     case "NEEDS_POLISH":
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
+    case "POOR":
     case "NOT_MENTIONED":
-    case "NEGATIVE":
-    case "HIGH":
-    case "EXCESSIVE":     return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
     case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
     default:              return "bg-slate-100 text-slate-500 border-slate-200";
   }

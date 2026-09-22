@@ -54,12 +54,20 @@ export type { ReportTab };
 //  HELPERS & QUALITATIVE BADGE (NO NUMERIC SCORES)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function QualitativeBadge({ status }: { status?: string }) {
+function QualitativeBadge({
+  status,
+  inverted = false,
+}: {
+  status?: string;
+  inverted?: boolean;
+}) {
   if (!status) return null;
   const raw = status.toUpperCase().trim();
-  const formatted = formatBand(status);
+  const formatted = formatBand(status, inverted);
 
   const isGood =
+    (!inverted && raw === "HIGH") ||
+    (inverted && (raw === "LOW" || raw === "MINIMAL")) ||
     [
       "EXCELLENT",
       "STRONG",
@@ -74,13 +82,13 @@ function QualitativeBadge({ status }: { status?: string }) {
 
   const isAvg =
     !isGood &&
-    ([
-      "ADEQUATE",
-      "AVERAGE",
-      "DEVELOPING",
-      "PARTIAL",
-      "MODERATE",
-    ].includes(raw) ||
+    (raw === "MODERATE" ||
+      [
+        "ADEQUATE",
+        "AVERAGE",
+        "DEVELOPING",
+        "PARTIAL",
+      ].includes(raw) ||
       formatted === "Average" ||
       raw.includes("AVG") ||
       raw.includes("AVERAGE") ||
@@ -127,11 +135,13 @@ function HighlightCard({
   title,
   observation,
   status,
+  inverted = false,
 }: {
   icon: React.ReactNode;
   title: string;
   observation?: string;
   status?: string;
+  inverted?: boolean;
 }) {
   return (
     <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-xs transition-all hover:shadow-sm">
@@ -155,7 +165,7 @@ function HighlightCard({
           Rating
         </span>
         {status ? (
-          <QualitativeBadge status={status} />
+          <QualitativeBadge status={status} inverted={inverted} />
         ) : (
           <span className="text-xs text-slate-400">—</span>
         )}
@@ -1126,7 +1136,7 @@ export function DetailsContent({
         </div>
         <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
           <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
-          <QualitativeBadge status={fillerRating} />
+          <QualitativeBadge status={fillerRating} inverted />
         </div>
         <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
           <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
@@ -1184,13 +1194,13 @@ export function DetailsContent({
           {screenGazeRating && (
             <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
               <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Screen Focus</span>
-              <QualitativeBadge status={screenGazeRating} />
+              <QualitativeBadge status={screenGazeRating} inverted />
             </div>
           )}
           {tensionRating && (
             <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
               <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Composure</span>
-              <QualitativeBadge status={tensionRating} />
+              <QualitativeBadge status={tensionRating} inverted />
             </div>
           )}
         </div>
