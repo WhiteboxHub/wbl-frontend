@@ -1517,7 +1517,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white dark:bg-slate-900">
 
           {/* Top Bar Header */}
-          <div className="relative w-full px-3 sm:px-6 py-1.5 sm:py-2 min-h-[46px] sm:min-h-[48px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
+          <div className="relative w-full px-3 sm:px-6 py-1.5 sm:py-2 mt-4 min-h-[46px] sm:min-h-[48px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
             <div className="flex items-center justify-center gap-1.5 sm:gap-3 flex-1 sm:flex-none">
               {[
                 { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
@@ -1549,13 +1549,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
               <div className="w-full max-w-6xl xl:max-w-7xl mx-auto mt-0 mb-auto flex flex-col pt-0 pb-1">
                 <AssessmentConfig
                   assessmentType={assessmentType} setAssessmentType={setAssessmentType}
+                  jdText={jdText} setJdText={setJdText}
                   onNext={handleNext} onCancel={() => { cleanup(); onCancel(); }} />
               </div>
             )}
 
             {/* STEP 2: CONSENT */}
             {step === 'CONSENT' && (
-              <div className="w-full max-w-4xl xl:max-w-5xl mx-auto mt-0 mb-auto flex flex-col py-0 px-1 sm:px-2">
+              <div className="w-full max-w-4xl xl:max-w-5xl mx-auto mt-6 sm:mt-10 mb-auto flex flex-col py-0 px-1 sm:px-2">
                 <ConsentStep
                   videoEnabled={videoEnabled} setVideoEnabled={setVideoEnabled} consentMic={consentMic} setConsentMic={setConsentMic}
                   consentCamera={consentCamera} setConsentCamera={setConsentCamera} videoAnalyticsEnabled={videoAnalyticsEnabled} setVideoAnalyticsEnabled={setVideoAnalyticsEnabled}
@@ -1590,11 +1591,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         <div
                           style={{
                             minHeight: isCompact
-                              ? (hasVisibleErrorCard ? '275px' : '335px')
-                              : (hasVisibleErrorCard ? '295px' : '365px'),
+                              ? (hasVisibleErrorCard ? '210px' : '335px')
+                              : (hasVisibleErrorCard ? '240px' : '365px'),
                             height: isCompact
-                              ? (hasVisibleErrorCard ? '275px' : '335px')
-                              : (hasVisibleErrorCard ? '295px' : '365px'),
+                              ? (hasVisibleErrorCard ? '210px' : '335px')
+                              : (hasVisibleErrorCard ? '240px' : '365px'),
                           }}
                           className="relative w-full shrink-0 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-slate-950"
                         >
@@ -2284,12 +2285,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   <div className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden w-full transition-all duration-300 ${isCompact ? 'px-4 sm:px-6 py-1 sm:py-1.5' : 'px-5 sm:px-8 lg:px-10 py-2 sm:py-2.5'}`}>
                     <div className={`w-full max-w-6xl xl:max-w-7xl mx-auto flex flex-col ${isCompact ? 'space-y-1' : 'space-y-1.5 sm:space-y-2'}`}>
                       {/* Top Left Header (Shown when no error cards) */}
-                      {!hasVisibleErrorCard && (
-                        <div className="space-y-0.5 text-left w-full shrink-0">
-                          <h2 className={`${isCompact ? 'text-base font-bold' : 'text-base sm:text-lg font-bold'} text-slate-900 dark:text-white leading-tight`}>Check Your Audio Devices</h2>
-                          <h5 className={`${isCompact ? 'text-[11.5px] sm:text-xs' : 'text-xs sm:text-[13px]'} font-medium text-slate-500 dark:text-slate-400`}>Check and verify your equipment settings before continuing.</h5>
-                        </div>
-                      )}
 
                       {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
                       <div className={`grid grid-cols-1 lg:grid-cols-12 ${isCompact ? 'gap-3 lg:gap-4' : 'gap-4 lg:gap-6'} items-start w-full mx-auto flex-1 min-h-0`}>
