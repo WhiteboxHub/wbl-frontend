@@ -152,13 +152,9 @@ function HighlightCard({
           {icon}
           <h3 className="text-xs sm:text-sm font-bold text-slate-800">{title}</h3>
         </div>
-        {observation ? (
+        {observation && (
           <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
             {observation}
-          </p>
-        ) : (
-          <p className="text-xs text-slate-400 italic">
-            No specific observation recorded.
           </p>
         )}
       </div>
@@ -195,11 +191,22 @@ function fmtTime(seconds?: number): string {
 const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
   /^no\s/i,
   /^none\b/i,
-  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated)\b/i,
-  /^(the\s+)?candidate\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to|was\s+not\s+able\s+to)\b/i,
-  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate)\b/i,
+  /^n\/?a$/i,
+  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated|demonstrated|explained)\b/i,
+  /^(the\s+)?(candidate|speaker)\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to|was\s+not\s+able\s+to|omits?)\b/i,
+  /^(the\s+)?(candidate|speaker)\s+(should|needs\s+to|must)\s+(provide|explain|discuss|elaborate|give|include|cover)\b/i,
+  /^(the\s+)?introduction\s+(does\s+not|did\s+not|didn't|hasn't|lacks|failed\s+to|contains\s+no|has\s+no|is\s+missing|provides\s+no|omits)\b/i,
+  /\b(does\s+not|did\s+not|didn't|hasn't|failed\s+to)\s+(mention|demonstrate|contain|provide|include|cover|show|discuss|explain|elaborate|highlight|touch\s+upon)\b/i,
+  /\blacks?\s+(any\s+)?(mention|substantive|content|details?|depth|evidence|coverage|information)\b/i,
+  /\bno\s+(aspect|mention|concept|details?|depth|information|evidence|discussion|coverage|demonstration)\b/i,
+  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate|explain|demonstrate)\b/i,
   /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\b/i,
-  /^neither\s+.*\s+(was|were)\s+(mentioned|discussed|covered)\b/i,
+  /^neither\s+.*\s+(was|were)\s+(mentioned|discussed|covered|provided)\b/i,
+  /\b(was|were)\s+not\s+(mentioned|covered|discussed|demonstrated|provided|explained)\b/i,
+  /\bwasn't\s+(mentioned|covered|discussed|demonstrated|provided|explained)\b/i,
+  /\bnot\s+mentioned\b/i,
+  /\bnot\s+covered\b/i,
+  /\bnot_mentioned\b/i,
   /^(the\s+)?speaking\s+duration\s+is\s+too\s+short/i,
   /^duration\s+(is\s+)?too\s+short/i,
   /^insufficient\s+(data|speech|audio|duration|information)\b/i,
@@ -207,9 +214,13 @@ const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
   /\blacks?\s+(any\s+)?content\s+to\s+evaluate\b/i,
   /^no\s+specific\s+observation\s+recorded/i,
   /^eye\s+contact,\s+framing,\s+and\s+visual\s+presentation\s+evaluated\.?$/i,
-  /^n\/?a$/i,
   /^assessment\s+completed\.?$/i,
   /^(thank\s+you|thanks\s+for\s+watching)\.?$/i,
+  /^identified\s+gap\b/i,
+  /^priority\s+improvement\b/i,
+  /^resume\s+highlight\s+to\s+mention\b/i,
+  /^unverified\s+spoken\s+claim\b/i,
+  /^what\s+is\s+missing\b/i,
 ];
 
 function isRealContent(text?: string | null): boolean {
@@ -229,6 +240,35 @@ const WHISPER_HALLUCINATIONS: RegExp[] = [
   /^bye\.?$/i,
 ];
 
+function isOnlyGreetingsOrTestUtterances(text: string): boolean {
+  const cleaned = text
+    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, " ")
+    .toLowerCase()
+    .trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+
+  const greetingAndNoiseTokens = new Set([
+    "hi", "hello", "hey", "fellow", "fellows", "there", "bye", "goodbye",
+    "thanks", "thank", "you", "good", "morning", "afternoon", "evening",
+    "test", "testing", "check", "checking", "mic", "sound",
+    "one", "two", "three", "four", "1", "2", "3",
+    "can", "hear", "me", "am", "i", "audible", "loud", "clear",
+    "ok", "okay", "yes", "yeah", "yep", "no", "nope",
+    "so", "um", "uh", "ah", "well"
+  ]);
+
+  const nonGreetingTokens = words.filter((w) => !greetingAndNoiseTokens.has(w));
+
+  // If there are literally no substantive words at all
+  if (nonGreetingTokens.length === 0) return true;
+
+  // If total utterance is very short (e.g. <= 6 words) and contains fewer than 2 non-greeting words
+  if (words.length <= 6 && nonGreetingTokens.length < 2) return true;
+
+  return false;
+}
+
 function hasRealSpeech(report: NormalizedReport): boolean {
   const fullText = (report.transcript?.full_text || "").trim();
   const segments = report.transcript?.segments || [];
@@ -245,10 +285,218 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   if (!isRealContent(combined)) {
     return false;
   }
-  if (combined.length < 15 && /^(assessment|completed|thank|thanks|hello|hi|bye)/i.test(combined)) {
+  if (isOnlyGreetingsOrTestUtterances(combined)) {
     return false;
   }
   return true;
+}
+
+function isPositiveStatus(status?: string | null): boolean {
+  if (!status) return false;
+  const s = status.toUpperCase().trim();
+  return ["COVERED", "PARTIAL", "STRONG", "GOOD", "ADEQUATE", "AVERAGE", "DEVELOPING", "POSITIVE", "EXCELLENT"].includes(s);
+}
+
+// ── Explicit Topic Detectors ─────────────────────────────────────────────────
+export function hasExplainedIntroduction(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+
+  const introKeys = [
+    "career_story",
+    "current_role",
+    "current_project",
+    "introduced_self",
+    "career_arc_covered",
+  ];
+
+  const introSections = (report.intro_sections || []).filter((s) =>
+    introKeys.includes(s.key)
+  );
+
+  // 1. Check if any intro section has a genuinely covered/partial status
+  const hasCoveredStatus = introSections.some((s) => isPositiveStatus(s.status));
+  if (hasCoveredStatus) return true;
+
+  // 2. Check if any intro section has genuine transcript evidence
+  const hasEvidence = introSections.some(
+    (s) => Array.isArray(s.evidence) && s.evidence.some((e) => e && e.trim().length > 0)
+  );
+  if (hasEvidence) return true;
+
+  // 3. Check if any intro section has genuine positive observation passing isRealContent
+  const hasValidObservation = introSections.some((s) => isRealContent(s.observation));
+  if (hasValidObservation) return true;
+
+  // 4. Check final assessment fields for genuine career or project descriptions
+  if (isRealContent(report.final_assessment?.career_story)) return true;
+  if (isRealContent(report.final_assessment?.current_project_clarity)) return true;
+
+  return false;
+}
+
+export function hasExplainedAiEngineering(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+
+  const aiKeys = [
+    "agentic_ai",
+    "rag_and_retrieval",
+    "models_and_ai_platforms",
+    "rag_retrieval_chunking_mentioned",
+    "ai_agents_multiagent_mentioned",
+  ];
+
+  const aiSections = (report.intro_sections || []).filter((s) =>
+    aiKeys.includes(s.key)
+  );
+
+  // 1. Check if any AI concept is COVERED or PARTIAL
+  const hasAiConcepts = aiSections.some(
+    (s) =>
+      s.concepts &&
+      Object.values(s.concepts).some((st) => isPositiveStatus(String(st)))
+  );
+  if (hasAiConcepts) return true;
+
+  // 2. Check if any AI section has genuine transcript evidence
+  const hasEvidence = aiSections.some(
+    (s) => Array.isArray(s.evidence) && s.evidence.some((e) => e && e.trim().length > 0)
+  );
+  if (hasEvidence) return true;
+
+  // 3. Check if actual AI technologies were mentioned by candidate
+  const techInv = report.technology_inventory;
+  const aiTech = [
+    ...(techInv?.agent_frameworks || []),
+    ...(techInv?.retrieval_and_rag || []),
+    ...(techInv?.vector_databases || []),
+    ...(techInv?.models || []),
+    ...(techInv?.model_platforms || []),
+  ].filter(Boolean);
+  if (aiTech.length > 0) return true;
+
+  const hasSectionTech = aiSections.some(
+    (s) =>
+      Array.isArray(s.technologies_mentioned) &&
+      s.technologies_mentioned.filter(Boolean).length > 0
+  );
+  if (hasSectionTech) return true;
+
+  // 4. Check if section has positive status
+  const hasPositiveSecStatus = aiSections.some((s) => isPositiveStatus(s.status));
+  if (hasPositiveSecStatus) return true;
+
+  // 5. Check if any observation passes isRealContent
+  const hasRealObs = aiSections.some((s) => isRealContent(s.observation));
+  if (hasRealObs) return true;
+
+  if (isRealContent(report.final_assessment?.ai_engineering_depth)) return true;
+
+  return false;
+}
+
+export function hasExplainedSoftwareEngineering(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+
+  const seKeys = [
+    "software_engineering",
+    "cloud_and_infrastructure",
+    "cicd_and_delivery",
+    "mcp_mentioned",
+    "memory_context_engineering_mentioned",
+  ];
+
+  const seSections = (report.intro_sections || []).filter((s) =>
+    seKeys.includes(s.key)
+  );
+
+  // 1. Check if any SE concept is COVERED or PARTIAL
+  const hasSeConcepts = seSections.some(
+    (s) =>
+      s.concepts &&
+      Object.values(s.concepts).some((st) => isPositiveStatus(String(st)))
+  );
+  if (hasSeConcepts) return true;
+
+  // 2. Check if any SE section has genuine transcript evidence
+  const hasEvidence = seSections.some(
+    (s) => Array.isArray(s.evidence) && s.evidence.some((e) => e && e.trim().length > 0)
+  );
+  if (hasEvidence) return true;
+
+  // 3. Check if actual SE technologies were mentioned
+  const techInv = report.technology_inventory;
+  const seTech = [
+    ...(techInv?.backend_and_api || []),
+    ...(techInv?.frontend || []),
+    ...(techInv?.databases || []),
+    ...(techInv?.cloud || []),
+    ...(techInv?.containers_and_orchestration || []),
+    ...(techInv?.infrastructure_as_code || []),
+    ...(techInv?.cicd || []),
+  ].filter(Boolean);
+  if (seTech.length > 0) return true;
+
+  const hasSectionTech = seSections.some(
+    (s) =>
+      Array.isArray(s.technologies_mentioned) &&
+      s.technologies_mentioned.filter(Boolean).length > 0
+  );
+  if (hasSectionTech) return true;
+
+  // 4. Check if section has positive status
+  const hasPositiveSecStatus = seSections.some((s) => isPositiveStatus(s.status));
+  if (hasPositiveSecStatus) return true;
+
+  // 5. Check if any observation passes isRealContent
+  const hasRealObs = seSections.some((s) => isRealContent(s.observation));
+  if (hasRealObs) return true;
+
+  if (isRealContent(report.final_assessment?.production_engineering_depth)) return true;
+
+  return false;
+}
+
+export function hasExplainedAudio(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+  const audio = report.audio;
+  if (!audio) return false;
+
+  // Exclude insufficient data or duration too short
+  if (audio.overall_readiness === "INSUFFICIENT_DATA") return false;
+  if (/duration\s+(is\s+)?too\s+short/i.test(audio.executive_summary || "")) return false;
+
+  // Must have a real observation or at least one real factor evaluation
+  const hasRealObs = isRealContent(audio.executive_summary);
+  const hasValidFactor =
+    Boolean(audio.factors?.pace?.status && audio.factors.pace.status !== "INSUFFICIENT_DATA") ||
+    Boolean(audio.factors?.fluency?.status && audio.factors.fluency.status !== "INSUFFICIENT_DATA") ||
+    Boolean(audio.factors?.filler_word_usage?.status && audio.factors.filler_word_usage.status !== "INSUFFICIENT_DATA") ||
+    Boolean(audio.factors?.confidence_vocal_presence?.status && audio.factors.confidence_vocal_presence.status !== "INSUFFICIENT_DATA") ||
+    Boolean(audio.factors?.volume?.status && audio.factors.volume.status !== "INSUFFICIENT_DATA");
+
+  return hasRealObs || hasValidFactor;
+}
+
+export function hasExplainedVideo(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
+  const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
+  if (isAudioOnly) return false;
+
+  const video = report.video;
+  if (!video) return false;
+
+  const framingStatus = video.factors?.camera_framing_centering?.status;
+  if (!framingStatus || framingStatus === "INSUFFICIENT_DATA") return false;
+
+  const hasRealObs = isRealContent(video.overall_summary);
+  const hasFactors =
+    Boolean(framingStatus && framingStatus !== "INSUFFICIENT_DATA") ||
+    Boolean(video.factors?.camera_angle_gaze_alignment?.status && video.factors.camera_angle_gaze_alignment.status !== "INSUFFICIENT_DATA") ||
+    Boolean(video.factors?.off_screen_gaze_duration?.status && video.factors.off_screen_gaze_duration.status !== "INSUFFICIENT_DATA") ||
+    Boolean(video.factors?.observable_physical_tension?.status && video.factors.observable_physical_tension.status !== "INSUFFICIENT_DATA");
+
+  return hasRealObs || hasFactors;
 }
 
 function getTranscriptDuration(report: NormalizedReport): string {
@@ -367,6 +615,207 @@ function sanitizeQualitativeText(text?: string | null): string {
     .replace(/\b\d+%\b/g, "moderate");
 }
 
+/**
+ * Transforms feedback observations and descriptions from third person
+ * (e.g., "Vishnu clearly outlines his career progression", "The candidate explains...")
+ * to second person direct coaching voice ("You clearly outline your career progression...").
+ */
+function formatFeedbackToSecondPerson(
+  text?: string | null,
+  candidateName?: string | null
+): string {
+  if (!text) return "";
+  let s = text.trim();
+
+  // 1. Gather candidate names (explicit + dynamically detected from text)
+  const nameSet = new Set<string>();
+
+  if (candidateName) {
+    candidateName
+      .trim()
+      .split(/\s+/)
+      .forEach((n) => {
+        const clean = n.replace(/[^a-zA-Z]/g, "");
+        if (clean.length >= 2 && !/^(candidate|speaker|user|mr|ms|mrs|dr)$/i.test(clean)) {
+          nameSet.add(clean);
+        }
+      });
+  }
+
+  // Common non-name capitalized words that might start sentences or appear before verbs
+  const nonNameWords = new Set([
+    "the", "this", "that", "these", "those", "here", "there", "it", "they",
+    "our", "your", "my", "each", "both", "section", "key", "overview",
+    "however", "overall", "introduction", "audio", "video", "transcript",
+    "summary", "assessment", "analysis", "evaluation", "feedback", "report"
+  ]);
+
+  // Dynamically detect names followed by 3rd-person verbs or adverbs
+  // e.g. "Vishnu effectively communicates", "Vishnu demonstrates", "Vishnu mentions"
+  const dynamicNameRegex =
+    /\b([A-Z][a-z]{2,})\s+(?:(?:effectively|clearly|strongly|briefly|also|consistently|adequately|partially|well|successfully)\s+)?(?:communicates|outlines|mentions|demonstrates|highlights|describes|provides|shows|discusses|explains|focuses|covers|emphasizes|presents|states|articulates|details|notes|identifies|applies|structures|uses|builds|leverages|maintains|exhibits|displays|lacks|speaks|walks|shares|delivers)\b/g;
+  let dynamicMatch: RegExpExecArray | null;
+  while ((dynamicMatch = dynamicNameRegex.exec(s)) !== null) {
+    const candidateWord = dynamicMatch[1];
+    if (!nonNameWords.has(candidateWord.toLowerCase())) {
+      nameSet.add(candidateWord);
+    }
+  }
+
+  // Also detect possessive name: "Vishnu's"
+  const possessiveNameRegex = /\b([A-Z][a-z]{2,})'s\b/g;
+  let possMatch: RegExpExecArray | null;
+  while ((possMatch = possessiveNameRegex.exec(s)) !== null) {
+    const candidateWord = possMatch[1];
+    if (!nonNameWords.has(candidateWord.toLowerCase())) {
+      nameSet.add(candidateWord);
+    }
+  }
+
+  // Build names pattern including "the candidate", "the speaker", "candidate", "speaker"
+  const namesEscaped = Array.from(nameSet).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const nameEntityPattern = namesEscaped.length > 0
+    ? `(?:the\\s+candidate|the\\s+speaker|candidate|speaker|${namesEscaped.join("|")})`
+    : `(?:the\\s+candidate|the\\s+speaker|candidate|speaker)`;
+
+  // 2. Replace possessives: Name's, The candidate's, The speaker's -> your / Your
+  const possessiveRegex = new RegExp(`\\b${nameEntityPattern}'s\\b`, "gi");
+  s = s.replace(possessiveRegex, (match, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    return isStart ? "Your" : "your";
+  });
+
+  // 3. Subject Name/The Candidate + Verbs
+  function deinflectVerb(v: string): string {
+    const lower = v.toLowerCase();
+    if (lower === "is") return "are";
+    if (lower === "was") return "were";
+    if (lower === "has") return "have";
+    if (lower === "does") return "do";
+    if (lower === "doesn't" || lower === "doesnt") return "don't";
+    if (lower === "communicates") return "communicate";
+    if (lower === "outlines") return "outline";
+    if (lower === "mentions") return "mention";
+    if (lower === "demonstrates") return "demonstrate";
+    if (lower === "highlights") return "highlight";
+    if (lower === "describes") return "describe";
+    if (lower === "provides") return "provide";
+    if (lower === "shows") return "show";
+    if (lower === "discusses") return "discuss";
+    if (lower === "explains") return "explain";
+    if (lower === "focuses") return "focus";
+    if (lower === "covers") return "cover";
+    if (lower === "emphasizes") return "emphasize";
+    if (lower === "presents") return "present";
+    if (lower === "states") return "state";
+    if (lower === "articulates") return "articulate";
+    if (lower === "details") return "detail";
+    if (lower === "notes") return "note";
+    if (lower === "identifies") return "identify";
+    if (lower === "applies") return "apply";
+    if (lower === "structures") return "structure";
+    if (lower === "uses") return "use";
+    if (lower === "builds") return "build";
+    if (lower === "leverages") return "leverage";
+    if (lower === "maintains") return "maintain";
+    if (lower === "exhibits") return "exhibit";
+    if (lower === "displays") return "display";
+    if (lower === "lacks") return "lack";
+    if (lower === "speaks") return "speak";
+    if (lower === "walks") return "walk";
+    if (lower === "shares") return "share";
+    if (lower === "delivers") return "deliver";
+
+    if (lower.endsWith("ies")) return lower.slice(0, -3) + "y";
+    if (lower.endsWith("sses") || lower.endsWith("shes") || lower.endsWith("ches") || lower.endsWith("xes") || lower.endsWith("zes")) {
+      return lower.slice(0, -2);
+    }
+    if (lower.endsWith("es") && (lower.endsWith("oes") || lower.endsWith("goes"))) {
+      return lower.slice(0, -2);
+    }
+    if (lower.endsWith("s") && !lower.endsWith("ss")) {
+      return lower.slice(0, -1);
+    }
+    return v;
+  }
+
+  // 3a. Name + does not / doesn't
+  const doesNotRegex = new RegExp(`\\b${nameEntityPattern}\\s+(does\\s+not|doesn't)\\b`, "gi");
+  s = s.replace(doesNotRegex, (match, negation, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    const pronoun = isStart ? "You" : "you";
+    const neg = negation.toLowerCase().includes("n't") ? "don't" : "do not";
+    return `${pronoun} ${neg}`;
+  });
+
+  // 3b. Name + (adverb)? + verb
+  const subjectVerbRegex = new RegExp(
+    `\\b(${nameEntityPattern})\\s+((?:(?:effectively|clearly|strongly|briefly|also|consistently|adequately|partially|well|successfully)\\s+)?)([a-z]+)\\b`,
+    "gi"
+  );
+  s = s.replace(subjectVerbRegex, (match, subj, adv, verb, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    const pronoun = isStart ? "You" : "you";
+    const newVerb = deinflectVerb(verb);
+    return `${pronoun} ${adv || ""}${newVerb}`;
+  });
+
+  // 4. Pronouns: he / she / his / him / himself
+  // "himself" / "herself" -> "yourself"
+  s = s.replace(/\b(himself|herself)\b/gi, (match, reflexive, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    return isStart ? "Yourself" : "yourself";
+  });
+
+  // "his" / "her" possessive
+  s = s.replace(/\bhis\b/gi, (match, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    return isStart ? "Your" : "your";
+  });
+
+  // "he does not" / "he doesn't"
+  s = s.replace(/\b(he|she)\s+(does\\s+not|doesn't)\\b/gi, (match, subj, negation, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    const pronoun = isStart ? "You" : "you";
+    const neg = negation.toLowerCase().includes("n't") ? "don't" : "do not";
+    return `${pronoun} ${neg}`;
+  });
+
+  // "he" / "she" + (adverb)? + verb
+  s = s.replace(/\b(he|she)\s+((?:(?:effectively|clearly|strongly|briefly|also|consistently|adequately|partially|well|successfully)\\s+)?)([a-z]+)\b/gi, (match, subj, adv, verb, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    const pronoun = isStart ? "You" : "you";
+    const newVerb = deinflectVerb(verb);
+    return `${pronoun} ${adv || ""}${newVerb}`;
+  });
+
+  // Remaining standalone "he", "she", "him"
+  s = s.replace(/\b(he|she|him)\b/gi, (match, pr, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    return isStart ? "You" : "you";
+  });
+
+  // Any remaining occurrences of candidate name or "the candidate" / "the speaker"
+  const remainingNameRegex = new RegExp(`\\b${nameEntityPattern}\\b`, "gi");
+  s = s.replace(remainingNameRegex, (match, offset) => {
+    const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
+    return isStart ? "You" : "you";
+  });
+
+  // Handle "but does not" without explicit subject:
+  // e.g. "You mention your involvement... but does not clearly define" -> "but do not clearly define"
+  s = s.replace(/\b(but|and|yet)\s+does\s+not\b/gi, "$1 do not");
+  s = s.replace(/\b(but|and|yet)\s+doesn't\b/gi, "$1 don't");
+
+  // 5. Capitalize first letter of every sentence
+  s = s.replace(/(?:^|[.!?]\s+)([a-z])/g, (m, char) => m.toUpperCase());
+
+  // Clean up any double spaces
+  s = s.replace(/\s{2,}/g, " ").trim();
+
+  return s;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  SHORT COMPACT EMPTY EVALUATION POPUP CARD
 // ═════════════════════════════════════════════════════════════════════════════
@@ -438,6 +887,14 @@ export function EvaluationContent({
 
   const candidateSpoke = hasRealSpeech(report);
 
+  const hasIntroContent = hasExplainedIntroduction(report);
+  const hasAiContent = hasExplainedAiEngineering(report);
+  const hasSeContent = hasExplainedSoftwareEngineering(report);
+  const hasAudioContent = hasExplainedAudio(report);
+  const hasVideoContent = hasExplainedVideo(report);
+
+  const candidateName = report.candidate_name || (report.assessment as any)?.candidate_name;
+
   // ── Introduction & Resume ──
   const introSection = intro_sections.find((s) =>
     [
@@ -448,18 +905,15 @@ export function EvaluationContent({
       "career_arc_covered",
     ].includes(s.key)
   );
-  const introResumeBand =
-    introSection?.status ??
-    scores.overall_band ??
-    report.overall_readiness ??
-    "AVERAGE";
   const rawIntroObs =
     introSection?.observation ??
     final_assessment?.career_story ??
     final_assessment?.current_project_clarity ??
     undefined;
-  const introResumeObs = isRealContent(rawIntroObs) ? rawIntroObs : undefined;
-  const hasIntroContent = candidateSpoke && isRealContent(introResumeObs);
+  const introResumeObs = isRealContent(rawIntroObs)
+    ? formatFeedbackToSecondPerson(rawIntroObs, candidateName)
+    : undefined;
+  const introResumeBand = introSection?.status;
 
   // ── AI Engineering ──
   const aiEngSection = intro_sections.find((s) =>
@@ -471,35 +925,14 @@ export function EvaluationContent({
       "ai_agents_multiagent_mentioned",
     ].includes(s.key)
   );
-  const aiEngBand =
-    scores.ai_engineering?.band ??
-    aiEngSection?.status ??
-    report.intro_quality?.technical_depth ??
-    "AVERAGE";
   const rawAiObs =
     aiEngSection?.observation ??
     final_assessment?.ai_engineering_depth ??
     report.technical_analysis?.summary;
-  const aiEngObs = isRealContent(rawAiObs) ? rawAiObs : undefined;
-
-  const hasAiConcepts =
-    (report.intro_sections?.some(
-      (s) =>
-        ["agentic_ai", "rag_and_retrieval", "models_and_ai_platforms"].includes(s.key) &&
-        s.concepts &&
-        Object.values(s.concepts).some((st) => st === "COVERED" || st === "PARTIAL")
-    ) ?? false);
-  const hasAiTech = [
-    ...(report.technology_inventory?.agent_frameworks || []),
-    ...(report.technology_inventory?.retrieval_and_rag || []),
-    ...(report.technology_inventory?.vector_databases || []),
-    ...(report.technology_inventory?.models || []),
-    ...(report.technology_inventory?.model_platforms || []),
-  ].length > 0;
-  const hasAiContent =
-    candidateSpoke &&
-    isRealContent(aiEngObs) &&
-    (hasAiConcepts || hasAiTech || (aiEngSection?.status && !["NEEDS_IMPROVEMENT", "NOT_COVERED"].includes(aiEngSection.status)));
+  const aiEngObs = isRealContent(rawAiObs)
+    ? formatFeedbackToSecondPerson(rawAiObs, candidateName)
+    : undefined;
+  const aiEngBand = aiEngSection?.status ?? scores.ai_engineering?.band;
 
   // ── Software Engineering ──
   const coreEngSection = intro_sections.find((s) =>
@@ -511,36 +944,14 @@ export function EvaluationContent({
       "memory_context_engineering_mentioned",
     ].includes(s.key)
   );
-  const coreEngBand =
-    scores.core_engineering?.band ??
-    coreEngSection?.status ??
-    "AVERAGE";
   const rawCoreObs =
     coreEngSection?.observation ??
     final_assessment?.production_engineering_depth ??
     report.technical_analysis?.depth_assessment;
-  const coreEngObs = isRealContent(rawCoreObs) ? rawCoreObs : undefined;
-
-  const hasSeConcepts =
-    (report.intro_sections?.some(
-      (s) =>
-        ["software_engineering", "cloud_and_infrastructure", "cicd_and_delivery"].includes(s.key) &&
-        s.concepts &&
-        Object.values(s.concepts).some((st) => st === "COVERED" || st === "PARTIAL")
-    ) ?? false);
-  const hasSeTech = [
-    ...(report.technology_inventory?.backend_and_api || []),
-    ...(report.technology_inventory?.frontend || []),
-    ...(report.technology_inventory?.databases || []),
-    ...(report.technology_inventory?.cloud || []),
-    ...(report.technology_inventory?.containers_and_orchestration || []),
-    ...(report.technology_inventory?.infrastructure_as_code || []),
-    ...(report.technology_inventory?.cicd || []),
-  ].length > 0;
-  const hasSeContent =
-    candidateSpoke &&
-    isRealContent(coreEngObs) &&
-    (hasSeConcepts || hasSeTech || (coreEngSection?.status && !["NEEDS_IMPROVEMENT", "NOT_COVERED"].includes(coreEngSection.status)));
+  const coreEngObs = isRealContent(rawCoreObs)
+    ? formatFeedbackToSecondPerson(rawCoreObs, candidateName)
+    : undefined;
+  const coreEngBand = coreEngSection?.status ?? scores.core_engineering?.band;
 
   // ── Audio Analysis ──
   const rawAudioStrength =
@@ -553,16 +964,10 @@ export function EvaluationContent({
     audio?.factors?.fluency?.observation ??
     undefined
   );
-  const audioObs = isRealContent(rawAudioObs) ? rawAudioObs : undefined;
-  const audioBand =
-    audio?.overall_readiness ??
-    scores.non_technical?.band ??
-    "AVERAGE";
-  const hasAudioContent =
-    candidateSpoke &&
-    isRealContent(audioObs) &&
-    audio?.overall_readiness !== "INSUFFICIENT_DATA" &&
-    !/duration\s+is\s+too\s+short/i.test(audio?.executive_summary || "");
+  const audioObs = isRealContent(rawAudioObs)
+    ? formatFeedbackToSecondPerson(rawAudioObs, candidateName)
+    : undefined;
+  const audioBand = audio?.overall_readiness;
 
   // ── Video Analysis ──
   const rawMediaType = (report.assessment.media_type || "").toUpperCase();
@@ -576,18 +981,12 @@ export function EvaluationContent({
     video?.factors?.camera_framing_centering?.observation ??
     undefined
   );
-  const videoObs = isRealContent(rawVideoObs) ? rawVideoObs : undefined;
-  const videoBand =
-    video?.factors?.camera_framing_centering?.status ??
-    scores.non_technical?.band ??
-    "AVERAGE";
-  const hasVideoContent =
-    !isAudioOnly &&
-    candidateSpoke &&
-    isRealContent(videoObs) &&
-    video?.factors?.camera_framing_centering?.status !== "INSUFFICIENT_DATA";
+  const videoObs = isRealContent(rawVideoObs)
+    ? formatFeedbackToSecondPerson(rawVideoObs, candidateName)
+    : undefined;
+  const videoBand = video?.factors?.camera_framing_centering?.status;
 
-  // ── Highlights Cards List ──
+  // ── Highlights Cards List (Filtered list built BEFORE rendering) ──
   const highlightCards: React.ReactNode[] = [];
   if (hasIntroContent) {
     highlightCards.push(
@@ -645,7 +1044,7 @@ export function EvaluationContent({
     );
   }
 
-  // If candidate did not speak or there are no highlights / evaluation data,
+  // If candidate did not speak or there are no valid evaluated topics,
   // remove the middle cards (Overall Assessment, Highlights, Transcript, Tip)
   // and display the short popup-style empty state card instead:
   if (!candidateSpoke || highlightCards.length === 0) {
@@ -673,6 +1072,12 @@ export function EvaluationContent({
 
   const durationStr = getTranscriptDuration(report);
 
+  const validOverallSummary = isRealContent(overall_summary)
+    ? formatFeedbackToSecondPerson(overall_summary, candidateName)
+    : undefined;
+  const rawOverallStatus = overall_readiness ?? scores.overall_band;
+  const overallStatus = isPositiveStatus(rawOverallStatus) ? rawOverallStatus : undefined;
+
   return (
     <div className="space-y-3 sm:space-y-3.5">
       {/* ── 1. Overall Assessment (Wide Horizontal Card) ────────────────── */}
@@ -684,21 +1089,19 @@ export function EvaluationContent({
               Overall Assessment
             </h2>
           </div>
-          <QualitativeBadge
-            status={overall_readiness ?? scores.overall_band}
-          />
+          {overallStatus && (
+            <QualitativeBadge
+              status={overallStatus}
+            />
+          )}
         </div>
-        {overall_summary ? (
+        {validOverallSummary ? (
           <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700">
-            {overall_summary}
+            {validOverallSummary}
           </p>
         ) : (
-          <p className="mt-2 text-xs sm:text-sm text-slate-400 italic">
-            {report.assessment.status === "EVALUATING"
-              ? "Your assessment is currently being evaluated. Summary will appear shortly."
-              : candidateSpoke
-                ? "No overall assessment summary recorded for this session."
-                : "No spoken responses were provided for this session."}
+          <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700">
+            Assessment evaluation based on the topics presented by the candidate.
           </p>
         )}
       </section>
@@ -864,22 +1267,20 @@ export function EvaluationContent({
         </section>
       )}
 
-      {/* ── 4. Tip Banner (Full Width) ── */}
-      <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-4 shadow-2xs">
-        <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
-        <div className="space-y-0.5 flex-1">
-          <h3 className="text-sm font-bold text-slate-900">
-            Tip
-          </h3>
-          <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-            {isRealContent(rawTip)
-              ? rawTip
-              : candidateSpoke
-                ? "Go to the Details tab to see the complete evaluation across all criteria and improvement suggestions."
-                : "To receive comprehensive competency analysis and personalized feedback, ensure your microphone is working and speak your responses clearly during the assessment."}
-          </p>
-        </div>
-      </section>
+      {/* ── 4. Tip Banner (Full Width) — only shown when the LLM generated a tip ── */}
+      {isRealContent(rawTip) && (
+        <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-4 shadow-2xs">
+          <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
+          <div className="space-y-0.5 flex-1">
+            <h3 className="text-sm font-bold text-slate-900">
+              Tip
+            </h3>
+            <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
+              {formatFeedbackToSecondPerson(rawTip, candidateName)}
+            </p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -926,6 +1327,7 @@ export function DetailsContent({
   } = report;
 
   const candidateSpoke = hasRealSpeech(report);
+  const candidateName = report.candidate_name || (report.assessment as any)?.candidate_name;
   const rawMedia = (report.assessment.media_type || "").toUpperCase();
   const isAudioOnly =
     rawMedia === "AUDIO" ||
@@ -964,415 +1366,361 @@ export function DetailsContent({
   const sections: DetailSectionData[] = [];
 
   // 1. Introduction Evaluation (AI Engineering Focus)
-  const introObs: string[] = [];
-  const careerStoryObs = getSecObs("career_story");
-  if (careerStoryObs) introObs.push(careerStoryObs);
+  if (hasExplainedIntroduction(report)) {
+    const introObs: string[] = [];
+    const careerStoryObs = getSecObs("career_story");
+    if (careerStoryObs && isRealContent(careerStoryObs)) introObs.push(careerStoryObs);
 
-  const currentRoleObs = getSecObs("current_role");
-  if (currentRoleObs) introObs.push(currentRoleObs);
+    const currentRoleObs = getSecObs("current_role");
+    if (currentRoleObs && isRealContent(currentRoleObs)) introObs.push(currentRoleObs);
 
-  const currentProjObs = getSecObs("current_project");
-  if (currentProjObs) introObs.push(currentProjObs);
+    const currentProjObs = getSecObs("current_project");
+    if (currentProjObs && isRealContent(currentProjObs)) introObs.push(currentProjObs);
 
-  const evolutionObs = getSecObs("ai_engineering_evolution");
-  if (evolutionObs) introObs.push(evolutionObs);
+    const rawIntroDesc =
+      final_assessment?.career_story?.trim() ||
+      intro_quality?.observation?.trim() ||
+      careerStoryObs;
+    const introDesc = isRealContent(rawIntroDesc) ? rawIntroDesc : undefined;
+    const realIntroObs = introObs.filter(isRealContent);
 
-  if (final_assessment?.current_project_clarity?.trim()) {
-    introObs.push(final_assessment.current_project_clarity.trim());
-  }
+    const introStatus = intro_sections.find((s) =>
+      ["career_story", "current_role", "current_project"].includes(s.key) && isPositiveStatus(s.status)
+    )?.status ?? (isPositiveStatus(scores.overall_band) ? scores.overall_band : undefined);
 
-  if (final_assessment?.most_important_improvement?.trim()) {
-    introObs.push(final_assessment.most_important_improvement.trim());
-  }
-
-  if (report.resume_alignment?.missed_highlights && report.resume_alignment.missed_highlights.length > 0) {
-    report.resume_alignment.missed_highlights.forEach((h) => {
-      if (h?.trim()) introObs.push(`Resume Highlight to Mention: ${h.trim()}`);
-    });
-  }
-
-  if (report.resume_alignment?.unverified_claims && report.resume_alignment.unverified_claims.length > 0) {
-    report.resume_alignment.unverified_claims.forEach((c) => {
-      if (c?.trim()) introObs.push(`Unverified Spoken Claim: ${c.trim()}`);
-    });
-  }
-
-  // If specific keys were not present, collect non-empty observations from intro_sections
-  if (introObs.length === 0) {
-    intro_sections.slice(0, 5).forEach((s) => {
-      if (s.observation?.trim()) introObs.push(s.observation.trim());
-    });
-  }
-
-  const rawIntroDesc =
-    final_assessment?.career_story?.trim() ||
-    intro_quality?.observation?.trim() ||
-    careerStoryObs;
-  const introDesc = isRealContent(rawIntroDesc) ? rawIntroDesc : undefined;
-  const realIntroObs = introObs.filter(isRealContent);
-
-  const introStatus =
-    scores.overall_band ||
-    report.overall_readiness ||
-    intro_sections.find((s) => ["career_story", "current_role", "current_project"].includes(s.key))?.status ||
-    "NEEDS_IMPROVEMENT";
-
-  // Only include introduction if candidate actually spoke about their background
-  if (candidateSpoke && (introDesc || realIntroObs.length > 0)) {
-    sections.push({
-      id: "intro",
-      tabLabel: "Introduction",
-      icon: <User size={16} className="text-blue-600" />,
-      iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
-      title: "Introduction Evaluation (AI Engineering Focus)",
-      status: introStatus,
-      description: introDesc,
-      observations: realIntroObs.length > 0 ? realIntroObs : undefined,
-    });
+    if (introDesc || realIntroObs.length > 0) {
+      sections.push({
+        id: "intro",
+        tabLabel: "Introduction",
+        icon: <User size={16} className="text-blue-600" />,
+        iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
+        title: "Introduction Evaluation (AI Engineering Focus)",
+        status: introStatus,
+        description: introDesc,
+        observations: realIntroObs.length > 0 ? realIntroObs : undefined,
+      });
+    }
   }
 
   // 2. AI Engineering Concepts
-  const aiObs: string[] = [];
-  const agenticSec = intro_sections.find((s) => s.key === "agentic_ai");
-  const ragSec = intro_sections.find((s) => s.key === "rag_and_retrieval");
-  const modelsSec = intro_sections.find((s) => s.key === "models_and_ai_platforms");
+  if (hasExplainedAiEngineering(report)) {
+    const aiObs: string[] = [];
+    const agenticSec = intro_sections.find((s) => s.key === "agentic_ai");
+    const ragSec = intro_sections.find((s) => s.key === "rag_and_retrieval");
+    const modelsSec = intro_sections.find((s) => s.key === "models_and_ai_platforms");
 
-  const agenticObs = agenticSec?.observation?.trim();
-  if (agenticObs) aiObs.push(agenticObs);
+    const agenticObs = agenticSec?.observation?.trim();
+    if (agenticObs && isRealContent(agenticObs)) aiObs.push(agenticObs);
 
-  const ragObs = ragSec?.observation?.trim();
-  if (ragObs) aiObs.push(ragObs);
+    const ragObs = ragSec?.observation?.trim();
+    if (ragObs && isRealContent(ragObs)) aiObs.push(ragObs);
 
-  const modelsObs = modelsSec?.observation?.trim();
-  if (modelsObs) aiObs.push(modelsObs);
+    const modelsObs = modelsSec?.observation?.trim();
+    if (modelsObs && isRealContent(modelsObs)) aiObs.push(modelsObs);
 
-  if (technical_analysis?.strengths && technical_analysis.strengths.length > 0) {
-    technical_analysis.strengths.forEach((s) => {
-      if (s?.trim()) aiObs.push(s.trim());
-    });
-  }
-
-  if (technical_analysis?.areas_for_improvement && technical_analysis.areas_for_improvement.length > 0) {
-    technical_analysis.areas_for_improvement.forEach((i) => {
-      if (i?.trim()) aiObs.push(i.trim());
-    });
-  }
-
-  if (technical_analysis?.depth_assessment?.trim()) {
-    aiObs.push(technical_analysis.depth_assessment.trim());
-  }
-
-  // Extract explicit AI Engineering Concept Coverage signals from backend LLM evaluation
-  const aiConceptsList: { label: string; status: string }[] = [];
-  [agenticSec, ragSec, modelsSec].forEach((sec) => {
-    if (sec?.concepts) {
-      Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
-        if (conceptStatus && conceptStatus !== "NOT_APPLICABLE") {
-          aiConceptsList.push({
-            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-            status: String(conceptStatus).toUpperCase(),
-          });
-        }
+    if (technical_analysis?.strengths && technical_analysis.strengths.length > 0) {
+      technical_analysis.strengths.forEach((s) => {
+        if (s?.trim() && isRealContent(s.trim())) aiObs.push(s.trim());
       });
     }
-  });
 
-  // Collect technologies mentioned across all AI sections
-  const aiTechnologies = Array.from(
-    new Set([
-      ...(agenticSec?.technologies_mentioned || []),
-      ...(ragSec?.technologies_mentioned || []),
-      ...(modelsSec?.technologies_mentioned || []),
-      ...(report.technology_inventory?.agent_frameworks || []),
-      ...(report.technology_inventory?.retrieval_and_rag || []),
-      ...(report.technology_inventory?.vector_databases || []),
-      ...(report.technology_inventory?.models || []),
-      ...(report.technology_inventory?.model_platforms || []),
-    ])
-  ).filter(Boolean);
+    if (technical_analysis?.depth_assessment?.trim() && isRealContent(technical_analysis.depth_assessment.trim())) {
+      aiObs.push(technical_analysis.depth_assessment.trim());
+    }
 
-  const rawAiDesc =
-    final_assessment?.ai_engineering_depth?.trim() ||
-    technical_analysis?.summary?.trim() ||
-    agenticObs;
-  const aiDesc = isRealContent(rawAiDesc) ? rawAiDesc : undefined;
-  const realAiObs = aiObs.filter(isRealContent);
-
-  const coveredAiConcepts = aiConceptsList.filter(
-    (c) => c.status === "COVERED" || c.status === "PARTIAL"
-  );
-  const hasAiCustom = coveredAiConcepts.length > 0 || aiTechnologies.length > 0;
-
-  const resolvedAiStatus =
-    scores.ai_engineering?.band ||
-    agenticSec?.status ||
-    ragSec?.status ||
-    modelsSec?.status ||
-    report.intro_quality?.technical_depth ||
-    (coveredAiConcepts.length > 0 ? "GOOD" : "NEEDS_IMPROVEMENT");
-
-  // Only include AI Engineering section if candidate actually covered AI concepts, mentioned AI tech, or has real observations
-  if (candidateSpoke && (aiDesc || realAiObs.length > 0 || hasAiCustom)) {
-    sections.push({
-      id: "ai_engineering",
-      tabLabel: "AI Engineering",
-      icon: <Cpu size={16} className="text-purple-600" />,
-      iconContainerClass: "bg-purple-50 text-purple-600 border-purple-100",
-      title: "AI Engineering Concepts",
-      status: resolvedAiStatus,
-      description: aiDesc,
-      observations: realAiObs.length > 0 ? realAiObs : undefined,
-      customContent: hasAiCustom ? (
-        <div className="space-y-1.5 pt-1">
-          {coveredAiConcepts.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-                Concepts Covered:
-              </span>
-              {coveredAiConcepts.map((c, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
-                >
-                  ✓ {c.label}
-                </span>
-              ))}
-            </div>
-          )}
-          {aiTechnologies.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-                Technologies:
-              </span>
-              {aiTechnologies.map((t, idx) => (
-                <span
-                  key={idx}
-                  className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : undefined,
+    // Extract explicit AI Engineering Concept Coverage signals from backend LLM evaluation
+    const aiConceptsList: { label: string; status: string }[] = [];
+    [agenticSec, ragSec, modelsSec].forEach((sec) => {
+      if (sec?.concepts) {
+        Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
+          if (conceptStatus && isPositiveStatus(String(conceptStatus))) {
+            aiConceptsList.push({
+              label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+              status: String(conceptStatus).toUpperCase(),
+            });
+          }
+        });
+      }
     });
+
+    // Collect technologies mentioned across all AI sections
+    const aiTechnologies = Array.from(
+      new Set([
+        ...(agenticSec?.technologies_mentioned || []),
+        ...(ragSec?.technologies_mentioned || []),
+        ...(modelsSec?.technologies_mentioned || []),
+        ...(report.technology_inventory?.agent_frameworks || []),
+        ...(report.technology_inventory?.retrieval_and_rag || []),
+        ...(report.technology_inventory?.vector_databases || []),
+        ...(report.technology_inventory?.models || []),
+        ...(report.technology_inventory?.model_platforms || []),
+      ])
+    ).filter(Boolean);
+
+    const rawAiDesc =
+      final_assessment?.ai_engineering_depth?.trim() ||
+      technical_analysis?.summary?.trim() ||
+      agenticObs;
+    const aiDesc = isRealContent(rawAiDesc) ? rawAiDesc : undefined;
+    const realAiObs = aiObs.filter(isRealContent);
+
+    const coveredAiConcepts = aiConceptsList.filter(
+      (c) => c.status === "COVERED" || c.status === "PARTIAL"
+    );
+    const hasAiCustom = coveredAiConcepts.length > 0 || aiTechnologies.length > 0;
+
+    const resolvedAiStatus =
+      agenticSec?.status ||
+      ragSec?.status ||
+      modelsSec?.status ||
+      scores.ai_engineering?.band;
+
+    if (aiDesc || realAiObs.length > 0 || hasAiCustom) {
+      sections.push({
+        id: "ai_engineering",
+        tabLabel: "AI Engineering",
+        icon: <Cpu size={16} className="text-purple-600" />,
+        iconContainerClass: "bg-purple-50 text-purple-600 border-purple-100",
+        title: "AI Engineering Concepts",
+        status: isPositiveStatus(resolvedAiStatus) ? resolvedAiStatus : undefined,
+        description: aiDesc,
+        observations: realAiObs.length > 0 ? realAiObs : undefined,
+        customContent: hasAiCustom ? (
+          <div className="space-y-1.5 pt-1">
+            {coveredAiConcepts.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Concepts Covered:
+                </span>
+                {coveredAiConcepts.map((c, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
+                  >
+                    ✓ {c.label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {aiTechnologies.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Technologies:
+                </span>
+                {aiTechnologies.map((t, idx) => (
+                  <span
+                    key={idx}
+                    className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : undefined,
+      });
+    }
   }
 
   // 3. Software Engineering / QA / Data / DevOps
-  const seObs: string[] = [];
-  const seSec = intro_sections.find((s) => s.key === "software_engineering");
-  const cloudSec = intro_sections.find((s) => s.key === "cloud_and_infrastructure");
-  const cicdSec = intro_sections.find((s) => s.key === "cicd_and_delivery");
+  if (hasExplainedSoftwareEngineering(report)) {
+    const seObs: string[] = [];
+    const seSec = intro_sections.find((s) => s.key === "software_engineering");
+    const cloudSec = intro_sections.find((s) => s.key === "cloud_and_infrastructure");
+    const cicdSec = intro_sections.find((s) => s.key === "cicd_and_delivery");
 
-  const seSectionObs = getSecObs("software_engineering");
-  if (seSectionObs) seObs.push(seSectionObs);
+    const seSectionObs = getSecObs("software_engineering");
+    if (seSectionObs && isRealContent(seSectionObs)) seObs.push(seSectionObs);
 
-  const cloudObs = getSecObs("cloud_and_infrastructure");
-  if (cloudObs) seObs.push(cloudObs);
+    const cloudObs = getSecObs("cloud_and_infrastructure");
+    if (cloudObs && isRealContent(cloudObs)) seObs.push(cloudObs);
 
-  const cicdObs = getSecObs("cicd_and_delivery");
-  if (cicdObs) seObs.push(cicdObs);
+    const cicdObs = getSecObs("cicd_and_delivery");
+    if (cicdObs && isRealContent(cicdObs)) seObs.push(cicdObs);
 
-  const rawSeDesc =
-    final_assessment?.production_engineering_depth?.trim() ||
-    seSectionObs ||
-    cloudObs;
-  const seDesc = isRealContent(rawSeDesc) ? rawSeDesc : undefined;
-  const realSeObs = seObs.filter(isRealContent);
+    const rawSeDesc =
+      final_assessment?.production_engineering_depth?.trim() ||
+      seSectionObs ||
+      cloudObs;
+    const seDesc = isRealContent(rawSeDesc) ? rawSeDesc : undefined;
+    const realSeObs = seObs.filter(isRealContent);
 
-  const seConceptsList: { label: string; status: string }[] = [];
-  [seSec, cloudSec, cicdSec].forEach((sec) => {
-    if (sec?.concepts) {
-      Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
-        if (conceptStatus && conceptStatus !== "NOT_APPLICABLE") {
-          seConceptsList.push({
-            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-            status: String(conceptStatus).toUpperCase(),
-          });
-        }
+    const seConceptsList: { label: string; status: string }[] = [];
+    [seSec, cloudSec, cicdSec].forEach((sec) => {
+      if (sec?.concepts) {
+        Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
+          if (conceptStatus && isPositiveStatus(String(conceptStatus))) {
+            seConceptsList.push({
+              label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+              status: String(conceptStatus).toUpperCase(),
+            });
+          }
+        });
+      }
+    });
+
+    const seTechnologies = Array.from(
+      new Set([
+        ...(seSec?.technologies_mentioned || []),
+        ...(cloudSec?.technologies_mentioned || []),
+        ...(cicdSec?.technologies_mentioned || []),
+        ...(report.technology_inventory?.backend_and_api || []),
+        ...(report.technology_inventory?.frontend || []),
+        ...(report.technology_inventory?.databases || []),
+        ...(report.technology_inventory?.cloud || []),
+        ...(report.technology_inventory?.containers_and_orchestration || []),
+        ...(report.technology_inventory?.infrastructure_as_code || []),
+        ...(report.technology_inventory?.cicd || []),
+      ])
+    ).filter(Boolean);
+
+    const coveredSeConcepts = seConceptsList.filter(
+      (c) => c.status === "COVERED" || c.status === "PARTIAL"
+    );
+    const hasSeCustom = coveredSeConcepts.length > 0 || seTechnologies.length > 0;
+
+    const resolvedSeStatus =
+      seSec?.status ||
+      cloudSec?.status ||
+      cicdSec?.status ||
+      scores.core_engineering?.band;
+
+    if (seDesc || realSeObs.length > 0 || hasSeCustom) {
+      sections.push({
+        id: "software_engineering",
+        tabLabel: "Software Engineering",
+        icon: <Code2 size={16} className="text-blue-600" />,
+        iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
+        title: "Software Engineering",
+        status: isPositiveStatus(resolvedSeStatus) ? resolvedSeStatus : undefined,
+        description: seDesc,
+        observations: realSeObs.length > 0 ? realSeObs : undefined,
+        customContent: hasSeCustom ? (
+          <div className="space-y-1.5 pt-1">
+            {coveredSeConcepts.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Concepts Covered:
+                </span>
+                {coveredSeConcepts.map((c, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
+                  >
+                    ✓ {c.label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {seTechnologies.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Technologies:
+                </span>
+                {seTechnologies.map((t, idx) => (
+                  <span
+                    key={idx}
+                    className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : undefined,
       });
     }
-  });
-
-  const seTechnologies = Array.from(
-    new Set([
-      ...(seSec?.technologies_mentioned || []),
-      ...(cloudSec?.technologies_mentioned || []),
-      ...(cicdSec?.technologies_mentioned || []),
-      ...(report.technology_inventory?.backend_and_api || []),
-      ...(report.technology_inventory?.frontend || []),
-      ...(report.technology_inventory?.databases || []),
-      ...(report.technology_inventory?.cloud || []),
-      ...(report.technology_inventory?.containers_and_orchestration || []),
-      ...(report.technology_inventory?.infrastructure_as_code || []),
-      ...(report.technology_inventory?.cicd || []),
-    ])
-  ).filter(Boolean);
-
-  const coveredSeConcepts = seConceptsList.filter(
-    (c) => c.status === "COVERED" || c.status === "PARTIAL"
-  );
-  const hasSeCustom = coveredSeConcepts.length > 0 || seTechnologies.length > 0;
-
-  const resolvedSeStatus =
-    scores.core_engineering?.band ||
-    seSec?.status ||
-    cloudSec?.status ||
-    cicdSec?.status ||
-    (coveredSeConcepts.length > 0 ? "GOOD" : "AVERAGE");
-
-  // Only include Software Engineering section if candidate actually covered SE concepts, mentioned SE tech, or has real observations
-  if (candidateSpoke && (seDesc || realSeObs.length > 0 || hasSeCustom)) {
-    sections.push({
-      id: "software_engineering",
-      tabLabel: "Software Engineering",
-      icon: <Code2 size={16} className="text-blue-600" />,
-      iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
-      title: "Software Engineering / QA / Data / DevOps",
-      status: resolvedSeStatus,
-      description: seDesc,
-      observations: realSeObs.length > 0 ? realSeObs : undefined,
-      customContent: hasSeCustom ? (
-        <div className="space-y-1.5 pt-1">
-          {coveredSeConcepts.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-                Concepts Covered:
-              </span>
-              {coveredSeConcepts.map((c, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
-                >
-                  ✓ {c.label}
-                </span>
-              ))}
-            </div>
-          )}
-          {seTechnologies.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap text-xs">
-              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-                Technologies:
-              </span>
-              {seTechnologies.map((t, idx) => (
-                <span
-                  key={idx}
-                  className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : undefined,
-    });
   }
 
   // 4. Audio Analysis (Communication Skills)
-  const audioObs: string[] = [];
-  if (audio?.primary_vocal_strength) {
-    const strength = audio.primary_vocal_strength.toLowerCase() === "pace" ? "Speaking Speed" : audio.primary_vocal_strength;
-    audioObs.push(`Primary Strength: ${sanitizeQualitativeText(strength)}`);
-  }
-  if (audio?.primary_vocal_gap) {
-    const gap = audio.primary_vocal_gap.toLowerCase() === "pace" ? "Speaking Speed" : audio.primary_vocal_gap;
-    audioObs.push(`Primary Opportunity: ${sanitizeQualitativeText(gap)}`);
-  }
-  if (audio?.key_findings && audio.key_findings.length > 0) {
-    audio.key_findings.slice(0, 2).forEach((kf) => {
-      const factorName = kf.factor.toLowerCase() === "pace" ? "Speaking Speed" : kf.factor;
-      const cleanFinding = sanitizeQualitativeText(kf.finding);
-      if (cleanFinding) audioObs.push(`${factorName}: ${cleanFinding}`);
-    });
-  }
-
-  let paceStatus = audio?.factors?.pace?.status;
-  if (!paceStatus && audio?.factors?.pace?.wpm_recorded != null) {
-    const wpm = Number(audio.factors.pace.wpm_recorded);
-    if (!isNaN(wpm)) {
-      if (wpm < 110 || wpm > 185) paceStatus = "NEEDS_IMPROVEMENT";
-      else if (wpm < 125 || wpm > 165) paceStatus = "AVERAGE";
-      else paceStatus = "GOOD";
+  if (hasExplainedAudio(report)) {
+    const audioObs: string[] = [];
+    if (audio?.primary_vocal_strength && isRealContent(audio.primary_vocal_strength)) {
+      const strength = audio.primary_vocal_strength.toLowerCase() === "pace" ? "Speaking Speed" : audio.primary_vocal_strength;
+      audioObs.push(`Primary Strength: ${sanitizeQualitativeText(strength)}`);
     }
-  }
-  if (paceStatus && /^\d+$/.test(paceStatus.trim())) {
-    const wpm = Number(paceStatus.trim());
-    if (wpm < 110 || wpm > 185) paceStatus = "NEEDS_IMPROVEMENT";
-    else if (wpm < 125 || wpm > 165) paceStatus = "AVERAGE";
-    else paceStatus = "GOOD";
-  }
-  if (!paceStatus) paceStatus = "AVERAGE";
+    if (audio?.key_findings && audio.key_findings.length > 0) {
+      audio.key_findings.slice(0, 2).forEach((kf) => {
+        const factorName = kf.factor.toLowerCase() === "pace" ? "Speaking Speed" : kf.factor;
+        const cleanFinding = sanitizeQualitativeText(kf.finding);
+        if (cleanFinding && isRealContent(cleanFinding)) audioObs.push(`${factorName}: ${cleanFinding}`);
+      });
+    }
 
-  const fluencyRating = audio?.factors?.fluency?.status || "AVERAGE";
-  const fillerRating = audio?.factors?.filler_word_usage?.status || "AVERAGE";
-  const vocalRating = audio?.factors?.confidence_vocal_presence?.status || audio?.factors?.volume?.status || "AVERAGE";
+    const paceStatus = audio?.factors?.pace?.status && audio.factors.pace.status !== "INSUFFICIENT_DATA" ? audio.factors.pace.status : undefined;
+    const fluencyRating = audio?.factors?.fluency?.status && audio.factors.fluency.status !== "INSUFFICIENT_DATA" ? audio.factors.fluency.status : undefined;
+    const fillerRating = audio?.factors?.filler_word_usage?.status && audio.factors.filler_word_usage.status !== "INSUFFICIENT_DATA" ? audio.factors.filler_word_usage.status : undefined;
+    const vocalRating = (audio?.factors?.confidence_vocal_presence?.status && audio.factors.confidence_vocal_presence.status !== "INSUFFICIENT_DATA")
+      ? audio.factors.confidence_vocal_presence.status
+      : (audio?.factors?.volume?.status && audio.factors.volume.status !== "INSUFFICIENT_DATA" ? audio.factors.volume.status : undefined);
 
-  const realAudioObs = audioObs.filter(isRealContent);
-  const rawAudioDesc = audio?.executive_summary ? sanitizeQualitativeText(audio.executive_summary) : undefined;
-  const audioDesc = isRealContent(rawAudioDesc) ? rawAudioDesc : undefined;
-  const hasAudioMetrics =
-    candidateSpoke &&
-    audio?.overall_readiness !== "INSUFFICIENT_DATA" &&
-    !/duration\s+is\s+too\s+short/i.test(audio?.executive_summary || "");
+    const hasAnyMetric = Boolean(paceStatus || fluencyRating || fillerRating || vocalRating);
+    const realAudioObs = audioObs.filter(isRealContent);
+    const rawAudioDesc = audio?.executive_summary ? sanitizeQualitativeText(audio.executive_summary) : undefined;
+    const audioDesc = isRealContent(rawAudioDesc) ? rawAudioDesc : undefined;
 
-  if (hasAudioMetrics && (audioDesc || realAudioObs.length > 0)) {
-    sections.push({
-      id: "audio_analysis",
-      tabLabel: "Audio Analysis",
-      icon: <AudioWaveform size={16} className="text-amber-600" />,
-      iconContainerClass: "bg-amber-50 text-amber-600 border-amber-100",
-      title: "Audio Analysis (Communication Skills)",
-      status: audio?.overall_readiness || scores.non_technical?.band || "AVERAGE",
-      description: audioDesc,
-      observations: realAudioObs.length > 0 ? realAudioObs : undefined,
-      customContent: (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
-          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
-            <QualitativeBadge status={paceStatus} />
+    if (audioDesc || realAudioObs.length > 0 || hasAnyMetric) {
+      sections.push({
+        id: "audio_analysis",
+        tabLabel: "Audio Analysis",
+        icon: <AudioWaveform size={16} className="text-amber-600" />,
+        iconContainerClass: "bg-amber-50 text-amber-600 border-amber-100",
+        title: "Audio Analysis (Communication Skills)",
+        status: audio?.overall_readiness,
+        description: audioDesc,
+        observations: realAudioObs.length > 0 ? realAudioObs : undefined,
+        customContent: hasAnyMetric ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+            {paceStatus && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
+                <QualitativeBadge status={paceStatus} />
+              </div>
+            )}
+            {fluencyRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
+                <QualitativeBadge status={fluencyRating} />
+              </div>
+            )}
+            {fillerRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
+                <QualitativeBadge status={fillerRating} inverted />
+              </div>
+            )}
+            {vocalRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
+                <QualitativeBadge status={vocalRating} />
+              </div>
+            )}
           </div>
-          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
-            <QualitativeBadge status={fluencyRating} />
-          </div>
-          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
-            <QualitativeBadge status={fillerRating} inverted />
-          </div>
-          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
-            <QualitativeBadge status={vocalRating} />
-          </div>
-        </div>
-      ),
-    });
+        ) : undefined,
+      });
+    }
   }
 
   // 5. Video Analysis (On-Camera Presentation) - Omit if audio only
-  if (!isAudioOnly && candidateSpoke) {
+  if (!isAudioOnly && hasExplainedVideo(report)) {
     const videoObs: string[] = [];
-    if (video?.primary_setup_strength) {
+    if (video?.primary_setup_strength && isRealContent(video.primary_setup_strength)) {
       videoObs.push(`Setup Strength: ${sanitizeQualitativeText(video.primary_setup_strength)}`);
-    }
-    if (video?.primary_setup_gap) {
-      videoObs.push(`Setup Opportunity: ${sanitizeQualitativeText(video.primary_setup_gap)}`);
     }
     if (video?.key_findings && video.key_findings.length > 0) {
       video.key_findings.forEach((kf) => {
         const cleanFinding = sanitizeQualitativeText(kf.finding);
-        if (cleanFinding) videoObs.push(`${kf.factor}: ${cleanFinding}`);
+        if (cleanFinding && isRealContent(cleanFinding)) videoObs.push(`${kf.factor}: ${cleanFinding}`);
       });
     }
 
-    const framingRating = video?.factors?.camera_framing_centering?.status;
-    const gazeRating = video?.factors?.camera_angle_gaze_alignment?.status;
-    const screenGazeRating = video?.factors?.off_screen_gaze_duration?.status;
-    const tensionRating = video?.factors?.observable_physical_tension?.status;
-    const hasVideoFactors =
-      framingRating !== "INSUFFICIENT_DATA" &&
-      Boolean(framingRating || gazeRating || screenGazeRating || tensionRating);
+    const framingRating = video?.factors?.camera_framing_centering?.status && video.factors.camera_framing_centering.status !== "INSUFFICIENT_DATA" ? video.factors.camera_framing_centering.status : undefined;
+    const gazeRating = video?.factors?.camera_angle_gaze_alignment?.status && video.factors.camera_angle_gaze_alignment.status !== "INSUFFICIENT_DATA" ? video.factors.camera_angle_gaze_alignment.status : undefined;
+    const screenGazeRating = video?.factors?.off_screen_gaze_duration?.status && video.factors.off_screen_gaze_duration.status !== "INSUFFICIENT_DATA" ? video.factors.off_screen_gaze_duration.status : undefined;
+    const tensionRating = video?.factors?.observable_physical_tension?.status && video.factors.observable_physical_tension.status !== "INSUFFICIENT_DATA" ? video.factors.observable_physical_tension.status : undefined;
+    const hasVideoFactors = Boolean(framingRating || gazeRating || screenGazeRating || tensionRating);
 
     const realVideoObs = videoObs.filter(isRealContent);
     const rawVideoDesc = video?.overall_summary ? sanitizeQualitativeText(video.overall_summary) : undefined;
@@ -1385,7 +1733,7 @@ export function DetailsContent({
         icon: <Video size={16} className="text-rose-600" />,
         iconContainerClass: "bg-rose-50 text-rose-600 border-rose-100",
         title: "Video Analysis (On-Camera Presentation)",
-        status: video?.factors?.camera_framing_centering?.status || scores.non_technical?.band || "AVERAGE",
+        status: framingRating,
         description: videoDesc,
         observations: realVideoObs.length > 0 ? realVideoObs : undefined,
         customContent: hasVideoFactors ? (
@@ -1474,66 +1822,30 @@ export function DetailsContent({
 
   // 7. Additional Observations
   const addlObs: string[] = [];
-  const addlSec = intro_sections.find((s) =>
-    [
-      "ai_engineering_evolution",
-      "guardrails_evals_observability_mentioned",
-      "additional_observations",
-    ].includes(s.key)
-  );
-  if (addlSec?.observation?.trim()) {
-    addlObs.push(addlSec.observation.trim());
-  }
-
   if (report.non_technical?.communication_summary?.trim()) {
-    addlObs.push(`Communication: ${report.non_technical.communication_summary.trim()}`);
+    const s = report.non_technical.communication_summary.trim();
+    if (isRealContent(s)) addlObs.push(`Communication: ${s}`);
   }
   if (report.non_technical?.structure_quality?.trim()) {
-    addlObs.push(`Structure: ${report.non_technical.structure_quality.trim()}`);
+    const s = report.non_technical.structure_quality.trim();
+    if (isRealContent(s)) addlObs.push(`Structure: ${s}`);
   }
   if (report.non_technical?.confidence_notes?.trim()) {
-    addlObs.push(`Confidence: ${report.non_technical.confidence_notes.trim()}`);
+    const s = report.non_technical.confidence_notes.trim();
+    if (isRealContent(s)) addlObs.push(`Confidence: ${s}`);
   }
   if (final_assessment?.transition_quality?.trim()) {
-    addlObs.push(`Transition Quality: ${final_assessment.transition_quality.trim()}`);
+    const s = final_assessment.transition_quality.trim();
+    if (isRealContent(s)) addlObs.push(`Transition Quality: ${s}`);
   }
   if (strongest_points && strongest_points.length > 0) {
     strongest_points.forEach((p) => {
-      if (p?.trim()) addlObs.push(p.trim());
+      if (p?.trim() && isRealContent(p.trim())) addlObs.push(p.trim());
     });
   }
-  if (priority_improvements && priority_improvements.length > 0) {
-    priority_improvements.forEach((p) => {
-      const guidance = p.guidance?.trim();
-      const topic = p.topic?.trim();
-      const example = p.example?.trim();
-      if (guidance) {
-        addlObs.push(`Priority Improvement (${topic || "Focus Area"}): ${guidance}${example ? ` — Example: "${example}"` : ""}`);
-      }
-    });
-  }
-  if (critical_gaps && critical_gaps.length > 0) {
-    critical_gaps.forEach((g) => {
-      const topic = g.topic?.trim();
-      const missing = g.what_is_missing?.trim();
-      const why = g.why_it_matters?.trim();
-      const addition = g.suggested_addition?.trim();
-      if (missing || addition || why) {
-        const textParts = [missing, addition ? `Suggested addition: "${addition}"` : "", why ? `Context: ${why}` : ""].filter(Boolean);
-        addlObs.push(`Identified Gap (${topic || "Content"}): ${textParts.join(" — ")}`);
-      }
-    });
-  }
-
-  const addlStatus =
-    scores.non_technical?.band ||
-    scores.business_acumen?.band ||
-    addlSec?.status ||
-    "AVERAGE";
 
   const rawAddlDesc =
     report.non_technical?.communication_summary?.trim() ||
-    addlSec?.observation?.trim() ||
     undefined;
   const addlDesc = isRealContent(rawAddlDesc) ? sanitizeQualitativeText(rawAddlDesc) : undefined;
   const realAddlObs = addlObs.filter(isRealContent);
@@ -1545,18 +1857,24 @@ export function DetailsContent({
       icon: <ShieldCheck size={16} className="text-emerald-600" />,
       iconContainerClass: "bg-emerald-50 text-emerald-600 border-emerald-100",
       title: "Additional Observations",
-      status: addlStatus,
+      status: scores.non_technical?.band,
       description: addlDesc,
       observations: realAddlObs.length > 0 ? realAddlObs : undefined,
     });
   }
 
-  // ── Post-Process: strip fallback content, remove sections with nothing real ──
+  // ── Post-Process: strip fallback content, format into second-person ("you" / "your") ──
   const filteredSections = sections
     .map((s) => ({
       ...s,
-      description: isRealContent(s.description) ? s.description : undefined,
-      observations: s.observations ? s.observations.filter(isRealContent) : undefined,
+      description: isRealContent(s.description)
+        ? formatFeedbackToSecondPerson(s.description, candidateName)
+        : undefined,
+      observations: s.observations
+        ? s.observations
+            .filter(isRealContent)
+            .map((obs) => formatFeedbackToSecondPerson(obs, candidateName))
+        : undefined,
     }))
     .filter((s) => {
       const hasText =
@@ -1622,9 +1940,12 @@ export function DetailsContent({
     setExpandedSectionIds(new Set());
   };
 
-  // If candidate did not speak or there are no evaluated sections,
+  // Only consider topic evaluation sections (excluding transcript) to know if real evaluations exist
+  const hasEvaluatedTopics = filteredSections.some((s) => s.id !== "transcript");
+
+  // If candidate did not speak or there are no evaluated topics (only transcript or nothing),
   // display the short popup card:
-  if (!candidateSpoke || filteredSections.length === 0) {
+  if (!candidateSpoke || filteredSections.length === 0 || !hasEvaluatedTopics) {
     return <EmptyEvaluationCard />;
   }
 
