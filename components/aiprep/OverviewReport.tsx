@@ -32,6 +32,8 @@ import {
   X,
   Copy,
   Check,
+  ChevronDown,
+  MicOff,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
@@ -101,12 +103,12 @@ function QualitativeBadge({
   const displayLabel = isGood
     ? "Good"
     : isAvg
-    ? "Average"
-    : isSpecialNA
-    ? "N/A"
-    : isSpecialNoData
-    ? "Insufficient Data"
-    : "Needs Improvement";
+      ? "Average"
+      : isSpecialNA
+        ? "N/A"
+        : isSpecialNoData
+          ? "Insufficient Data"
+          : "Needs Improvement";
 
   // Strictly 3 standardized rating colors:
   // 1. Good -> Green
@@ -115,10 +117,10 @@ function QualitativeBadge({
   const colorClasses = isGood
     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
     : isAvg
-    ? "bg-amber-50 text-amber-700 border-amber-200"
-    : isSpecialNA || isSpecialNoData
-    ? "bg-slate-50 text-slate-600 border-slate-200"
-    : "bg-rose-50 text-rose-700 border-rose-200";
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : isSpecialNA || isSpecialNoData
+        ? "bg-slate-50 text-slate-600 border-slate-200"
+        : "bg-rose-50 text-rose-700 border-rose-200";
 
   return (
     <span
@@ -185,7 +187,74 @@ function fmtTime(seconds?: number): string {
   return `${m}:${s}`;
 }
 
+// ── Content Validation & Fallback Filtering ──────────────────────────────────
+// Filters out generic fallback/negative statements emitted when a candidate
+// did not speak or did not cover a topic (e.g. "No career story was provided",
+// "No mention of agentic AI concepts", "The speaking duration is too short...").
+// ─────────────────────────────────────────────────────────────────────────────
+const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
+  /^no\s/i,
+  /^none\b/i,
+  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated)\b/i,
+  /^(the\s+)?candidate\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to|was\s+not\s+able\s+to)\b/i,
+  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate)\b/i,
+  /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\b/i,
+  /^neither\s+.*\s+(was|were)\s+(mentioned|discussed|covered)\b/i,
+  /^(the\s+)?speaking\s+duration\s+is\s+too\s+short/i,
+  /^duration\s+(is\s+)?too\s+short/i,
+  /^insufficient\s+(data|speech|audio|duration|information)\b/i,
+  /^unable\s+to\s+evaluate\b/i,
+  /\blacks?\s+(any\s+)?content\s+to\s+evaluate\b/i,
+  /^no\s+specific\s+observation\s+recorded/i,
+  /^eye\s+contact,\s+framing,\s+and\s+visual\s+presentation\s+evaluated\.?$/i,
+  /^n\/?a$/i,
+  /^assessment\s+completed\.?$/i,
+  /^(thank\s+you|thanks\s+for\s+watching)\.?$/i,
+];
+
+function isRealContent(text?: string | null): boolean {
+  if (!text) return false;
+  const t = text.trim();
+  if (t.length < 8) return false;
+  return !EMPTY_FALLBACK_PATTERNS.some((p) => p.test(t));
+}
+
+const WHISPER_HALLUCINATIONS: RegExp[] = [
+  /^assessment\s+completed\.?$/i,
+  /^thank\s+you(\s+for\s+watching)?\.?$/i,
+  /^thanks\s+for\s+watching\.?$/i,
+  /^subtitles\s+by.*$/i,
+  /^subscribe(\s+to\s+my\s+channel)?\.?$/i,
+  /^you\.?$/i,
+  /^bye\.?$/i,
+];
+
+function hasRealSpeech(report: NormalizedReport): boolean {
+  const fullText = (report.transcript?.full_text || "").trim();
+  const segments = report.transcript?.segments || [];
+  let combined = fullText;
+  if (!combined && segments.length > 0) {
+    combined = segments.map((s) => s.text || "").join(" ").trim();
+  }
+  combined = combined.replace(/<\/?s>/gi, "").trim();
+  if (!combined) return false;
+
+  if (WHISPER_HALLUCINATIONS.some((p) => p.test(combined))) {
+    return false;
+  }
+  if (!isRealContent(combined)) {
+    return false;
+  }
+  if (combined.length < 15 && /^(assessment|completed|thank|thanks|hello|hi|bye)/i.test(combined)) {
+    return false;
+  }
+  return true;
+}
+
 function getTranscriptDuration(report: NormalizedReport): string {
+  // If no actual speech was uttered (e.g. 1s session with silence or Whisper hallucination), return empty
+  if (!hasRealSpeech(report)) return "";
+
   const assessment = report.assessment;
   let totalSec: number | null = null;
 
@@ -299,6 +368,42 @@ function sanitizeQualitativeText(text?: string | null): string {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  SHORT COMPACT EMPTY EVALUATION POPUP CARD
+// ═════════════════════════════════════════════════════════════════════════════
+
+export function EmptyEvaluationCard() {
+  const router = useRouter();
+
+  return (
+    <div className="flex items-center justify-center py-6 sm:py-10 px-4 animate-in fade-in zoom-in-95 duration-150">
+      <div className="w-full max-w-sm rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 text-center shadow-lg shadow-slate-900/5">
+        <div className="mx-auto mb-2.5 flex size-9 items-center justify-center rounded-full bg-amber-50 border border-amber-200/80 text-amber-600">
+          <MicOff size={16} strokeWidth={2.2} />
+        </div>
+
+        <h2 className="text-sm sm:text-base font-bold text-slate-900">
+          No Evaluation Data Available
+        </h2>
+
+        <p className="mt-1 text-xs text-slate-600 leading-snug">
+          No spoken responses were detected during this session. Please make sure to speak clearly and perform well in your assessment to receive an evaluation.
+        </p>
+
+        <div className="mt-3.5 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => navigateToAssessmentType(router)}
+            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors cursor-pointer"
+          >
+            Start Assessment
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  SECTION B — EVALUATION TAB CONTENT
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -331,6 +436,9 @@ export function EvaluationContent({
     final_assessment,
   } = report;
 
+  const candidateSpoke = hasRealSpeech(report);
+
+  // ── Introduction & Resume ──
   const introSection = intro_sections.find((s) =>
     [
       "career_story",
@@ -345,12 +453,15 @@ export function EvaluationContent({
     scores.overall_band ??
     report.overall_readiness ??
     "AVERAGE";
-  const introResumeObs =
+  const rawIntroObs =
     introSection?.observation ??
     final_assessment?.career_story ??
     final_assessment?.current_project_clarity ??
-    report.overall_summary;
+    undefined;
+  const introResumeObs = isRealContent(rawIntroObs) ? rawIntroObs : undefined;
+  const hasIntroContent = candidateSpoke && isRealContent(introResumeObs);
 
+  // ── AI Engineering ──
   const aiEngSection = intro_sections.find((s) =>
     [
       "agentic_ai",
@@ -365,11 +476,32 @@ export function EvaluationContent({
     aiEngSection?.status ??
     report.intro_quality?.technical_depth ??
     "AVERAGE";
-  const aiEngObs =
+  const rawAiObs =
     aiEngSection?.observation ??
     final_assessment?.ai_engineering_depth ??
     report.technical_analysis?.summary;
+  const aiEngObs = isRealContent(rawAiObs) ? rawAiObs : undefined;
 
+  const hasAiConcepts =
+    (report.intro_sections?.some(
+      (s) =>
+        ["agentic_ai", "rag_and_retrieval", "models_and_ai_platforms"].includes(s.key) &&
+        s.concepts &&
+        Object.values(s.concepts).some((st) => st === "COVERED" || st === "PARTIAL")
+    ) ?? false);
+  const hasAiTech = [
+    ...(report.technology_inventory?.agent_frameworks || []),
+    ...(report.technology_inventory?.retrieval_and_rag || []),
+    ...(report.technology_inventory?.vector_databases || []),
+    ...(report.technology_inventory?.models || []),
+    ...(report.technology_inventory?.model_platforms || []),
+  ].length > 0;
+  const hasAiContent =
+    candidateSpoke &&
+    isRealContent(aiEngObs) &&
+    (hasAiConcepts || hasAiTech || (aiEngSection?.status && !["NEEDS_IMPROVEMENT", "NOT_COVERED"].includes(aiEngSection.status)));
+
+  // ── Software Engineering ──
   const coreEngSection = intro_sections.find((s) =>
     [
       "software_engineering",
@@ -383,36 +515,142 @@ export function EvaluationContent({
     scores.core_engineering?.band ??
     coreEngSection?.status ??
     "AVERAGE";
-  const coreEngObs =
+  const rawCoreObs =
     coreEngSection?.observation ??
     final_assessment?.production_engineering_depth ??
     report.technical_analysis?.depth_assessment;
+  const coreEngObs = isRealContent(rawCoreObs) ? rawCoreObs : undefined;
 
+  const hasSeConcepts =
+    (report.intro_sections?.some(
+      (s) =>
+        ["software_engineering", "cloud_and_infrastructure", "cicd_and_delivery"].includes(s.key) &&
+        s.concepts &&
+        Object.values(s.concepts).some((st) => st === "COVERED" || st === "PARTIAL")
+    ) ?? false);
+  const hasSeTech = [
+    ...(report.technology_inventory?.backend_and_api || []),
+    ...(report.technology_inventory?.frontend || []),
+    ...(report.technology_inventory?.databases || []),
+    ...(report.technology_inventory?.cloud || []),
+    ...(report.technology_inventory?.containers_and_orchestration || []),
+    ...(report.technology_inventory?.infrastructure_as_code || []),
+    ...(report.technology_inventory?.cicd || []),
+  ].length > 0;
+  const hasSeContent =
+    candidateSpoke &&
+    isRealContent(coreEngObs) &&
+    (hasSeConcepts || hasSeTech || (coreEngSection?.status && !["NEEDS_IMPROVEMENT", "NOT_COVERED"].includes(coreEngSection.status)));
+
+  // ── Audio Analysis ──
   const rawAudioStrength =
     audio?.primary_vocal_strength?.toLowerCase() === "pace"
       ? "Speaking Speed"
       : audio?.primary_vocal_strength;
-  const audioObs = sanitizeQualitativeText(
+  const rawAudioObs = sanitizeQualitativeText(
     audio?.executive_summary ??
-      rawAudioStrength ??
-      audio?.factors?.fluency?.observation ??
-      undefined
+    rawAudioStrength ??
+    audio?.factors?.fluency?.observation ??
+    undefined
   );
+  const audioObs = isRealContent(rawAudioObs) ? rawAudioObs : undefined;
   const audioBand =
     audio?.overall_readiness ??
     scores.non_technical?.band ??
     "AVERAGE";
+  const hasAudioContent =
+    candidateSpoke &&
+    isRealContent(audioObs) &&
+    audio?.overall_readiness !== "INSUFFICIENT_DATA" &&
+    !/duration\s+is\s+too\s+short/i.test(audio?.executive_summary || "");
 
-  const videoObs = sanitizeQualitativeText(
+  // ── Video Analysis ──
+  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
+  const isAudioOnly =
+    rawMediaType === "AUDIO" ||
+    rawMediaType === "AUDIO_ONLY";
+
+  const rawVideoObs = sanitizeQualitativeText(
     video?.overall_summary ??
-      video?.primary_setup_strength ??
-      video?.factors?.camera_framing_centering?.observation ??
-      "Eye contact, framing, and visual presentation evaluated."
+    video?.primary_setup_strength ??
+    video?.factors?.camera_framing_centering?.observation ??
+    undefined
   );
+  const videoObs = isRealContent(rawVideoObs) ? rawVideoObs : undefined;
   const videoBand =
     video?.factors?.camera_framing_centering?.status ??
     scores.non_technical?.band ??
     "AVERAGE";
+  const hasVideoContent =
+    !isAudioOnly &&
+    candidateSpoke &&
+    isRealContent(videoObs) &&
+    video?.factors?.camera_framing_centering?.status !== "INSUFFICIENT_DATA";
+
+  // ── Highlights Cards List ──
+  const highlightCards: React.ReactNode[] = [];
+  if (hasIntroContent) {
+    highlightCards.push(
+      <HighlightCard
+        key="intro"
+        icon={<User size={18} />}
+        title="Introduction & Resume"
+        observation={introResumeObs}
+        status={introResumeBand}
+      />
+    );
+  }
+  if (hasAiContent) {
+    highlightCards.push(
+      <HighlightCard
+        key="ai"
+        icon={<Cpu size={18} />}
+        title="AI Engineering"
+        observation={aiEngObs}
+        status={aiEngBand}
+      />
+    );
+  }
+  if (hasSeContent) {
+    highlightCards.push(
+      <HighlightCard
+        key="se"
+        icon={<Code2 size={18} />}
+        title="Software Engineering"
+        observation={coreEngObs}
+        status={coreEngBand}
+      />
+    );
+  }
+  if (hasAudioContent) {
+    highlightCards.push(
+      <HighlightCard
+        key="audio"
+        icon={<AudioWaveform size={18} />}
+        title="Audio Analysis"
+        observation={audioObs}
+        status={audioBand}
+      />
+    );
+  }
+  if (hasVideoContent) {
+    highlightCards.push(
+      <HighlightCard
+        key="video"
+        icon={<Video size={18} />}
+        title="Video & On-Camera"
+        observation={videoObs}
+        status={videoBand}
+      />
+    );
+  }
+
+  // If candidate did not speak or there are no highlights / evaluation data,
+  // remove the middle cards (Overall Assessment, Highlights, Transcript, Tip)
+  // and display the short popup-style empty state card instead:
+  if (!candidateSpoke || highlightCards.length === 0) {
+    return <EmptyEvaluationCard />;
+  }
 
   const rawTip =
     final_assessment?.most_important_improvement ??
@@ -420,12 +658,11 @@ export function EvaluationContent({
     coaching_suggestions.find((c) => c.priority === 1)?.suggestion ??
     coaching_suggestions[0]?.suggestion;
 
-
-  const previewSegments = transcript.segments.slice(0, 5);
-  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
-  const isAudioOnly =
-    rawMediaType === "AUDIO" ||
-    rawMediaType === "AUDIO_ONLY";
+  const validPreviewSegments = candidateSpoke
+    ? transcript.segments
+      .filter((seg) => isRealContent(seg.text.replace(/<\/?s>/gi, "")))
+      .slice(0, 5)
+    : [];
 
   const hasRecording = Boolean(
     youtube_url &&
@@ -433,6 +670,8 @@ export function EvaluationContent({
     youtube_url.trim().toLowerCase() !== "null" &&
     youtube_url.trim().toLowerCase() !== "undefined"
   );
+
+  const durationStr = getTranscriptDuration(report);
 
   return (
     <div className="space-y-3 sm:space-y-3.5">
@@ -457,50 +696,29 @@ export function EvaluationContent({
           <p className="mt-2 text-xs sm:text-sm text-slate-400 italic">
             {report.assessment.status === "EVALUATING"
               ? "Your assessment is currently being evaluated. Summary will appear shortly."
-              : "No overall assessment summary recorded for this session."}
+              : candidateSpoke
+                ? "No overall assessment summary recorded for this session."
+                : "No spoken responses were provided for this session."}
           </p>
         )}
       </section>
 
-      {/* ── 2. Evaluation Highlights (Dynamic Grid) ─────────────────────── */}
+      {/* ── 2. Evaluation Highlights (Dynamic Grid — only real candidate content) ── */}
       <section>
         <h2 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
           Evaluation Highlights
         </h2>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          <HighlightCard
-            icon={<User size={18} />}
-            title="Introduction & Resume"
-            observation={introResumeObs}
-            status={introResumeBand}
-          />
-          <HighlightCard
-            icon={<Cpu size={18} />}
-            title="AI Engineering"
-            observation={aiEngObs}
-            status={aiEngBand}
-          />
-          <HighlightCard
-            icon={<Code2 size={18} />}
-            title="Software Engineering"
-            observation={coreEngObs}
-            status={coreEngBand}
-          />
-          <HighlightCard
-            icon={<AudioWaveform size={18} />}
-            title="Audio Analysis"
-            observation={audioObs}
-            status={audioBand}
-          />
-          {!isAudioOnly && (
-            <HighlightCard
-              icon={<Video size={18} />}
-              title="Video & On-Camera"
-              observation={videoObs}
-              status={videoBand}
-            />
-          )}
-        </div>
+        {highlightCards.length > 0 ? (
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {highlightCards}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-slate-200/80 bg-white p-5 text-center shadow-xs">
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">
+              No evaluation highlights available. The candidate did not provide spoken responses for evaluation.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* ── 3. Recording Playback & Transcript Preview ── */}
@@ -529,26 +747,28 @@ export function EvaluationContent({
               <div className="flex items-center gap-2 text-slate-800">
                 <FileText size={16} className="text-blue-600" />
                 <h2 className="text-sm font-bold">Transcript Preview</h2>
-                {getTranscriptDuration(report) && (
+                {durationStr && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
                     <Clock size={11} className="text-blue-600" />
-                    {getTranscriptDuration(report)}
+                    {durationStr}
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => onSelectTab("Details", "transcript")}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-              >
-                <ExternalLink size={12} />
-                Open Full Transcript
-              </button>
+              {candidateSpoke && (
+                <button
+                  type="button"
+                  onClick={() => onSelectTab("Details", "transcript")}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                >
+                  <ExternalLink size={12} />
+                  Open Full Transcript
+                </button>
+              )}
             </div>
 
-            {previewSegments.length > 0 ? (
+            {validPreviewSegments.length > 0 ? (
               <div className="flex-1 space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                {previewSegments.map((seg, i) => {
+                {validPreviewSegments.map((seg, i) => {
                   const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
                   return (
                     <div key={i} className="flex items-start gap-2 text-xs">
@@ -576,13 +796,13 @@ export function EvaluationContent({
                   );
                 })}
               </div>
-            ) : transcript.full_text ? (
+            ) : candidateSpoke && transcript.full_text && isRealContent(transcript.full_text) ? (
               <div className="flex-1 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
                 {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
               </div>
             ) : (
               <p className="flex-1 text-xs text-slate-400 italic">
-                Transcript not available for this session.
+                No spoken transcript recorded for this session.
               </p>
             )}
           </section>
@@ -594,26 +814,28 @@ export function EvaluationContent({
             <div className="flex items-center gap-2 text-slate-800">
               <FileText size={16} className="text-blue-600" />
               <h2 className="text-sm font-bold text-slate-900">Transcript Preview</h2>
-              {getTranscriptDuration(report) && (
+              {durationStr && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                   <Clock size={12} className="text-blue-600" />
-                  {getTranscriptDuration(report)}
+                  {durationStr}
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => onSelectTab("Details", "transcript")}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-            >
-              <ExternalLink size={13} />
-              Open Full Transcript
-            </button>
+            {candidateSpoke && (
+              <button
+                type="button"
+                onClick={() => onSelectTab("Details", "transcript")}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+              >
+                <ExternalLink size={13} />
+                Open Full Transcript
+              </button>
+            )}
           </div>
 
-          {previewSegments.length > 0 ? (
+          {validPreviewSegments.length > 0 ? (
             <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {previewSegments.map((seg, i) => {
+              {validPreviewSegments.map((seg, i) => {
                 const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
                 return (
                   <div key={i} className="flex items-start gap-2 text-xs">
@@ -630,19 +852,19 @@ export function EvaluationContent({
                 );
               })}
             </div>
-          ) : transcript.full_text ? (
+          ) : candidateSpoke && transcript.full_text && isRealContent(transcript.full_text) ? (
             <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600 whitespace-pre-wrap select-text">
               {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
             </div>
           ) : (
             <p className="text-xs text-slate-400 italic">
-              Transcript not available for this session.
+              No spoken transcript recorded for this session.
             </p>
           )}
         </section>
       )}
 
-      {/* ── 4. Tip Banner (Full Width, styled matching the reference image) ── */}
+      {/* ── 4. Tip Banner (Full Width) ── */}
       <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-4 shadow-2xs">
         <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
         <div className="space-y-0.5 flex-1">
@@ -650,7 +872,11 @@ export function EvaluationContent({
             Tip
           </h3>
           <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-            {rawTip || "Go to the Details tab to see the complete evaluation across all AI Engineering criteria, audio and video analytics (if applicable), and improvement suggestions."}
+            {isRealContent(rawTip)
+              ? rawTip
+              : candidateSpoke
+                ? "Go to the Details tab to see the complete evaluation across all criteria and improvement suggestions."
+                : "To receive comprehensive competency analysis and personalized feedback, ensure your microphone is working and speak your responses clearly during the assessment."}
           </p>
         </div>
       </section>
@@ -699,12 +925,12 @@ export function DetailsContent({
     strongest_points = [],
   } = report;
 
+  const candidateSpoke = hasRealSpeech(report);
   const rawMedia = (report.assessment.media_type || "").toUpperCase();
   const isAudioOnly =
     rawMedia === "AUDIO" ||
     rawMedia === "AUDIO_ONLY";
 
-  const [transcriptFilter, setTranscriptFilter] = useState("");
   const [showFullTranscriptModal, setShowFullTranscriptModal] = useState(false);
   const [copiedTranscript, setCopiedTranscript] = useState(false);
 
@@ -778,11 +1004,12 @@ export function DetailsContent({
     });
   }
 
-  const introDesc =
+  const rawIntroDesc =
     final_assessment?.career_story?.trim() ||
     intro_quality?.observation?.trim() ||
-    report.overall_summary?.trim() ||
     careerStoryObs;
+  const introDesc = isRealContent(rawIntroDesc) ? rawIntroDesc : undefined;
+  const realIntroObs = introObs.filter(isRealContent);
 
   const introStatus =
     scores.overall_band ||
@@ -790,16 +1017,19 @@ export function DetailsContent({
     intro_sections.find((s) => ["career_story", "current_role", "current_project"].includes(s.key))?.status ||
     "NEEDS_IMPROVEMENT";
 
-  sections.push({
-    id: "intro",
-    tabLabel: "Introduction",
-    icon: <User size={16} className="text-blue-600" />,
-    iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
-    title: "Introduction Evaluation (AI Engineering Focus)",
-    status: introStatus,
-    description: introDesc,
-    observations: introObs.length > 0 ? introObs : undefined,
-  });
+  // Only include introduction if candidate actually spoke about their background
+  if (candidateSpoke && (introDesc || realIntroObs.length > 0)) {
+    sections.push({
+      id: "intro",
+      tabLabel: "Introduction",
+      icon: <User size={16} className="text-blue-600" />,
+      iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
+      title: "Introduction Evaluation (AI Engineering Focus)",
+      status: introStatus,
+      description: introDesc,
+      observations: realIntroObs.length > 0 ? realIntroObs : undefined,
+    });
+  }
 
   // 2. AI Engineering Concepts
   const aiObs: string[] = [];
@@ -861,10 +1091,17 @@ export function DetailsContent({
     ])
   ).filter(Boolean);
 
-  const aiDesc =
+  const rawAiDesc =
     final_assessment?.ai_engineering_depth?.trim() ||
     technical_analysis?.summary?.trim() ||
     agenticObs;
+  const aiDesc = isRealContent(rawAiDesc) ? rawAiDesc : undefined;
+  const realAiObs = aiObs.filter(isRealContent);
+
+  const coveredAiConcepts = aiConceptsList.filter(
+    (c) => c.status === "COVERED" || c.status === "PARTIAL"
+  );
+  const hasAiCustom = coveredAiConcepts.length > 0 || aiTechnologies.length > 0;
 
   const resolvedAiStatus =
     scores.ai_engineering?.band ||
@@ -872,76 +1109,55 @@ export function DetailsContent({
     ragSec?.status ||
     modelsSec?.status ||
     report.intro_quality?.technical_depth ||
-    (aiConceptsList.filter((c) => c.status === "COVERED").length > 0
-      ? "GOOD"
-      : aiConceptsList.filter((c) => c.status === "PARTIAL").length > 0
-      ? "AVERAGE"
-      : "NEEDS_IMPROVEMENT");
+    (coveredAiConcepts.length > 0 ? "GOOD" : "NEEDS_IMPROVEMENT");
 
-  sections.push({
-    id: "ai_engineering",
-    tabLabel: "AI Engineering",
-    icon: <Cpu size={16} className="text-purple-600" />,
-    iconContainerClass: "bg-purple-50 text-purple-600 border-purple-100",
-    title: "AI Engineering Concepts",
-    status: resolvedAiStatus,
-    description: aiDesc,
-    observations: aiObs.length > 0 ? aiObs : undefined,
-    customContent: (
-      <div className="space-y-2.5 pt-1">
-        {/* Concept Coverage Matrix */}
-        {aiConceptsList.length > 0 && (
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                AI Engineering Concept Coverage
+  // Only include AI Engineering section if candidate actually covered AI concepts, mentioned AI tech, or has real observations
+  if (candidateSpoke && (aiDesc || realAiObs.length > 0 || hasAiCustom)) {
+    sections.push({
+      id: "ai_engineering",
+      tabLabel: "AI Engineering",
+      icon: <Cpu size={16} className="text-purple-600" />,
+      iconContainerClass: "bg-purple-50 text-purple-600 border-purple-100",
+      title: "AI Engineering Concepts",
+      status: resolvedAiStatus,
+      description: aiDesc,
+      observations: realAiObs.length > 0 ? realAiObs : undefined,
+      customContent: hasAiCustom ? (
+        <div className="space-y-1.5 pt-1">
+          {coveredAiConcepts.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                Concepts Covered:
               </span>
-              <span className="text-[10px] font-semibold text-slate-500">
-                {aiConceptsList.filter((c) => c.status === "COVERED").length} of {aiConceptsList.length} Covered
-              </span>
+              {coveredAiConcepts.map((c, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
+                >
+                  ✓ {c.label}
+                </span>
+              ))}
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {aiConceptsList.map((c, idx) => {
-                const isCovered = c.status === "COVERED";
-                const isPartial = c.status === "PARTIAL";
-                return (
-                  <span
-                    key={idx}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${
-                      isCovered
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : isPartial
-                        ? "bg-amber-50 text-amber-800 border-amber-200"
-                        : "bg-slate-100 text-slate-500 border-slate-200 opacity-75"
-                    }`}
-                  >
-                    {isCovered ? "✓" : isPartial ? "≈" : "✕"} {c.label}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Technologies Mentioned */}
-        {aiTechnologies.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
-            <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-              Technologies Mentioned:
-            </span>
-            {aiTechnologies.map((t, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
-              >
-                {t}
+          )}
+          {aiTechnologies.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                Technologies:
               </span>
-            ))}
-          </div>
-        )}
-      </div>
-    ),
-  });
+              {aiTechnologies.map((t, idx) => (
+                <span
+                  key={idx}
+                  className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : undefined,
+    });
+  }
 
   // 3. Software Engineering / QA / Data / DevOps
   const seObs: string[] = [];
@@ -958,27 +1174,13 @@ export function DetailsContent({
   const cicdObs = getSecObs("cicd_and_delivery");
   if (cicdObs) seObs.push(cicdObs);
 
-  const seDesc =
+  const rawSeDesc =
     final_assessment?.production_engineering_depth?.trim() ||
     seSectionObs ||
     cloudObs;
+  const seDesc = isRealContent(rawSeDesc) ? rawSeDesc : undefined;
+  const realSeObs = seObs.filter(isRealContent);
 
-  const resolvedSeStatus =
-    scores.core_engineering?.band ||
-    seSec?.status ||
-    cloudSec?.status ||
-    cicdSec?.status ||
-    (seObs.length > 0 &&
-    seObs.every(
-      (o) =>
-        o.toLowerCase().includes("not mention") ||
-        o.toLowerCase().includes("does not") ||
-        o.toLowerCase().includes("not cover")
-    )
-      ? "NEEDS_IMPROVEMENT"
-      : "AVERAGE");
-
-  // Extract software engineering and DevOps concept coverage signals
   const seConceptsList: { label: string; status: string }[] = [];
   [seSec, cloudSec, cicdSec].forEach((sec) => {
     if (sec?.concepts) {
@@ -993,7 +1195,6 @@ export function DetailsContent({
     }
   });
 
-  // Collect technologies mentioned across software, cloud, and DevOps
   const seTechnologies = Array.from(
     new Set([
       ...(seSec?.technologies_mentioned || []),
@@ -1009,72 +1210,67 @@ export function DetailsContent({
     ])
   ).filter(Boolean);
 
-  sections.push({
-    id: "software_engineering",
-    tabLabel: "Software Engineering",
-    icon: <Code2 size={16} className="text-blue-600" />,
-    iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
-    title: "Software Engineering / QA / Data / DevOps",
-    status: resolvedSeStatus,
-    description: seDesc,
-    observations: seObs.length > 0 ? seObs : undefined,
-    customContent: (seConceptsList.length > 0 || seTechnologies.length > 0) ? (
-      <div className="space-y-2.5 pt-1">
-        {/* Concept Coverage Matrix */}
-        {seConceptsList.length > 0 && (
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                Software & Infrastructure Coverage
-              </span>
-              <span className="text-[10px] font-semibold text-slate-500">
-                {seConceptsList.filter((c) => c.status === "COVERED").length} of {seConceptsList.length} Covered
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {seConceptsList.map((c, idx) => {
-                const isCovered = c.status === "COVERED";
-                const isPartial = c.status === "PARTIAL";
-                return (
-                  <span
-                    key={idx}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${
-                      isCovered
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : isPartial
-                        ? "bg-amber-50 text-amber-800 border-amber-200"
-                        : "bg-slate-100 text-slate-500 border-slate-200 opacity-75"
-                    }`}
-                  >
-                    {isCovered ? "✓" : isPartial ? "≈" : "✕"} {c.label}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
+  const coveredSeConcepts = seConceptsList.filter(
+    (c) => c.status === "COVERED" || c.status === "PARTIAL"
+  );
+  const hasSeCustom = coveredSeConcepts.length > 0 || seTechnologies.length > 0;
 
-        {/* Technologies Mentioned */}
-        {seTechnologies.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
-            <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
-              Technologies Mentioned:
-            </span>
-            {seTechnologies.map((t, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    ) : undefined,
-  });
+  const resolvedSeStatus =
+    scores.core_engineering?.band ||
+    seSec?.status ||
+    cloudSec?.status ||
+    cicdSec?.status ||
+    (coveredSeConcepts.length > 0 ? "GOOD" : "AVERAGE");
 
-  // 4. Audio Analysis (Communication Skills) - Compact & Space-Efficient
+  // Only include Software Engineering section if candidate actually covered SE concepts, mentioned SE tech, or has real observations
+  if (candidateSpoke && (seDesc || realSeObs.length > 0 || hasSeCustom)) {
+    sections.push({
+      id: "software_engineering",
+      tabLabel: "Software Engineering",
+      icon: <Code2 size={16} className="text-blue-600" />,
+      iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
+      title: "Software Engineering / QA / Data / DevOps",
+      status: resolvedSeStatus,
+      description: seDesc,
+      observations: realSeObs.length > 0 ? realSeObs : undefined,
+      customContent: hasSeCustom ? (
+        <div className="space-y-1.5 pt-1">
+          {coveredSeConcepts.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                Concepts Covered:
+              </span>
+              {coveredSeConcepts.map((c, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
+                >
+                  ✓ {c.label}
+                </span>
+              ))}
+            </div>
+          )}
+          {seTechnologies.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap text-xs">
+              <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                Technologies:
+              </span>
+              {seTechnologies.map((t, idx) => (
+                <span
+                  key={idx}
+                  className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : undefined,
+    });
+  }
+
+  // 4. Audio Analysis (Communication Skills)
   const audioObs: string[] = [];
   if (audio?.primary_vocal_strength) {
     const strength = audio.primary_vocal_strength.toLowerCase() === "pace" ? "Speaking Speed" : audio.primary_vocal_strength;
@@ -1092,7 +1288,6 @@ export function DetailsContent({
     });
   }
 
-  // Compute qualitative status for pace (handles raw WPM numbers and enums)
   let paceStatus = audio?.factors?.pace?.status;
   if (!paceStatus && audio?.factors?.pace?.wpm_recorded != null) {
     const wpm = Number(audio.factors.pace.wpm_recorded);
@@ -1114,39 +1309,49 @@ export function DetailsContent({
   const fillerRating = audio?.factors?.filler_word_usage?.status || "AVERAGE";
   const vocalRating = audio?.factors?.confidence_vocal_presence?.status || audio?.factors?.volume?.status || "AVERAGE";
 
-  sections.push({
-    id: "audio_analysis",
-    tabLabel: "Audio Analysis",
-    icon: <AudioWaveform size={16} className="text-amber-600" />,
-    iconContainerClass: "bg-amber-50 text-amber-600 border-amber-100",
-    title: "Audio Analysis (Communication Skills)",
-    status: audio?.overall_readiness || scores.non_technical?.band || "AVERAGE",
-    description: audio?.executive_summary ? sanitizeQualitativeText(audio.executive_summary) : undefined,
-    observations: audioObs.length > 0 ? audioObs : undefined,
-    customContent: (
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
-          <QualitativeBadge status={paceStatus} />
+  const realAudioObs = audioObs.filter(isRealContent);
+  const rawAudioDesc = audio?.executive_summary ? sanitizeQualitativeText(audio.executive_summary) : undefined;
+  const audioDesc = isRealContent(rawAudioDesc) ? rawAudioDesc : undefined;
+  const hasAudioMetrics =
+    candidateSpoke &&
+    audio?.overall_readiness !== "INSUFFICIENT_DATA" &&
+    !/duration\s+is\s+too\s+short/i.test(audio?.executive_summary || "");
+
+  if (hasAudioMetrics && (audioDesc || realAudioObs.length > 0)) {
+    sections.push({
+      id: "audio_analysis",
+      tabLabel: "Audio Analysis",
+      icon: <AudioWaveform size={16} className="text-amber-600" />,
+      iconContainerClass: "bg-amber-50 text-amber-600 border-amber-100",
+      title: "Audio Analysis (Communication Skills)",
+      status: audio?.overall_readiness || scores.non_technical?.band || "AVERAGE",
+      description: audioDesc,
+      observations: realAudioObs.length > 0 ? realAudioObs : undefined,
+      customContent: (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Speaking Pace</span>
+            <QualitativeBadge status={paceStatus} />
+          </div>
+          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
+            <QualitativeBadge status={fluencyRating} />
+          </div>
+          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
+            <QualitativeBadge status={fillerRating} inverted />
+          </div>
+          <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+            <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
+            <QualitativeBadge status={vocalRating} />
+          </div>
         </div>
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Fluency</span>
-          <QualitativeBadge status={fluencyRating} />
-        </div>
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Filler Words</span>
-          <QualitativeBadge status={fillerRating} inverted />
-        </div>
-        <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-          <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Vocal Presence</span>
-          <QualitativeBadge status={vocalRating} />
-        </div>
-      </div>
-    ),
-  });
+      ),
+    });
+  }
 
   // 5. Video Analysis (On-Camera Presentation) - Omit if audio only
-  if (!isAudioOnly) {
+  if (!isAudioOnly && candidateSpoke) {
     const videoObs: string[] = [];
     if (video?.primary_setup_strength) {
       videoObs.push(`Setup Strength: ${sanitizeQualitativeText(video.primary_setup_strength)}`);
@@ -1165,73 +1370,74 @@ export function DetailsContent({
     const gazeRating = video?.factors?.camera_angle_gaze_alignment?.status;
     const screenGazeRating = video?.factors?.off_screen_gaze_duration?.status;
     const tensionRating = video?.factors?.observable_physical_tension?.status;
-    const hasVideoFactors = Boolean(framingRating || gazeRating || screenGazeRating || tensionRating);
+    const hasVideoFactors =
+      framingRating !== "INSUFFICIENT_DATA" &&
+      Boolean(framingRating || gazeRating || screenGazeRating || tensionRating);
 
-    sections.push({
-      id: "video_analysis",
-      tabLabel: "Video Presentation",
-      icon: <Video size={16} className="text-rose-600" />,
-      iconContainerClass: "bg-rose-50 text-rose-600 border-rose-100",
-      title: "Video Analysis (On-Camera Presentation)",
-      status: video?.factors?.camera_framing_centering?.status || scores.non_technical?.band || "AVERAGE",
-      description: video?.overall_summary ? sanitizeQualitativeText(video.overall_summary) : undefined,
-      observations: videoObs.length > 0 ? videoObs : undefined,
-      customContent: hasVideoFactors ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
-          {framingRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Framing</span>
-              <QualitativeBadge status={framingRating} />
-            </div>
-          )}
-          {gazeRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Eye Contact</span>
-              <QualitativeBadge status={gazeRating} />
-            </div>
-          )}
-          {screenGazeRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Screen Focus</span>
-              <QualitativeBadge status={screenGazeRating} inverted />
-            </div>
-          )}
-          {tensionRating && (
-            <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
-              <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Composure</span>
-              <QualitativeBadge status={tensionRating} inverted />
-            </div>
-          )}
-        </div>
-      ) : undefined,
-    });
+    const realVideoObs = videoObs.filter(isRealContent);
+    const rawVideoDesc = video?.overall_summary ? sanitizeQualitativeText(video.overall_summary) : undefined;
+    const videoDesc = isRealContent(rawVideoDesc) ? rawVideoDesc : undefined;
+
+    if (videoDesc || realVideoObs.length > 0 || hasVideoFactors) {
+      sections.push({
+        id: "video_analysis",
+        tabLabel: "Video Presentation",
+        icon: <Video size={16} className="text-rose-600" />,
+        iconContainerClass: "bg-rose-50 text-rose-600 border-rose-100",
+        title: "Video Analysis (On-Camera Presentation)",
+        status: video?.factors?.camera_framing_centering?.status || scores.non_technical?.band || "AVERAGE",
+        description: videoDesc,
+        observations: realVideoObs.length > 0 ? realVideoObs : undefined,
+        customContent: hasVideoFactors ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+            {framingRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Framing</span>
+                <QualitativeBadge status={framingRating} />
+              </div>
+            )}
+            {gazeRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Eye Contact</span>
+                <QualitativeBadge status={gazeRating} />
+              </div>
+            )}
+            {screenGazeRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Screen Focus</span>
+                <QualitativeBadge status={screenGazeRating} inverted />
+              </div>
+            )}
+            {tensionRating && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-2 text-center flex flex-col items-center justify-center gap-1">
+                <span className="text-[9.5px] uppercase font-bold text-slate-400 block tracking-wider">Composure</span>
+                <QualitativeBadge status={tensionRating} inverted />
+              </div>
+            )}
+          </div>
+        ) : undefined,
+      });
+    }
   }
 
   // 6. Transcript
   const transcriptDuration = getTranscriptDuration(report);
-  const segments = transcript.segments || [];
-  const filteredSegments = transcriptFilter.trim()
-    ? segments.filter((seg) =>
-        seg.text.toLowerCase().includes(transcriptFilter.toLowerCase())
-      )
-    : segments;
-
-  sections.push({
-    id: "transcript",
-    tabLabel: "Transcript",
-    icon: <FileText size={16} className="text-violet-600" />,
-    iconContainerClass: "bg-violet-50 text-violet-600 border-violet-100",
-    title: "Transcript",
-    status: undefined,
-    rightElement: transcriptDuration ? (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-        <Clock size={11} className="text-blue-600" />
-        {transcriptDuration}
-      </span>
-    ) : undefined,
-    customContent: (
-      <div className="space-y-2.5 pt-1">
-        {fullParagraphText ? (
+  if (candidateSpoke && isRealContent(fullParagraphText)) {
+    sections.push({
+      id: "transcript",
+      tabLabel: "Transcript",
+      icon: <FileText size={16} className="text-violet-600" />,
+      iconContainerClass: "bg-violet-50 text-violet-600 border-violet-100",
+      title: "Transcript",
+      status: undefined,
+      rightElement: transcriptDuration ? (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+          <Clock size={11} className="text-blue-600" />
+          {transcriptDuration}
+        </span>
+      ) : undefined,
+      customContent: (
+        <div className="space-y-2.5 pt-1">
           <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 sm:p-3.5 space-y-2">
             <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
@@ -1261,12 +1467,10 @@ export function DetailsContent({
               </p>
             </div>
           </div>
-        ) : (
-          <p className="text-xs text-slate-400 italic py-2">No transcript recorded for this session.</p>
-        )}
-      </div>
-    ),
-  });
+        </div>
+      ),
+    });
+  }
 
   // 7. Additional Observations
   const addlObs: string[] = [];
@@ -1327,152 +1531,245 @@ export function DetailsContent({
     addlSec?.status ||
     "AVERAGE";
 
-  const addlDesc =
+  const rawAddlDesc =
     report.non_technical?.communication_summary?.trim() ||
     addlSec?.observation?.trim() ||
-    "Delivery, structure, and overall presentation signals evaluated during the interview.";
+    undefined;
+  const addlDesc = isRealContent(rawAddlDesc) ? sanitizeQualitativeText(rawAddlDesc) : undefined;
+  const realAddlObs = addlObs.filter(isRealContent);
 
-  sections.push({
-    id: "additional_observations",
-    tabLabel: "Additional Observations",
-    icon: <ShieldCheck size={16} className="text-emerald-600" />,
-    iconContainerClass: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    title: "Additional Observations",
-    status: addlStatus,
-    description: sanitizeQualitativeText(addlDesc),
-    observations: addlObs.length > 0 ? addlObs : undefined,
+  if (candidateSpoke && (addlDesc || realAddlObs.length > 0)) {
+    sections.push({
+      id: "additional_observations",
+      tabLabel: "Additional Observations",
+      icon: <ShieldCheck size={16} className="text-emerald-600" />,
+      iconContainerClass: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      title: "Additional Observations",
+      status: addlStatus,
+      description: addlDesc,
+      observations: realAddlObs.length > 0 ? realAddlObs : undefined,
+    });
+  }
+
+  // ── Post-Process: strip fallback content, remove sections with nothing real ──
+  const filteredSections = sections
+    .map((s) => ({
+      ...s,
+      description: isRealContent(s.description) ? s.description : undefined,
+      observations: s.observations ? s.observations.filter(isRealContent) : undefined,
+    }))
+    .filter((s) => {
+      const hasText =
+        !!s.description ||
+        (Array.isArray(s.observations) && s.observations.length > 0);
+      const hasCustom = s.customContent != null;
+      return hasText || hasCustom;
+    });
+
+  // ── Accordion State (Supports Independent Expansion & Expand/Collapse All) ──
+  const [expandedSectionIds, setExpandedSectionIds] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (initialSubTab && filteredSections.some((sec) => sec.id === initialSubTab)) {
+      s.add(initialSubTab);
+    } else if (filteredSections[0]?.id) {
+      s.add(filteredSections[0].id);
+    }
+    return s;
   });
 
-  // ── Active Sub-Tab State (Zero-Scroll Single-View Layout) ──
-  const [activeSectionId, setActiveSectionId] = useState<string>(initialSubTab);
+  const lastInitialSubTabRef = useRef(initialSubTab);
 
   useEffect(() => {
-    if (initialSubTab) {
-      setActiveSectionId(initialSubTab);
+    // Only update if initialSubTab genuinely changed from external navigation
+    if (initialSubTab && initialSubTab !== lastInitialSubTabRef.current) {
+      lastInitialSubTabRef.current = initialSubTab;
+      if (filteredSections.some((s) => s.id === initialSubTab)) {
+        setExpandedSectionIds((prev) => new Set(prev).add(initialSubTab));
+      }
     }
-  }, [initialSubTab]);
+  }, [initialSubTab, filteredSections]);
 
-  const activeSection =
-    sections.find((s) => s.id === activeSectionId) || sections[0];
+  const toggleSection = (id: string) => {
+    const isCurrentlyExpanded = expandedSectionIds.has(id);
+    const willOpen = !isCurrentlyExpanded;
+
+    // Mutually exclusive accordion: opening a card automatically closes the previous one
+    setExpandedSectionIds((prev) => {
+      if (prev.has(id) && prev.size === 1) {
+        return new Set();
+      }
+      return new Set([id]);
+    });
+
+    // Smooth Auto-Scroll on Click: automatically scrolls card header to top of viewport
+    if (willOpen && typeof window !== "undefined") {
+      setTimeout(() => {
+        const el = document.getElementById(`detail-section-${id}`);
+        if (el) {
+          const yOffset = -24; // breathing room above card header
+          const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+          window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+        }
+      }, 60);
+    }
+  };
+
+  const handleExpandAll = () => {
+    setExpandedSectionIds(new Set(filteredSections.map((s) => s.id)));
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedSectionIds(new Set());
+  };
+
+  // If candidate did not speak or there are no evaluated sections,
+  // display the short popup card:
+  if (!candidateSpoke || filteredSections.length === 0) {
+    return <EmptyEvaluationCard />;
+  }
 
   return (
-    <div className="space-y-3">
-      {/* Horizontal Sub-Tabs Bar (Fits comfortably on wide screens without cutting off) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none no-scrollbar w-full">
-        {sections.map((section) => {
-          const isActive = section.id === activeSection.id;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => setActiveSectionId(section.id)}
-              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
-                isActive
-                  ? "bg-white text-blue-700 border-blue-400 shadow-2xs ring-2 ring-blue-500/15"
-                  : "bg-white text-slate-600 border-slate-200/90 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
-              }`}
-            >
-              <span
-                className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                  isActive
-                    ? section.iconContainerClass
-                    : "bg-slate-100 text-slate-500 border-slate-200"
-                }`}
-              >
-                {section.icon}
-              </span>
-              <span>{section.tabLabel || section.title}</span>
-              {section.status && (
-                <span
-                  className={`size-1.5 rounded-full shrink-0 ${
-                    ["EXCELLENT", "STRONG", "GOOD", "COVERED", "POSITIVE"].includes(
-                      section.status.toUpperCase()
-                    )
-                      ? "bg-emerald-500"
-                      : ["AVERAGE", "ADEQUATE", "DEVELOPING", "PARTIAL", "MODERATE"].includes(
-                          section.status.toUpperCase()
-                        )
-                      ? "bg-amber-500"
-                      : "bg-rose-500"
-                  }`}
-                  title={section.status}
-                />
-              )}
-            </button>
-          );
-        })}
+    <div className="space-y-1.5 sm:space-y-2">
+      {/* Top Toolbar: Expand All / Collapse All Controls */}
+      <div className="flex items-center justify-end gap-2 pb-0.5 print:hidden">
+        <button
+          type="button"
+          onClick={handleExpandAll}
+          className="px-2.5 py-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 rounded-md border border-blue-200/80 bg-white transition-colors cursor-pointer shadow-2xs"
+        >
+          Expand All
+        </button>
+        <button
+          type="button"
+          onClick={handleCollapseAll}
+          className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-50 rounded-md border border-slate-200 bg-white transition-colors cursor-pointer shadow-2xs"
+        >
+          Collapse All
+        </button>
       </div>
 
-      {/* Active Section Content Card (Zero Page Scroll) */}
-      <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs space-y-3 animate-in fade-in-50 duration-150">
-        {/* Card Header: Icon, Full Title, Right Element, and Qualitative Status Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 border ${activeSection.iconContainerClass}`}
+      {filteredSections.map((section) => {
+        const isExpanded = expandedSectionIds.has(section.id);
+        return (
+          <div
+            key={section.id}
+            id={`detail-section-${section.id}`}
+            className={`rounded-xl border bg-white shadow-xs overflow-hidden transition-all duration-200 ${
+              isExpanded
+                ? "border-blue-200/70 shadow-sm shadow-blue-500/5"
+                : "border-slate-200/80"
+            }`}
+          >
+            {/* ── Accordion Header ── */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => toggleSection(section.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleSection(section.id);
+                }
+              }}
+              className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-slate-50/80 transition-colors cursor-pointer text-left select-none"
             >
-              {activeSection.icon}
-            </span>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">
-              {activeSection.title}
-            </h3>
-          </div>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border ${section.iconContainerClass}`}
+                >
+                  {section.icon}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                    {section.title}
+                  </h3>
+                  {!isExpanded && section.description && (
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5 max-w-[200px] sm:max-w-md">
+                      {section.description}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-          <div className="flex items-center gap-2.5">
-            {activeSection.rightElement}
-            {activeSection.status && (
-              <QualitativeBadge status={activeSection.status} />
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Transcript: inline Open button when collapsed */}
+                {section.id === "transcript" && !isExpanded && fullParagraphText && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFullTranscriptModal(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink size={11} />
+                    Open Transcript
+                  </button>
+                )}
+                {section.rightElement}
+                {section.status && <QualitativeBadge status={section.status} />}
+                <ChevronDown
+                  size={15}
+                  className={`text-slate-400 transition-transform duration-200 shrink-0 ${
+                    isExpanded ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* ── Expanded Body ── */}
+            {isExpanded && (
+              <div className="px-3.5 pb-3 pt-1 border-t border-slate-100 space-y-2 animate-in fade-in-50 duration-150">
+                {/* Description */}
+                {section.description && (
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {section.description}
+                  </p>
+                )}
+
+                {/* Key Observations */}
+                {section.observations && section.observations.length > 0 && (
+                  <div className="rounded-lg bg-[#f0f7ff] border border-blue-100/90 p-2.5 sm:p-3">
+                    <h4 className="text-[11px] font-bold text-slate-900 mb-1">
+                      Key Observations
+                    </h4>
+                    <ul className="space-y-1">
+                      {section.observations.map((obs, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-start gap-1.5 text-xs text-slate-700"
+                        >
+                          <span className="text-blue-500 font-bold shrink-0 leading-none mt-0.5">
+                            •
+                          </span>
+                          <span className="leading-snug">{obs}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Custom Content */}
+                {section.customContent}
+
+                {/* Transcript: Open Full Transcript button (expanded state) */}
+                {section.id === "transcript" && fullParagraphText && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullTranscriptModal(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink size={12} />
+                    Open Full Transcript
+                  </button>
+                )}
+              </div>
             )}
           </div>
-        </div>
+        );
+      })}
 
-        {/* Executive Description */}
-        {activeSection.description && (
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-              Executive Description
-            </span>
-            <p className="text-xs text-slate-600 leading-snug sm:leading-normal">
-              {activeSection.description}
-            </p>
-          </div>
-        )}
-
-        {/* Key Observations */}
-        {activeSection.observations && activeSection.observations.length > 0 && (
-          <div className="rounded-xl bg-[#f0f7ff] border border-blue-100/90 p-3 sm:p-3.5">
-            <h4 className="text-xs font-bold text-slate-900 mb-1.5">
-              Key Observations
-            </h4>
-            <ul className="space-y-1.5">
-              {activeSection.observations.map((obs, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-start gap-2 text-xs text-slate-600"
-                >
-                  <span className="text-blue-500 font-bold shrink-0 leading-none mt-0.5">
-                    •
-                  </span>
-                  <span className="leading-snug sm:leading-normal">{obs}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {(!activeSection.observations || activeSection.observations.length === 0) &&
-          !activeSection.customContent &&
-          !activeSection.description && (
-            <p className="text-xs text-slate-400 italic py-2">
-              No specific observations recorded for this section.
-            </p>
-          )}
-
-        {/* Custom Content (e.g. Concept Matrix, Tech Badges, Audio/Video Factor Badges, Spoken Transcript) */}
-        {activeSection.customContent}
-      </div>
-
-      {/* Full Transcript Modal */}
+      {/* ── Full Transcript Modal ── */}
       {showFullTranscriptModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -1637,14 +1934,29 @@ export function ReportHeader({
 
   const title = roleStr ? `${roleStr} – ${typeName}` : typeName;
 
-  // Metadata formatting
+  // Metadata formatting: Date and Time (e.g. "Aug 24, 2025 at 10:14 AM")
   const rawDate = assessment.completed_at || assessment.created_at;
   const completedDateStr = rawDate
-    ? new Date(rawDate).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
+    ? (() => {
+        let dateStr = String(rawDate).trim();
+        // If backend emits UTC SQL/ISO datetime without timezone suffix, treat as UTC
+        if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(dateStr)) {
+          dateStr = dateStr.replace(" ", "T") + "Z";
+        }
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return undefined;
+        const datePart = d.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        const timePart = d.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        return `${datePart} at ${timePart}`;
+      })()
     : undefined;
 
   const durationStr = getTranscriptDuration(report) || undefined;
@@ -1653,8 +1965,8 @@ export function ReportHeader({
     assessment.assessment_type === "INTRO"
       ? "Introductory"
       : assessment.assessment_type
-      ? assessment.assessment_type.replaceAll("_", " ")
-      : undefined;
+        ? assessment.assessment_type.replaceAll("_", " ")
+        : undefined;
 
   const rawMedia = (assessment.media_type || "").toUpperCase();
   const isAudioOnly =
@@ -1719,15 +2031,26 @@ export function ReportHeader({
               (activeTab === "Evaluation" || activeTab === "Overview")) ||
             (tab.label === "Details" && activeTab !== "Evaluation" && activeTab !== "Overview");
 
+          const candidateSpoke = hasRealSpeech(report);
+          const isDetailsDisabled = tab.label === "Details" && !candidateSpoke;
+
           return (
             <button
               key={tab.label}
               type="button"
-              onClick={() => onSelectTab(tab.label)}
-              className={`pb-2.5 text-sm transition-colors cursor-pointer ${
-                isEvaluation
-                  ? "border-b-2 border-blue-600 font-bold text-blue-600"
-                  : "font-medium text-slate-500 hover:text-slate-900"
+              disabled={isDetailsDisabled}
+              onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
+              title={
+                isDetailsDisabled
+                  ? "Details are unavailable when no evaluation data is recorded"
+                  : undefined
+              }
+              className={`pb-2.5 text-sm transition-colors ${
+                isDetailsDisabled
+                  ? "text-slate-300 cursor-not-allowed select-none"
+                  : isEvaluation
+                  ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                  : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
               }`}
             >
               {tab.label}
@@ -1786,6 +2109,12 @@ export default function AiPrepReport({
   const [error, setError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+
+  useEffect(() => {
+    if (report && !hasRealSpeech(report) && activeTab === "Details") {
+      setActiveTab("Evaluation");
+    }
+  }, [report, activeTab]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekTo = (seconds: number) => {
@@ -1903,6 +2232,10 @@ export default function AiPrepReport({
   }, [tabParam, searchParams]);
 
   const handleTabChange = (tabLabel: ReportTab, subTab?: string) => {
+    // If candidate did not speak, Details tab is disabled
+    if (tabLabel === "Details" && report && !hasRealSpeech(report)) {
+      return;
+    }
     setActiveTab(tabLabel);
     // When clicking Details directly, always default to "intro" (Introduction)
     const resolvedSubTab = subTab ?? (tabLabel === "Details" ? "intro" : undefined);
