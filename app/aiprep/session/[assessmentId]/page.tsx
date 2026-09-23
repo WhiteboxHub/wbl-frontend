@@ -809,10 +809,24 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
 
       // Always trigger backend LLM evaluation pipeline
+      let triggerSuccess = false;
       try {
         await aiprepApi.triggerEvaluation(assessmentId);
+        triggerSuccess = true;
       } catch (evalErr) {
-        console.warn('Evaluation trigger note:', evalErr);
+        console.warn('Evaluation trigger note, falling back to assembleMedia:', evalErr);
+        try {
+          await aiprepApi.assembleMedia(assessmentId);
+          triggerSuccess = true;
+        } catch (assembleErr) {
+          console.error('Failed both evaluation trigger and media assembly:', assembleErr);
+        }
+      }
+
+      if (!triggerSuccess) {
+        setErrorMsg('Failed to finalize assessment. Please check your network connection and try submitting again.');
+        setIsEnding(false);
+        return;
       }
 
       // 6. Clean up browser session storage flags
