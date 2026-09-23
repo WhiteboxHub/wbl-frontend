@@ -67,7 +67,7 @@ export default function RootLayout({
     return () => {
       window.removeEventListener("aiprep-layout-mode", handleLayoutMode);
     };
-  }, []);
+  }, [setHeaderCollapsed, setIsAssessmentLayout, setActiveTabFromEvent]);
 
   // Only lock viewport scrolling for actual assessment chambers:
   // - The /aiprep/session route (live recording room)

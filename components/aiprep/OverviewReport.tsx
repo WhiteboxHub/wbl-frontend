@@ -2612,7 +2612,7 @@ export default function AiPrepReport({
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(
-        new CustomEvent("aiprep-layout-mode", {
+        new window.CustomEvent("aiprep-layout-mode", {
           detail: { active: false, fullscreen: false, isWizardActive: false, headerCollapsed: false, activeTab: "" },
         })
       );
