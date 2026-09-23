@@ -63,7 +63,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
       }
     } catch (err: any) {
       if (isMountedRef.current && currentReqId === reqIdRef.current) {
-        logger.error("Failed to load candidate assessments", err);
+        logger.error("Failed to load candidate assessments:", err);
         setError(err?.message || "Failed to load your assessments.");
       }
     } finally {

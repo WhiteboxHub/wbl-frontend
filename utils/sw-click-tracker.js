@@ -21,6 +21,7 @@ const swWarn = (...args) => {
 };
 
 swLog('[SW] Service Worker v5 (12-Hour Sync + Inactivity Flush) loaded');
+
 function openDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, 2);

@@ -2533,7 +2533,7 @@ export default function AiPrepReport({
 
       setReport(normalizeReport(assessment, dataVal, reportVal));
     } catch (err: unknown) {
-      logger.error("[AiPrepReport] Failed to load real report", err);
+      logger.error("[AiPrepReport] Failed to load real report:", err);
       setError("We couldn't load this assessment report.");
     } finally {
       setLoading(false);

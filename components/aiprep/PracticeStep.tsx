@@ -459,7 +459,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
       await onStartAssessment();
     } catch (err) {
-      logger.error('[PracticeStep] Launch assessment failed', err);
+      logger.error('[PracticeStep] Launch assessment failed:', err);
       setIsLaunching(false);
     }
   };
