@@ -152,7 +152,6 @@ export default function VideoPlayer({
       el.pause();
     } else {
       el.play().catch(() => {
-        setHasMediaError(true);
         setIsPlaying(false);
       });
     }
@@ -205,7 +204,9 @@ export default function VideoPlayer({
     const el = localMediaRef.current;
     if (el) {
       el.currentTime = 0;
-      el.play().catch(() => setHasMediaError(true));
+      el.play().catch(() => {
+        setIsPlaying(false);
+      });
       setIsPlaying(true);
     }
   };
