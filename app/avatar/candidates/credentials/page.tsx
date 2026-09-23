@@ -161,7 +161,7 @@ export default function CandidateCredentialsPage() {
         valueFormatter: (params) => formatDate(params.value),
       },
     ],
-    []
+    [formatDate, setSelectedResume]
   );
 
   return (
