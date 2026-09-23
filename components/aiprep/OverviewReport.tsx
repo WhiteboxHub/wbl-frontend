@@ -1084,12 +1084,14 @@ export function EvaluationContent({
   );
 
   const durationStr = getTranscriptDuration(report);
-  const durationSeconds =
-    report.audio?.recording_environment?.speaking_duration_seconds ||
-    (report as any).audio_telemetry?.duration ||
-    (report.transcript.segments.length > 0
-      ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
-      : 13) || 13;
+  const durationSeconds = candidateSpoke
+    ? report.audio?.recording_environment?.speaking_duration_seconds ||
+      (report as any).audio_telemetry?.duration ||
+      (report.transcript.segments.length > 0
+        ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
+        : 0) || 0
+    : 0;
+
 
   const effectivePlaybackUrl =
     youtube_url ||
@@ -2577,6 +2579,8 @@ export default function AiPrepReport({
 
   // Ensure document and body allow natural vertical scrolling for both Evaluation and Details pages
   useEffect(() => {
+    document.documentElement.classList.remove("overflow-hidden", "h-full");
+    document.body.classList.remove("overflow-hidden", "h-screen", "h-[100dvh]");
     document.documentElement.style.removeProperty("overflow");
     document.documentElement.style.removeProperty("height");
     document.body.style.removeProperty("overflow");
@@ -2585,7 +2589,7 @@ export default function AiPrepReport({
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("aiprep-layout-mode", {
-          detail: { active: false, fullscreen: false, isWizardActive: false, headerCollapsed: false },
+          detail: { active: false, fullscreen: false, isWizardActive: false, headerCollapsed: false, activeTab: "" },
         })
       );
     }

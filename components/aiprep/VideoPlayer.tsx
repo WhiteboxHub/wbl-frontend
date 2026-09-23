@@ -22,6 +22,7 @@ interface Props {
   isAudioOnly?: boolean;
   candidateName?: string;
   durationSeconds?: number;
+  waveformAmplitudes?: number[];
   onSeek?: (seconds: number) => void;
 }
 
@@ -301,7 +302,9 @@ export default function VideoPlayer({
 
   // ── 3. Rich Audio Recording Playback Player ────────────────────────────────
   // Shown for AUDIO assessments or when video recording is audio-only
-  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const effectiveDuration = hasMediaError || !youtubeUrl ? 0 : duration;
+  const effectiveCurrentTime = hasMediaError || !youtubeUrl ? 0 : currentTime;
+  const progressPercent = effectiveDuration > 0 ? Math.min(100, (effectiveCurrentTime / effectiveDuration) * 100) : 0;
 
   return (
     <div
@@ -348,9 +351,8 @@ export default function VideoPlayer({
         ) : (
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/80 border border-slate-700/60">
             <span
-              className={`w-2 h-2 rounded-full ${
-                isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-              }`}
+              className={`w-2 h-2 rounded-full ${isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                }`}
             />
             <span className="text-[10px] font-mono font-semibold text-slate-300">
               {isPlaying ? "PLAYING" : "PAUSED"}
@@ -400,11 +402,10 @@ export default function VideoPlayer({
             return (
               <div
                 key={idx}
-                className={`flex-1 rounded-full transition-all duration-150 ${
-                  isPassed
-                    ? "bg-gradient-to-t from-blue-500 to-indigo-400 shadow-xs shadow-blue-500/20"
-                    : "bg-slate-700/50 hover:bg-slate-600"
-                } ${isCurrent && isPlaying ? "scale-y-110" : ""}`}
+                className={`flex-1 rounded-full transition-all duration-150 ${isPassed
+                  ? "bg-gradient-to-t from-blue-500 to-indigo-400 shadow-xs shadow-blue-500/20"
+                  : "bg-slate-700/50 hover:bg-slate-600"
+                  } ${isCurrent && isPlaying ? "scale-y-110" : ""}`}
                 style={{ height: `${dynamicHeight}%` }}
               />
             );
@@ -419,14 +420,13 @@ export default function VideoPlayer({
           <input
             type="range"
             min={0}
-            max={duration || 1}
+            max={effectiveDuration || 1}
             step={0.1}
-            value={currentTime}
+            value={effectiveCurrentTime}
             disabled={hasMediaError}
             onChange={handleSeekChange}
-            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-blue-500 focus:outline-none transition-all ${
-              hasMediaError ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-            }`}
+            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-blue-500 focus:outline-none transition-all ${hasMediaError ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              }`}
             style={{
               background: `linear-gradient(to right, #3b82f6 ${progressPercent}%, #334155 ${progressPercent}%)`,
             }}
@@ -441,17 +441,16 @@ export default function VideoPlayer({
               type="button"
               onClick={togglePlay}
               disabled={hasMediaError}
-              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${
-                hasMediaError
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none"
-                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95 cursor-pointer"
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${hasMediaError
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none"
+                : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95 cursor-pointer"
+                }`}
               title={
                 hasMediaError
                   ? "Media recording unavailable"
                   : isPlaying
-                  ? "Pause playback"
-                  : "Play recording"
+                    ? "Pause playback"
+                    : "Play recording"
               }
             >
               {isPlaying ? (
@@ -468,11 +467,10 @@ export default function VideoPlayer({
               type="button"
               onClick={handleRestart}
               disabled={hasMediaError}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                hasMediaError
-                  ? "bg-slate-800/50 text-slate-600 cursor-not-allowed"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-              }`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${hasMediaError
+                ? "bg-slate-800/50 text-slate-600 cursor-not-allowed"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                }`}
               title={hasMediaError ? "Media recording unavailable" : "Restart from beginning"}
             >
               <RotateCcw size={13} />
@@ -480,9 +478,9 @@ export default function VideoPlayer({
 
             {/* Time Counter */}
             <div className="font-mono text-xs text-slate-300 font-semibold tracking-tight ml-1">
-              <span>{fmtTime(currentTime)}</span>
+              <span>{fmtTime(effectiveCurrentTime)}</span>
               <span className="text-slate-500 mx-1">/</span>
-              <span className="text-slate-400">{fmtTime(duration)}</span>
+              <span className="text-slate-400">{fmtTime(effectiveDuration)}</span>
             </div>
           </div>
 

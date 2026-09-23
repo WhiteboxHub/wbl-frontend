@@ -51,7 +51,11 @@ export default function RootLayout({
         }
         if (typeof e.detail.isWizardActive === "boolean") {
           setIsAssessmentLayout(e.detail.isWizardActive);
-        } else if (e.detail.fullscreen || e.detail.step || e.detail.slug) {
+        } else if (typeof e.detail.fullscreen === "boolean") {
+          setIsAssessmentLayout(e.detail.fullscreen);
+        } else if (typeof e.detail.active === "boolean") {
+          setIsAssessmentLayout(e.detail.active);
+        } else if (e.detail.step || e.detail.slug) {
           setIsAssessmentLayout(true);
         }
         if (typeof e.detail.activeTab === "string") {
@@ -66,13 +70,28 @@ export default function RootLayout({
   }, []);
 
   const isAiprepRoute =
-    (pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
-    pathname.startsWith("/user_dashboard/ai-prep") ||
-    pathname.startsWith("/user_dashboard/aiprep") ||
-    activeTabFromEvent.startsWith("ai-prep") ||
-    activeTabFromEvent.startsWith("aiprep") ||
-    activeTabFromEvent === "wbl-smartprep";
-  const isAssessment = isAssessmentLayout || isAiprepRoute;
+    !isAiPrepReport &&
+    ((pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
+      pathname.startsWith("/user_dashboard/ai-prep") ||
+      pathname.startsWith("/user_dashboard/aiprep") ||
+      (pathname.startsWith("/user_dashboard") &&
+        (activeTabFromEvent.startsWith("ai-prep") ||
+          activeTabFromEvent.startsWith("aiprep") ||
+          activeTabFromEvent === "wbl-smartprep")));
+  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepRoute);
+
+  useEffect(() => {
+    if (isAiPrepReport) {
+      setIsAssessmentLayout(false);
+      setActiveTabFromEvent("");
+      document.documentElement.style.removeProperty("overflow");
+      document.documentElement.style.removeProperty("height");
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("height");
+      document.documentElement.classList.remove("overflow-hidden", "h-full");
+      document.body.classList.remove("overflow-hidden", "h-screen", "h-[100dvh]");
+    }
+  }, [pathname, isAiPrepReport]);
 
   useEffect(() => {
     if (isAssessment) {
@@ -81,16 +100,16 @@ export default function RootLayout({
       document.body.style.overflow = "hidden";
       document.body.style.height = "100%";
     } else {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-      document.body.style.overflow = "";
-      document.body.style.height = "";
+      document.documentElement.style.removeProperty("overflow");
+      document.documentElement.style.removeProperty("height");
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("height");
     }
     return () => {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-      document.body.style.overflow = "";
-      document.body.style.height = "";
+      document.documentElement.style.removeProperty("overflow");
+      document.documentElement.style.removeProperty("height");
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("height");
     };
   }, [isAssessment]);
 
