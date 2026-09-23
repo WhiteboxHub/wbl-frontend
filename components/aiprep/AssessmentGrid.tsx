@@ -276,7 +276,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
   const allColumnsList = useMemo(() => {
     const list = [
-      { field: "id", label: "Assessment UUID" },
+      { field: "id", label: "Assessment ID" },
     ];
     if (isAdmin) {
       list.push({ field: "candidate", label: "Candidate" });
@@ -287,7 +287,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       { field: "status", label: "Status" },
       { field: "score", label: "Score" },
       { field: "date", label: "Date" },
-      { field: "actions", label: "Actions" }
+      { field: "actions", label: "Report" }
     );
     return list;
   }, [isAdmin]);
@@ -729,7 +729,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       displayedAssessments.length > 0 ? displayedAssessments : assessments;
     if (!listToExport || listToExport.length === 0) return;
     const headers = [
-      "Assessment UUID",
+      "Assessment ID",
       "Candidate Name",
       "Candidate ID",
       "Candidate Email",
@@ -787,38 +787,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Candidate Assessment List ({recordCount})
             </h3>
-            {filters?.search && filters.search.trim() && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-2xs">
-                <span>{filters.search.trim()}</span>
-                <button
-                  type="button"
-                  onClick={() => onFilterChange?.({ search: "" })}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer ml-0.5"
-                  title="Clear filter"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            )}
           </div>
         ) : (
           <div className="flex items-center gap-2 flex-wrap">
             <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 text-xs font-semibold shadow-2xs">
-              {recordCount} records
+              {recordCount} {recordCount === 1 ? "record" : "records"}
             </div>
-            {filters?.search && filters.search.trim() && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-2xs">
-                <span>{filters.search.trim()}</span>
-                <button
-                  type="button"
-                  onClick={() => onFilterChange?.({ search: "" })}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer ml-0.5"
-                  title="Clear filter"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            )}
           </div>
         )}
 
@@ -936,7 +910,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                 <tr className="border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-gray-100">
                   {!hiddenColumns.has("id") && (
                     <th className="py-3 px-4 w-36 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
-                      Assessment UUID
+                      Assessment ID
                     </th>
                   )}
                   {isAdmin && !hiddenColumns.has("candidate") && (
@@ -1057,7 +1031,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
                   {!hiddenColumns.has("actions") && (
                     <th className="py-3 px-4 w-28 text-center font-bold text-gray-900 dark:text-gray-100">
-                      Actions
+                      Report
                     </th>
                   )}
                 </tr>
@@ -1140,7 +1114,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         )}
 
                         {!hiddenColumns.has("score") && (
-                          <td className="py-3.5 px-4 font-medium text-gray-500 dark:text-gray-400">
+                          <td className="py-3.5 px-4 font-medium text-gray-900 dark:text-gray-100">
                             {a.score != null && a.score > 0
                               ? `${a.score}%`
                               : "—"}
@@ -1148,7 +1122,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         )}
 
                         {!hiddenColumns.has("date") && (
-                          <td className="py-3.5 px-4 text-gray-600 dark:text-gray-400 font-medium">
+                          <td className="py-3.5 px-4 text-gray-900 dark:text-gray-100 font-medium">
                             {formatDate(a.created_at)}
                           </td>
                         )}

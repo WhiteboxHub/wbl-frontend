@@ -30,13 +30,14 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
     category: "all",
     media_type: "all",
     status: "all",
-    date_operator: "equals",
+    date_operator: "equals", 
     date_value: "",
-    date_to: "",
+    date_to: "", 
   });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const limit = 50;
   const isMountedRef = React.useRef(true);
   const reqIdRef = React.useRef(0);
@@ -57,6 +58,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
       if (isMountedRef.current && currentReqId === reqIdRef.current) {
         setAssessments(res.items);
         setTotalPages(res.totalPages);
+        setTotalCount(res.total);
       }
     } catch (err: any) {
       if (isMountedRef.current && currentReqId === reqIdRef.current) {
@@ -171,6 +173,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         onView={handleViewAssessment}
         currentPage={currentPage}
         totalPages={totalPages}
+        totalCount={totalCount}
         onPageChange={setCurrentPage}
         isAdmin={false}
         filters={filters}
