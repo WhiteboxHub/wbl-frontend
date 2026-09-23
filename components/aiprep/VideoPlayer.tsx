@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, RefObject } from "react";
+import React, { useState, useEffect, useRef, RefObject, useCallback } from "react";
 import {
   Play,
   Pause,
@@ -68,6 +68,8 @@ export default function VideoPlayer({
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
+  // mediaEl as state ensures the event-listener effect re-runs after the element mounts
+  const [mediaEl, setMediaEl] = useState<HTMLMediaElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationSeconds > 0 ? durationSeconds : 13);
@@ -81,25 +83,25 @@ export default function VideoPlayer({
     if (durationSeconds && durationSeconds > 0) {
       setDuration(durationSeconds);
     }
-  }, [durationSeconds]);
+  }, [durationSeconds, setDuration]);
 
-  // Attach internal ref to parent videoRef so seekTo() from parent works seamlessly
-  const setCombinedRef = (node: HTMLMediaElement | null) => {
+  // Attach internal ref + state so seekTo() from parent works and effect re-runs on mount
+  const setCombinedRef = useCallback((node: HTMLMediaElement | null) => {
     localMediaRef.current = node;
+    setMediaEl(node);
     if (videoRef) {
       (videoRef as React.MutableRefObject<any>).current = node;
     }
-  };
+  }, [videoRef]);
 
-  // Video or Audio time tracking
+  // Video or Audio time tracking — depends on mediaEl state so it re-runs after mount
   useEffect(() => {
-    const el = localMediaRef.current;
-    if (!el) return;
+    if (!mediaEl) return;
 
     const handleTimeUpdate = () => {
-      setCurrentTime(el.currentTime);
-      if (el.duration && !isNaN(el.duration) && isFinite(el.duration)) {
-        setDuration(el.duration);
+      setCurrentTime(mediaEl.currentTime);
+      if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration)) {
+        setDuration(mediaEl.duration);
       }
     };
 
@@ -113,20 +115,20 @@ export default function VideoPlayer({
       setHasMediaError(true);
     };
 
-    el.addEventListener("timeupdate", handleTimeUpdate);
-    el.addEventListener("play", handlePlay);
-    el.addEventListener("pause", handlePause);
-    el.addEventListener("ended", handleEnded);
-    el.addEventListener("error", handleError);
+    mediaEl.addEventListener("timeupdate", handleTimeUpdate);
+    mediaEl.addEventListener("play", handlePlay);
+    mediaEl.addEventListener("pause", handlePause);
+    mediaEl.addEventListener("ended", handleEnded);
+    mediaEl.addEventListener("error", handleError);
 
     return () => {
-      el.removeEventListener("timeupdate", handleTimeUpdate);
-      el.removeEventListener("play", handlePlay);
-      el.removeEventListener("pause", handlePause);
-      el.removeEventListener("ended", handleEnded);
-      el.removeEventListener("error", handleError);
+      mediaEl.removeEventListener("timeupdate", handleTimeUpdate);
+      mediaEl.removeEventListener("play", handlePlay);
+      mediaEl.removeEventListener("pause", handlePause);
+      mediaEl.removeEventListener("ended", handleEnded);
+      mediaEl.removeEventListener("error", handleError);
     };
-  }, []);
+  }, [mediaEl]);
 
   // Simulated fallback playback timer if media element cannot load
   useEffect(() => {
