@@ -167,14 +167,28 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
   }
 
   // Render Role-Based Dashboards
-  if (userRole === "employee") {
+  if (userRole === "employee" || userRole === "admin") {
     const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const cid = searchParams?.get("candidateId");
     if (cid) {
       return <CandidateDashboardWithSetupCheck currentTab={currentTab} />;
     }
-    router.replace("/avatar/employee/employee-dashboard");
-    return null;
+    if (
+      currentTab.startsWith("ai-prep") ||
+      currentTab.startsWith("aiprep") ||
+      currentTab === "wbl-smartprep"
+    ) {
+      router.replace("/avatar/assessments");
+      return null;
+    }
+    if (userRole === "employee") {
+      router.replace("/avatar/employee/employee-dashboard");
+      return null;
+    }
+    if (userRole === "admin") {
+      router.replace("/avatar/assessments");
+      return null;
+    }
   }
 
   if (userRole === "candidate") {

@@ -596,18 +596,50 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
 
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
+
+    const rawSearch = (filters?.search || "").trim();
+    const searchTerm = rawSearch.toLowerCase();
+    const cleanId = searchTerm.replace(/^(as|#)[\s-]*/i, "").trim();
+    const isNumericSearch = cleanId !== "" && /^\d+$/.test(cleanId);
+
+    // If user enters an assessment ID (e.g. "155", "AS-155", "#155") and that ID exists,
+    // prioritize exact ID match so ONLY that assessment is rendered.
+    const exactIdItem = isNumericSearch
+      ? assessments.find(
+          (a) =>
+            String(a.id) === cleanId ||
+            getAssessmentDisplayId(a).toLowerCase() === searchTerm
+        )
+      : null;
+
     return assessments.filter((a) => {
       // 1. Search term filter (Assessment ID / UUID)
-      if (filters?.search?.trim()) {
-        const term = filters.search.toLowerCase().trim();
-        const displayId = getAssessmentDisplayId(a).toLowerCase();
-        const matchId =
-          displayId.includes(term) ||
-          `as-${a.id}`.toLowerCase().includes(term) ||
-          String(a.id).toLowerCase().includes(term) ||
-          Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(term));
-        if (!matchId) {
-          return false;
+      if (searchTerm) {
+        if (exactIdItem) {
+          // If the searched assessment ID exists, render ONLY that exact assessment
+          if (a.id !== exactIdItem.id) {
+            return false;
+          }
+        } else if (isNumericSearch) {
+          // User is searching by numeric ID: match strictly against assessment ID (never against UUID substrings)
+          const displayId = getAssessmentDisplayId(a).toLowerCase();
+          const matchId =
+            String(a.id) === cleanId ||
+            String(a.id).startsWith(cleanId) ||
+            displayId.includes(searchTerm);
+          if (!matchId) {
+            return false;
+          }
+        } else {
+          // Non-numeric search (e.g. prefix "as-", or UUID search like "2b8ed773...")
+          const displayId = getAssessmentDisplayId(a).toLowerCase();
+          const matchId =
+            displayId.includes(searchTerm) ||
+            `as-${a.id}`.toLowerCase().includes(searchTerm) ||
+            Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(searchTerm));
+          if (!matchId) {
+            return false;
+          }
         }
       }
 
@@ -1073,7 +1105,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                                   onView(a);
                                 }
                               }}
-                              className="hover:underline text-purple-600 dark:text-purple-400 font-semibold cursor-pointer text-left whitespace-nowrap font-mono"
+                              className="hover:underline text-black dark:text-white font-semibold cursor-pointer text-left whitespace-nowrap font-mono"
                               title="Click to filter"
                             >
                               {getAssessmentDisplayId(a)}

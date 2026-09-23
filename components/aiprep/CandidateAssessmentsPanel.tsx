@@ -96,6 +96,9 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
 
   const handleViewAssessment = (assessment: AssessmentGridItem) => {
     const reportTarget = assessment.id || assessment.assessment_uuid;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("aiprep_return_url", "/user_dashboard/ai-prep/assessments");
+    }
     router.push(`/aiprep/reports/${reportTarget}`);
   };
 
