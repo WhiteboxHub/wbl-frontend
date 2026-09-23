@@ -94,6 +94,7 @@ export default function CandidateCredentialsPage() {
         field: "full_name",
         headerName: "Candidate Name",
         width: 180,
+        flex: 1,
         sortable: true,
         filter: "agTextColumnFilter",
       },
@@ -101,6 +102,7 @@ export default function CandidateCredentialsPage() {
         field: "email",
         headerName: "Email",
         width: 200,
+        flex: 1,
         sortable: true,
         filter: "agTextColumnFilter",
       },
@@ -209,22 +211,20 @@ export default function CandidateCredentialsPage() {
       ) : loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       ) : (
-        <div className="flex justify-center w-full">
-          <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <AGGridTable
-              rowData={filteredData}
-              columnDefs={columnDefs}
-              title={`Candidate Credentials (${filteredData.length})`}
-              height="calc(80vh)"
-              showSearch={false}
-              showAddButton={false}
-              showEditButton={false}
-              onRowUpdated={() => fetchData()}
-              onRowDeleted={async (id) => {
-                fetchData();
-              }}
-            />
-          </div>
+        <div className="flex w-full justify-center">
+          <AGGridTable
+            rowData={filteredData}
+            columnDefs={columnDefs}
+            title={`Candidate Credentials (${filteredData.length})`}
+            height="calc(80vh)"
+            showSearch={false}
+            showAddButton={false}
+            showEditButton={false}
+            onRowUpdated={() => fetchData()}
+            onRowDeleted={async (id) => {
+              fetchData();
+            }}
+          />
         </div>
       )}
 
