@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 import { assessmentService } from "@/services/assessmentService";
+import { logger } from "@/lib/utils";
 import { AssessmentFilters } from "@/components/aiprep/AssessmentFilters";
 import { AssessmentGrid } from "@/components/aiprep/AssessmentGrid";
 import { AssessmentDetailModal } from "@/components/aiprep/AssessmentDetailModal";
@@ -75,7 +76,7 @@ export default function CandidateAssessmentsPage() {
       setTotalPages(res.totalPages);
       setTotalCount(res.total);
     } catch (err: any) {
-      console.error("Failed to load assessments:", err);
+      logger.error("Failed to load assessments", err);
       const msg =
         typeof err?.message === "string"
           ? err.message

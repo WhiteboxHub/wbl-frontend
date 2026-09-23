@@ -1,3 +1,5 @@
+import { logger } from "@/lib/utils";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function tryRefreshToken(): Promise<string | null> {
@@ -18,7 +20,7 @@ async function tryRefreshToken(): Promise<string | null> {
     }
     return null;
   } catch (e) {
-    console.error("refresh error:", e);
+    logger.error("refresh error", e);
     return null;
   }
 }

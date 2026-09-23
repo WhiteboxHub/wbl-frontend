@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import { logger } from "@/lib/utils";
 import {
   AssessmentFiltersState,
   AssessmentGridItem,
@@ -55,7 +56,7 @@ export const assessmentService = {
           totalPages,
         };
       } catch (err: any) {
-        console.warn("fetchCandidateAssessments error:", err?.message);
+        logger.warn("fetchCandidateAssessments error:", err?.message);
         return {
           items: [],
           total: 0,
@@ -122,14 +123,8 @@ export const assessmentService = {
         totalPages,
       };
     } catch (err: any) {
-      console.warn("fetchEmployeeAssessments error:", err?.message);
-      return {
-        items: [],
-        total: 0,
-        page,
-        limit,
-        totalPages: 1,
-      };
+      logger.warn("fetchEmployeeAssessments error:", err?.message);
+      throw err;
     }
   },
 
@@ -171,7 +166,7 @@ export const assessmentService = {
         totalPages: 1,
       };
     } catch (err: any) {
-      console.warn("fetchAllEmployeeAssessments error:", err?.message);
+      logger.warn("fetchAllEmployeeAssessments error:", err?.message);
       return {
         items: [],
         total: 0,
@@ -189,7 +184,7 @@ export const assessmentService = {
       );
       return res;
     } catch (err: any) {
-      console.error("fetchAssessmentDetail error:", err);
+      logger.error("fetchAssessmentDetail error", err);
       return null;
     }
   },
@@ -201,7 +196,7 @@ export const assessmentService = {
       );
       return res;
     } catch (err: any) {
-      console.error("fetchAssessmentData error:", err);
+      logger.error("fetchAssessmentData error", err);
       return {
         id: assessmentId,
         questions: [],
@@ -220,7 +215,7 @@ export const assessmentService = {
       );
       return res;
     } catch (err: any) {
-      console.warn("deleteAssessment error:", err?.message);
+      logger.warn("deleteAssessment error:", err?.message);
       return null;
     }
   },

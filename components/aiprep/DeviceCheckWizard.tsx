@@ -12,6 +12,7 @@ import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from
 import PracticeStep from './PracticeStep';
 import { AssessmentType, aiPrepApi, HardwareCheckResults } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
+import { logger } from '@/lib/utils';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START';
@@ -1349,7 +1350,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       const userResponse = await apiFetch("user_dashboard");
       if (userResponse?.candidate_id || userResponse?.id) return userResponse.candidate_id || userResponse.id;
     } catch (err) {
-      console.warn("[DeviceCheckWizard] Could not resolve candidate profile:", err);
+      logger.warn("[DeviceCheckWizard] Could not resolve candidate profile:", err);
     }
     return undefined;
   };
@@ -1398,7 +1399,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
         router.push(targetSessionUrl);
       } catch (err: any) {
-        console.error('[DeviceCheckWizard] Failed to start assessment:', err);
+        logger.error('[DeviceCheckWizard] Failed to start assessment', err);
         alert(err?.message || 'Failed to start assessment. Please try again.');
         throw err;
       }
@@ -1478,7 +1479,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           }
         }
       } catch (err) {
-        console.error('[handleNext] Hardware pre-flight error:', err);
+        logger.error('[handleNext] Hardware pre-flight error', err);
         setMicOk(false);
         setMicTested(true);
         return;

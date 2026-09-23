@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/utils/AuthContext';
 import { aiPrepApi } from '@/lib/aiprep-api';
+import { logger } from '@/lib/utils';
 import type { AssessmentType, AssessmentMode, HardwareCheckResults } from '@/types/aiprep';
 import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
@@ -84,7 +85,7 @@ export default function AIPrepPage() {
         const userResponse = await apiFetch("user_dashboard");
         if (userResponse?.candidate_id) candidateId = userResponse.candidate_id;
       } catch (err) {
-        console.error("Failed to retrieve candidate profile details:", err);
+        logger.error("Failed to retrieve candidate profile details", err);
       }
 
       const targetType: AssessmentType = (results.assessment_type as AssessmentType) || effectiveType || 'INTRO';
@@ -109,7 +110,7 @@ export default function AIPrepPage() {
 
       router.push(targetSessionUrl);
     } catch (err: any) {
-      console.error('[Session Setup Error] Creation pipeline failed:', err);
+      logger.error('[Session Setup Error] Creation pipeline failed', err);
       setErrorMsg(err.message || 'Setup pipeline failed. Please try again.');
       setIsSaving(false);
       throw err;

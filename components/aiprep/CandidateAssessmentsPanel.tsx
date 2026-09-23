@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 import { assessmentService } from "@/services/assessmentService";
+import { logger } from "@/lib/utils";
 import { AssessmentGrid } from "./AssessmentGrid";
 import { AssessmentFilters } from "./AssessmentFilters";
 
@@ -62,7 +63,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
       }
     } catch (err: any) {
       if (isMountedRef.current && currentReqId === reqIdRef.current) {
-        console.error("Failed to load candidate assessments:", err);
+        logger.error("Failed to load candidate assessments", err);
         setError(err?.message || "Failed to load your assessments.");
       }
     } finally {

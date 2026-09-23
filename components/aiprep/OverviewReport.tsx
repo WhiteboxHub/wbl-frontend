@@ -36,6 +36,7 @@ import {
   MicOff,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
+import { logger } from "@/lib/utils";
 import {
   normalizeReport,
   type NormalizedReport,
@@ -2532,7 +2533,7 @@ export default function AiPrepReport({
 
       setReport(normalizeReport(assessment, dataVal, reportVal));
     } catch (err: unknown) {
-      console.error("[AiPrepReport] Failed to load real report:", err);
+      logger.error("[AiPrepReport] Failed to load real report", err);
       setError("We couldn't load this assessment report.");
     } finally {
       setLoading(false);

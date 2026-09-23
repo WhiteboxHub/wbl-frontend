@@ -11,6 +11,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from '
 import Image from 'next/image';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { aiprepApi } from '@/lib/aiprep-api';
+import { logger } from '@/lib/utils';
 import type {
   AssessmentType,
   AssessmentStatus,
@@ -335,7 +336,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       enqueueChunk(blob, chunkIdx, isFinal);
     },
     onError: (err) => {
-      console.error('[MediaRecorder Error]:', err);
+      logger.error('[MediaRecorder Error]', err);
       setErrorMsg(err.message || 'Media recording failed.');
     },
   });
@@ -419,19 +420,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   };
 
-  // ── Initialize Session Metadata & Questions from Backend DB ────────────────
-  useEffect(() => {
-    if (!assessmentId) {
-      setErrorMsg('No assessment ID provided. Please start from the assessment portal.');
-      setIsLoading(false);
-      return;
-    }
-    if (sessionInitializedRef.current) return;
-    sessionInitializedRef.current = true;
-
-    async function initSession() {
+    const initSession = useCallback(async () => {
       try {
         setIsLoading(true);
+        setErrorMsg(null);
 
         // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
         let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
@@ -457,7 +449,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
           }
         } catch (qErr) {
-          console.warn('Questions API fallback failed:', qErr);
+          logger.warn('Questions API fallback failed:', qErr);
         }
 
         setQuestions(loadedQuestions);
@@ -482,12 +474,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }, 1000);
         }
       } catch (err: any) {
-        console.error('Session initialization error:', err);
+        logger.error('Session initialization error', err);
         setErrorMsg(err?.message || 'Failed to initialize assessment session.');
       } finally {
         setIsLoading(false);
       }
+    }, [assessmentId]);
+
+  // ── Initialize Session Metadata & Questions from Backend DB ────────────────
+  useEffect(() => {
+    if (!assessmentId) {
+      setErrorMsg('No assessment ID provided. Please start from the assessment portal.');
+      setIsLoading(false);
+      return;
     }
+    if (sessionInitializedRef.current) return;
+    sessionInitializedRef.current = true;
 
     initSession();
 
@@ -496,7 +498,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech]);
+  }, [assessmentId, initSession, stopAiSpeech]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -798,7 +800,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       try {
         await aiprepApi.submitTelemetryData(assessmentId, telemetryPayload);
       } catch (submitErr) {
-        console.warn('Telemetry submission note:', submitErr);
+        logger.warn('Telemetry submission note', submitErr);
       }
 
       // 5. Trigger primary LLM Evaluation Orchestrator
@@ -807,12 +809,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         await aiprepApi.triggerEvaluation(assessmentId);
         triggerSuccess = true;
       } catch (evalErr) {
-        console.warn('Evaluation trigger note, falling back to assembleMedia:', evalErr);
+        logger.warn('Evaluation trigger note, falling back to assembleMedia:', evalErr);
         try {
           await aiprepApi.assembleMedia(assessmentId);
           triggerSuccess = true;
         } catch (assembleErr) {
-          console.error('Failed both evaluation trigger and media assembly:', assembleErr);
+          logger.error('Failed both evaluation trigger and media assembly:', assembleErr);
         }
       }
 
@@ -832,7 +834,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         : `/aiprep/session/${assessmentId}/processing`;
       router.push(processingUrl);
     } catch (err: any) {
-      console.error('Finalize session error:', err);
+      logger.error('Finalize session error', err);
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
       setIsEnding(false);
     } finally {
@@ -868,7 +870,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     );
   }
 
-  if (errorMsg && !assessmentId) {
+  if (errorMsg) {
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
         <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center mb-4 text-rose-500">
@@ -876,12 +878,23 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">Session Room Error</h3>
         <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto mb-5 leading-relaxed">{errorMsg}</p>
-        <button
-          onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
-          className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer"
-        >
-          Return to Portal
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              sessionInitializedRef.current = false;
+              initSession();
+            }}
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Retry Connection
+          </button>
+          <button
+            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Return to Portal
+          </button>
+        </div>
       </div>
     );
   }

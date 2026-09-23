@@ -1,4 +1,6 @@
 
+import { logger } from "@/lib/utils";
+
 export const parseJwt = (token) => {
   try {
     return JSON.parse(atob(token.split(".")[1]));
@@ -76,9 +78,7 @@ export const fetchUserRole = async (token, forceRefresh = false) => {
       userRoleCache = { token: t, data: res, timestamp: Date.now() };
       return res;
     } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("fetchUserRole network error:", error);
-      }
+      logger.warn("fetchUserRole network error:", error);
       return { role: null, status: "inactive" };
     } finally {
       inFlightUserRolePromise = null;
@@ -154,7 +154,7 @@ export const isAuthenticated = async () => {
 
     return { valid: true, message: "" };
   } catch (error) {
-    console.error("Auth check error:", error);
+    logger.error("Auth check error", error);
     return { valid: false, message: "An error occurred while validating the token" };
   }
 };

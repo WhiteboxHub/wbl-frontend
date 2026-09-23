@@ -13,6 +13,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
+import { logger } from '@/lib/utils';
 import {
   Mic,
   Video,
@@ -343,7 +344,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       }, 1000);
       recordTimerRef.current = timer;
     } catch (err) {
-      console.error('Failed to start sandbox test recording:', err);
+      logger.error('Failed to start sandbox test recording', err);
     }
   };
 
@@ -458,7 +459,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
       await onStartAssessment();
     } catch (err) {
-      console.error('[PracticeStep] Launch assessment failed:', err);
+      logger.error('[PracticeStep] Launch assessment failed', err);
       setIsLaunching(false);
     }
   };
