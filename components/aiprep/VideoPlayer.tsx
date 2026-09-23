@@ -238,14 +238,20 @@ export default function VideoPlayer({
   // Use a positive file-type check rather than substring exclusion to avoid
   // false negatives when the URL contains 'audio' in non-extension segments
   // (e.g. 's3.amazonaws.com/audio-prep-videos/video.mp4').
-  // Uses URL.pathname to strip query params first, so presigned S3/CDN URLs
-  // (e.g. video.mp4?X-Amz-Expires=3600&X-Amz-Signature=...) are matched correctly.
+  // Uses URL.pathname + hostname to strip query params first, so presigned
+  // S3/CDN URLs and YouTube URLs without file extensions are matched correctly.
   const isVideoFile =
     youtubeUrl &&
     (() => {
       try {
-        const pathname = new URL(youtubeUrl).pathname.toLowerCase();
+        const url = new URL(youtubeUrl);
+        const pathname = url.pathname.toLowerCase();
+        const hostname = url.hostname.toLowerCase();
+        // YouTube URLs have no file extension in the pathname — match by host
+        const isYouTube =
+          hostname.includes("youtube.com") || hostname.includes("youtu.be");
         return (
+          isYouTube ||
           pathname.endsWith(".mp4") ||
           pathname.endsWith(".webm") ||
           pathname.includes("/playback")
@@ -254,6 +260,8 @@ export default function VideoPlayer({
         // Fallback for relative or non-standard URLs the URL constructor rejects
         const lower = youtubeUrl.toLowerCase();
         return (
+          lower.includes("youtube.com") ||
+          lower.includes("youtu.be") ||
           lower.includes(".mp4") ||
           lower.includes(".webm") ||
           lower.includes("/playback")
