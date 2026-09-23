@@ -235,7 +235,15 @@ export default function VideoPlayer({
   }
 
   // ── 2. Standard Video Mode (when media is Video and has valid URL) ──────────
-  if (!isAudioOnly && youtubeUrl && !youtubeUrl.includes(".wav") && !youtubeUrl.includes("audio")) {
+  // Use a positive file-type check rather than substring exclusion to avoid
+  // false negatives when the URL contains 'audio' in non-extension segments
+  // (e.g. 's3.amazonaws.com/audio-prep-videos/video.mp4').
+  const isVideoFile =
+    youtubeUrl &&
+    (youtubeUrl.endsWith(".mp4") ||
+      youtubeUrl.endsWith(".webm") ||
+      youtubeUrl.includes("/playback"));
+  if (!isAudioOnly && youtubeUrl && isVideoFile) {
     return (
       <div
         className={`relative w-full overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-sm ${className ?? ""}`}
