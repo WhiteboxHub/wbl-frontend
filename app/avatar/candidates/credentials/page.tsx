@@ -47,7 +47,7 @@ export default function CandidateCredentialsPage() {
     setLoading(true);
     setError(null);
     try {
-      if (bust) invalidateCache("/candidates/credentials");
+      if (bust) invalidateCache("/candidates/credentials?page=1&limit=500");
       const res = await cachedApiFetch("/candidates/credentials?page=1&limit=500");
       const rows = Array.isArray(res.data?.data)
         ? res.data.data
