@@ -1931,10 +1931,14 @@ export function DetailsContent({
 
     // Mutually exclusive accordion: opening a card automatically closes the previous one
     setExpandedSectionIds((prev) => {
-      if (prev.has(id) && prev.size === 1) {
-        return new Set();
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.clear();
+        next.add(id);
       }
-      return new Set([id]);
+      return next;
     });
 
     // Smooth Auto-Scroll on Click: automatically scrolls card header to top of viewport
