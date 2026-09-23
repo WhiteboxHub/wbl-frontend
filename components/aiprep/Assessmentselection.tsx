@@ -36,17 +36,20 @@ const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
   TECHNICAL: 'Core Skills & Concepts', HIRING_MANAGER: 'Projects & Leadership', SYSTEM_DESIGN: 'Architecture & Design',
 };
 
+export const UNLOCKED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO'];
+
 export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
   const details = ASSESSMENT_INFO_DETAILS[type];
-  const isIntro = type === 'INTRO';
+  const isUnlocked = UNLOCKED_ASSESSMENT_TYPES.includes(type);
+  
   return {
     type,
     title: SHORT_TITLES[type] || details?.title || type,
     subtitle: details?.subtitle,
     description: SHORT_DESCRIPTIONS[type] || details?.shortDescription || '',
     duration: details?.duration,
-    isLocked: !isIntro,
-    lockBadge: isIntro ? undefined : 'Coming Soon',
+    isLocked: !isUnlocked,
+    lockBadge: isUnlocked ? undefined : 'Coming Soon',
     icon: CARD_ICONS[type] || <MessageSquare className="w-5 h-5 stroke-[1.8]" />,
   };
 });
@@ -58,6 +61,7 @@ export interface AssessmentCardProps {
   isClickable?: boolean;
   onClick?: () => void;
   onInfoClick?: () => void;
+  onAddJdClick?: () => void;
 }
 
 export function AssessmentCard({
@@ -66,6 +70,7 @@ export function AssessmentCard({
   isClickable,
   onClick,
   onInfoClick,
+  onAddJdClick,
 }: AssessmentCardProps) {
   if (!card) return null;
 
@@ -89,8 +94,19 @@ export function AssessmentCard({
           {card.icon}
         </div>
 
-        {/* Right Status Indicator */}
-        <div>
+        {/* Right Status Indicator & Extra Actions */}
+        <div className="flex items-center gap-2">
+          {isSelected && card.type === 'JD_INTRO' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onAddJdClick) onAddJdClick();
+              }}
+              className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 sm:py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow-sm"
+            >
+              ADD JD
+            </button>
+          )}
           {isSelected ? (
             <div className="w-2.5 h-2.5 rounded-full bg-[#7C3AED] dark:bg-purple-400 mt-0.5 mr-0.5" />
           ) : card.isLocked ? (
@@ -157,6 +173,8 @@ export interface AssessmentConfigProps {
   setAssessmentType: (type: AssessmentType) => void;
   onNext?: () => void;
   onCancel?: () => void;
+  jdText?: string;
+  setJdText?: (text: string) => void;
 }
 
 export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
@@ -164,8 +182,12 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   setAssessmentType,
   onNext,
   onCancel,
+  jdText = '',
+  setJdText,
 }) => {
   const [infoModalType, setInfoModalType] = useState<AssessmentType | null>(null);
+  const [isJdModalOpen, setIsJdModalOpen] = useState(false);
+  const [showJdError, setShowJdError] = useState(false);
 
   const handleTypeSelect = (type: AssessmentType, isLocked?: boolean) => {
     if (!isLocked) {
@@ -174,6 +196,11 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   };
 
   const handleNextClick = () => {
+    if (assessmentType === 'JD_INTRO' && !jdText.trim()) {
+      setShowJdError(true);
+      setIsJdModalOpen(true);
+      return;
+    }
     if (onNext) onNext();
   };
 
@@ -204,6 +231,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
               isClickable={isClickable}
               onClick={() => handleTypeSelect(card.type, card.isLocked)}
               onInfoClick={() => setInfoModalType(card.type)}
+              onAddJdClick={() => setIsJdModalOpen(true)}
             />
           );
         })}
@@ -244,6 +272,55 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
           setInfoModalType(null);
         }}
       />
+
+      {/* ── JD Modal Popup ── */}
+      {isJdModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-bold text-slate-900 dark:text-white">Add Job Description</h3>
+              <button 
+                onClick={() => {
+                  setIsJdModalOpen(false);
+                  setShowJdError(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Paste the job description here to customize your assessment.
+              </p>
+              <textarea 
+                value={jdText}
+                onChange={(e) => {
+                  if (setJdText) setJdText(e.target.value);
+                  if (e.target.value.trim()) setShowJdError(false);
+                }}
+                className={`w-full h-32 p-3 text-sm rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 resize-none ${showJdError ? 'border-red-400 focus:ring-red-500/50' : 'border-slate-300 dark:border-slate-700 focus:ring-purple-500/50'}`}
+                placeholder="Paste Job Description..."
+              />
+              {showJdError && (
+                <p className="text-xs text-red-500 font-medium">Please provide a job description to continue.</p>
+              )}
+              <button 
+                className="w-full py-2.5 rounded-xl bg-[#7C3AED] text-white font-semibold text-sm hover:bg-[#6D28D9] transition-colors"
+                onClick={() => {
+                  if (!jdText.trim()) {
+                    setShowJdError(true);
+                    return;
+                  }
+                  setIsJdModalOpen(false);
+                }}
+              >
+                Save JD
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

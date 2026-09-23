@@ -26,7 +26,7 @@ interface StepConfig {
 const PIPELINE_STEPS: StepConfig[] = [
   {
     key: 'stt',
-    title: 'Transcribing Audio & Q&A Transcript',
+    title: 'Transcribing Audio & Transcript',
     description: 'Converting voice recordings to structured candidate text',
     icon: IconWaveSine,
   },
@@ -44,14 +44,14 @@ const PIPELINE_STEPS: StepConfig[] = [
   },
   {
     key: 'llm',
-    title: 'AI Scoring Engine (GPT-4o)',
+    title: 'AI Scoring Engine',
     description: 'Synthesizing technical depth, answer quality, and rubrics',
     icon: IconSparkles,
   },
   {
     key: 'finalize',
-    title: 'Coaching Report Generation',
-    description: 'Compiling strengths, improvement areas, and radar metrics',
+    title: 'Assessment Report Generation',
+    description: 'Compiling strengths, improvement areas, and performance metrics',
     icon: IconFileText,
   },
 ];
@@ -78,6 +78,17 @@ export default function AssessmentProcessingPage() {
   const rawId = routeParams?.assessmentId;
   const assessmentId = Array.isArray(rawId) ? Number(rawId[0]) : Number(rawId);
   const isEmbedded = searchParams?.get('embed') === 'true';
+
+  // Detect audio-only mode from session storage (set during wizard) to hide video step
+  const [isAudioOnly, setIsAudioOnly] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      const mode = sessionStorage.getItem('aiprep_active_mode');
+      if (mode === 'AUDIO' || mode === 'AUDIO_ONLY') {
+        setIsAudioOnly(true);
+      }
+    } catch (_) {}
+  }, []);
 
   const {
     steps,
@@ -163,7 +174,11 @@ export default function AssessmentProcessingPage() {
 
         {/* Pipeline Step Checklist */}
         <div className="space-y-3 pt-2">
-          {PIPELINE_STEPS.map((step) => {
+          {PIPELINE_STEPS.filter((step) => {
+            // Hide the video step for audio-only assessments
+            if (step.key === 'video' && isAudioOnly) return false;
+            return true;
+          }).map((step) => {
             const stepStatus = steps[step.key];
             const StepIcon = step.icon;
 
@@ -244,7 +259,7 @@ export default function AssessmentProcessingPage() {
               }}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md hover:shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
             >
-              <span>View Coaching Report</span>
+              <span>View Assessment Report</span>
               <IconArrowRight size={16} />
             </button>
           ) : isFailed ? (

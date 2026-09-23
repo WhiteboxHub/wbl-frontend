@@ -69,7 +69,7 @@ export function formatBand(raw?: string | null, inverted: boolean = false): stri
     WEAK:                "Needs Improvement",
     POOR:                "Needs Improvement",
     COVERED:             "Good",
-    NOT_MENTIONED:       "Needs Improvement",
+    NOT_MENTIONED:       "Not Mentioned",
     NEGATIVE:            "Needs Improvement",
     NOT_APPLICABLE:      "N/A",
     INSUFFICIENT_DATA:   "Insufficient Data",
@@ -107,8 +107,8 @@ export function bandColor(band?: string, inverted: boolean = false): string {
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
     case "POOR":
-    case "NOT_MENTIONED":
     case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NOT_MENTIONED":
     case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
     default:              return "bg-slate-100 text-slate-500 border-slate-200";
   }
@@ -181,6 +181,7 @@ export interface IntroOverallAssessment {
 export interface NormalizedReport {
   // ── Assessment meta ──────────────────────────────────────────
   assessment: AssessmentDetail;
+  candidate_name?: string | null;
   /** YouTube or streaming URL for playback; null = unavailable */
   youtube_url: string | null;
 
@@ -897,14 +898,25 @@ export function normalizeReport(
       ? "VIDEO"
       : "AUDIO";
 
+  const resolvedCandidateName =
+    assessment.candidate_name ||
+    (assessment as any)?.candidate?.full_name ||
+    (assessment as any)?.candidate?.name ||
+    (data as any)?.candidate_name ||
+    (data as any)?.assessment?.candidate_name ||
+    (apiReport as any)?.candidate_name ||
+    null;
+
   const normalizedAssessment = {
     ...assessment,
+    candidate_name: resolvedCandidateName,
     media_type: normalizedMediaType,
     youtube_url: resolvedMediaUrl,
   };
 
   return {
     assessment: normalizedAssessment,
+    candidate_name: resolvedCandidateName,
     youtube_url: resolvedMediaUrl,
     overall_readiness: overallReadiness,
     overall_summary: overallSummary,

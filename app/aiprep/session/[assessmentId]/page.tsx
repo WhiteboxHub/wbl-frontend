@@ -44,7 +44,7 @@ import {
 /**
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
  */
-const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream | null; isMuted: boolean }) => {
+const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stream: MediaStream | null; isMuted: boolean; isLight?: boolean }) => {
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(3));
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -113,14 +113,22 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted }: { stream: MediaStream |
   if (isMuted) return null;
 
   return (
-    <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 px-3 py-1.5 rounded-full backdrop-blur-xl shadow-lg">
-      <IconMicrophone size={14} stroke={2} className="text-emerald-400 shrink-0" />
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors ${
+      isLight
+        ? 'bg-slate-100/90 border border-slate-200 text-slate-700'
+        : 'bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg'
+    }`}>
+      <IconMicrophone size={14} stroke={2} className={`${isLight ? 'text-indigo-600' : 'text-emerald-400'} shrink-0`} />
       <div className="flex items-center gap-[2.5px] h-4 overflow-hidden">
         {audioLevels.map((height, i) => (
           <div
             key={i}
             style={{ height: `${height}px` }}
-            className="w-[2.5px] rounded-full bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300 shrink-0 transition-all duration-75"
+            className={`w-[2.5px] rounded-full shrink-0 transition-all duration-75 ${
+              isLight
+                ? 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
+                : 'bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300'
+            }`}
           />
         ))}
       </div>
@@ -155,11 +163,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   const isEmbedded = searchParams?.get('embed') === 'true';
 
+
   // Core session metadata
   const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
   const [mediaType, setMediaType] = useState<MediaType>('VIDEO');
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+
+  // Maximum recording duration — 5 min for INTRO/JD_INTRO, 30 min for all other types
+  // Derived via useMemo so it updates once assessmentType is resolved from the backend
+  const MAX_RECORDING_SECONDS = React.useMemo(() => {
+    if (assessmentType === 'INTRO' || assessmentType === 'JD_INTRO') return 5 * 60;
+    return 30 * 60;
+  }, [assessmentType]);
 
   // Status & loading
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -500,16 +516,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [elapsedTime]);
 
   // ── Live Speech Recognition ────────────────────────────────────────────────
+  // Accumulates finalized sentences separately from interim results so the
+  // transcript preserves full sentence history instead of overwriting on each event.
+  const finalTranscriptRef = useRef<string>('');
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (isRecording && SpeechRecognition) {
+      // Reset accumulated transcript when a fresh recording session begins
+      finalTranscriptRef.current = '';
+      setLiveTranscript('');
+
       try {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
+        recognition.maxAlternatives = 1;
         recognitionRef.current = recognition;
 
         recognition.onresult = (event: any) => {
@@ -567,7 +592,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         };
 
         recognition.onerror = (e: any) => {
-          console.warn('[Speech Recognition Note]:', e.error);
+          // 'no-speech' is expected during silent pauses — suppress noisy logs
+          if (e.error !== 'no-speech') {
+            console.warn('[Speech Recognition Note]:', e.error);
+          }
         };
 
         recognition.onend = () => {
@@ -619,7 +647,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         } catch (_) { }
       }
     };
-  }, [isRecording]);
+  }, [
+    isRecording,
+    accumulatedTranscriptRef,
+    recognitionRef,
+    currentInterimRef,
+    setLiveTranscript,
+    transcriptScrollRef,
+    elapsedTimeRef,
+    transcriptSegmentsRef,
+  ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
   // Recording starts only AFTER the AI finishes reading the question aloud.
@@ -728,11 +765,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         questions[currentQuestionIndex]?.question_text ||
         'Assessment completed.';
 
-      // 2. Calculate telemetry metrics
-      const wordCount = actualTranscript.split(/\s+/).filter(Boolean).length;
-      const durationMin = Math.max(0.1, elapsedTime / 60);
-      const calculatedWpm = Math.round(wordCount / durationMin);
-
       const finalSegments =
         transcriptSegmentsRef.current.length > 0
           ? transcriptSegmentsRef.current
@@ -745,7 +777,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               },
             ];
 
-      // 3. Assemble full contract telemetry payload from actual live session metrics
+      // 3. Assemble session questions & transcript payload without client-mocked audio telemetry
       const telemetryPayload = {
         questions: questions.map((q) => ({
           question_id: q.id,
@@ -755,11 +787,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           full_text: actualTranscript,
           segments: finalSegments,
         },
-        audio_telemetry: {
-          words_per_minute: calculatedWpm > 0 ? calculatedWpm : 135,
-          silence_ratio_pct: 0,
-          speaking_duration_seconds: Math.max(elapsedTime, 1),
-        },
         video_telemetry: {
           is_video_mode: !isAudioOnly,
           face_visible_pct: 100,
@@ -767,18 +794,32 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         },
       };
 
-      // 4. Submit captured telemetry data to POST /api/aiprep/assessments/{id}/data
+      // 4. Submit captured questions & live transcript to POST /api/aiprep/assessments/{id}/data
       try {
         await aiprepApi.submitTelemetryData(assessmentId, telemetryPayload);
       } catch (submitErr) {
         console.warn('Telemetry submission note:', submitErr);
       }
 
-      // 5. Trigger evaluation orchestrator to POST /api/aiprep/assessments/{id}/evaluate
+      // 5. Trigger primary LLM Evaluation Orchestrator
+      let triggerSuccess = false;
       try {
         await aiprepApi.triggerEvaluation(assessmentId);
+        triggerSuccess = true;
       } catch (evalErr) {
-        console.warn('Evaluation trigger note:', evalErr);
+        console.warn('Evaluation trigger note, falling back to assembleMedia:', evalErr);
+        try {
+          await aiprepApi.assembleMedia(assessmentId);
+          triggerSuccess = true;
+        } catch (assembleErr) {
+          console.error('Failed both evaluation trigger and media assembly:', assembleErr);
+        }
+      }
+
+      if (!triggerSuccess) {
+        setErrorMsg('Failed to finalize assessment. Please check your network connection and try submitting again.');
+        setIsEnding(false);
+        return;
       }
 
       // 6. Clean up browser session storage flags
@@ -798,6 +839,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsEnding(false);
     }
   };
+
+  // ── Max Recording Duration Enforcer ───────────────────────────────────────
+  // Auto-ends the session when the type-specific time limit is reached
+  useEffect(() => {
+    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding) {
+      console.warn(`[Assessment] Max recording time (${MAX_RECORDING_SECONDS / 60} min) reached — auto-ending session.`);
+      handleEndSession();
+    }
+  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS, handleEndSession]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -861,13 +911,35 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           </div>
         </div>
 
-        {/* CENTER: Interview Total Duration Clock */}
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
-          <IconClock size={15} className="text-indigo-600 dark:text-indigo-400" />
-          <span className="font-mono text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-            {formatTime(elapsedTime)}
-          </span>
-        </div>
+        {/* CENTER: Countdown Timer — counts down from the max allowed time */}
+        {(() => {
+          const remaining = Math.max(0, MAX_RECORDING_SECONDS - elapsedTime);
+          const isLow = remaining <= 60;
+          const isCritical = remaining <= 30;
+          return (
+            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-xs transition-colors duration-300 ${
+              isCritical
+                ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700'
+                : isLow
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700'
+                  : 'bg-slate-100 dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/80'
+            }`}>
+              <IconClock
+                size={15}
+                className={isCritical ? 'text-rose-500 animate-pulse' : isLow ? 'text-amber-500' : 'text-indigo-600 dark:text-indigo-400'}
+              />
+              <span className={`font-mono text-xs sm:text-sm font-bold tracking-tight ${
+                isCritical
+                  ? 'text-rose-600 dark:text-rose-400 animate-pulse'
+                  : isLow
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-slate-800 dark:text-slate-100'
+              }`}>
+                {formatTime(remaining)}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
         <div className="flex items-center gap-2">
@@ -907,20 +979,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
         <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-3">
           {/* CINEMA CAMERA STAGE */}
-          <div className="relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl flex items-center justify-center min-h-[260px] sm:min-h-[360px]">
+          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${
+            isAudioOnly
+              ? 'bg-white border-slate-200/90 shadow-sm'
+              : 'bg-slate-950 border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl'
+          }`}>
             {/* 3-2-1 Countdown Overlay for Intro Track */}
             {countdownValue !== null && (
-              <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md">
+              <div className={`absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md ${
+                isAudioOnly ? 'bg-white/95' : 'bg-slate-950/90'
+              }`}>
                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-5xl flex items-center justify-center animate-bounce shadow-2xl shadow-indigo-500/50">
                   {countdownValue}
                 </div>
-                <p className="mt-4 text-white text-sm font-bold uppercase tracking-widest animate-pulse">
+                <p className={`mt-4 text-sm font-bold uppercase tracking-widest animate-pulse ${
+                  isAudioOnly ? 'text-slate-700' : 'text-white'
+                }`}>
                   Get ready! Recording starts automatically…
                 </p>
               </div>
             )}
 
-            {/* Video Stream Element */}
+            {/* Video Stream Element — hidden in audio-only mode */}
             <video
               ref={videoRef}
               autoPlay
@@ -930,25 +1010,61 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 }`}
             />
 
+            {/* Audio-Only Placeholder: Centered mic with live waveform animation */}
+            {isAudioOnly && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-10 pointer-events-none">
+                {/* Soft ambient background glow */}
+                <div className="absolute w-96 h-96 rounded-full bg-gradient-to-tr from-indigo-100/60 to-purple-100/60 blur-3xl pointer-events-none" />
+
+                {/* Pulsing mic icon rings */}
+                <div className="relative flex items-center justify-center">
+                  {isRecording && (
+                    <>
+                      <span className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-indigo-500/10 animate-ping" />
+                      <span className="absolute w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-indigo-500/15 animate-pulse" />
+                    </>
+                  )}
+                  <div className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex items-center justify-center shadow-xl border-4 transition-all duration-300 ${
+                    isRecording
+                      ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 border-indigo-200/80 shadow-indigo-500/25 ring-8 ring-indigo-50'
+                      : 'bg-slate-100 border-slate-200'
+                  }`}>
+                    <IconMicrophone size={44} stroke={2} className={isRecording ? 'text-white' : 'text-slate-400'} />
+                  </div>
+                </div>
+                {/* Live audio waveform bars in light mode */}
+                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
+                <span className="text-xs sm:text-sm font-semibold text-slate-500">
+                  {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
+                </span>
+              </div>
+            )}
+
             {/* Top-Left Live REC Badge */}
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-900/85 border border-slate-700/80 text-xs font-bold text-white px-3.5 py-1.5 rounded-xl backdrop-blur-md shadow-lg">
+            <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
+              isAudioOnly
+                ? 'bg-slate-50/90 border border-slate-200 text-slate-700'
+                : 'bg-slate-900/85 border border-slate-700/80 text-white backdrop-blur-md shadow-lg'
+            }`}>
               <span
-                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-500'
+                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-400'
                   }`}
               />
-              <span className="text-red-400 uppercase font-extrabold text-[11px]">REC</span>
-              <span className="text-slate-300 text-xs">{isRecording ? 'Live •' : 'Standby •'}</span>
-              <span className="font-mono text-xs text-white font-bold">{formatTime(elapsedTime)}</span>
+              <span className={`${isAudioOnly ? 'text-red-600' : 'text-red-400'} uppercase font-extrabold text-[11px]`}>REC</span>
+              <span className={`${isAudioOnly ? 'text-slate-600' : 'text-slate-300'} text-xs`}>{isRecording ? 'Live •' : 'Standby •'}</span>
+              <span className={`font-mono text-xs font-bold ${isAudioOnly ? 'text-slate-900' : 'text-white'}`}>{formatTime(elapsedTime)}</span>
             </div>
 
-            {/* Bottom-Left: Embedded Audio Waveform Equalizer */}
-            <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1">
-              <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200 drop-shadow">
-                <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                <span>{isRecording ? 'Mic & Camera Active' : 'Ready to Start'}</span>
+            {/* Bottom-Left: Embedded Audio Waveform Equalizer (video mode only) */}
+            {!isAudioOnly && (
+              <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1">
+                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200 drop-shadow">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span>{isRecording ? 'Mic & Camera Active' : 'Ready to Start'}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* FLOATING GLASS MEETING DOCK */}
@@ -1085,16 +1201,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 shrink-0">
-                {/* AI Voice Narration Pill */}
+                {/* AI Voice Narration — plays the question text aloud via speech synthesis */}
                 <button
                   type="button"
                   onClick={() => speakAiText(activeQuestion.question_text)}
                   disabled={isQuestionBlurred}
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 disabled:opacity-40 disabled:cursor-not-allowed border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold cursor-pointer transition-all"
-                  title={isQuestionBlurred ? 'Available once answer recording starts' : 'Read Question Aloud'}
+                  title={isQuestionBlurred ? 'Available once answer recording starts' : 'Play question audio'}
                 >
                   {isSpeechMuted ? <IconVolumeOff size={14} /> : <IconVolume size={14} />}
-                  <span>{isAiSpeaking ? 'Speaking…' : 'Read Question Aloud'}</span>
+                  <span>{isAiSpeaking ? 'Speaking…' : 'Play Question'}</span>
                 </button>
 
                 {activeQuestion.difficulty_level && (
