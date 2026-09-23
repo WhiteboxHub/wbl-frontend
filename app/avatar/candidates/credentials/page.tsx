@@ -82,8 +82,8 @@ export default function CandidateCredentialsPage() {
     );
   }, [data, searchTerm]);
 
-  const columnDefs: ColDef<CandidateCredential>[] = useMemo(
-    () => [
+
+  const columnDefs: ColDef<CandidateCredential>[] = [
       {
         field: "id",
         headerName: "ID",
@@ -160,9 +160,7 @@ export default function CandidateCredentialsPage() {
         sortable: true,
         valueFormatter: (params) => formatDate(params.value),
       },
-    ],
-    [formatDate, setSelectedResume]
-  );
+    ];
 
   return (
     <div className="space-y-6 p-4">
