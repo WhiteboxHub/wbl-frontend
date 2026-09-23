@@ -1920,7 +1920,7 @@ export function DetailsContent({
         setExpandedSectionIds((prev) => new Set(prev).add(initialSubTab));
       }
     }
-  }, [initialSubTab, filteredSections]);
+  }, [initialSubTab, filteredSections, setExpandedSectionIds]);
 
   const toggleSection = (id: string) => {
     const isCurrentlyExpanded = expandedSectionIds.has(id);
@@ -2425,7 +2425,7 @@ export default function AiPrepReport({
     if (initialCandidateId) {
       setCandidateId(initialCandidateId);
     }
-  }, [initialCandidateId]);
+  }, [initialCandidateId, setCandidateId]);
 
   const [activeTab, setActiveTab] = useState<ReportTab>(() => {
     if (tabParam) return tabFromParam(tabParam);
@@ -2450,7 +2450,7 @@ export default function AiPrepReport({
     if (report && !hasRealSpeech(report) && activeTab === "Details") {
       setActiveTab("Evaluation");
     }
-  }, [report, activeTab]);
+  }, [report, activeTab, setActiveTab]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekTo = (seconds: number) => {
@@ -2521,7 +2521,7 @@ export default function AiPrepReport({
     } finally {
       setLoading(false);
     }
-  }, [assessmentId]);
+  }, [assessmentId, setCandidateId, setLoading, setError, setIsProcessing, setStatusMsg, setReport]);
 
   useEffect(() => {
     loadReport();
