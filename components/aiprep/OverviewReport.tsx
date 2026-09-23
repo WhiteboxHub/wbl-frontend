@@ -1075,7 +1075,6 @@ export function EvaluationContent({
   const durationStr = getTranscriptDuration(report);
   const durationSeconds =
     report.audio?.recording_environment?.speaking_duration_seconds ||
-    report.audio?.duration_seconds ||
     (report as any).audio_telemetry?.duration ||
     (report.transcript.segments.length > 0
       ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
