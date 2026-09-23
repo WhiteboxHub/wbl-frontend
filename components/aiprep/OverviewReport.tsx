@@ -34,8 +34,6 @@ import {
   Check,
   ChevronDown,
   MicOff,
-  VideoOff,
-  // recording placeholder icon
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
@@ -1153,9 +1151,14 @@ export function EvaluationContent({
                 {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
               </h2>
             </div>
-            <div className="flex-1 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2 py-10">
-              <VideoOff size={28} className="text-slate-300" />
-              <p className="text-sm text-slate-400 font-medium">Recording unavailable</p>
+            <div className="flex-1 min-h-[260px] flex flex-col justify-center">
+              <VideoPlayer
+                youtubeUrl={effectivePlaybackUrl}
+                videoRef={videoRef}
+                isAudioOnly={isAudioOnly}
+                candidateName={candidateName}
+                durationSeconds={durationSeconds}
+              />
             </div>
           </section>
 
