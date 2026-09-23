@@ -56,6 +56,8 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
   };
 
   useEffect(() => {
+    let isCancelled = false;
+
     if (isOpen && assessment?.id) {
       setIsLoading(true);
       Promise.all([
@@ -64,27 +66,28 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
         assessmentService.fetchAssessmentData(assessment.id).catch(() => null),
       ])
         .then(([detail, rep, tel]) => {
-          setDetailData(detail);
-          setReportData(rep || detail?.report || null);
-          setTelemetryData(tel || detail?.data || null);
+          if (!isCancelled) {
+            setDetailData(detail);
+            setReportData(rep || detail?.report || null);
+            setTelemetryData(tel || detail?.data || null);
+          }
         })
-        .finally(() => setIsLoading(false));
+        .finally(() => {
+          if (!isCancelled) {
+            setIsLoading(false);
+          }
+        });
     } else {
       setDetailData(null);
       setReportData(null);
       setTelemetryData(null);
       setActiveTab("overview");
     }
-  }, [
-    isOpen,
-    assessment,
-    assessment?.id,
-    setIsLoading,
-    setDetailData,
-    setReportData,
-    setTelemetryData,
-    setActiveTab,
-  ]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, assessment?.id]);
 
   if (!isOpen || !assessment) return null;
 

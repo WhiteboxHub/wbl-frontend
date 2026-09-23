@@ -748,6 +748,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   }, [
     assessments,
     filters,
+    filters?.search,
+    filters?.candidate_id,
+    filters?.candidate_search,
+    filters?.category,
+    filters?.status,
+    filters?.media_type,
     currentCategory,
     currentStatus,
     currentMode,
