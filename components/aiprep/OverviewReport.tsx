@@ -472,14 +472,25 @@ export function hasExplainedAudio(report: NormalizedReport): boolean {
   if (!audio) return hasNonTechContent;
 
   const hasRealObs = isRealContent(audio.executive_summary) || isRealContent(audio.primary_vocal_strength);
-  const hasValidFactor =
-    Boolean(audio.factors?.pace?.observation || (audio.factors?.pace?.status && audio.factors.pace.status !== "INSUFFICIENT_DATA")) ||
-    Boolean(audio.factors?.fluency?.observation || (audio.factors?.fluency?.status && audio.factors.fluency.status !== "INSUFFICIENT_DATA")) ||
-    Boolean(audio.factors?.filler_word_usage?.observation || (audio.factors?.filler_word_usage?.status && audio.factors.filler_word_usage.status !== "INSUFFICIENT_DATA")) ||
-    Boolean(audio.factors?.confidence_vocal_presence?.observation || (audio.factors?.confidence_vocal_presence?.status && audio.factors.confidence_vocal_presence.status !== "INSUFFICIENT_DATA")) ||
-    Boolean(audio.factors?.volume?.observation || (audio.factors?.volume?.status && audio.factors.volume.status !== "INSUFFICIENT_DATA"));
 
-  const isAudioReal = (audio.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA") || hasRealObs || hasValidFactor;
+  const isValidFactor = (factor?: { status?: string; observation?: string }) => {
+    if (!factor) return false;
+    if (factor.status && factor.status !== "INSUFFICIENT_DATA") return true;
+    return Boolean(factor.status !== "INSUFFICIENT_DATA" && factor.observation && isRealContent(factor.observation));
+  };
+
+  const hasValidFactor =
+    isValidFactor(audio.factors?.pace) ||
+    isValidFactor(audio.factors?.fluency) ||
+    isValidFactor(audio.factors?.filler_word_usage) ||
+    isValidFactor(audio.factors?.confidence_vocal_presence) ||
+    isValidFactor(audio.factors?.volume);
+
+  const isAudioReal = Boolean(
+    (audio.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA") ||
+    hasRealObs ||
+    hasValidFactor
+  );
 
   return isAudioReal || hasNonTechContent;
 }
@@ -965,16 +976,21 @@ export function EvaluationContent({
     audio?.primary_vocal_strength?.toLowerCase() === "pace"
       ? "Speaking Speed"
       : audio?.primary_vocal_strength;
-  const rawAudioObs = sanitizeQualitativeText(
-    (audio?.executive_summary && isRealContent(audio.executive_summary))
-      ? audio.executive_summary
-      : rawAudioStrength ??
-        audio?.factors?.fluency?.observation ??
-        audio?.factors?.confidence_vocal_presence?.observation ??
-        report.non_technical?.communication_summary ??
-        report.non_technical?.confidence_notes ??
-        undefined
+
+  const candidateAudioObservations = [
+    audio?.executive_summary,
+    rawAudioStrength,
+    audio?.factors?.fluency?.observation,
+    audio?.factors?.confidence_vocal_presence?.observation,
+    report.non_technical?.communication_summary,
+    report.non_technical?.confidence_notes,
+  ];
+
+  const firstRealAudioObs = candidateAudioObservations.find(
+    (obs): obs is string => typeof obs === "string" && isRealContent(obs)
   );
+
+  const rawAudioObs = firstRealAudioObs ? sanitizeQualitativeText(firstRealAudioObs) : undefined;
   const audioObs = isRealContent(rawAudioObs)
     ? formatFeedbackToSecondPerson(rawAudioObs, candidateName)
     : undefined;
@@ -1871,11 +1887,20 @@ export function DetailsContent({
   // 7. Additional Observations
   const addlObs: string[] = [];
   const hasAudioSection = sections.some((s) => s.id === "audio_analysis");
+  const audioSectionDesc = sections.find((s) => s.id === "audio_analysis")?.description;
+  const commSummaryUsedInAudio = Boolean(
+    hasAudioSection &&
+    report.non_technical?.communication_summary &&
+    audioSectionDesc &&
+    audioSectionDesc === sanitizeQualitativeText(report.non_technical.communication_summary)
+  );
+
+  if (!commSummaryUsedInAudio && report.non_technical?.communication_summary?.trim()) {
+    const s = report.non_technical.communication_summary.trim();
+    if (isRealContent(s)) addlObs.push(`Communication: ${s}`);
+  }
+
   if (!hasAudioSection) {
-    if (report.non_technical?.communication_summary?.trim()) {
-      const s = report.non_technical.communication_summary.trim();
-      if (isRealContent(s)) addlObs.push(`Communication: ${s}`);
-    }
     if (report.non_technical?.structure_quality?.trim()) {
       const s = report.non_technical.structure_quality.trim();
       if (isRealContent(s)) addlObs.push(`Structure: ${s}`);
@@ -1896,7 +1921,7 @@ export function DetailsContent({
   }
 
   const rawAddlDesc =
-    !hasAudioSection && report.non_technical?.communication_summary?.trim()
+    !commSummaryUsedInAudio && report.non_technical?.communication_summary?.trim()
       ? report.non_technical.communication_summary.trim()
       : undefined;
   const addlDesc = isRealContent(rawAddlDesc) ? sanitizeQualitativeText(rawAddlDesc) : undefined;
@@ -2577,10 +2602,9 @@ export default function AiPrepReport({
     loadReport();
   }, [loadReport]);
 
-  // Ensure document and body allow natural vertical scrolling for both Evaluation and Details pages
+  // Ensure document and body allow natural vertical scrolling for both Evaluation and Details pages.
+  // Note: classList.remove for overflow-hidden is handled by the unified scroll-lock effect in app/layout.tsx.
   useEffect(() => {
-    document.documentElement.classList.remove("overflow-hidden", "h-full");
-    document.body.classList.remove("overflow-hidden", "h-screen", "h-[100dvh]");
     document.documentElement.style.removeProperty("overflow");
     document.documentElement.style.removeProperty("height");
     document.body.style.removeProperty("overflow");

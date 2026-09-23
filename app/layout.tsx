@@ -69,48 +69,45 @@ export default function RootLayout({
     };
   }, []);
 
-  const isAiprepRoute =
+  // Only lock viewport scrolling for actual assessment chambers:
+  // - The /aiprep/session route (live recording room)
+  // - The /aiprep/* non-reports route (wizard, setup flows)
+  // - An explicit wizard or fullscreen layout event (isAssessmentLayout = true)
+  // Clicking the "ai-prep" tab on /user_dashboard does NOT lock the page —
+  // that would prevent candidates from scrolling through their assessments list.
+  const isAiprepChamberRoute =
     !isAiPrepReport &&
-    ((pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
+    ((pathname.startsWith("/aiprep/session")) ||
+      (pathname.startsWith("/aiprep") &&
+        !pathname.startsWith("/aiprep/reports") &&
+        !pathname.startsWith("/aiprep/dashboard")) ||
       pathname.startsWith("/user_dashboard/ai-prep") ||
-      pathname.startsWith("/user_dashboard/aiprep") ||
-      (pathname.startsWith("/user_dashboard") &&
-        (activeTabFromEvent.startsWith("ai-prep") ||
-          activeTabFromEvent.startsWith("aiprep") ||
-          activeTabFromEvent === "wbl-smartprep")));
-  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepRoute);
+      pathname.startsWith("/user_dashboard/aiprep"));
+  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepChamberRoute);
 
+  // Single, unified scroll-lock effect — avoids multi-layer style + class mutations fighting React reconciliation.
   useEffect(() => {
-    if (isAiPrepReport) {
-      setIsAssessmentLayout(false);
-      setActiveTabFromEvent("");
+    const lock = () => {
+      document.documentElement.style.overflow = "hidden";
+      document.documentElement.style.height = "100%";
+      document.body.style.overflow = "hidden";
+      document.body.style.height = "100%";
+    };
+    const unlock = () => {
       document.documentElement.style.removeProperty("overflow");
       document.documentElement.style.removeProperty("height");
       document.body.style.removeProperty("overflow");
       document.body.style.removeProperty("height");
       document.documentElement.classList.remove("overflow-hidden", "h-full");
       document.body.classList.remove("overflow-hidden", "h-screen", "h-[100dvh]");
-    }
-  }, [pathname, isAiPrepReport]);
-
-  useEffect(() => {
-    if (isAssessment) {
-      document.documentElement.style.overflow = "hidden";
-      document.documentElement.style.height = "100%";
-      document.body.style.overflow = "hidden";
-      document.body.style.height = "100%";
-    } else {
-      document.documentElement.style.removeProperty("overflow");
-      document.documentElement.style.removeProperty("height");
-      document.body.style.removeProperty("overflow");
-      document.body.style.removeProperty("height");
-    }
-    return () => {
-      document.documentElement.style.removeProperty("overflow");
-      document.documentElement.style.removeProperty("height");
-      document.body.style.removeProperty("overflow");
-      document.body.style.removeProperty("height");
     };
+
+    if (isAssessment) {
+      lock();
+    } else {
+      unlock();
+    }
+    return () => unlock();
   }, [isAssessment]);
 
   return (
