@@ -87,7 +87,16 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, assessment?.id]);
+  }, [
+    isOpen,
+    assessment,
+    assessment?.id,
+    setIsLoading,
+    setDetailData,
+    setReportData,
+    setTelemetryData,
+    setActiveTab,
+  ]);
 
   if (!isOpen || !assessment) return null;
 

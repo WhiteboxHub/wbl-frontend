@@ -760,6 +760,10 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     currentDateOperator,
     currentDateValue,
     currentDateTo,
+    getAssessmentDisplayId,
+    getCanonicalAssessmentType,
+    getCanonicalStatus,
+    getCanonicalMode,
   ]);
 
   const handleExportCSV = () => {
