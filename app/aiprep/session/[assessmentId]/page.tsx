@@ -801,14 +801,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         console.warn('Telemetry submission note:', submitErr);
       }
 
-      // 5. Trigger backend media assembly & audio engine
-      try {
-        await aiprepApi.assembleMedia(assessmentId);
-      } catch (assembleErr) {
-        console.warn('Media assembly trigger note:', assembleErr);
-      }
-
-      // Always trigger backend LLM evaluation pipeline
+      // 5. Trigger primary LLM Evaluation Orchestrator
       let triggerSuccess = false;
       try {
         await aiprepApi.triggerEvaluation(assessmentId);
