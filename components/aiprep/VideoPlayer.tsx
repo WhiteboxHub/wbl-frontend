@@ -79,6 +79,13 @@ export default function VideoPlayer({
   const [speed, setSpeed] = useState(1);
   const [hasMediaError, setHasMediaError] = useState(false);
 
+  // Reset playback and error states when media URL changes
+  useEffect(() => {
+    setHasMediaError(false);
+    setCurrentTime(0);
+    setIsPlaying(false);
+  }, [youtubeUrl]);
+
   // Sync internal duration if durationSeconds prop updates
   // Fix #6: setDuration is a stable setter — not a valid dep, removing it avoids lint noise
   useEffect(() => {
