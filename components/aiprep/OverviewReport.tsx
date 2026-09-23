@@ -980,7 +980,7 @@ export function EvaluationContent({
     : undefined;
   const audioBand = (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA")
     ? audio.overall_readiness
-    : scores.non_technical?.band;
+    : report.scores?.non_technical?.band;
 
   // ── Video Analysis ──
   const rawMediaType = (report.assessment.media_type || "").toUpperCase();
@@ -1707,7 +1707,7 @@ export function DetailsContent({
 
     const audioStatus = (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA")
       ? audio.overall_readiness
-      : scores.non_technical?.band;
+      : report.scores?.non_technical?.band;
 
     if (audioDesc || realAudioObs.length > 0 || hasAnyMetric) {
       sections.push({
@@ -1909,7 +1909,7 @@ export function DetailsContent({
       icon: <ShieldCheck size={16} className="text-emerald-600" />,
       iconContainerClass: "bg-emerald-50 text-emerald-600 border-emerald-100",
       title: "Additional Observations",
-      status: scores.non_technical?.band,
+      status: report.scores?.non_technical?.band,
       description: addlDesc,
       observations: realAddlObs.length > 0 ? realAddlObs : undefined,
     });
