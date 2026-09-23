@@ -64,9 +64,9 @@ export default function VideoPlayer({
   isAudioOnly = false,
   candidateName,
   durationSeconds = 0,
-  waveformAmplitudes,
   onSeek,
 }: Props) {
+  const waveformAmplitudes = (typeof arguments !== "undefined" ? (arguments[0] as Props | undefined)?.waveformAmplitudes : undefined);
   const ytId = !isAudioOnly && youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
 
   // Local media reference (points to either passed videoRef or internal ref)

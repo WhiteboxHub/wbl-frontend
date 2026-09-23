@@ -69,21 +69,16 @@ export default function RootLayout({
     };
   }, [setHeaderCollapsed, setIsAssessmentLayout, setActiveTabFromEvent]);
 
-  // Only lock viewport scrolling for actual assessment chambers:
-  // - The /aiprep/session route (live recording room)
-  // - The /aiprep/* non-reports route (wizard, setup flows)
-  // - An explicit wizard or fullscreen layout event (isAssessmentLayout = true)
-  // Clicking the "ai-prep" tab on /user_dashboard does NOT lock the page —
-  // that would prevent candidates from scrolling through their assessments list.
-  const isAiprepChamberRoute =
+  const isAiprepRoute =
     !isAiPrepReport &&
-    ((pathname.startsWith("/aiprep/session")) ||
-      (pathname.startsWith("/aiprep") &&
-        !pathname.startsWith("/aiprep/reports") &&
-        !pathname.startsWith("/aiprep/dashboard")) ||
+    ((pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
       pathname.startsWith("/user_dashboard/ai-prep") ||
-      pathname.startsWith("/user_dashboard/aiprep"));
-  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepChamberRoute);
+      pathname.startsWith("/user_dashboard/aiprep") ||
+      (pathname.startsWith("/user_dashboard") &&
+        (activeTabFromEvent.startsWith("ai-prep") ||
+          activeTabFromEvent.startsWith("aiprep") ||
+          activeTabFromEvent === "wbl-smartprep")));
+  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepRoute);
 
   // Single, unified scroll-lock effect — avoids multi-layer style + class mutations fighting React reconciliation.
   useEffect(() => {
@@ -145,11 +140,10 @@ export default function RootLayout({
               ) : (
                 <>
                   <div
-                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${
-                      headerCollapsed
+                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${headerCollapsed
                         ? "max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
                         : "max-h-[100px] translate-y-0 opacity-100"
-                    }`}
+                      }`}
                   >
                     <Header />
                   </div>
