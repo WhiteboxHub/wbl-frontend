@@ -61,15 +61,15 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
     if (isOpen && assessment?.id) {
       setIsLoading(true);
       Promise.all([
+        assessmentService.fetchAssessmentRecord(assessment.id).catch(() => null),
         assessmentService.fetchAssessmentDetail(assessment.id).catch(() => null),
-        assessmentService.fetchAssessmentReport(assessment.id).catch(() => null),
         assessmentService.fetchAssessmentData(assessment.id).catch(() => null),
       ])
-        .then(([detail, rep, tel]) => {
+        .then(([record, report, tel]) => {
           if (!isCancelled) {
-            setDetailData(detail);
-            setReportData(rep || detail?.report || null);
-            setTelemetryData(tel || detail?.data || null);
+            setDetailData(record);
+            setReportData(report || record?.report || null);
+            setTelemetryData(tel || record?.data || null);
           }
         })
         .finally(() => {

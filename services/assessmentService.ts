@@ -185,11 +185,22 @@ export const assessmentService = {
   fetchAssessmentDetail: async (assessmentId: number) => {
     try {
       const res = await apiFetch(
-        `api/aiprep/employee/assessments/${assessmentId}`
+        `api/aiprep/employee/assessments/${assessmentId}/report`
       );
       return res;
     } catch (err: any) {
       console.error("fetchAssessmentDetail error:", err);
+      return null;
+    }
+  },
+
+  fetchAssessmentRecord: async (assessmentId: number) => {
+    try {
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}`
+      );
+      return res;
+    } catch (err: any) {
       return null;
     }
   },
