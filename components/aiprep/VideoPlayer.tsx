@@ -61,7 +61,7 @@ export default function VideoPlayer({
   className,
   isAudioOnly = false,
   candidateName,
-  durationSeconds = 13,
+  durationSeconds = 0,
   onSeek,
 }: Props) {
   const ytId = !isAudioOnly && youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
@@ -72,18 +72,19 @@ export default function VideoPlayer({
   const [mediaEl, setMediaEl] = useState<HTMLMediaElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(durationSeconds > 0 ? durationSeconds : 13);
+  const [duration, setDuration] = useState(durationSeconds > 0 ? durationSeconds : 0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [hasMediaError, setHasMediaError] = useState(false);
 
   // Sync internal duration if durationSeconds prop updates
+  // Fix #6: setDuration is a stable setter — not a valid dep, removing it avoids lint noise
   useEffect(() => {
     if (durationSeconds && durationSeconds > 0) {
       setDuration(durationSeconds);
     }
-  }, [durationSeconds, setDuration]);
+  }, [durationSeconds]);
 
   // Attach internal ref + state so seekTo() from parent works and effect re-runs on mount
   const setCombinedRef = useCallback((node: HTMLMediaElement | null) => {
@@ -110,6 +111,8 @@ export default function VideoPlayer({
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      // Fix #3: keep React state and native element in sync after track ends
+      if (localMediaRef.current) localMediaRef.current.currentTime = 0;
     };
     const handleError = () => {
       setHasMediaError(true);
@@ -160,8 +163,10 @@ export default function VideoPlayer({
       el.pause();
     } else {
       el.play().catch(() => {
+        // Fix #4: don't claim we're playing when play() rejected — the
+        // simulated timer is driven by isPlaying; leave it false so the UI
+        // stays in a paused/error state rather than silently faking playback.
         setHasMediaError(true);
-        setIsPlaying(true);
       });
     }
   };
@@ -240,18 +245,17 @@ export default function VideoPlayer({
   // (e.g. 's3.amazonaws.com/audio-prep-videos/video.mp4').
   // Uses URL.pathname + hostname to strip query params first, so presigned
   // S3/CDN URLs and YouTube URLs without file extensions are matched correctly.
+  // Fix #1: YouTube URLs are already handled by the early-return on L220 (ytId branch),
+  // so the YouTube hostname guards here were unreachable dead code — removed.
+  // Fix #2: short-circuit the IIFE when isAudioOnly=true so we never run new URL()
+  // unnecessarily (it was throwing + swallowing an error on every audio-only render).
   const isVideoFile =
+    !isAudioOnly &&
     youtubeUrl &&
     (() => {
       try {
-        const url = new URL(youtubeUrl);
-        const pathname = url.pathname.toLowerCase();
-        const hostname = url.hostname.toLowerCase();
-        // YouTube URLs have no file extension in the pathname — match by host
-        const isYouTube =
-          hostname.includes("youtube.com") || hostname.includes("youtu.be");
+        const pathname = new URL(youtubeUrl).pathname.toLowerCase();
         return (
-          isYouTube ||
           pathname.endsWith(".mp4") ||
           pathname.endsWith(".webm") ||
           pathname.includes("/playback")
@@ -260,8 +264,6 @@ export default function VideoPlayer({
         // Fallback for relative or non-standard URLs the URL constructor rejects
         const lower = youtubeUrl.toLowerCase();
         return (
-          lower.includes("youtube.com") ||
-          lower.includes("youtu.be") ||
           lower.includes(".mp4") ||
           lower.includes(".webm") ||
           lower.includes("/playback")
@@ -338,7 +340,10 @@ export default function VideoPlayer({
       </div>
 
       {/* Middle: Dynamic Interactive Audio Waveform Visualization */}
+      {/* Fix #7: aria-hidden so screen readers skip this decorative/redundant seek
+           control — the <input type="range"> below already provides full keyboard seek. */}
       <div
+        aria-hidden="true"
         className="my-3 py-3 px-2 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-1 sm:gap-1.5 h-20 cursor-pointer z-10 transition-colors hover:bg-slate-900"
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
@@ -380,11 +385,12 @@ export default function VideoPlayer({
       {/* Bottom Bar: Interactive Controls & Timeline */}
       <div className="space-y-2 z-10">
         {/* Progress Slider */}
+        {/* Fix #5: use max={duration || 1} to avoid divide-by-zero when duration=0 */}
         <div className="relative flex items-center group">
           <input
             type="range"
             min={0}
-            max={duration || 13}
+            max={duration || 1}
             step={0.1}
             value={currentTime}
             onChange={handleSeekChange}
