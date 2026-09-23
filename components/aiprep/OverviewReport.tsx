@@ -10,7 +10,7 @@
 //  - Section E: AiPrepReport (Shell: data fetching, state handling, natural scroll)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useRef, useCallback, type RefObject } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -1882,25 +1882,29 @@ export function DetailsContent({
   }
 
   // ── Post-Process: strip fallback content, format into second-person ("you" / "your") ──
-  const filteredSections = sections
-    .map((s) => ({
-      ...s,
-      description: isRealContent(s.description)
-        ? formatFeedbackToSecondPerson(s.description, candidateName)
-        : undefined,
-      observations: s.observations
-        ? s.observations
-            .filter(isRealContent)
-            .map((obs) => formatFeedbackToSecondPerson(obs, candidateName))
-        : undefined,
-    }))
-    .filter((s) => {
-      const hasText =
-        !!s.description ||
-        (Array.isArray(s.observations) && s.observations.length > 0);
-      const hasCustom = s.customContent != null;
-      return hasText || hasCustom;
-    });
+  const filteredSections = useMemo(
+    () =>
+      sections
+        .map((s) => ({
+          ...s,
+          description: isRealContent(s.description)
+            ? formatFeedbackToSecondPerson(s.description, candidateName)
+            : undefined,
+          observations: s.observations
+            ? s.observations
+                .filter(isRealContent)
+                .map((obs) => formatFeedbackToSecondPerson(obs, candidateName))
+            : undefined,
+        }))
+        .filter((s) => {
+          const hasText =
+            !!s.description ||
+            (Array.isArray(s.observations) && s.observations.length > 0);
+          const hasCustom = s.customContent != null;
+          return hasText || hasCustom;
+        }),
+    [sections, candidateName]
+  );
 
   // ── Accordion State (Supports Independent Expansion & Expand/Collapse All) ──
   const [expandedSectionIds, setExpandedSectionIds] = useState<Set<string>>(() => {
@@ -1914,16 +1918,18 @@ export function DetailsContent({
   });
 
   const lastInitialSubTabRef = useRef(initialSubTab);
+  const filteredSectionsRef = useRef(filteredSections);
+  filteredSectionsRef.current = filteredSections;
 
   useEffect(() => {
     // Only update if initialSubTab genuinely changed from external navigation
     if (initialSubTab && initialSubTab !== lastInitialSubTabRef.current) {
       lastInitialSubTabRef.current = initialSubTab;
-      if (filteredSections.some((s) => s.id === initialSubTab)) {
+      if (filteredSectionsRef.current.some((s) => s.id === initialSubTab)) {
         setExpandedSectionIds((prev) => new Set(prev).add(initialSubTab));
       }
     }
-  }, [initialSubTab, filteredSections, setExpandedSectionIds]);
+  }, [initialSubTab, setExpandedSectionIds]);
 
   const toggleSection = (id: string) => {
     const isCurrentlyExpanded = expandedSectionIds.has(id);

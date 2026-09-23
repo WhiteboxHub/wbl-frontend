@@ -11,6 +11,7 @@ import {
   VideoOff,
   Mic,
   Maximize2,
+  AlertCircle,
 } from "lucide-react";
 
 interface Props {
@@ -135,49 +136,33 @@ export default function VideoPlayer({
     };
   }, [mediaEl]);
 
-  // Simulated fallback playback timer if media element cannot load
+  // When media loading fails, ensure playing state is stopped
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (isPlaying && hasMediaError) {
-      timer = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= duration) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 0.25 * speed;
-        });
-      }, 250);
+    if (hasMediaError) {
+      setIsPlaying(false);
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isPlaying, hasMediaError, duration, speed]);
+  }, [hasMediaError]);
 
   const togglePlay = () => {
+    if (hasMediaError) return;
     const el = localMediaRef.current;
-    if (!el || hasMediaError) {
-      setIsPlaying(!isPlaying);
-      return;
-    }
+    if (!el) return;
 
     if (isPlaying) {
       el.pause();
     } else {
       el.play().catch(() => {
-        // Fix #4: don't claim we're playing when play() rejected — the
-        // simulated timer is driven by isPlaying; leave it false so the UI
-        // stays in a paused/error state rather than silently faking playback.
-        setHasMediaError(true);
+        setIsPlaying(false);
       });
     }
   };
 
   const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (hasMediaError) return;
     const val = parseFloat(e.target.value);
     setCurrentTime(val);
     const el = localMediaRef.current;
-    if (el && !hasMediaError) {
+    if (el) {
       el.currentTime = val;
     }
     if (onSeek) onSeek(val);
@@ -214,13 +199,16 @@ export default function VideoPlayer({
   };
 
   const handleRestart = () => {
+    if (hasMediaError) return;
     setCurrentTime(0);
     const el = localMediaRef.current;
     if (el) {
       el.currentTime = 0;
-      el.play().catch(() => undefined);
+      el.play().catch(() => {
+        setIsPlaying(false);
+      });
+      setIsPlaying(true);
     }
-    setIsPlaying(true);
   };
 
   // ── 1. YouTube Embed Mode ──────────────────────────────────────────────────
@@ -277,16 +265,29 @@ export default function VideoPlayer({
       <div
         className={`relative w-full overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-sm ${className ?? ""}`}
       >
-        <video
-          ref={setCombinedRef as any}
-          src={youtubeUrl}
-          controls
-          playsInline
-          preload="metadata"
-          className="w-full h-auto max-h-[300px] rounded-xl bg-black object-cover"
-        >
-          Your browser does not support video playback.
-        </video>
+        {hasMediaError ? (
+          <div className="py-12 px-6 flex flex-col items-center justify-center gap-2 text-center">
+            <VideoOff size={28} className="text-rose-400" />
+            <span className="text-xs font-semibold text-rose-300">
+              Failed to load video recording
+            </span>
+            <span className="text-[11px] text-slate-400">
+              The video asset could not be accessed or has expired.
+            </span>
+          </div>
+        ) : (
+          <video
+            ref={setCombinedRef as any}
+            src={youtubeUrl}
+            controls
+            playsInline
+            preload="metadata"
+            onError={() => setHasMediaError(true)}
+            className="w-full h-auto max-h-[300px] rounded-xl bg-black object-cover"
+          >
+            Your browser does not support video playback.
+          </video>
+        )}
       </div>
     );
   }
@@ -309,6 +310,7 @@ export default function VideoPlayer({
           ref={setCombinedRef as any}
           src={youtubeUrl}
           preload="auto"
+          onError={() => setHasMediaError(true)}
           className="hidden"
         />
       )}
@@ -329,65 +331,83 @@ export default function VideoPlayer({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/80 border border-slate-700/60">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-            }`}
-          />
-          <span className="text-[10px] font-mono font-semibold text-slate-300">
-            {isPlaying ? "PLAYING" : "PAUSED"}
+        {hasMediaError ? (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-700/60">
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            <span className="text-[10px] font-mono font-semibold text-rose-300">
+              UNAVAILABLE
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/80 border border-slate-700/60">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+              }`}
+            />
+            <span className="text-[10px] font-mono font-semibold text-slate-300">
+              {isPlaying ? "PLAYING" : "PAUSED"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Middle: Dynamic Interactive Audio Waveform Visualization or Error Notice */}
+      {hasMediaError ? (
+        <div className="my-3 py-3 px-4 rounded-lg bg-rose-950/20 border border-rose-900/40 flex flex-col items-center justify-center gap-1 h-20 text-center z-10">
+          <div className="flex items-center gap-1.5 text-xs text-rose-400 font-semibold">
+            <AlertCircle size={14} />
+            <span>Failed to load media recording</span>
+          </div>
+          <span className="text-[11px] text-slate-400">
+            The audio asset could not be accessed or has expired.
           </span>
         </div>
-      </div>
+      ) : (
+        <div
+          aria-hidden="true"
+          className="my-3 py-3 px-2 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-1 sm:gap-1.5 h-20 cursor-pointer z-10 transition-colors hover:bg-slate-900"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+            const seekTime = ratio * duration;
+            setCurrentTime(seekTime);
+            const el = localMediaRef.current;
+            if (el && !hasMediaError) el.currentTime = seekTime;
+            if (onSeek) onSeek(seekTime);
+          }}
+          title="Click anywhere to jump to timestamp"
+        >
+          {WAVEFORM_BARS.map((baseHeight, idx) => {
+            const barFraction = idx / WAVEFORM_BARS.length;
+            const isPassed = barFraction <= progressPercent / 100;
+            const isCurrent =
+              Math.abs(barFraction - progressPercent / 100) < 1 / WAVEFORM_BARS.length;
 
-      {/* Middle: Dynamic Interactive Audio Waveform Visualization */}
-      {/* Fix #7: aria-hidden so screen readers skip this decorative/redundant seek
-           control — the <input type="range"> below already provides full keyboard seek. */}
-      <div
-        aria-hidden="true"
-        className="my-3 py-3 px-2 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-1 sm:gap-1.5 h-20 cursor-pointer z-10 transition-colors hover:bg-slate-900"
-        onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const clickX = e.clientX - rect.left;
-          const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-          const seekTime = ratio * duration;
-          setCurrentTime(seekTime);
-          const el = localMediaRef.current;
-          if (el && !hasMediaError) el.currentTime = seekTime;
-          if (onSeek) onSeek(seekTime);
-        }}
-        title="Click anywhere to jump to timestamp"
-      >
-        {WAVEFORM_BARS.map((baseHeight, idx) => {
-          const barFraction = idx / WAVEFORM_BARS.length;
-          const isPassed = barFraction <= progressPercent / 100;
-          const isCurrent =
-            Math.abs(barFraction - progressPercent / 100) < 1 / WAVEFORM_BARS.length;
+            // Subtle pulse variance when playing
+            const dynamicHeight = isPlaying
+              ? Math.max(15, Math.min(100, baseHeight + ((idx % 3) - 1) * 12))
+              : baseHeight;
 
-          // Subtle pulse variance when playing
-          const dynamicHeight = isPlaying
-            ? Math.max(15, Math.min(100, baseHeight + ((idx % 3) - 1) * 12))
-            : baseHeight;
-
-          return (
-            <div
-              key={idx}
-              className={`flex-1 rounded-full transition-all duration-150 ${
-                isPassed
-                  ? "bg-gradient-to-t from-blue-500 to-indigo-400 shadow-xs shadow-blue-500/20"
-                  : "bg-slate-700/50 hover:bg-slate-600"
-              } ${isCurrent && isPlaying ? "scale-y-110" : ""}`}
-              style={{ height: `${dynamicHeight}%` }}
-            />
-          );
-        })}
-      </div>
+            return (
+              <div
+                key={idx}
+                className={`flex-1 rounded-full transition-all duration-150 ${
+                  isPassed
+                    ? "bg-gradient-to-t from-blue-500 to-indigo-400 shadow-xs shadow-blue-500/20"
+                    : "bg-slate-700/50 hover:bg-slate-600"
+                } ${isCurrent && isPlaying ? "scale-y-110" : ""}`}
+                style={{ height: `${dynamicHeight}%` }}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Bottom Bar: Interactive Controls & Timeline */}
       <div className="space-y-2 z-10">
         {/* Progress Slider */}
-        {/* Fix #5: use max={duration || 1} to avoid divide-by-zero when duration=0 */}
         <div className="relative flex items-center group">
           <input
             type="range"
@@ -395,8 +415,11 @@ export default function VideoPlayer({
             max={duration || 1}
             step={0.1}
             value={currentTime}
+            disabled={hasMediaError}
             onChange={handleSeekChange}
-            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 focus:outline-none transition-all"
+            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-blue-500 focus:outline-none transition-all ${
+              hasMediaError ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+            }`}
             style={{
               background: `linear-gradient(to right, #3b82f6 ${progressPercent}%, #334155 ${progressPercent}%)`,
             }}
@@ -410,21 +433,40 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={togglePlay}
-              className="w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md shadow-blue-600/30 transition-all active:scale-95 cursor-pointer"
-              title={isPlaying ? "Pause playback" : "Play recording"}
+              disabled={hasMediaError}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${
+                hasMediaError
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none"
+                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95 cursor-pointer"
+              }`}
+              title={
+                hasMediaError
+                  ? "Media recording unavailable"
+                  : isPlaying
+                  ? "Pause playback"
+                  : "Play recording"
+              }
             >
               {isPlaying ? (
                 <Pause size={16} className="fill-white" />
               ) : (
-                <Play size={16} className="fill-white ml-0.5" />
+                <Play
+                  size={16}
+                  className={hasMediaError ? "fill-slate-500 ml-0.5" : "fill-white ml-0.5"}
+                />
               )}
             </button>
 
             <button
               type="button"
               onClick={handleRestart}
-              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
-              title="Restart from beginning"
+              disabled={hasMediaError}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                hasMediaError
+                  ? "bg-slate-800/50 text-slate-600 cursor-not-allowed"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+              }`}
+              title={hasMediaError ? "Media recording unavailable" : "Restart from beginning"}
             >
               <RotateCcw size={13} />
             </button>
