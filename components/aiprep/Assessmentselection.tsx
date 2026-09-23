@@ -38,7 +38,7 @@ const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
 
 export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
   const details = ASSESSMENT_INFO_DETAILS[type];
-  const isUnlocked = type === 'INTRO';
+  const isUnlocked = type === 'INTRO' || type === 'JD_INTRO';
   
   return {
     type,
