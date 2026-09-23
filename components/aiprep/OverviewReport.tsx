@@ -1918,18 +1918,21 @@ export function DetailsContent({
   });
 
   const lastInitialSubTabRef = useRef(initialSubTab);
-  const filteredSectionsRef = useRef(filteredSections);
-  filteredSectionsRef.current = filteredSections;
+  const [hasExpandedInitial, setHasExpandedInitial] = useState(false);
+
+  if (initialSubTab !== lastInitialSubTabRef.current) {
+    lastInitialSubTabRef.current = initialSubTab;
+    setHasExpandedInitial(false);
+  }
 
   useEffect(() => {
-    // Only update if initialSubTab genuinely changed from external navigation
-    if (initialSubTab && initialSubTab !== lastInitialSubTabRef.current) {
-      lastInitialSubTabRef.current = initialSubTab;
-      if (filteredSectionsRef.current.some((s) => s.id === initialSubTab)) {
+    if (initialSubTab && !hasExpandedInitial) {
+      if (filteredSections.some((s) => s.id === initialSubTab)) {
         setExpandedSectionIds((prev) => new Set(prev).add(initialSubTab));
+        setHasExpandedInitial(true);
       }
     }
-  }, [initialSubTab, setExpandedSectionIds]);
+  }, [initialSubTab, filteredSections, hasExpandedInitial]);
 
   const toggleSection = (id: string) => {
     const isCurrentlyExpanded = expandedSectionIds.has(id);
