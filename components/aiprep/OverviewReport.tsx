@@ -34,6 +34,8 @@ import {
   Check,
   ChevronDown,
   MicOff,
+  VideoOff,
+  // recording placeholder icon
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
@@ -774,7 +776,7 @@ function formatFeedbackToSecondPerson(
   });
 
   // "he does not" / "he doesn't"
-  s = s.replace(/\b(he|she)\s+(does\\s+not|doesn't)\\b/gi, (match, subj, negation, offset) => {
+  s = s.replace(/\b(he|she)\s+(does\s+not|doesn't)\b/gi, (match, subj, negation, offset) => {
     const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
     const pronoun = isStart ? "You" : "you";
     const neg = negation.toLowerCase().includes("n't") ? "don't" : "do not";
@@ -782,7 +784,7 @@ function formatFeedbackToSecondPerson(
   });
 
   // "he" / "she" + (adverb)? + verb
-  s = s.replace(/\b(he|she)\s+((?:(?:effectively|clearly|strongly|briefly|also|consistently|adequately|partially|well|successfully)\\s+)?)([a-z]+)\b/gi, (match, subj, adv, verb, offset) => {
+  s = s.replace(/\b(he|she)\s+((?:(?:effectively|clearly|strongly|briefly|also|consistently|adequately|partially|well|successfully)\s+)?)([a-z]+)\b/gi, (match, subj, adv, verb, offset) => {
     const isStart = offset === 0 || /[.!?]\s*$/.test(s.slice(0, offset));
     const pronoun = isStart ? "You" : "you";
     const newVerb = deinflectVerb(verb);
@@ -1071,6 +1073,19 @@ export function EvaluationContent({
   );
 
   const durationStr = getTranscriptDuration(report);
+  const durationSeconds =
+    report.audio?.recording_environment?.speaking_duration_seconds ||
+    report.audio?.duration_seconds ||
+    (report as any).audio_telemetry?.duration ||
+    (report.transcript.segments.length > 0
+      ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
+      : 13) || 13;
+
+  const effectivePlaybackUrl =
+    youtube_url ||
+    (assessmentId
+      ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/playback`
+      : undefined);
 
   const validOverallSummary = isRealContent(overall_summary)
     ? formatFeedbackToSecondPerson(overall_summary, candidateName)
@@ -1125,7 +1140,7 @@ export function EvaluationContent({
       </section>
 
       {/* ── 3. Recording Playback & Transcript Preview ── */}
-      {!isAudioOnly || hasRecording ? (
+      {Boolean(effectivePlaybackUrl) ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* LEFT: Recording Playback */}
           <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
@@ -1139,8 +1154,9 @@ export function EvaluationContent({
                 {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
               </h2>
             </div>
-            <div className="flex-1 min-h-[260px] flex flex-col justify-center">
-              <VideoPlayer youtubeUrl={youtube_url} videoRef={videoRef} />
+            <div className="flex-1 rounded-lg border border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-2 py-10">
+              <VideoOff size={28} className="text-slate-300" />
+              <p className="text-sm text-slate-400 font-medium">Recording unavailable</p>
             </div>
           </section>
 

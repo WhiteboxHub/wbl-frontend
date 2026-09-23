@@ -805,10 +805,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       try {
         await aiprepApi.assembleMedia(assessmentId);
       } catch (assembleErr) {
-        console.warn('Media assembly trigger note, falling back to evaluation:', assembleErr);
-        try {
-          await aiprepApi.triggerEvaluation(assessmentId);
-        } catch (_) {}
+        console.warn('Media assembly trigger note:', assembleErr);
+      }
+
+      // Always trigger backend LLM evaluation pipeline
+      try {
+        await aiprepApi.triggerEvaluation(assessmentId);
+      } catch (evalErr) {
+        console.warn('Evaluation trigger note:', evalErr);
       }
 
       // 6. Clean up browser session storage flags
