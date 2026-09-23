@@ -7,7 +7,8 @@ import { SearchIcon, RefreshCw, Eye, X, ClipboardType, Copy } from "lucide-react
 import { Button } from "@/components/admin_ui/button";
 import { toast } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
-import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
+import { apiFetch } from "@/lib/api";
+import { invalidateCache } from "@/lib/apiCache";
 
 type CandidateCredential = {
   id: number;
@@ -48,13 +49,13 @@ export default function CandidateCredentialsPage() {
     setError(null);
     try {
       if (bust) invalidateCache("/candidates/credentials?page=1&limit=500");
-      const res = await cachedApiFetch("/candidates/credentials?page=1&limit=500");
-      const rows = Array.isArray(res.data?.data)
-        ? res.data.data
-        : Array.isArray(res.data?.results)
-          ? res.data.results
-          : Array.isArray(res.data)
-            ? res.data
+      const res = await apiFetch("/candidates/credentials?page=1&limit=500");
+      const rows = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.results)
+          ? res.results
+          : Array.isArray(res)
+            ? res
             : [];
       setData(rows);
     } catch (err: any) {
@@ -220,6 +221,9 @@ export default function CandidateCredentialsPage() {
             showSearch={false}
             showAddButton={false}
             showEditButton={false}
+            getRowNodeId={(data: any) =>
+              `${data.id}-${data.provider_name}-${data.api_key_created_at}`
+            }
             onRowUpdated={() => fetchData(true)}
             onRowDeleted={async (id) => {
               fetchData(true);
