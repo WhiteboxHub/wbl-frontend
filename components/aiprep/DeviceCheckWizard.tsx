@@ -1062,7 +1062,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
         const actx = audioContextRef.current;
         if (actx.state === 'suspended') {
-          await actx.resume();
+          try {
+            await actx.resume();
+          } catch (resumeErr) {
+            // AudioContext.resume() can be rejected by strict browser audio policies
+            // (e.g. Safari). If the context cannot be resumed, abort mic init early
+            // and surface a clean failure state rather than proceeding with a
+            // suspended context or falling silently to the outer catch.
+            console.warn('[testMicrophone] AudioContext.resume() failed:', resumeErr);
+            setMicOk(false);
+            setMicTested(true);
+            setShowPermissionGuide(false);
+            return;
+          }
         }
 
         try {

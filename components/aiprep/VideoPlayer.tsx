@@ -111,8 +111,10 @@ export default function VideoPlayer({
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
-      // Fix #3: keep React state and native element in sync after track ends
-      if (localMediaRef.current) localMediaRef.current.currentTime = 0;
+      // Use the closed-over `mediaEl` (not localMediaRef.current) so we always
+      // reset the exact element this effect instance is managing — avoids a race
+      // condition where localMediaRef.current has already advanced to a new node.
+      mediaEl.currentTime = 0;
     };
     const handleError = () => {
       setHasMediaError(true);
