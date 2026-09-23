@@ -51,7 +51,7 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
           <Input
             id="assessment-search-input"
             type="text"
-            placeholder="Search by ID or UUID..."
+            placeholder="Search by ID..."
             value={filters.search}
             onChange={(e) => onFilterChange({ search: e.target.value })}
             className="pl-10"
