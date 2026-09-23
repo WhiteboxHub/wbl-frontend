@@ -220,9 +220,9 @@ export default function CandidateCredentialsPage() {
             showSearch={false}
             showAddButton={false}
             showEditButton={false}
-            onRowUpdated={() => fetchData()}
+            onRowUpdated={() => fetchData(true)}
             onRowDeleted={async (id) => {
-              fetchData();
+              fetchData(true);
             }}
           />
         </div>
