@@ -181,7 +181,11 @@ const ResourcesTable = ({
     // Mirrors isTokenExpired() in utils/auth.js without needing to import it.
     const isTokenValid = (t: string) => {
       try {
-        const payload = JSON.parse(atob(t.split(".")[1]));
+        let base64 = t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        while (base64.length % 4) {
+          base64 += "=";
+        }
+        const payload = JSON.parse(atob(base64));
         return !!payload?.exp && payload.exp * 1000 > Date.now();
       } catch {
         return false;
