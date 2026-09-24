@@ -110,6 +110,18 @@ export function useProcessingStatus({
 
     let active = true;
     const timers: NodeJS.Timeout[] = [];
+    const resolvers: (() => void)[] = [];
+
+    const delay = (ms: number) =>
+      new Promise<void>((resolve) => {
+        resolvers.push(resolve);
+        const t = setTimeout(() => {
+          resolve();
+          const idx = resolvers.indexOf(resolve);
+          if (idx > -1) resolvers.splice(idx, 1);
+        }, ms);
+        timers.push(t);
+      });
 
     // Stage 1: STT transcribing (0s - 3s)
     timers.push(
@@ -167,10 +179,7 @@ export function useProcessingStatus({
     // Single asynchronous evaluation check when the pipeline reaches completion window
     const executeEvaluation = async () => {
       // Allow realistic LLM pipeline window (~15 seconds for OpenAI evaluation)
-      await new Promise((res) => {
-        const t = setTimeout(res, 15000);
-        timers.push(t);
-      });
+      await delay(15000);
 
       if (!active) return;
 
@@ -182,10 +191,7 @@ export function useProcessingStatus({
       const MAX_SAFETY_ATTEMPTS = 15; // Up to ~75s additional window for complex LLM rubrics
       while (!done && active && attempts < MAX_SAFETY_ATTEMPTS) {
         attempts++;
-        await new Promise((res) => {
-          const t = setTimeout(res, 5000);
-          timers.push(t);
-        });
+        await delay(5000);
         if (active) {
           done = await checkStatus();
         }
@@ -219,6 +225,8 @@ export function useProcessingStatus({
     return () => {
       active = false;
       timers.forEach((t) => clearTimeout(t));
+      resolvers.forEach((res) => res());
+      resolvers.length = 0;
     };
   }, [assessmentId, checkStatus]);
 
