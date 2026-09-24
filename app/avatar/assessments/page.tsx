@@ -152,7 +152,7 @@ export default function CandidateAssessmentsPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidate Assessment List
+            Candidates Assessment List
           </h1>
         </div>
       </div>

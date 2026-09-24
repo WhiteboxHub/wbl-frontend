@@ -36,11 +36,11 @@ const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
   TECHNICAL: 'Core Skills & Concepts', HIRING_MANAGER: 'Projects & Leadership', SYSTEM_DESIGN: 'Architecture & Design',
 };
 
+export const UNLOCKED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO'];
+
 export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
   const details = ASSESSMENT_INFO_DETAILS[type];
-  const isIntro = type === 'INTRO';
-  const isJdIntro = type === 'JD_INTRO';
-  const isUnlocked = isIntro || isJdIntro;
+  const isUnlocked = UNLOCKED_ASSESSMENT_TYPES.includes(type);
   
   return {
     type,
