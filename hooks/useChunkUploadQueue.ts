@@ -74,8 +74,22 @@ export function useChunkUploadQueue({
       // Check if all chunks uploaded and the final chunk is included
       const hasFinal = queueRef.current.some((item) => item.isFinal && item.status === 'uploaded');
       const allDone = queueRef.current.length > 0 && queueRef.current.every((item) => item.status === 'uploaded');
-      if (hasFinal && allDone && onQueueComplete) {
-        onQueueComplete();
+      if (hasFinal && allDone) {
+        try {
+          if (typeof window !== "undefined" && assessmentId) {
+            const assembledBlob = new Blob(queueRef.current.map((i) => i.blob), {
+              type: mediaType === 'AUDIO' ? 'audio/webm' : 'video/webm',
+            });
+            const objUrl = URL.createObjectURL(assembledBlob);
+            sessionStorage.setItem(`aiprep_local_media_${assessmentId}`, objUrl);
+            sessionStorage.setItem("aiprep_latest_recording_url", objUrl);
+          }
+        } catch (e) {
+          console.warn("[Media Pipeline] Failed to cache local media blob in sessionStorage:", e);
+        }
+        if (onQueueComplete) {
+          onQueueComplete();
+        }
       }
       return;
     }

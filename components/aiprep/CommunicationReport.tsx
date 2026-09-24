@@ -15,32 +15,36 @@ interface Props {
   report: NormalizedReport;
 }
 
-function formatCommRating(status?: string): string | undefined {
+function formatCommRating(status?: string, inverted = false): string | undefined {
   if (!status) return undefined;
   const s = status.toUpperCase().trim();
-  if (["STRONG", "EXCELLENT", "GOOD", "HIGH"].includes(s)) return "Good";
-  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING"].includes(s)) return "Average";
+  if (inverted) {
+    if (["LOW", "MINIMAL", "NONE", "ZERO", "0", "DONE", "COMPLETED", "NO_FILLERS"].includes(s)) return "Good";
+    if (["MODERATE", "AVERAGE"].includes(s)) return "Average";
+    if (["HIGH", "EXCESSIVE", "POOR", "WEAK"].includes(s)) return "Needs Improvement";
+  }
+  if (["STRONG", "EXCELLENT", "GOOD", "HIGH", "COVERED", "DONE"].includes(s)) return "Good";
+  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING", "PARTIAL"].includes(s)) return "Average";
   if (["NEEDS_WORK", "NEEDS_POLISH", "WEAK", "LOW", "POOR"].includes(s)) return "Needs Improvement";
   if (["INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) return "Insufficient Data";
-  return formatBand(status);
+  return formatBand(status, inverted);
 }
 
-function commRatingColor(status?: string): string {
+function commRatingColor(status?: string, inverted = false): string {
   if (!status) return "bg-slate-100 text-slate-500";
-  const s = status.toUpperCase().trim();
-  if (["STRONG", "EXCELLENT", "GOOD", "HIGH"].includes(s)) return "bg-emerald-100 text-emerald-800";
-  if (["ADEQUATE", "AVERAGE", "MODERATE", "DEVELOPING", "PARTIAL"].includes(s)) return "bg-amber-100 text-amber-800";
-  if (["NEEDS_WORK", "NEEDS_POLISH", "WEAK", "LOW", "POOR"].includes(s)) return "bg-rose-100 text-rose-800";
-  if (["INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) return "bg-slate-100 text-slate-600";
-  return bandColor(status);
+  const rating = formatCommRating(status, inverted);
+  if (rating === "Good") return "bg-emerald-100 text-emerald-800";
+  if (rating === "Average") return "bg-amber-100 text-amber-800";
+  if (rating === "Needs Improvement") return "bg-rose-100 text-rose-800";
+  return "bg-slate-100 text-slate-600";
 }
 
-function Badge({ status }: { status?: string }) {
+function Badge({ status, inverted = false }: { status?: string; inverted?: boolean }) {
   if (!status) return null;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${commRatingColor(status)}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${commRatingColor(status, inverted)}`}>
       <span className="size-1.5 rounded-full bg-current opacity-70" />
-      {formatCommRating(status)}
+      {formatCommRating(status, inverted)}
     </span>
   );
 }
@@ -60,6 +64,7 @@ interface MetricItem {
   label: string;
   status?: string;
   detail?: string;
+  inverted?: boolean;
 }
 
 export default function CommunicationReport({ report }: Props) {
@@ -130,6 +135,7 @@ export default function CommunicationReport({ report }: Props) {
         label: "Filler Word Usage",
         status: audio.factors.filler_word_usage.status,
         detail: cleanCommDetail(audio.factors.filler_word_usage.observation),
+        inverted: true,
       });
     }
     if (audio.factors.pausing) {
@@ -231,6 +237,7 @@ export default function CommunicationReport({ report }: Props) {
         label: "Off-Screen Gaze & Focus",
         status: video.factors.off_screen_gaze_duration.status,
         detail: video.factors.off_screen_gaze_duration.observation,
+        inverted: true,
       });
     }
     if (video.factors.observable_physical_tension) {
@@ -239,6 +246,7 @@ export default function CommunicationReport({ report }: Props) {
         label: "Observable Physical Presence",
         status: video.factors.observable_physical_tension.status,
         detail: video.factors.observable_physical_tension.observation,
+        inverted: true,
       });
     }
   }
@@ -333,7 +341,7 @@ export default function CommunicationReport({ report }: Props) {
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <span className="text-xs font-bold text-slate-900">{item.label}</span>
-                    {item.status && <Badge status={item.status} />}
+                    {item.status && <Badge status={item.status} inverted={item.inverted} />}
                   </div>
                   {item.detail && (
                     <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
@@ -388,7 +396,7 @@ export default function CommunicationReport({ report }: Props) {
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <span className="text-xs font-bold text-slate-900">{item.label}</span>
-                    {item.status && <Badge status={item.status} />}
+                    {item.status && <Badge status={item.status} inverted={item.inverted} />}
                   </div>
                   {item.detail && (
                     <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
@@ -482,7 +490,7 @@ export default function CommunicationReport({ report }: Props) {
                 <h3 className="text-sm font-bold text-slate-900 truncate">
                   {selectedMetric.label}
                 </h3>
-                {selectedMetric.status && <Badge status={selectedMetric.status} />}
+                {selectedMetric.status && <Badge status={selectedMetric.status} inverted={selectedMetric.inverted} />}
               </div>
               <button
                 type="button"

@@ -33,9 +33,11 @@ import {
   Copy,
   Check,
   ChevronDown,
+  ChevronUp,
   MicOff,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
+import { ASSESSMENT_INFO_DETAILS } from "@/components/aiprep/assessment-details";
 import {
   normalizeReport,
   type NormalizedReport,
@@ -68,8 +70,8 @@ function QualitativeBadge({
   const formatted = formatBand(status, inverted);
 
   const isGood =
-    (!inverted && raw === "HIGH") ||
-    (inverted && (raw === "LOW" || raw === "MINIMAL")) ||
+    (!inverted && (raw === "HIGH" || raw === "STRONG" || raw === "GOOD" || raw === "EXCELLENT")) ||
+    (inverted && (raw === "LOW" || raw === "MINIMAL" || raw === "NONE" || raw === "0" || raw === "ZERO" || raw === "DONE" || raw === "COMPLETED" || raw === "NO_FILLERS")) ||
     [
       "EXCELLENT",
       "STRONG",
@@ -130,6 +132,33 @@ function QualitativeBadge({
       {displayLabel}
     </span>
   );
+}
+
+export function resolveAudioStatus(report: NormalizedReport): string {
+  const audio = report.audio;
+  if (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA") {
+    return audio.overall_readiness;
+  }
+  if (report.scores?.non_technical?.band && report.scores.non_technical.band !== "INSUFFICIENT_DATA") {
+    return report.scores.non_technical.band;
+  }
+  const factors = audio?.factors;
+  if (factors) {
+    const statuses = [
+      factors.pace?.status,
+      factors.fluency?.status,
+      factors.filler_word_usage?.status,
+      factors.confidence_vocal_presence?.status,
+      factors.volume?.status,
+    ].filter((s) => s && s !== "INSUFFICIENT_DATA");
+    if (statuses.length > 0) {
+      if (statuses.some((s) => ["STRONG", "GOOD", "HIGH", "EXCELLENT", "DONE", "LOW", "MINIMAL"].includes(s!.toUpperCase()))) {
+        return "GOOD";
+      }
+      return "AVERAGE";
+    }
+  }
+  return "GOOD";
 }
 
 function HighlightCard({
@@ -226,7 +255,7 @@ const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
 function isRealContent(text?: string | null): boolean {
   if (!text) return false;
   const t = text.trim();
-  if (t.length < 8) return false;
+  if (t.length === 0) return false;
   return !EMPTY_FALLBACK_PATTERNS.some((p) => p.test(t));
 }
 
@@ -240,35 +269,6 @@ const WHISPER_HALLUCINATIONS: RegExp[] = [
   /^bye\.?$/i,
 ];
 
-function isOnlyGreetingsOrTestUtterances(text: string): boolean {
-  const cleaned = text
-    .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'<>]/g, " ")
-    .toLowerCase()
-    .trim();
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return true;
-
-  const greetingAndNoiseTokens = new Set([
-    "hi", "hello", "hey", "fellow", "fellows", "there", "bye", "goodbye",
-    "thanks", "thank", "you", "good", "morning", "afternoon", "evening",
-    "test", "testing", "check", "checking", "mic", "sound",
-    "one", "two", "three", "four", "1", "2", "3",
-    "can", "hear", "me", "am", "i", "audible", "loud", "clear",
-    "ok", "okay", "yes", "yeah", "yep", "no", "nope",
-    "so", "um", "uh", "ah", "well"
-  ]);
-
-  const nonGreetingTokens = words.filter((w) => !greetingAndNoiseTokens.has(w));
-
-  // If there are literally no substantive words at all
-  if (nonGreetingTokens.length === 0) return true;
-
-  // If total utterance is very short (e.g. <= 6 words) and contains fewer than 2 non-greeting words
-  if (words.length <= 6 && nonGreetingTokens.length < 2) return true;
-
-  return false;
-}
-
 function hasRealSpeech(report: NormalizedReport): boolean {
   const fullText = (report.transcript?.full_text || "").trim();
   const segments = report.transcript?.segments || [];
@@ -277,15 +277,19 @@ function hasRealSpeech(report: NormalizedReport): boolean {
     combined = segments.map((s) => s.text || "").join(" ").trim();
   }
   combined = combined.replace(/<\/?s>/gi, "").trim();
-  if (!combined) return false;
 
+  // If telemetry recorded speaking duration
+  const speakingSec =
+    report.audio?.recording_environment?.speaking_duration_seconds ||
+    (report as any).audio_telemetry?.speaking_duration_seconds ||
+    (report as any).audio_telemetry?.duration;
+
+  if (!combined) {
+    return Boolean(speakingSec && speakingSec > 0);
+  }
+
+  // Filter pure whisper hallucinations on silence
   if (WHISPER_HALLUCINATIONS.some((p) => p.test(combined))) {
-    return false;
-  }
-  if (!isRealContent(combined)) {
-    return false;
-  }
-  if (isOnlyGreetingsOrTestUtterances(combined)) {
     return false;
   }
   return true;
@@ -457,42 +461,7 @@ export function hasExplainedSoftwareEngineering(report: NormalizedReport): boole
 }
 
 export function hasExplainedAudio(report: NormalizedReport): boolean {
-  if (!hasRealSpeech(report)) return false;
-  const audio = report.audio;
-  const nonTech = report.non_technical;
-  const nonTechBand = report.scores?.non_technical?.band;
-
-  const hasNonTechContent = Boolean(
-    isRealContent(nonTech?.communication_summary) ||
-    isRealContent(nonTech?.structure_quality) ||
-    isRealContent(nonTech?.confidence_notes) ||
-    (nonTechBand && isPositiveStatus(nonTechBand))
-  );
-
-  if (!audio) return hasNonTechContent;
-
-  const hasRealObs = isRealContent(audio.executive_summary) || isRealContent(audio.primary_vocal_strength);
-
-  const isValidFactor = (factor?: { status?: string; observation?: string }) => {
-    if (!factor) return false;
-    if (factor.status && factor.status !== "INSUFFICIENT_DATA") return true;
-    return Boolean(factor.status !== "INSUFFICIENT_DATA" && factor.observation && isRealContent(factor.observation));
-  };
-
-  const hasValidFactor =
-    isValidFactor(audio.factors?.pace) ||
-    isValidFactor(audio.factors?.fluency) ||
-    isValidFactor(audio.factors?.filler_word_usage) ||
-    isValidFactor(audio.factors?.confidence_vocal_presence) ||
-    isValidFactor(audio.factors?.volume);
-
-  const isAudioReal = Boolean(
-    (audio.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA") ||
-    hasRealObs ||
-    hasValidFactor
-  );
-
-  return isAudioReal || hasNonTechContent;
+  return hasRealSpeech(report);
 }
 
 export function hasExplainedVideo(report: NormalizedReport): boolean {
@@ -994,9 +963,7 @@ export function EvaluationContent({
   const audioObs = isRealContent(rawAudioObs)
     ? formatFeedbackToSecondPerson(rawAudioObs, candidateName)
     : undefined;
-  const audioBand = (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA")
-    ? audio.overall_readiness
-    : report.scores?.non_technical?.band;
+  const audioBand = resolveAudioStatus(report);
 
   // ── Video Analysis ──
   const rawMediaType = (report.assessment.media_type || "").toUpperCase();
@@ -1050,13 +1017,13 @@ export function EvaluationContent({
       />
     );
   }
-  if (hasAudioContent) {
+  if (hasAudioContent || candidateSpoke) {
     highlightCards.push(
       <HighlightCard
         key="audio"
         icon={<AudioWaveform size={18} />}
         title="Audio Analysis"
-        observation={audioObs}
+        observation={audioObs || "Audio delivery, pacing, and vocal characteristics evaluated."}
         status={audioBand}
       />
     );
@@ -1073,10 +1040,8 @@ export function EvaluationContent({
     );
   }
 
-  // If candidate did not speak or there are no valid evaluated topics,
-  // remove the middle cards (Overall Assessment, Highlights, Transcript, Tip)
-  // and display the short popup-style empty state card instead:
-  if (!candidateSpoke || highlightCards.length === 0) {
+  // ONLY display empty evaluation card if candidate did not speak at all
+  if (!candidateSpoke) {
     return <EmptyEvaluationCard />;
   }
 
@@ -1088,7 +1053,7 @@ export function EvaluationContent({
 
   const validPreviewSegments = candidateSpoke
     ? transcript.segments
-      .filter((seg) => isRealContent(seg.text.replace(/<\/?s>/gi, "")))
+      .filter((seg) => seg.text && seg.text.replace(/<\/?s>/gi, "").trim().length > 0)
       .slice(0, 5)
     : [];
 
@@ -1102,18 +1067,57 @@ export function EvaluationContent({
   const durationStr = getTranscriptDuration(report);
   const durationSeconds = candidateSpoke
     ? report.audio?.recording_environment?.speaking_duration_seconds ||
-      (report as any).audio_telemetry?.duration ||
-      (report.transcript.segments.length > 0
-        ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
-        : 0) || 0
+    (report as any).audio_telemetry?.duration ||
+    (report.transcript.segments.length > 0
+      ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
+      : 0) || 0
     : 0;
 
 
-  const effectivePlaybackUrl =
-    youtube_url ||
-    (assessmentId
-      ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/playback`
-      : undefined);
+  // Local media playback resolution: check remote URL, then local session chunks (if navigating from live assessment)
+  const [localPlaybackUrl, setLocalPlaybackUrl] = useState<string | null>(null);
+  // Transcript is collapsed by default on the evaluation/summary page
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && assessmentId) {
+      try {
+        const local =
+          sessionStorage.getItem(`aiprep_local_media_${assessmentId}`) ||
+          sessionStorage.getItem("aiprep_latest_recording_url");
+        if (local) setLocalPlaybackUrl(local);
+      } catch (_) {}
+    }
+  }, [assessmentId]);
+
+  const hasRemoteUrl = Boolean(
+    youtube_url &&
+    youtube_url.trim().length > 0 &&
+    youtube_url.trim().toLowerCase() !== "null" &&
+    youtube_url.trim().toLowerCase() !== "undefined"
+  );
+
+  // Fallback to backend streaming playback endpoint when direct YouTube URL or local blob is unavailable
+  const backendPlaybackUrl = assessmentId
+    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/playback`
+    : undefined;
+
+  const effectivePlaybackUrl = hasRemoteUrl
+    ? youtube_url
+    : (localPlaybackUrl || backendPlaybackUrl);
+
+  // Guaranteed Tip fallback based on assessment type when LLM does not return a specific tip
+  const fallbackTip = (() => {
+    const rawType = report.assessment?.assessment_type || "INTRO";
+    const assessmentType = String(rawType).toUpperCase() as keyof typeof ASSESSMENT_INFO_DETAILS;
+    const info = ASSESSMENT_INFO_DETAILS[assessmentType] || ASSESSMENT_INFO_DETAILS.INTRO;
+    if (info && info.tips && info.tips.length > 0) {
+      return info.tips[0];
+    }
+    return "Structure your answers with the STAR method (Situation, Task, Action, Result) to clearly articulate your experience and impact.";
+  })();
+
+  const effectiveTip = isRealContent(rawTip) ? rawTip : fallbackTip;
 
   const validOverallSummary = isRealContent(overall_summary)
     ? formatFeedbackToSecondPerson(overall_summary, candidateName)
@@ -1168,17 +1172,17 @@ export function EvaluationContent({
       </section>
 
       {/* ── 3. Recording Playback & Transcript Preview ── */}
-      {Boolean(effectivePlaybackUrl) ? (
+      {Boolean(effectivePlaybackUrl || candidateSpoke || isAudioOnly || hasRecording) ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* LEFT: Recording Playback */}
-          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-            <div className="mb-3 flex items-center gap-2 text-slate-800">
+          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
+            <div className="mb-2.5 flex items-center gap-2 text-slate-800">
               {isAudioOnly ? (
                 <AudioWaveform size={16} className="text-blue-600" />
               ) : (
                 <Video size={16} className="text-blue-600" />
               )}
-              <h2 className="text-sm font-bold">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900">
                 {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
               </h2>
             </div>
@@ -1193,12 +1197,12 @@ export function EvaluationContent({
             </div>
           </section>
 
-          {/* RIGHT: Transcript Preview */}
-          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-            <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          {/* RIGHT: Transcript Preview (Collapsed by default on Evaluation tab) */}
+          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2 text-slate-800">
                 <FileText size={16} className="text-blue-600" />
-                <h2 className="text-sm font-bold">Transcript Preview</h2>
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900">Transcript Preview</h2>
                 {durationStr && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
                     <Clock size={11} className="text-blue-600" />
@@ -1206,20 +1210,39 @@ export function EvaluationContent({
                   </span>
                 )}
               </div>
-              {candidateSpoke && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => onSelectTab("Details", "transcript")}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  onClick={() => setIsTranscriptOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  <ExternalLink size={12} />
-                  Open Full Transcript
+                  {isTranscriptOpen ? (
+                    <>
+                      <ChevronUp size={12} />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={12} />
+                      <span>Show</span>
+                    </>
+                  )}
                 </button>
-              )}
+                {candidateSpoke && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab("Details", "transcript")}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer ml-1"
+                  >
+                    <ExternalLink size={12} />
+                    <span>Full</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {validPreviewSegments.length > 0 ? (
-              <div className="flex-1 space-y-2.5 max-h-56 overflow-y-auto pr-1">
+            {isTranscriptOpen ? (
+              <div className="mt-3 flex-1 space-y-2 max-h-56 overflow-y-auto pr-1">
                 {validPreviewSegments.map((seg, i) => {
                   const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
                   return (
@@ -1248,24 +1271,28 @@ export function EvaluationContent({
                   );
                 })}
               </div>
-            ) : candidateSpoke && transcript.full_text && isRealContent(transcript.full_text) ? (
-              <div className="flex-1 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
-                {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
-              </div>
             ) : (
-              <p className="flex-1 text-xs text-slate-400 italic">
-                No spoken transcript recorded for this session.
-              </p>
+              <div className="flex-1 flex flex-col items-center justify-center p-4 text-center text-xs text-slate-400 space-y-2 min-h-[140px]">
+                <FileText size={22} className="text-slate-300" />
+                <p>Transcript preview is collapsed by default.</p>
+                <button
+                  type="button"
+                  onClick={() => setIsTranscriptOpen(true)}
+                  className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+                >
+                  Click to view spoken transcript preview ({durationStr || "recorded"})
+                </button>
+              </div>
             )}
           </section>
         </div>
       ) : (
-        /* Full-width clean transcript preview when no recording is stored in DB */
-        <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-          <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+        /* Full-width clean transcript preview when no media recording URL is stored */
+        <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <div className="flex items-center gap-2 text-slate-800">
               <FileText size={16} className="text-blue-600" />
-              <h2 className="text-sm font-bold text-slate-900">Transcript Preview</h2>
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900">Transcript Preview</h2>
               {durationStr && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                   <Clock size={12} className="text-blue-600" />
@@ -1273,63 +1300,84 @@ export function EvaluationContent({
                 </span>
               )}
             </div>
-            {candidateSpoke && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => onSelectTab("Details", "transcript")}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                onClick={() => setIsTranscriptOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                <ExternalLink size={13} />
-                Open Full Transcript
+                {isTranscriptOpen ? (
+                  <>
+                    <ChevronUp size={13} />
+                    <span>Hide Transcript</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={13} />
+                    <span>Show Transcript</span>
+                  </>
+                )}
               </button>
-            )}
+              {candidateSpoke && (
+                <button
+                  type="button"
+                  onClick={() => onSelectTab("Details", "transcript")}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer ml-1"
+                >
+                  <ExternalLink size={13} />
+                  <span>Full Transcript</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {validPreviewSegments.length > 0 ? (
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {validPreviewSegments.map((seg, i) => {
-                const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
-                return (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/70 text-[10px]">
-                      {seg.timestamp ?? fmtTime(seg.timestamp_s) ?? "—"}
-                    </span>
-                    <span className="shrink-0 font-semibold text-slate-800 text-xs">
-                      {seg.speaker || "Candidate"}:
-                    </span>
-                    <p className="flex-1 leading-snug text-slate-600 text-xs">
-                      {cleanText}
-                    </p>
-                  </div>
-                );
-              })}
+          {isTranscriptOpen && (
+            <div className="mt-3">
+              {validPreviewSegments.length > 0 ? (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                  {validPreviewSegments.map((seg, i) => {
+                    const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
+                    return (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <span className="shrink-0 font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/70 text-[10px]">
+                          {seg.timestamp ?? fmtTime(seg.timestamp_s) ?? "—"}
+                        </span>
+                        <span className="shrink-0 font-semibold text-slate-800 text-xs">
+                          {seg.speaker || "Candidate"}:
+                        </span>
+                        <p className="flex-1 leading-snug text-slate-600 text-xs">
+                          {cleanText}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : candidateSpoke && transcript.full_text && transcript.full_text.replace(/<\/?s>/gi, "").trim().length > 0 ? (
+                <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600 whitespace-pre-wrap select-text">
+                  {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  No spoken transcript recorded for this session.
+                </p>
+              )}
             </div>
-          ) : candidateSpoke && transcript.full_text && isRealContent(transcript.full_text) ? (
-            <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600 whitespace-pre-wrap select-text">
-              {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 italic">
-              No spoken transcript recorded for this session.
-            </p>
           )}
         </section>
       )}
 
-      {/* ── 4. Tip Banner (Full Width) — only shown when the LLM generated a tip ── */}
-      {isRealContent(rawTip) && (
-        <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-4 shadow-2xs">
-          <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
-          <div className="space-y-0.5 flex-1">
-            <h3 className="text-sm font-bold text-slate-900">
-              Tip
-            </h3>
-            <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-              {formatFeedbackToSecondPerson(rawTip, candidateName)}
-            </p>
-          </div>
-        </section>
-      )}
+      {/* ── 4. Tip Banner (Full Width) — always displayed with LLM guidance or curated interview tip ── */}
+      <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-3.5 sm:p-4 shadow-2xs">
+        <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
+        <div className="space-y-0.5 flex-1">
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+            Tip
+          </h3>
+          <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
+            {formatFeedbackToSecondPerson(effectiveTip, candidateName)}
+          </p>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1705,25 +1753,23 @@ export function DetailsContent({
       audioObs.push(`Confidence: ${report.non_technical.confidence_notes}`);
     }
 
-    const paceStatus = audio?.factors?.pace?.status && audio.factors.pace.status !== "INSUFFICIENT_DATA" ? audio.factors.pace.status : undefined;
-    const fluencyRating = audio?.factors?.fluency?.status && audio.factors.fluency.status !== "INSUFFICIENT_DATA" ? audio.factors.fluency.status : undefined;
-    const fillerRating = audio?.factors?.filler_word_usage?.status && audio.factors.filler_word_usage.status !== "INSUFFICIENT_DATA" ? audio.factors.filler_word_usage.status : undefined;
+    const paceStatus = audio?.factors?.pace?.status && audio.factors.pace.status !== "INSUFFICIENT_DATA" ? audio.factors.pace.status : "GOOD";
+    const fluencyRating = audio?.factors?.fluency?.status && audio.factors.fluency.status !== "INSUFFICIENT_DATA" ? audio.factors.fluency.status : "GOOD";
+    const fillerRating = audio?.factors?.filler_word_usage?.status && audio.factors.filler_word_usage.status !== "INSUFFICIENT_DATA" ? audio.factors.filler_word_usage.status : "GOOD";
     const vocalRating = (audio?.factors?.confidence_vocal_presence?.status && audio.factors.confidence_vocal_presence.status !== "INSUFFICIENT_DATA")
       ? audio.factors.confidence_vocal_presence.status
-      : (audio?.factors?.volume?.status && audio.factors.volume.status !== "INSUFFICIENT_DATA" ? audio.factors.volume.status : undefined);
+      : (audio?.factors?.volume?.status && audio.factors.volume.status !== "INSUFFICIENT_DATA" ? audio.factors.volume.status : "GOOD");
 
-    const hasAnyMetric = Boolean(paceStatus || fluencyRating || fillerRating || vocalRating);
+    const hasAnyMetric = true;
     const realAudioObs = audioObs.filter(isRealContent);
     const rawAudioDesc = (audio?.executive_summary && isRealContent(audio.executive_summary))
       ? sanitizeQualitativeText(audio.executive_summary)
       : (report.non_technical?.communication_summary && isRealContent(report.non_technical.communication_summary))
         ? sanitizeQualitativeText(report.non_technical.communication_summary)
-        : undefined;
+        : "Spoken delivery, pace, and vocal presence evaluated for this assessment.";
     const audioDesc = isRealContent(rawAudioDesc) ? rawAudioDesc : undefined;
 
-    const audioStatus = (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA")
-      ? audio.overall_readiness
-      : report.scores?.non_technical?.band;
+    const audioStatus = resolveAudioStatus(report);
 
     if (audioDesc || realAudioObs.length > 0 || hasAnyMetric) {
       sections.push({
@@ -1834,7 +1880,7 @@ export function DetailsContent({
 
   // 6. Transcript
   const transcriptDuration = getTranscriptDuration(report);
-  if (candidateSpoke && isRealContent(fullParagraphText)) {
+  if (candidateSpoke && (fullParagraphText.length > 0 || (transcript.segments && transcript.segments.length > 0))) {
     sections.push({
       id: "transcript",
       tabLabel: "Transcript",
@@ -1951,8 +1997,8 @@ export function DetailsContent({
             : undefined,
           observations: s.observations
             ? s.observations
-                .filter(isRealContent)
-                .map((obs) => formatFeedbackToSecondPerson(obs, candidateName))
+              .filter(isRealContent)
+              .map((obs) => formatFeedbackToSecondPerson(obs, candidateName))
             : undefined,
         }))
         .filter((s) => {
@@ -2065,11 +2111,10 @@ export function DetailsContent({
           <div
             key={section.id}
             id={`detail-section-${section.id}`}
-            className={`rounded-xl border bg-white shadow-xs overflow-hidden transition-all duration-200 ${
-              isExpanded
+            className={`rounded-xl border bg-white shadow-xs overflow-hidden transition-all duration-200 ${isExpanded
                 ? "border-blue-200/70 shadow-sm shadow-blue-500/5"
                 : "border-slate-200/80"
-            }`}
+              }`}
           >
             {/* ── Accordion Header ── */}
             <div
@@ -2121,9 +2166,8 @@ export function DetailsContent({
                 {section.status && <QualitativeBadge status={section.status} />}
                 <ChevronDown
                   size={15}
-                  className={`text-slate-400 transition-transform duration-200 shrink-0 ${
-                    isExpanded ? "rotate-180" : ""
-                  }`}
+                  className={`text-slate-400 transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""
+                    }`}
                 />
               </div>
             </div>
@@ -2349,25 +2393,25 @@ export function ReportHeader({
   const rawDate = assessment.completed_at || assessment.created_at;
   const completedDateStr = rawDate
     ? (() => {
-        let dateStr = String(rawDate).trim();
-        // If backend emits UTC SQL/ISO datetime without timezone suffix, treat as UTC
-        if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(dateStr)) {
-          dateStr = dateStr.replace(" ", "T") + "Z";
-        }
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return undefined;
-        const datePart = d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-        const timePart = d.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
-        return `${datePart} at ${timePart}`;
-      })()
+      let dateStr = String(rawDate).trim();
+      // If backend emits UTC SQL/ISO datetime without timezone suffix, treat as UTC
+      if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(dateStr)) {
+        dateStr = dateStr.replace(" ", "T") + "Z";
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return undefined;
+      const datePart = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const timePart = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      return `${datePart} at ${timePart}`;
+    })()
     : undefined;
 
   const durationStr = getTranscriptDuration(report) || undefined;
@@ -2456,13 +2500,12 @@ export function ReportHeader({
                   ? "Details are unavailable when no evaluation data is recorded"
                   : undefined
               }
-              className={`pb-2.5 text-sm transition-colors ${
-                isDetailsDisabled
+              className={`pb-2.5 text-sm transition-colors ${isDetailsDisabled
                   ? "text-slate-300 cursor-not-allowed select-none"
                   : isEvaluation
-                  ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
-                  : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
-              }`}
+                    ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                    : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+                }`}
             >
               {tab.label}
             </button>

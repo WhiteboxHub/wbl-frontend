@@ -45,34 +45,36 @@ export function formatBand(raw?: string | null, inverted: boolean = false): stri
   const upper = raw.toUpperCase().trim();
 
   if (inverted) {
-    if (upper === "LOW" || upper === "MINIMAL") return "Good";
-    if (upper === "MODERATE") return "Average";
-    if (upper === "HIGH" || upper === "EXCESSIVE") return "Needs Improvement";
+    if (["LOW", "MINIMAL", "NONE", "ZERO", "0", "DONE", "COMPLETED", "NO_FILLERS"].includes(upper)) return "Good";
+    if (upper === "MODERATE" || upper === "AVERAGE") return "Average";
+    if (upper === "HIGH" || upper === "EXCESSIVE" || upper === "POOR" || upper === "WEAK") return "Needs Improvement";
   } else {
-    if (upper === "HIGH") return "Good";
-    if (upper === "MODERATE") return "Average";
-    if (upper === "LOW" || upper === "MINIMAL" || upper === "EXCESSIVE") return "Needs Improvement";
+    if (["HIGH", "STRONG", "GOOD", "DONE", "COMPLETED"].includes(upper)) return "Good";
+    if (upper === "MODERATE" || upper === "AVERAGE") return "Average";
+    if (upper === "LOW" || upper === "MINIMAL" || upper === "EXCESSIVE" || upper === "WEAK" || upper === "POOR") return "Needs Improvement";
   }
 
   const map: Record<string, string> = {
-    EXCELLENT:           "Good",
-    STRONG:              "Good",
-    GOOD:                "Good",
-    POSITIVE:            "Good",
-    ADEQUATE:            "Average",
-    AVERAGE:             "Average",
-    DEVELOPING:          "Average",
-    PARTIAL:             "Average",
-    NEEDS_WORK:          "Needs Improvement",
-    NEEDS_POLISH:        "Needs Improvement",
-    NEEDS_IMPROVEMENT:   "Needs Improvement",
-    WEAK:                "Needs Improvement",
-    POOR:                "Needs Improvement",
-    COVERED:             "Good",
-    NOT_MENTIONED:       "Not Mentioned",
-    NEGATIVE:            "Needs Improvement",
-    NOT_APPLICABLE:      "N/A",
-    INSUFFICIENT_DATA:   "Insufficient Data",
+    EXCELLENT: "Good",
+    STRONG: "Good",
+    GOOD: "Good",
+    POSITIVE: "Good",
+    ADEQUATE: "Average",
+    AVERAGE: "Average",
+    DEVELOPING: "Average",
+    PARTIAL: "Average",
+    NEEDS_WORK: "Needs Improvement",
+    NEEDS_POLISH: "Needs Improvement",
+    NEEDS_IMPROVEMENT: "Needs Improvement",
+    WEAK: "Needs Improvement",
+    POOR: "Needs Improvement",
+    COVERED: "Good",
+    DONE: "Good",
+    COMPLETED: "Good",
+    NOT_MENTIONED: "Not Mentioned",
+    NEGATIVE: "Needs Improvement",
+    NOT_APPLICABLE: "N/A",
+    INSUFFICIENT_DATA: "Insufficient Data",
   };
   return map[upper] ?? raw;
 }
@@ -83,13 +85,21 @@ export function bandColor(band?: string, inverted: boolean = false): string {
   const upper = band.toUpperCase().trim();
 
   if (inverted) {
-    if (upper === "LOW" || upper === "MINIMAL") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (upper === "MODERATE") return "bg-amber-100 text-amber-800 border-amber-200";
-    if (upper === "HIGH" || upper === "EXCESSIVE") return "bg-rose-100 text-rose-800 border-rose-200";
+    if (["LOW", "MINIMAL", "NONE", "ZERO", "0", "DONE", "COMPLETED", "NO_FILLERS"].includes(upper)) {
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    }
+    if (upper === "MODERATE" || upper === "AVERAGE") return "bg-amber-100 text-amber-800 border-amber-200";
+    if (upper === "HIGH" || upper === "EXCESSIVE" || upper === "POOR" || upper === "WEAK") {
+      return "bg-rose-100 text-rose-800 border-rose-200";
+    }
   } else {
-    if (upper === "HIGH") return "bg-emerald-100 text-emerald-800 border-emerald-200";
-    if (upper === "MODERATE") return "bg-amber-100 text-amber-800 border-amber-200";
-    if (upper === "LOW" || upper === "MINIMAL" || upper === "EXCESSIVE") return "bg-rose-100 text-rose-800 border-rose-200";
+    if (["HIGH", "STRONG", "GOOD", "DONE", "COMPLETED"].includes(upper)) {
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    }
+    if (upper === "MODERATE" || upper === "AVERAGE") return "bg-amber-100 text-amber-800 border-amber-200";
+    if (upper === "LOW" || upper === "MINIMAL" || upper === "EXCESSIVE" || upper === "WEAK" || upper === "POOR") {
+      return "bg-rose-100 text-rose-800 border-rose-200";
+    }
   }
 
   switch (upper) {
@@ -97,20 +107,22 @@ export function bandColor(band?: string, inverted: boolean = false): string {
     case "STRONG":
     case "GOOD":
     case "COVERED":
-    case "POSITIVE":      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    case "DONE":
+    case "COMPLETED":
+    case "POSITIVE": return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "AVERAGE":
     case "ADEQUATE":
     case "DEVELOPING":
-    case "PARTIAL":       return "bg-amber-100 text-amber-800 border-amber-200";
+    case "PARTIAL": return "bg-amber-100 text-amber-800 border-amber-200";
     case "NEEDS_WORK":
     case "NEEDS_POLISH":
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
     case "POOR":
-    case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NEGATIVE": return "bg-rose-100 text-rose-800 border-rose-200";
     case "NOT_MENTIONED":
-    case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
-    default:              return "bg-slate-100 text-slate-500 border-slate-200";
+    case "NOT_APPLICABLE": return "bg-slate-100 text-slate-500 border-slate-200";
+    default: return "bg-slate-100 text-slate-500 border-slate-200";
   }
 }
 
@@ -195,11 +207,11 @@ export interface NormalizedReport {
 
   // ── Scores breakdown (from transcript_evaluation.scores_breakdown_json) ──
   scores: {
-    ai_engineering?:   { band?: string };
+    ai_engineering?: { band?: string };
     core_engineering?: { band?: string };
-    non_technical?:    { band?: string };
-    business_acumen?:  { band?: string };
-    overall_band?:     string;
+    non_technical?: { band?: string };
+    business_acumen?: { band?: string };
+    overall_band?: string;
   };
 
   // ── Introduction quality (from intro_evaluation.introduction_quality) ──
@@ -345,7 +357,7 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       const ts = asStr(s.timestamp) ?? asStr(s.start_time);
       const ts_s =
         typeof s.timestamp_s === "number" ? s.timestamp_s :
-        typeof s.start_s === "number" ? s.start_s : undefined;
+          typeof s.start_s === "number" ? s.start_s : undefined;
       return {
         speaker: asStr(s.speaker) ?? asStr(s.role),
         timestamp: ts,
@@ -669,27 +681,27 @@ export function normalizeReport(
   // ── Critical gaps & improvements ─────────────────────────────────────────
   const critical_gaps = Array.isArray(introEval.critical_gaps)
     ? introEval.critical_gaps.map((g: unknown) => {
-        const gap = asRecord(g);
-        return {
-          topic: asStr(gap.topic),
-          status: asStr(gap.status),
-          what_is_missing: asStr(gap.what_is_missing),
-          why_it_matters: asStr(gap.why_it_matters),
-          suggested_addition: asStr(gap.suggested_addition),
-        };
-      })
+      const gap = asRecord(g);
+      return {
+        topic: asStr(gap.topic),
+        status: asStr(gap.status),
+        what_is_missing: asStr(gap.what_is_missing),
+        why_it_matters: asStr(gap.why_it_matters),
+        suggested_addition: asStr(gap.suggested_addition),
+      };
+    })
     : [];
 
   const priority_improvements = Array.isArray(introEval.priority_improvements)
     ? introEval.priority_improvements.map((p: unknown) => {
-        const imp = asRecord(p);
-        return {
-          priority: typeof imp.priority === "number" ? imp.priority : undefined,
-          topic: asStr(imp.topic),
-          guidance: asStr(imp.guidance),
-          example: asStr(imp.example),
-        };
-      })
+      const imp = asRecord(p);
+      return {
+        priority: typeof imp.priority === "number" ? imp.priority : undefined,
+        topic: asStr(imp.topic),
+        guidance: asStr(imp.guidance),
+        example: asStr(imp.example),
+      };
+    })
     : [];
 
   const fa = asRecord(introEval.final_assessment);
@@ -720,12 +732,12 @@ export function normalizeReport(
       ? asStrArray(ta.areas_for_improvement)
       : priority_improvements.length > 0
         ? priority_improvements
-            .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
-            .filter(Boolean)
+          .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
+          .filter(Boolean)
         : critical_gaps.length > 0
           ? critical_gaps
-              .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
-              .filter(Boolean)
+            .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
+            .filter(Boolean)
           : (overallAssessment.biggest_gap ? [overallAssessment.biggest_gap] : []);
   const taDepth =
     asStr(ta.depth_assessment) ??
@@ -736,40 +748,40 @@ export function normalizeReport(
   const technical_analysis =
     Object.keys(ta).length || taSummary || taStrengths.length > 0 || taImprovements.length > 0
       ? {
-          summary: taSummary,
-          strengths: taStrengths,
-          areas_for_improvement: taImprovements,
-          depth_assessment: taDepth,
-        }
+        summary: taSummary,
+        strengths: taStrengths,
+        areas_for_improvement: taImprovements,
+        depth_assessment: taDepth,
+      }
       : undefined;
 
   // ── Improvements ─────────────────────────────────────────────────────────
   const rawImprovements = txEval.improvements_json ?? repData.improvements_json;
   const improvements: ImprovementItem[] = Array.isArray(rawImprovements)
     ? rawImprovements.map((i: unknown) => {
-        const imp = asRecord(i);
-        return {
-          priority: typeof imp.priority === "number" ? imp.priority : undefined,
-          topic: asStr(imp.topic),
-          effort: asStr(imp.effort),
-          rationale: asStr(imp.rationale),
-        };
-      })
+      const imp = asRecord(i);
+      return {
+        priority: typeof imp.priority === "number" ? imp.priority : undefined,
+        topic: asStr(imp.topic),
+        effort: asStr(imp.effort),
+        rationale: asStr(imp.rationale),
+      };
+    })
     : [];
 
   // ── Coaching suggestions (with fallbacks for completed evaluations) ──────
   const rawCoaching = txEval.coaching_suggestions_json ?? repData.coaching_suggestions_json;
   let coaching_suggestions: CoachingSuggestion[] = Array.isArray(rawCoaching)
     ? rawCoaching.map((c: unknown) => {
-        const cs = asRecord(c);
-        return {
-          priority: typeof cs.priority === "number" ? cs.priority : undefined,
-          dimension: asStr(cs.dimension),
-          area: asStr(cs.area),
-          suggestion: asStr(cs.suggestion),
-          evidence: asStr(cs.evidence),
-        };
-      })
+      const cs = asRecord(c);
+      return {
+        priority: typeof cs.priority === "number" ? cs.priority : undefined,
+        dimension: asStr(cs.dimension),
+        area: asStr(cs.area),
+        suggestion: asStr(cs.suggestion),
+        evidence: asStr(cs.evidence),
+      };
+    })
     : [];
 
   if (coaching_suggestions.length === 0) {
@@ -813,9 +825,9 @@ export function normalizeReport(
   const rawGaps = txEval.gaps_to_validate_json ?? repData.gaps_to_validate_json;
   let gaps_to_validate: GapItem[] = Array.isArray(rawGaps)
     ? rawGaps.map((g: unknown) => {
-        const gap = asRecord(g);
-        return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
-      })
+      const gap = asRecord(g);
+      return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
+    })
     : [];
 
   if (gaps_to_validate.length === 0) {
@@ -839,14 +851,14 @@ export function normalizeReport(
   const rawEvidence = txEval.transcript_evidence_json ?? repData.transcript_evidence_json;
   const transcript_evidence: TranscriptEvidence[] = Array.isArray(rawEvidence)
     ? rawEvidence.map((e: unknown) => {
-        const ev = asRecord(e);
-        return {
-          quote: asStr(ev.quote) ?? "",
-          timestamp_s: typeof ev.timestamp_s === "number" ? ev.timestamp_s : null,
-          dimension: asStr(ev.dimension),
-          observation: asStr(ev.observation),
-        };
-      }).filter(e => e.quote)
+      const ev = asRecord(e);
+      return {
+        quote: asStr(ev.quote) ?? "",
+        timestamp_s: typeof ev.timestamp_s === "number" ? ev.timestamp_s : null,
+        dimension: asStr(ev.dimension),
+        observation: asStr(ev.observation),
+      };
+    }).filter(e => e.quote)
     : [];
 
   // ── Transcript from data response ────────────────────────────────────────
@@ -923,11 +935,11 @@ export function normalizeReport(
     overall_strongest_signal: asStr(overallAssessment.strongest_signal),
     overall_biggest_gap: asStr(overallAssessment.biggest_gap),
     scores: {
-      ai_engineering:   parseScore("ai_engineering"),
+      ai_engineering: parseScore("ai_engineering"),
       core_engineering: parseScore("core_engineering"),
-      non_technical:    parseScore("non_technical"),
-      business_acumen:  parseScore("business_acumen"),
-      overall_band:     asStr(scoresRaw.overall_band),
+      non_technical: parseScore("non_technical"),
+      business_acumen: parseScore("business_acumen"),
+      overall_band: asStr(scoresRaw.overall_band),
     },
     intro_quality,
     resume_alignment,
