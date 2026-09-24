@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { useRouter } from "next/navigation";
 import { apiFetch, API_BASE_URL } from "@/lib/api";
 import { toast } from "sonner";
+
 
 type ComponentType =
   | "Presentations"
@@ -14,16 +15,26 @@ type ComponentType =
   | "Questions"
   | "Git Repo's";
 
-const fetchPresentationData = async (course: string, type: ComponentType) => {
-  const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
-  let endpointsToTry = [
-    `/materials?course=${course}&search=${type}`
-  ];
+// ---------------------------------------------------------------------------
+// Data fetching
+// The Bearer token is forwarded when the caller is authenticated so that the
+// backend returns material links.  When no token is provided the backend
+// strips the `link` field, which is consistent with the existing 401-handling
+// already present in this function (see the res.status === 401 block).
+// ---------------------------------------------------------------------------
+const fetchPresentationData = async (
+  course: string,
+  type: ComponentType,
+  authToken: string | null
+) => {
+  const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(
+    /\/$/,
+    ""
+  );
+  let endpointsToTry = [`/materials?course=${course}&search=${type}`];
 
   if (type === "Git Repo's") {
-    endpointsToTry = [
-      `/github-classroom-repos?course=${course}`
-    ];
+    endpointsToTry = [`/github-classroom-repos?course=${course}`];
   }
 
   const normalize = (data: any) => {
@@ -38,11 +49,16 @@ const fetchPresentationData = async (course: string, type: ComponentType) => {
 
   try {
     const isClient = typeof window !== "undefined";
-    const token = isClient
-      ? localStorage.getItem("access_token") ||
-        localStorage.getItem("token") ||
-        localStorage.getItem("auth_token")
-      : null;
+    // Prefer the token passed via prop (comes from AuthContext); fall back to
+    // the values the existing code already reads from localStorage so that any
+    // other callers that don't pass the prop continue to work unchanged.
+    const token =
+      authToken ||
+      (isClient
+        ? localStorage.getItem("access_token") ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("auth_token")
+        : null);
 
     for (const ep of endpointsToTry) {
       const fullUrl = `${base}/${ep.replace(/^\/+/, "")}`;
@@ -53,6 +69,8 @@ const fetchPresentationData = async (course: string, type: ComponentType) => {
           Accept: "application/json",
         };
 
+        // Only attach the Authorization header when a token is present.
+        // Without it the backend will return the catalogue with link=null.
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
         const res = await fetch(fullUrl, {
@@ -94,12 +112,23 @@ const fetchPresentationData = async (course: string, type: ComponentType) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 const ResourcesTable = ({
   course,
   type,
+  authToken = null,
+  isAuthenticated = false,
 }: {
   course: string;
   type: ComponentType;
+  /** JWT from AuthContext — forwarded to the API so authenticated users get
+   *  material links.  Defaults to null for backward-compatibility when the
+   *  prop is not supplied by a caller. */
+  authToken?: string | null;
+  /** Whether the current user is logged in — used to gate the click handler. */
+  isAuthenticated?: boolean;
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -110,7 +139,10 @@ const ResourcesTable = ({
     setLoading(true);
     setError(null);
 
-    const sessionKey = `data_${course}_${type}`;
+    // Cache key includes a suffix to differentiate authenticated vs
+    // unauthenticated responses (different backends return different payloads).
+    const authSuffix = authToken ? "_auth" : "_guest";
+    const sessionKey = `data_${course}_${type}${authSuffix}`;
     const tsKey = `${sessionKey}_timestamp`;
     const sessionData = sessionStorage.getItem(sessionKey);
     const sessionTs = sessionStorage.getItem(tsKey);
@@ -123,7 +155,7 @@ const ResourcesTable = ({
       return;
     }
 
-    const fetchedData = await fetchPresentationData(course, type);
+    const fetchedData = await fetchPresentationData(course, type, authToken);
     if (fetchedData) {
       setData(fetchedData);
       sessionStorage.setItem(sessionKey, JSON.stringify(fetchedData));
@@ -133,13 +165,50 @@ const ResourcesTable = ({
     }
 
     setLoading(false);
-  }, [course, type]);
+  }, [course, type, authToken]);
 
   useEffect(() => {
     getData();
   }, [getData]);
 
+  const router = useRouter();
+
+  // ---------------------------------------------------------------------------
+  // Click handler — gated by authentication
+  // ---------------------------------------------------------------------------
   const handleSubjectClick = (link: string | null) => {
+    // Helper: check if a raw JWT is still valid (not expired).
+    // Mirrors isTokenExpired() in utils/auth.js without needing to import it.
+    const isTokenValid = (t: string) => {
+      try {
+        const payload = JSON.parse(atob(t.split(".")[1]));
+        return !!payload?.exp && payload.exp * 1000 > Date.now();
+      } catch {
+        return false;
+      }
+    };
+
+    // Primary: use the isAuthenticated boolean from AuthContext (most reliable
+    // once the context has hydrated). Secondary: check localStorage directly
+    // with expiry validation so a logged-in user who clicks before AuthContext
+    // finishes its async fetch is never incorrectly redirected.
+    const rawToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("auth_token")
+        : null;
+
+    const userIsLoggedIn = isAuthenticated || (!!rawToken && isTokenValid(rawToken));
+
+    if (!userIsLoggedIn) {
+      // Not logged in (or token expired) — go to the Login page.
+      // router.push uses Next.js client-side navigation with no hard-coded host.
+      router.push("/login");
+      return;
+    }
+
+    // Authenticated — open the material.
     if (!link) {
       setClickError("Oops !! No data found");
       setTimeout(() => setClickError(null), 3000);
@@ -148,6 +217,8 @@ const ResourcesTable = ({
     }
     window.open(link, "_blank");
   };
+
+
 
   if (loading) {
     return (
@@ -178,6 +249,7 @@ const ResourcesTable = ({
   return (
     <div className="overflow-x-auto sm:w-4/5">
       {clickError && <p className="mb-4 text-center text-red-600">{clickError}</p>}
+
       <table className="w-full table-auto border-collapse border border-gray-500 shadow-2xl shadow-gray-800">
         <thead>
           <tr>
@@ -193,8 +265,11 @@ const ResourcesTable = ({
           {data.map((subject: any, index: number) => (
             <tr
               key={subject.id || index}
-              className={`hover:bg-gray-200 dark:hover:bg-blue-500 ${index % 2 === 0 ? "bg-gray-100 dark:bg-transparent" : "bg-gray-200 dark:bg-transparent"
-                }`}
+              className={`hover:bg-gray-200 dark:hover:bg-blue-500 ${
+                index % 2 === 0
+                  ? "bg-gray-100 dark:bg-transparent"
+                  : "bg-gray-200 dark:bg-transparent"
+              }`}
             >
               <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 {index + 1}

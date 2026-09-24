@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { isAuthenticated } from "@/utils/auth";
+import { useAuth } from "@/utils/AuthContext";
 import Layout from "@/components/Common/Layout";
 import ResourcesTable from "@/components/Common/resourcesTable";
 import CourseNavigation from "@/components/Common/CourseNavigation";
@@ -11,11 +11,9 @@ import {
   Youtube,
   FileText,
   BookOpen,
-  Network,
   Sparkles,
   Library,
   Mail,
-  Cpu,
   ClipboardList,
   Github,
 } from "lucide-react";
@@ -35,8 +33,15 @@ export default function PresentationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Use the project-wide auth context instead of a one-off isAuthenticated()
+  // call so we reuse the same auth state as the rest of the application.
+  // Unauthenticated users are intentionally NOT redirected — they may browse
+  // the catalogue; actual material links are withheld by the backend and the
+  // click handler in ResourcesTable will prompt them to log in.
+  const { isAuthenticated, authToken } = useAuth();
+
   const [course, setCourse] = useState("ML");
-  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [activeComponent, setActiveComponent] =
     useState<ComponentType>("Presentations");
 
@@ -46,11 +51,7 @@ export default function PresentationPage() {
     { type: "Study Guides", label: "Study Guides", icon: BookOpen },
     { type: "Cheatsheets", label: "Cheatsheets", icon: FileText },
     { type: "Books", label: "O'Reilly Books", icon: Library },
-    {
-      type: "Must Watch",
-      label: "Must Watch",
-      icon: Youtube,
-    },
+    { type: "Must Watch", label: "Must Watch", icon: Youtube },
     { type: "Newsletters", label: "Newsletters", icon: Mail },
     {
       type: "Interactive Visual Explainers",
@@ -64,35 +65,29 @@ export default function PresentationPage() {
     setActiveComponent(component);
   };
 
+  // Read the course from the URL on mount. Only redirect if an explicitly
+  // invalid course (QA/UI) is present — do NOT push ML unconditionally on
+  // every render, as that caused cascading re-renders and multiple simultaneous
+  // API fetches for every material type.
   useEffect(() => {
-    router.push(`/presentation?course=ML`);
-  }, [router]);
-
-  useEffect(() => {
-    const checkAuthentication = async () => {
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        const { valid } = await isAuthenticated();
-        if (!valid) {
-          router.push("/login");
-        } else {
-          let selectedCourse = searchParams.get("course") || "ML";
-          if (selectedCourse.toUpperCase() === "UI" || selectedCourse.toUpperCase() === "QA") {
-            selectedCourse = "ML";
-            router.push("/presentation?course=ML");
-          }
-          setCourse(selectedCourse);
-          setLoading(false);
-        }
-      } catch {
-        router.push("/login");
-      }
-    };
-
-    checkAuthentication();
+    setMounted(true);
+    let selectedCourse = searchParams.get("course") || "ML";
+    if (
+      selectedCourse.toUpperCase() === "UI" ||
+      selectedCourse.toUpperCase() === "QA"
+    ) {
+      selectedCourse = "ML";
+      router.replace("/presentation?course=ML");
+    } else if (!searchParams.get("course")) {
+      router.replace("/presentation?course=ML");
+    }
+    setCourse(selectedCourse);
   }, [router, searchParams]);
 
-  if (loading) {
+
+  // Show a brief loading screen until the component has mounted on the client
+  // (prevents hydration mismatch and a flash of incorrect content).
+  if (!mounted) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <p className="text-lg text-gray-500">Loading...</p>
@@ -152,7 +147,12 @@ export default function PresentationPage() {
 
           {/* CONTENT */}
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
-            <ResourcesTable course={course} type={activeComponent} />
+            <ResourcesTable
+              course={course}
+              type={activeComponent}
+              authToken={authToken}
+              isAuthenticated={isAuthenticated}
+            />
           </div>
         </section>
       </main>
