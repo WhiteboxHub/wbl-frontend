@@ -22,6 +22,7 @@ interface Props {
   isAudioOnly?: boolean;
   candidateName?: string;
   durationSeconds?: number;
+  waveformAmplitudes?: number[];
   onSeek?: (seconds: number) => void;
 }
 
@@ -65,6 +66,7 @@ export default function VideoPlayer({
   durationSeconds = 0,
   onSeek,
 }: Props) {
+  const waveformAmplitudes = (typeof arguments !== "undefined" ? (arguments[0] as Props | undefined)?.waveformAmplitudes : undefined);
   const ytId = !isAudioOnly && youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
 
   // Local media reference (points to either passed videoRef or internal ref)
@@ -301,7 +303,11 @@ export default function VideoPlayer({
 
   // ── 3. Rich Audio Recording Playback Player ────────────────────────────────
   // Shown for AUDIO assessments or when video recording is audio-only
-  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const isMediaAvailable = Boolean(youtubeUrl && !hasMediaError);
+  const effectiveDuration = !isMediaAvailable ? 0 : duration;
+  const effectiveCurrentTime = !isMediaAvailable ? 0 : currentTime;
+  const progressPercent = effectiveDuration > 0 ? Math.min(100, (effectiveCurrentTime / effectiveDuration) * 100) : 0;
+  const bars = waveformAmplitudes && waveformAmplitudes.length > 0 ? waveformAmplitudes : WAVEFORM_BARS;
 
   return (
     <div
@@ -338,19 +344,18 @@ export default function VideoPlayer({
           </div>
         </div>
 
-        {hasMediaError ? (
+        {!isMediaAvailable ? (
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-700/60">
             <span className="w-2 h-2 rounded-full bg-rose-500" />
             <span className="text-[10px] font-mono font-semibold text-rose-300">
-              UNAVAILABLE
+              {hasMediaError ? "UNAVAILABLE" : "PROCESSING"}
             </span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/80 border border-slate-700/60">
             <span
-              className={`w-2 h-2 rounded-full ${
-                isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-              }`}
+              className={`w-2 h-2 rounded-full ${isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                }`}
             />
             <span className="text-[10px] font-mono font-semibold text-slate-300">
               {isPlaying ? "PLAYING" : "PAUSED"}
@@ -360,14 +365,16 @@ export default function VideoPlayer({
       </div>
 
       {/* Middle: Dynamic Interactive Audio Waveform Visualization or Error Notice */}
-      {hasMediaError ? (
+      {!isMediaAvailable ? (
         <div className="my-3 py-3 px-4 rounded-lg bg-rose-950/20 border border-rose-900/40 flex flex-col items-center justify-center gap-1 h-20 text-center z-10">
           <div className="flex items-center gap-1.5 text-xs text-rose-400 font-semibold">
             <AlertCircle size={14} />
-            <span>Failed to load media recording</span>
+            <span>{hasMediaError ? "Failed to load media recording" : "Recording is processing or unavailable"}</span>
           </div>
           <span className="text-[11px] text-slate-400">
-            The audio asset could not be accessed or has expired.
+            {hasMediaError
+              ? "The audio asset could not be accessed or has expired."
+              : "The recording will appear here once processing is complete."}
           </span>
         </div>
       ) : (
@@ -375,22 +382,23 @@ export default function VideoPlayer({
           aria-hidden="true"
           className="my-3 py-3 px-2 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-1 sm:gap-1.5 h-20 cursor-pointer z-10 transition-colors hover:bg-slate-900"
           onClick={(e) => {
+            if (!isMediaAvailable) return;
             const rect = e.currentTarget.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-            const seekTime = ratio * duration;
+            const seekTime = ratio * effectiveDuration;
             setCurrentTime(seekTime);
             const el = localMediaRef.current;
-            if (el && !hasMediaError) el.currentTime = seekTime;
+            if (el) el.currentTime = seekTime;
             if (onSeek) onSeek(seekTime);
           }}
           title="Click anywhere to jump to timestamp"
         >
-          {WAVEFORM_BARS.map((baseHeight, idx) => {
-            const barFraction = idx / WAVEFORM_BARS.length;
+          {bars.map((baseHeight, idx) => {
+            const barFraction = idx / bars.length;
             const isPassed = barFraction <= progressPercent / 100;
             const isCurrent =
-              Math.abs(barFraction - progressPercent / 100) < 1 / WAVEFORM_BARS.length;
+              Math.abs(barFraction - progressPercent / 100) < 1 / bars.length;
 
             // Subtle pulse variance when playing
             const dynamicHeight = isPlaying
@@ -400,11 +408,10 @@ export default function VideoPlayer({
             return (
               <div
                 key={idx}
-                className={`flex-1 rounded-full transition-all duration-150 ${
-                  isPassed
-                    ? "bg-gradient-to-t from-blue-500 to-indigo-400 shadow-xs shadow-blue-500/20"
-                    : "bg-slate-700/50 hover:bg-slate-600"
-                } ${isCurrent && isPlaying ? "scale-y-110" : ""}`}
+                className={`flex-1 rounded-full transition-all duration-150 ${isPassed
+                  ? "bg-gradient-to-t from-blue-500 to-indigo-400 shadow-xs shadow-blue-500/20"
+                  : "bg-slate-700/50 hover:bg-slate-600"
+                  } ${isCurrent && isPlaying ? "scale-y-110" : ""}`}
                 style={{ height: `${dynamicHeight}%` }}
               />
             );
@@ -419,14 +426,13 @@ export default function VideoPlayer({
           <input
             type="range"
             min={0}
-            max={duration || 1}
+            max={effectiveDuration || 1}
             step={0.1}
-            value={currentTime}
-            disabled={hasMediaError}
+            value={effectiveCurrentTime}
+            disabled={!isMediaAvailable}
             onChange={handleSeekChange}
-            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-blue-500 focus:outline-none transition-all ${
-              hasMediaError ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-            }`}
+            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-blue-500 focus:outline-none transition-all ${!isMediaAvailable ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              }`}
             style={{
               background: `linear-gradient(to right, #3b82f6 ${progressPercent}%, #334155 ${progressPercent}%)`,
             }}
@@ -440,18 +446,19 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={togglePlay}
-              disabled={hasMediaError}
-              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${
-                hasMediaError
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none"
-                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95 cursor-pointer"
-              }`}
+              disabled={!isMediaAvailable}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all ${!isMediaAvailable
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none"
+                : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-95 cursor-pointer"
+                }`}
               title={
-                hasMediaError
-                  ? "Media recording unavailable"
+                !isMediaAvailable
+                  ? hasMediaError
+                    ? "Media recording unavailable"
+                    : "Recording is processing or unavailable"
                   : isPlaying
-                  ? "Pause playback"
-                  : "Play recording"
+                    ? "Pause playback"
+                    : "Play recording"
               }
             >
               {isPlaying ? (
@@ -467,22 +474,21 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={handleRestart}
-              disabled={hasMediaError}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                hasMediaError
-                  ? "bg-slate-800/50 text-slate-600 cursor-not-allowed"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-              }`}
-              title={hasMediaError ? "Media recording unavailable" : "Restart from beginning"}
+              disabled={!isMediaAvailable}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${!isMediaAvailable
+                ? "bg-slate-800/50 text-slate-600 cursor-not-allowed"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                }`}
+              title={!isMediaAvailable ? "Media recording unavailable" : "Restart from beginning"}
             >
               <RotateCcw size={13} />
             </button>
 
             {/* Time Counter */}
             <div className="font-mono text-xs text-slate-300 font-semibold tracking-tight ml-1">
-              <span>{fmtTime(currentTime)}</span>
+              <span>{fmtTime(effectiveCurrentTime)}</span>
               <span className="text-slate-500 mx-1">/</span>
-              <span className="text-slate-400">{fmtTime(duration)}</span>
+              <span className="text-slate-400">{fmtTime(effectiveDuration)}</span>
             </div>
           </div>
 
