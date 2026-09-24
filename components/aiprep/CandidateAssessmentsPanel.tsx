@@ -71,7 +71,16 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         setIsLoading(false);
       }
     }
-  }, [filters, currentPage, limit]);
+  }, [
+    filters,
+    currentPage,
+    limit,
+    setAssessments,
+    setError,
+    setIsLoading,
+    setTotalCount,
+    setTotalPages,
+  ]);
 
   useEffect(() => {
     loadAssessments();

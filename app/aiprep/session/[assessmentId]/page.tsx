@@ -479,7 +479,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       } finally {
         setIsLoading(false);
       }
-    }, [assessmentId]);
+    }, [
+      assessmentId,
+      setAssessmentType,
+      setCountdownValue,
+      setErrorMsg,
+      setIsLoading,
+      setMediaType,
+      setQuestions,
+    ]);
 
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
