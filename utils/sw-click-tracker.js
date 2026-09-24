@@ -31,7 +31,7 @@ function openDB() {
             if (!db.objectStoreNames.contains(STORE_NAME)) {
                 db.createObjectStore(STORE_NAME, { keyPath: 'job_listing_id' });
             }
-            // Create sync_meta to store our last_synced_at timestamp, auth_token, and api_base_url
+            // Create sync_meta to store our last_synced_at timestamp
             if (!db.objectStoreNames.contains(META_STORE)) {
                 db.createObjectStore(META_STORE, { keyPath: 'id' });
             }
@@ -44,14 +44,14 @@ function openDB() {
     });
 }
 
-async function getMetaValue(key) {
+async function getLastSyncedAt() {
     try {
         const db = await openDB();
         return new Promise((resolve) => {
             if (!db.objectStoreNames.contains(META_STORE)) return resolve(null);
             const tx = db.transaction(META_STORE, 'readonly');
             const store = tx.objectStore(META_STORE);
-            const getReq = store.get(key);
+            const getReq = store.get('last_synced_at');
             getReq.onsuccess = () => {
                 resolve(getReq.result ? getReq.result.value : null);
             };
@@ -62,25 +62,17 @@ async function getMetaValue(key) {
     }
 }
 
-async function setMetaValue(key, value) {
+async function setLastSyncedAt(timestamp) {
     try {
         const db = await openDB();
         return new Promise((resolve) => {
             const tx = db.transaction(META_STORE, 'readwrite');
             const store = tx.objectStore(META_STORE);
-            const putReq = store.put({ id: key, value: value });
+            const putReq = store.put({ id: 'last_synced_at', value: timestamp });
             putReq.onsuccess = () => resolve();
             putReq.onerror = () => resolve();
         });
     } catch (e) {}
-}
-
-async function getLastSyncedAt() {
-    return await getMetaValue('last_synced_at');
-}
-
-async function setLastSyncedAt(timestamp) {
-    return await setMetaValue('last_synced_at', timestamp);
 }
 
 async function getPendingClicks() {
@@ -114,13 +106,6 @@ async function clearClicks(ids) {
 
 // THE FLUSH LOGIC
 async function attemptFlush(force = false) {
-    if (!baseUrl) {
-        baseUrl = (await getMetaValue('api_base_url')) || '';
-    }
-    if (!cachedToken) {
-        cachedToken = (await getMetaValue('auth_token')) || null;
-    }
-
     if (!baseUrl || !cachedToken) {
         swWarn('[SW] Sync skipped: Config/Token not received yet');
         return;
@@ -141,8 +126,6 @@ async function attemptFlush(force = false) {
             const cleanBase = baseUrl.replace(/\/+$/, '').replace(/\/api$/, '');
             const url = `${cleanBase}/api${path}`;
 
-            swLog(`[SW]  Sync Triggered (Force: ${force}). Shipping ${clicks.length} total clicks to: ${url}`);
-
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -155,16 +138,12 @@ async function attemptFlush(force = false) {
             if (response.ok) {
                 await clearClicks(clicks.map(c => c.job_listing_id));
                 await setLastSyncedAt(Date.now());
-                swLog(`[SW] ✅ Sync Complete: ${clicks.length} clicks flushed. last_synced_at updated.`);
             } else {
                 if (DEBUG) console.error('[SW] ❌ Sync Error: HTTP', response.status);
             }
         } catch (err) {
             if (DEBUG) console.error('[SW] ❌ Sync Error:', err);
         }
-    } else {
-        const hoursLeft = ((SYNC_THRESHOLD_MS - (now - lastSyncedAt)) / (1000 * 60 * 60)).toFixed(1);
-        swLog(`[SW] Sync skipped. Last sync was recent. Next sync in ~${hoursLeft} hours.`);
     }
 }
 
@@ -179,7 +158,6 @@ setInterval(async () => {
     const oneHour = 60 * 60 * 1000
 
     if (idleMs >= oneHour) {
-        swLog('[SW] 1 hour inactivity detected → flushing');
         await attemptFlush(true);
         lastClickTime = null;
     }
@@ -188,25 +166,20 @@ setInterval(async () => {
 self.addEventListener('message', (event) => {
     if (event.data.type === 'SET_API_URL') {
         baseUrl = event.data.url;
-        setMetaValue('api_base_url', baseUrl);
-        swLog('[SW] Config received.');
     }
 
     if (event.data.type === 'SET_TOKEN') {
         cachedToken = event.data.token;
-        setMetaValue('auth_token', cachedToken);
         // On page load/auth, check if we need to flush immediately
         attemptFlush(false);
     }
 
     if (event.data.type === 'TRACK_CLICK') {
         lastClickTime = Date.now();
-        swLog(`[SW] Click for ${event.data.id} received. Flushing immediately to backend...`);
         attemptFlush(true);
     }
 
     if (event.data.type === 'FLUSH') {
-        swLog('[SW] FLUSH event received. Flushing immediately to backend...');
         attemptFlush(true);
     }
 });
