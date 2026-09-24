@@ -943,19 +943,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   useEffect(() => {
     if (!isRecording) return;
     const timer = setInterval(() => {
-      setQuestionTimeElapsed((prev) => {
-        const nextVal = prev + 1;
-        // When question time expires, allow a brief 3s grace buffer, then auto-advance to next question
-        if (nextVal >= questionTimeLimit + 3 && !isTransitioningQuestion) {
-          if (currentQuestionIndex < questions.length - 1) {
-            handleNextQuestionRef.current();
-          }
-        }
-        return nextVal;
-      });
+      setQuestionTimeElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRecording, currentQuestionIndex, questionTimeLimit, isTransitioningQuestion, questions.length]);
+  }, [isRecording]);
+
+  useEffect(() => {
+    if (isRecording && questionTimeElapsed >= questionTimeLimit + 3 && !isTransitioningQuestion) {
+      if (currentQuestionIndex < questions.length - 1) {
+        handleNextQuestionRef.current();
+      }
+    }
+  }, [isRecording, questionTimeElapsed, questionTimeLimit, isTransitioningQuestion, currentQuestionIndex, questions.length]);
 
   const questionTimeRemaining = Math.max(0, questionTimeLimit - questionTimeElapsed);
   const isQuestionLowTime = isRecording && questionTimeRemaining <= 30 && questionTimeRemaining > 0;

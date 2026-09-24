@@ -477,6 +477,24 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number }>({ width: 640, height: 240 });
+
+  useEffect(() => {
+    const el = videoContainerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width && entry.contentRect.height) {
+          setContainerDimensions({
+            width: entry.contentRect.width,
+            height: entry.contentRect.height,
+          });
+        }
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [step]);
 
   // Vision Hook Integration (Lazy-loaded: initialized when candidate reaches Device Check or Practice with video enabled)
   const isVisionNeeded = (step === 'DEVICE_CHECK' || step === 'PRACTICE_START') && videoEnabled;
@@ -1667,8 +1685,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                           {/* Real-time Green Face Detection Bounding Box & Status Tag Overlay with exact aspect ratio scaling */}
                           {cameraOk && isFaceDetected && isFaceLive && realtimeTelemetry?.face_box && (() => {
-                            const cW = videoContainerRef.current?.clientWidth || 640;
-                            const cH = videoContainerRef.current?.clientHeight || 240;
+                            const cW = containerDimensions.width || 640;
+                            const cH = containerDimensions.height || 240;
                             const vW = videoRef.current?.videoWidth || 1280;
                             const vH = videoRef.current?.videoHeight || 720;
 

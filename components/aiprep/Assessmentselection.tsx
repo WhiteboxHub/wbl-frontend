@@ -199,18 +199,29 @@ export interface AssessmentConfigProps {
 export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   assessmentType,
   setAssessmentType,
+  jdText = '',
+  setJdText,
   onNext,
   onCancel,
 }) => {
   const [infoModalType, setInfoModalType] = useState<AssessmentType | null>(null);
+  const [isJdModalOpen, setIsJdModalOpen] = useState(false);
+  const [showJdError, setShowJdError] = useState(false);
 
   const handleTypeSelect = (type: AssessmentType, isLocked?: boolean) => {
     if (!isLocked) {
       setAssessmentType(type);
+      if (type === 'JD_INTRO' && !jdText.trim()) {
+        setIsJdModalOpen(true);
+      }
     }
   };
 
   const handleNextClick = () => {
+    if (assessmentType === 'JD_INTRO' && !jdText.trim()) {
+      setIsJdModalOpen(true);
+      return;
+    }
     if (onNext) onNext();
   };
 
@@ -284,10 +295,64 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         onSelect={(type) => {
           if (UNLOCKED_ASSESSMENT_TYPES.includes(type)) {
             setAssessmentType(type);
+            if (type === 'JD_INTRO' && !jdText.trim()) {
+              setIsJdModalOpen(true);
+            }
           }
           setInfoModalType(null);
         }}
       />
+
+      {/* ── JD Modal Popup ── */}
+      {isJdModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+              <h3 className="font-bold text-slate-900 dark:text-white">Add Job Description</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsJdModalOpen(false);
+                  setShowJdError(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Paste the job description here to customize your assessment.
+              </p>
+              <textarea
+                value={jdText}
+                onChange={(e) => {
+                  if (setJdText) setJdText(e.target.value);
+                  if (e.target.value.trim()) setShowJdError(false);
+                }}
+                className={`w-full h-32 p-3 text-sm rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 resize-none ${showJdError ? 'border-red-400 focus:ring-red-500/50' : 'border-slate-300 dark:border-slate-700 focus:ring-purple-500/50'}`}
+                placeholder="Paste Job Description..."
+              />
+              {showJdError && (
+                <p className="text-xs text-red-500 font-medium">Please provide a job description to continue.</p>
+              )}
+              <button
+                type="button"
+                className="w-full py-2.5 rounded-xl bg-[#7C3AED] text-white font-semibold text-sm hover:bg-[#6D28D9] transition-colors cursor-pointer"
+                onClick={() => {
+                  if (!jdText.trim()) {
+                    setShowJdError(true);
+                    return;
+                  }
+                  setIsJdModalOpen(false);
+                }}
+              >
+                Save JD
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
