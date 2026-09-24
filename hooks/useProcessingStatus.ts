@@ -177,17 +177,25 @@ export function useProcessingStatus({
       // Make a single async call to check the final report status
       let done = await checkStatus();
 
-      // If backend LLM needs an extra moment, perform fallback checks with gentle delay
+      // If backend LLM needs extra time, continue gentle checks until a terminal state (COMPLETED or FAILED) is reached
       let attempts = 0;
-      while (!done && active && attempts < 2) {
+      const MAX_SAFETY_ATTEMPTS = 15; // Up to ~75s additional window for complex LLM rubrics
+      while (!done && active && attempts < MAX_SAFETY_ATTEMPTS) {
         attempts++;
         await new Promise((res) => {
-          const t = setTimeout(res, 4500);
+          const t = setTimeout(res, 5000);
           timers.push(t);
         });
         if (active) {
           done = await checkStatus();
         }
+      }
+
+      // If still not finished after safety timeout, show friendly stall state with Retry Check button
+      if (!done && active && !hasTriggeredCompleteRef.current && !hasTriggeredFailedRef.current) {
+        setIsFailed(true);
+        setErrorMessage('Evaluation is taking longer than usual. Please click Retry Check below.');
+        return;
       }
 
       // Transition to completed and auto-navigate to report ONLY if backend actually completed
