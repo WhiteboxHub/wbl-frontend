@@ -2571,7 +2571,7 @@ export default function AiPrepReport({
         return;
       }
 
-      const [dataRes, reportRes] = await Promise.allSettled([
+      const [dataRes, reportRes] = await window.Promise.allSettled([
         aiPrepApi.getAssessmentData(assessmentId),
         aiPrepApi.getAssessmentReport(assessmentId),
       ]);

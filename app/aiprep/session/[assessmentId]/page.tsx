@@ -426,11 +426,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setErrorMsg(null);
 
         // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
-        let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
-        let resolvedMode: MediaType = (sessionStorage.getItem('aiprep_active_mode') as MediaType);
+        let resolvedType: AssessmentType = (typeof window !== 'undefined' ? (window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) : 'INTRO');
+        let resolvedMode: MediaType = (typeof window !== 'undefined' ? (window.sessionStorage.getItem('aiprep_active_mode') as MediaType) : 'VIDEO');
 
         try {
-          const details = await aiprepApi.getAssessment(Number(assessmentId));
+          const details = await aiprepApi.getAssessment(+assessmentId);
           if (details?.assessment_type) resolvedType = details.assessment_type;
           if (details?.media_type) resolvedMode = details.media_type;
         } catch (_) { }
@@ -444,7 +444,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // 2. Query Question Bank API dynamically for this track (Backend First)
         let loadedQuestions: QuestionBankItem[] = [];
         try {
-          const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
+          const dataRes = await aiprepApi.getAssessmentData(+assessmentId);
           if (dataRes?.questions && dataRes.questions.length > 0) {
             loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
           }
@@ -459,11 +459,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           hasAutoStartedRef.current = true;
           let currentCount = 5;
           setCountdownValue(currentCount);
-          countdownIntervalRef.current = setInterval(() => {
+          countdownIntervalRef.current = (typeof window !== 'undefined' ? window.setInterval(() => {
             currentCount -= 1;
             if (currentCount <= 0) {
               if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
+                window.clearInterval(countdownIntervalRef.current);
                 countdownIntervalRef.current = null;
               }
               setCountdownValue(null);
@@ -471,7 +471,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             } else {
               setCountdownValue(currentCount);
             }
-          }, 1000);
+          }, 1000) : null) as unknown as NodeJS.Timeout;
         }
       } catch (err: any) {
         logger.error('Session initialization error', err);
@@ -506,7 +506,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     return () => {
       stopAiSpeech();
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownIntervalRef.current && typeof window !== 'undefined') {
+        window.clearInterval(countdownIntervalRef.current);
+      }
       cleanupRecorderRef.current();
     };
   }, [

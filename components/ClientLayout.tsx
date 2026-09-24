@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { isDevelopment } from "@/lib/utils";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,9 +33,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     setHasMounted(true);
 
     // Defensive performance observer: ensure entries and startTime are safely checked
-    if (typeof window !== "undefined" && "PerformanceObserver" in window && process.env.NODE_ENV === "development") {
+    if (typeof window !== "undefined" && "PerformanceObserver" in window && isDevelopment()) {
       try {
-        const observer = new PerformanceObserver((list) => {
+        const observer = new window.PerformanceObserver((list) => {
           const entries = list.getEntries();
           if (entries && entries.length > 0) {
             const lastEntry = entries[entries.length - 1];
@@ -51,7 +52,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         };
       } catch {}
     }
-  }, []);
+  }, [setHasMounted]);
 
   if (!hasMounted) return null;
 
