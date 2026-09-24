@@ -139,7 +139,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
+const AssessmentSessionPage = function({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -471,7 +471,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             } else {
               setCountdownValue(currentCount);
             }
-          }, 1000) : null) as unknown as NodeJS.Timeout;
+          }, 1000) : null) as any;
         }
       } catch (err: any) {
         logger.error('Session initialization error', err);
@@ -1334,4 +1334,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       )}
     </div>
   );
-}
+};
+
+export default AssessmentSessionPage;

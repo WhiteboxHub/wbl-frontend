@@ -2484,7 +2484,7 @@ export interface ShellProps {
   initialTab?: ReportTab;
 }
 
-export default function AiPrepReport({
+const AiPrepReport = function({
   assessmentId,
   candidateId: initialCandidateId,
   initialTab,
@@ -2774,4 +2774,6 @@ export default function AiPrepReport({
       </div>
     </div>
   );
-}
+};
+
+export default AiPrepReport;

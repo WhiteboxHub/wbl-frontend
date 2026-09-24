@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import Sidebar from "@/components/Sidebar";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { isDevelopment } from "@/lib/utils";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,8 +31,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     setHasMounted(true);
 
+    const isDev = !!(typeof window !== "undefined" && ((window as any).process?.env?.NODE_ENV === "development" || window.location.hostname === "localhost"));
+
     // Defensive performance observer: ensure entries and startTime are safely checked
-    if (typeof window !== "undefined" && "PerformanceObserver" in window && isDevelopment()) {
+    if (typeof window !== "undefined" && "PerformanceObserver" in window && isDev) {
       try {
         const observer = new window.PerformanceObserver((list) => {
           const entries = list.getEntries();

@@ -12,7 +12,7 @@ import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselect
 import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
 import { AlertCircle, Loader2, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function AIPrepPage() {
+const AIPrepPage = function() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuth();
@@ -319,5 +319,7 @@ export default function AIPrepPage() {
       )}
     </div>
   );
-}
+};
+
+export default AIPrepPage;
 

@@ -37,7 +37,7 @@ const getCanonicalStatus = (raw?: string): string => {
   return s;
 };
 
-export default function CandidateAssessmentsPage() {
+const CandidateAssessmentsPage = function() {
   const router = useRouter();
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,4 +193,6 @@ export default function CandidateAssessmentsPage() {
       />
     </div>
   );
-}
+};
+
+export default CandidateAssessmentsPage;

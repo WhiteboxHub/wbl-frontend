@@ -47,7 +47,7 @@ interface PracticeStepProps {
   onStartAssessment: () => Promise<void> | void;
 }
 
-export const PracticeStep: React.FC<PracticeStepProps> = ({
+export const PracticeStep: React.FC<PracticeStepProps> = function({
   assessmentType,
   videoEnabled,
   videoAnalyticsEnabled,
@@ -57,7 +57,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   selectedSpeakerLabel = 'System Output (Built-in)',
   onBack,
   onStartAssessment,
-}) => {
+}) {
   // ── Recording State ────────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordTime, setRecordTime] = useState<number>(0);

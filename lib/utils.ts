@@ -34,9 +34,9 @@ export function formatLinkedInUrl(value: string | null | undefined): string | nu
  * In production: suppresses debug logs and sanitizes errors to avoid leaking stack traces or internal endpoints.
  */
 
-export const isDevelopment = () => process.env.NODE_ENV === "development";
+const isDevelopment = () => process.env.NODE_ENV === "development";
 
-export function formatError(error: unknown): string {
+function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
@@ -140,3 +140,5 @@ export const logger = {
     }
   },
 };
+
+export { formatError };

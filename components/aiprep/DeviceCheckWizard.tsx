@@ -52,7 +52,7 @@ interface DeviceCheckWizardProps {
   onComplete?: (results: HardwareCheckResults) => Promise<void> | void;
   onCancel?: () => void;
 }
-export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
+export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = function({
   candidateId: propCandidateId,
   assessmentId: initialAssessmentId,
   assessmentType: initialType,
@@ -62,7 +62,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   isSidebarCollapsed: isSidebarCollapsedProp,
   onComplete,
   onCancel,
-}) => {
+}) {
   const router = useRouter();
   const pathname = usePathname();
 

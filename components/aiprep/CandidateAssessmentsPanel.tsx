@@ -17,10 +17,10 @@ interface CandidateAssessmentsPanelProps {
   onBack?: () => void;
 }
 
-export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps> = ({
+export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps> = function({
   onStartAssessment,
   onBack,
-}) => {
+}) {
   const router = useRouter();
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
