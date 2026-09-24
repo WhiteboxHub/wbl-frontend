@@ -111,15 +111,15 @@ export function useProcessingStatus({
     let active = true;
     const timers: NodeJS.Timeout[] = [];
 
-    // Stage 1: STT transcribing (0s - 2.5s)
+    // Stage 1: STT transcribing (0s - 3s)
     timers.push(
       setTimeout(() => {
         if (!active) return;
         setProgressPercent(32);
-      }, 1200)
+      }, 1800)
     );
 
-    // Stage 2: Audio cadence analysis (2.5s - 5.5s)
+    // Stage 2: Audio cadence analysis (3s - 7s)
     timers.push(
       setTimeout(() => {
         if (!active) return;
@@ -131,10 +131,10 @@ export function useProcessingStatus({
           finalize: 'QUEUED',
         });
         setProgressPercent(54);
-      }, 2800)
+      }, 4500)
     );
 
-    // Stage 3: Video analysis & AI Evaluation Engine (5.5s - 8.5s)
+    // Stage 3: Video analysis & AI Evaluation Engine (7s - 12s)
     timers.push(
       setTimeout(() => {
         if (!active) return;
@@ -146,10 +146,10 @@ export function useProcessingStatus({
           finalize: 'QUEUED',
         });
         setProgressPercent(76);
-      }, 5500)
+      }, 8500)
     );
 
-    // Stage 4: Report generation finalizing (8.5s - 10.5s)
+    // Stage 4: Report generation finalizing (12s - 15s)
     timers.push(
       setTimeout(() => {
         if (!active) return;
@@ -161,14 +161,14 @@ export function useProcessingStatus({
           finalize: 'RUNNING',
         });
         setProgressPercent(92);
-      }, 8500)
+      }, 12500)
     );
 
     // Single asynchronous evaluation check when the pipeline reaches completion window
     const executeEvaluation = async () => {
-      // Allow realistic evaluation pipeline window (10.5 seconds)
+      // Allow realistic LLM pipeline window (~15 seconds for OpenAI evaluation)
       await new Promise((res) => {
-        const t = setTimeout(res, 10500);
+        const t = setTimeout(res, 15000);
         timers.push(t);
       });
 
@@ -177,10 +177,12 @@ export function useProcessingStatus({
       // Make a single async call to check the final report status
       let done = await checkStatus();
 
-      // If backend LLM needs an extra moment, perform one final fallback check
-      if (!done && active) {
+      // If backend LLM needs an extra moment, perform fallback checks with gentle delay
+      let attempts = 0;
+      while (!done && active && attempts < 2) {
+        attempts++;
         await new Promise((res) => {
-          const t = setTimeout(res, 3500);
+          const t = setTimeout(res, 4500);
           timers.push(t);
         });
         if (active) {
@@ -188,8 +190,8 @@ export function useProcessingStatus({
         }
       }
 
-      // Transition to completed and auto-navigate to report
-      if (active && !hasTriggeredCompleteRef.current && !hasTriggeredFailedRef.current) {
+      // Transition to completed and auto-navigate to report ONLY if backend actually completed
+      if (done && active && !hasTriggeredCompleteRef.current && !hasTriggeredFailedRef.current) {
         setProgressPercent(100);
         setSteps({
           stt: 'COMPLETED',
