@@ -481,12 +481,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
     }, [
       assessmentId,
+      countdownIntervalRef,
+      hasAutoStartedRef,
       setAssessmentType,
       setCountdownValue,
       setErrorMsg,
       setIsLoading,
       setMediaType,
       setQuestions,
+      startAnswerRef,
     ]);
 
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
@@ -506,7 +509,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, initSession, setErrorMsg, setIsLoading, stopAiSpeech]);
+  }, [
+    assessmentId,
+    cleanupRecorderRef,
+    countdownIntervalRef,
+    initSession,
+    setErrorMsg,
+    setIsLoading,
+    sessionInitializedRef,
+    stopAiSpeech,
+  ]);
 
   // Connect video element to active stream
   useEffect(() => {

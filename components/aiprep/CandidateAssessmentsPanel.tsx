@@ -72,9 +72,11 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
       }
     }
   }, [
-    filters,
     currentPage,
+    filters,
+    isMountedRef,
     limit,
+    reqIdRef,
     setAssessments,
     setError,
     setIsLoading,
