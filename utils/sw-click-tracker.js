@@ -139,10 +139,10 @@ async function attemptFlush(force = false) {
                 await clearClicks(clicks.map(c => c.job_listing_id));
                 await setLastSyncedAt(Date.now());
             } else {
-                if (DEBUG) console.error('[SW] ❌ Sync Error: HTTP', response.status);
+                if (DEBUG) console.error('[SW]  Sync Error: HTTP', response.status);
             }
         } catch (err) {
-            if (DEBUG) console.error('[SW] ❌ Sync Error:', err);
+            if (DEBUG) console.error('[SW]  Sync Error:', err);
         }
     }
 }
