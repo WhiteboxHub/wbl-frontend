@@ -49,6 +49,17 @@ export function useProcessingStatus({
   const [isFailed, setIsFailed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Tracks whether the component is still mounted to prevent post-unmount state
+  // updates and unwanted router navigation if the user leaves the processing page
+  // before the async evaluation resolves.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const onCompletedRef = useRef(onCompleted);
   const onFailedRef = useRef(onFailed);
   const isFinishedRef = useRef(false);
@@ -67,6 +78,9 @@ export function useProcessingStatus({
 
     try {
       const res = await aiprepApi.triggerEvaluation(assessmentId, true);
+
+      // Guard: if user navigated away while the request was in-flight, do nothing.
+      if (!isMountedRef.current) return;
 
       if (res?.status === 'COMPLETED' || res?.id) {
         isFinishedRef.current = true;
@@ -89,6 +103,7 @@ export function useProcessingStatus({
         onFailedRef.current?.(errText);
       }
     } catch (err: unknown) {
+      if (!isMountedRef.current) return;
       isFinishedRef.current = true;
       setIsFailed(true);
       const msg = err instanceof Error ? err.message : 'Failed to complete evaluation. Please try again.';
@@ -97,6 +112,7 @@ export function useProcessingStatus({
     }
   }, [
     assessmentId,
+    isMountedRef,
     setIsFailed,
     setErrorMessage,
     isFinishedRef,
@@ -162,6 +178,7 @@ export function useProcessingStatus({
   }, [
     assessmentId,
     executeEvaluation,
+    isMountedRef,
     isFinishedRef,
     setProgressPercent,
     setSteps,
