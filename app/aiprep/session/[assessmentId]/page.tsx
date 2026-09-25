@@ -531,12 +531,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             } else {
               setCountdownValue(currentCount);
             }
-            setCountdownValue(null);
-            startAnswerRef.current();
-          } else {
-            setCountdownValue(currentCount);
-          }
-        }, 1000);
+          }, 1000);
       }
     } catch (err: any) {
       console.error('Session initialization error:', err);
@@ -993,7 +988,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     );
   }
 
-  if (errorMsg && questions.length === 0) {
+  if (errorMsg) {
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
         <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center mb-4 text-rose-500">
@@ -1003,13 +998,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto mb-5 leading-relaxed">{errorMsg}</p>
         <div className="flex items-center justify-center gap-3">
           <button
-            onClick={() => {
-              setErrorMsg(null);
-              setIsLoading(true);
-              sessionInitializedRef.current = false;
-              setRetryCount((prev) => prev + 1);
-            }}
-            className="px-5 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+            onClick={handleRetry}
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
           >
             Retry
           </button>
