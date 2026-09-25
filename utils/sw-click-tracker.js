@@ -171,7 +171,7 @@ async function attemptFlush(force = false) {
             const nextForce = pendingFlushForce;
             pendingFlush = false;
             pendingFlushForce = false;
-            attemptFlush(nextForce);
+            setTimeout(() => attemptFlush(nextForce), 0); 
         }
     }
 }
