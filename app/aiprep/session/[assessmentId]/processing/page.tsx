@@ -44,7 +44,7 @@ const PIPELINE_STEPS: StepConfig[] = [
   },
   {
     key: 'llm',
-    title: 'AI Scoring Engine',
+    title: 'AI Evaluation Engine',
     description: 'Synthesizing technical depth, answer quality, and rubrics',
     icon: IconSparkles,
   },
