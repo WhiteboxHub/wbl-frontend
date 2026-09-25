@@ -30,6 +30,35 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     setHasMounted(true);
+
+    const isDev = process.env.NODE_ENV === "development";
+    if (isDev && typeof window !== "undefined" && "PerformanceObserver" in window) {
+      let observer: PerformanceObserver | null = null;
+      try {
+        observer = new PerformanceObserver((list) => {
+          const entries = list.getEntries();
+          if (entries && entries.length > 0) {
+            const lastEntry = entries[entries.length - 1];
+            if (lastEntry && typeof lastEntry.startTime === "number") {
+              console.log(
+                "Largest Contentful Paint:",
+                Math.round(lastEntry.startTime),
+                "ms"
+              );
+            }
+          }
+        });
+        observer.observe({ type: "largest-contentful-paint", buffered: true });
+      } catch {}
+
+      return () => {
+        if (observer) {
+          try {
+            observer.disconnect();
+          } catch {}
+        }
+      };
+    }
   }, []);
 
   if (!hasMounted) return null;

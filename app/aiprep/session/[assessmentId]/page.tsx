@@ -420,7 +420,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   };
 
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
-  useEffect(() => {
+  const initSession = useCallback(async () => {
     if (!assessmentId) {
       setErrorMsg('No assessment ID provided. Please start from the assessment portal.');
       setIsLoading(false);
@@ -429,66 +429,73 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     if (sessionInitializedRef.current) return;
     sessionInitializedRef.current = true;
 
-    async function initSession() {
+    try {
+      setIsLoading(true);
+
+      // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
+      let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
+      let resolvedMode: MediaType = (sessionStorage.getItem('aiprep_active_mode') as MediaType);
+
       try {
-        setIsLoading(true);
+        const details = await aiprepApi.getAssessment(Number(assessmentId));
+        if (details?.assessment_type) resolvedType = details.assessment_type;
+        if (details?.media_type) resolvedMode = details.media_type;
+      } catch (_) { }
 
-        // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
-        let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
-        let resolvedMode: MediaType = (sessionStorage.getItem('aiprep_active_mode') as MediaType);
+      const finalType: AssessmentType = resolvedType || 'INTRO';
+      const finalMode: MediaType = resolvedMode || 'VIDEO';
 
-        try {
-          const details = await aiprepApi.getAssessment(Number(assessmentId));
-          if (details?.assessment_type) resolvedType = details.assessment_type;
-          if (details?.media_type) resolvedMode = details.media_type;
-        } catch (_) { }
+      setAssessmentType(finalType);
+      setMediaType(finalMode);
 
-        const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = resolvedMode || 'VIDEO';
-
-        setAssessmentType(finalType);
-        setMediaType(finalMode);
-
-        // 2. Query Question Bank API dynamically for this track (Backend First)
-        let loadedQuestions: QuestionBankItem[] = [];
-        try {
-          const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
-          if (dataRes?.questions && dataRes.questions.length > 0) {
-            loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
-          }
-        } catch (qErr) {
-          console.warn('Questions API fallback failed:', qErr);
+      // 2. Query Question Bank API dynamically for this track (Backend First)
+      let loadedQuestions: QuestionBankItem[] = [];
+      try {
+        const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
+        if (dataRes?.questions && dataRes.questions.length > 0) {
+          loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
         }
-
-        setQuestions(loadedQuestions);
-
-        // If intro track, trigger 5-second auto countdown to start practice smoothly
-        if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
-          hasAutoStartedRef.current = true;
-          let currentCount = 5;
-          setCountdownValue(currentCount);
-          countdownIntervalRef.current = setInterval(() => {
-            currentCount -= 1;
-            if (currentCount <= 0) {
-              if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
-                countdownIntervalRef.current = null;
-              }
-              setCountdownValue(null);
-              startAnswerRef.current();
-            } else {
-              setCountdownValue(currentCount);
-            }
-          }, 1000);
-        }
-      } catch (err: any) {
-        console.error('Session initialization error:', err);
-        setErrorMsg(err?.message || 'Failed to initialize assessment session.');
-      } finally {
-        setIsLoading(false);
+      } catch (qErr) {
+        console.warn('Questions API fallback failed:', qErr);
       }
-    }
 
+      setQuestions(loadedQuestions);
+
+      // If intro track, trigger 5-second auto countdown to start practice smoothly
+      if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
+        hasAutoStartedRef.current = true;
+        let currentCount = 5;
+        setCountdownValue(currentCount);
+        countdownIntervalRef.current = setInterval(() => {
+          currentCount -= 1;
+          if (currentCount <= 0) {
+            if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+              countdownIntervalRef.current = null;
+            }
+            setCountdownValue(null);
+            startAnswerRef.current();
+          } else {
+            setCountdownValue(currentCount);
+          }
+        }, 1000);
+      }
+    } catch (err: any) {
+      console.error('Session initialization error:', err);
+      setErrorMsg(err?.message || 'Failed to initialize assessment session.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [assessmentId]);
+
+  const handleRetry = useCallback(() => {
+    setErrorMsg(null);
+    setIsLoading(true);
+    sessionInitializedRef.current = false;
+    initSession();
+  }, [initSession]);
+
+  useEffect(() => {
     initSession();
 
     return () => {
@@ -496,7 +503,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech]);
+  }, [initSession, stopAiSpeech]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -868,7 +875,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     );
   }
 
-  if (errorMsg && !assessmentId) {
+  if (errorMsg) {
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
         <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center mb-4 text-rose-500">
@@ -876,12 +883,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">Session Room Error</h3>
         <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto mb-5 leading-relaxed">{errorMsg}</p>
-        <button
-          onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
-          className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer"
-        >
-          Return to Portal
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRetry}
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Return to Portal
+          </button>
+        </div>
       </div>
     );
   }

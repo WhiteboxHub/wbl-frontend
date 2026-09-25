@@ -123,13 +123,7 @@ export const assessmentService = {
       };
     } catch (err: any) {
       console.warn("fetchEmployeeAssessments error:", err?.message);
-      return {
-        items: [],
-        total: 0,
-        page,
-        limit,
-        totalPages: 1,
-      };
+      throw err;
     }
   },
 
