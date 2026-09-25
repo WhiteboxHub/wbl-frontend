@@ -95,7 +95,18 @@ export function useProcessingStatus({
       setErrorMessage(msg);
       onFailedRef.current?.(msg);
     }
-  }, [assessmentId]);
+  }, [
+    assessmentId,
+    setIsFailed,
+    setErrorMessage,
+    isFinishedRef,
+    setProgressPercent,
+    setSteps,
+    setStatus,
+    setIsCompleted,
+    onCompletedRef,
+    onFailedRef,
+  ]);
 
   useEffect(() => {
     if (!assessmentId) return;
@@ -148,7 +159,17 @@ export function useProcessingStatus({
       active = false;
       timers.forEach((t) => window.clearTimeout(t));
     };
-  }, [assessmentId, executeEvaluation]);
+  }, [
+    assessmentId,
+    executeEvaluation,
+    isFinishedRef,
+    setProgressPercent,
+    setSteps,
+    setIsFailed,
+    setErrorMessage,
+    onCompletedRef,
+    onFailedRef,
+  ]);
 
   return {
     status,
