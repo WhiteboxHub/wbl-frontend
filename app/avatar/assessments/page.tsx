@@ -123,7 +123,10 @@ export default function CandidateAssessmentsPage() {
 
   const handleViewAssessment = (assessment: AssessmentGridItem) => {
     const reportTarget = assessment.id || assessment.assessment_uuid;
-    router.push(`/aiprep/reports/${reportTarget}`);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("aiprep_return_url", "/avatar/assessments");
+    }
+    router.push(`/aiprep/reports/${reportTarget}?from=avatar`);
   };
 
   const handleOpenModal = (assessment: AssessmentGridItem) => {
@@ -149,7 +152,7 @@ export default function CandidateAssessmentsPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidate Assessment List
+            Candidates Assessment List
           </h1>
         </div>
       </div>

@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Brain,
 } from "lucide-react";
 import { AssessmentGridItem, AssessmentFiltersState } from "@/types/assessment";
 import { assessmentService } from "@/services/assessmentService";
@@ -14,11 +13,13 @@ import { AssessmentFilters } from "./AssessmentFilters";
 interface CandidateAssessmentsPanelProps {
   onStartAssessment?: () => void;
   onBack?: () => void;
+  onDashboard?: () => void;
 }
 
 export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps> = ({
   onStartAssessment,
   onBack,
+  onDashboard,
 }) => {
   const router = useRouter();
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
@@ -96,62 +97,44 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
 
   const handleViewAssessment = (assessment: AssessmentGridItem) => {
     const reportTarget = assessment.id || assessment.assessment_uuid;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("aiprep_return_url", "/user_dashboard/ai-prep/assessments");
+    }
     router.push(`/aiprep/reports/${reportTarget}`);
   };
 
+  const displayCount = totalCount !== undefined ? totalCount : assessments.length;
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs shrink-0">
-            <Brain className="h-5 w-5" />
-          </div>
-
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight truncate">
-              My Assessment List
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              Review your completed practice sessions, performance analytics, and AI evaluation reports.
-            </p>
-          </div>
+      {/* Header Section */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            My Assessment List
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Review your completed practice sessions, performance analytics, and AI evaluation reports.
+          </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex h-9 items-center gap-2 px-3.5 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
-              title="Back to AI Prep"
-            >
-              <ArrowLeft className="w-4 h-4 shrink-0 text-gray-600 dark:text-gray-300" />
-              <span>Back</span>
-            </button>
-          )}
-
           <button
             type="button"
-            onClick={() => loadAssessments()}
-            disabled={isLoading}
-            className="inline-flex h-9 items-center gap-2 px-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs sm:text-sm font-semibold rounded-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs shrink-0 whitespace-nowrap"
-            title="Refresh assessments"
+            onClick={() => {
+              if (onDashboard) {
+                onDashboard();
+              } else if (onBack) {
+                onBack();
+              } else {
+                router.push("/user_dashboard/ai-prep");
+              }
+            }}
+            className="group inline-flex h-9 items-center gap-2 px-3.5 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-gray-300 dark:hover:border-gray-700 shadow-2xs transition-all active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+            title="Back to Dashboard"
           >
-            <svg
-              className={`w-4 h-4 shrink-0 ${isLoading ? "animate-spin text-purple-600" : "text-gray-600 dark:text-gray-300"}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span>Refresh</span>
+            <ArrowLeft className="w-4 h-4 shrink-0 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:-translate-x-1 transition-all" />
+            <span>Dashboard</span>
           </button>
         </div>
       </div>
@@ -161,6 +144,8 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
         filters={filters}
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}
+        onRefresh={loadAssessments}
+        isLoading={isLoading}
         isAdmin={false}
       />
 
