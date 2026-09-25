@@ -21,7 +21,7 @@ export const CandidateAssessmentsPanel: React.FC<CandidateAssessmentsPanelProps>
   onStartAssessment,
   onBack,
   onDashboard,
-}) => {
+}) {
   const router = useRouter();
   const [assessments, setAssessments] = useState<AssessmentGridItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);

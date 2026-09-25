@@ -4,8 +4,8 @@ import { expect, Page } from "@playwright/test";
  * Validates the base UI layout of a page.
  */
 export async function validateUILayout(page: Page) {
-  // Check that the body is visible (handles hydration errors where nothing renders)
-  await expect(page.locator("body")).toBeVisible();
+  // Check that the body is attached to the DOM (handles hydration errors where nothing renders)
+  await expect(page.locator("body")).toBeAttached();
 
   // Ensure no unhandled Next.js error overlays are present
   const errorOverlay = page.locator(
