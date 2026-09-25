@@ -192,6 +192,9 @@ export function AIPrepDashboard({
   };
 
   const cardAction = (name: string) => {
+    if (name === "Analytics" || name === "Scores") {
+      return;
+    }
     if (name === "View assessments") {
       if (onViewAssessments) {
         onViewAssessments();
@@ -259,53 +262,79 @@ export function AIPrepDashboard({
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {cards.map(({ title, icon: Icon }) => {
-                const cardAccessible = title === "View assessments" || isReady;
+                const isComingSoon = title === "Analytics" || title === "Scores";
+                const isLocked = !isComingSoon && title === "Start an assessment" && !isReady;
+                const cardAccessible = !isComingSoon && !isLocked;
+
                 return (
                   <button
                     key={title}
-                    onClick={() => cardAction(title)}
-                    disabled={starting}
-                    className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${cardAccessible
-                      ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer dark:border-gray-800 dark:hover:border-purple-500/40 dark:hover:bg-purple-950/20"
-                      : "border-slate-200 bg-slate-50 text-slate-400 dark:border-gray-800 dark:bg-gray-800/40 dark:text-slate-500"
-                      }`}
+                    onClick={() => {
+                      if (cardAccessible) {
+                        cardAction(title);
+                      }
+                    }}
+                    disabled={starting || !cardAccessible}
+                    aria-disabled={!cardAccessible}
+                    className={`group flex min-h-[86px] items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${
+                      cardAccessible
+                        ? "border-slate-200 hover:border-purple-300 hover:bg-[#FAF6FF] hover:shadow-sm cursor-pointer dark:border-gray-800 dark:hover:border-purple-500/40 dark:hover:bg-purple-950/20"
+                        : isComingSoon
+                          ? "border-slate-200/80 bg-slate-50/70 text-slate-400 dark:border-gray-800 dark:bg-gray-800/30 dark:text-slate-500 cursor-not-allowed opacity-75"
+                          : "border-slate-200 bg-slate-50 text-slate-400 dark:border-gray-800 dark:bg-gray-800/40 dark:text-slate-500 cursor-not-allowed"
+                    }`}
                   >
                     <span
-                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${cardAccessible
-                        ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED] dark:border-purple-900/40 dark:bg-purple-900/30"
-                        : "border-slate-200 bg-slate-100 text-slate-400 dark:border-gray-700 dark:bg-gray-800"
-                        }`}
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-all duration-200 ${
+                        cardAccessible
+                          ? "border-purple-100 bg-[#F4EBFF] text-[#7C3AED] group-hover:bg-[#7C3AED] group-hover:text-white group-hover:border-[#7C3AED] dark:border-purple-900/40 dark:bg-purple-900/30"
+                          : "border-slate-200 bg-slate-100 text-slate-400 dark:border-gray-700 dark:bg-gray-800"
+                      }`}
                     >
-                      {cardAccessible ? (
+                      {isLocked ? (
+                        <Lock size={17} />
+                      ) : (
                         <Icon
                           size={19}
-                          className={`transition-colors duration-200 ${title === "Start an assessment" ? "group-hover:fill-white" : ""
-                            }`}
+                          className={`transition-colors duration-200 ${
+                            cardAccessible && title === "Start an assessment"
+                              ? "group-hover:fill-white"
+                              : "text-slate-400 dark:text-slate-500"
+                          }`}
                         />
-                      ) : (
-                        <Lock size={17} />
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <b className="block text-[15px] font-semibold text-slate-700 transition-colors duration-200 group-hover:font-extrabold group-hover:text-[#6e2bf5] dark:text-slate-200 dark:group-hover:text-purple-400">
+                      <b
+                        className={`block text-[15px] font-semibold transition-colors duration-200 ${
+                          cardAccessible
+                            ? "text-slate-700 group-hover:font-extrabold group-hover:text-[#6e2bf5] dark:text-slate-200 dark:group-hover:text-purple-400"
+                            : "text-slate-400 dark:text-slate-500"
+                        }`}
+                      >
                         {starting && title === "Start an assessment"
                           ? "Starting…"
                           : title}
                       </b>
                       <small className="mt-1 block truncate text-slate-400 dark:text-slate-500">
-                        {cardAccessible
-                          ? title === "Start an assessment"
-                            ? "Start a new practice session"
-                            : title === "View assessments"
-                              ? "Review your AI Prep results"
-                              : "Coming soon — backend API not yet available"
-                          : "Complete your LLM setup and upload your resume to access this."}
+                        {isComingSoon
+                          ? "Coming soon — backend API not yet available"
+                          : isLocked
+                            ? "Complete your LLM setup and upload your resume to access this."
+                            : title === "Start an assessment"
+                              ? "Start a new practice session"
+                              : "Review your AI Prep results"}
                       </small>
                     </span>
-                    {!cardAccessible && (
+                    {isLocked && (
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-400 dark:bg-gray-800 dark:text-slate-500">
                         <Lock className="mr-1 inline" size={10} />
                         Locked
+                      </span>
+                    )}
+                    {isComingSoon && (
+                      <span className="rounded-full bg-slate-100 dark:bg-gray-800 px-2.5 py-0.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-gray-700">
+                        Disabled
                       </span>
                     )}
                   </button>
