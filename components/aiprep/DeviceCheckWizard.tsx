@@ -25,6 +25,20 @@ const SLUG_TO_STEP: Record<string, WizardStep> = {
   'practice': 'PRACTICE_START', 'practice-start': 'PRACTICE_START',
 };
 
+const WIZARD_STEP_ITEMS = [
+  { key: 'CONFIGURATION' as const, num: 1, label: 'Assessment Type', shortLabel: 'Type' },
+  { key: 'CONSENT' as const, num: 2, label: 'Consent', shortLabel: 'Consent' },
+  { key: 'DEVICE_CHECK' as const, num: 3, label: 'Device Check', shortLabel: 'Device' },
+  { key: 'PRACTICE_START' as const, num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
+];
+
+const WIZARD_STEP_ORDER: Record<WizardStep, number> = {
+  CONFIGURATION: 0,
+  CONSENT: 1,
+  DEVICE_CHECK: 2,
+  PRACTICE_START: 3,
+};
+
 const cleanLabel = (label: string, fallback: string) => {
   if (!label || !label.trim()) return fallback;
   let c = label.replace(/^(Default|Communications)\s*-\s*/i, '').replace(/\s*[\(\[\{][^\)\]\}]*[\)\]\}]/g, '').trim();
@@ -1558,13 +1572,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         {/* Top Bar Header (Stepper inside the card) */}
         <div className="relative w-full px-4 sm:px-6 py-1.5 sm:py-2 min-h-[38px] sm:min-h-[42px] border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
           <div className="w-full flex items-center justify-center gap-1.5 sm:gap-3">
-            {[
-              { key: 'CONFIGURATION', num: 1, label: 'Assessment Type', shortLabel: 'Type' },
-              { key: 'CONSENT', num: 2, label: 'Consent', shortLabel: 'Consent' },
-              { key: 'DEVICE_CHECK', num: 3, label: 'Device Check', shortLabel: 'Device' },
-              { key: 'PRACTICE_START', num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
-            ].map(({ key, num, label, shortLabel }, idx, arr) => {
-              const isActive = step === key, isDone = arr.findIndex((s) => s.key === step) > idx;
+            {WIZARD_STEP_ITEMS.map(({ key, num, label, shortLabel }, idx) => {
+              const currentStepIdx = WIZARD_STEP_ORDER[step] ?? 0;
+              const isActive = idx === currentStepIdx;
+              const isDone = currentStepIdx > idx;
               return (
                 <div key={key} className="flex items-center gap-1 sm:gap-2">
                   <div className="flex items-center gap-1 sm:gap-1.5">
@@ -1575,7 +1586,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                       <span className="hidden md:inline">{label}</span>
                       <span className="inline md:hidden">{shortLabel}</span></span>
                   </div>
-                  {idx < arr.length - 1 && <div className={`w-2.5 sm:w-5 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+                  {idx < WIZARD_STEP_ITEMS.length - 1 && <div className={`w-2.5 sm:w-5 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
                 </div>);
             })}
           </div>

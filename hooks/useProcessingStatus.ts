@@ -31,45 +31,59 @@ export interface UseProcessingStatusReturn {
   refetch: () => Promise<void>;
 }
 
-const INITIAL_STEPS: ProcessingPipelineSteps = {
-  stt: 'RUNNING',
-  audio: 'QUEUED',
-  video: 'QUEUED',
-  llm: 'QUEUED',
-  finalize: 'QUEUED',
-};
-
 export function useProcessingStatus({
   assessmentId,
   onCompleted,
   onFailed,
 }: UseProcessingStatusOptions): UseProcessingStatusReturn {
   const [status, setStatus] = useState<AssessmentStatus | string>('EVALUATING');
-  const [steps, setSteps] = useState<ProcessingPipelineSteps>(INITIAL_STEPS);
+  const [steps, setSteps] = useState<ProcessingPipelineSteps>({
+    stt: 'RUNNING',
+    audio: 'QUEUED',
+    video: 'QUEUED',
+    llm: 'QUEUED',
+    finalize: 'QUEUED',
+  });
   const [progressPercent, setProgressPercent] = useState<number>(15);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [isFailed, setIsFailed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const hasTriggeredCompleteRef = useRef<boolean>(false);
-  const hasTriggeredFailedRef = useRef<boolean>(false);
+  // Tracks whether the component is still mounted to prevent post-unmount state
+  // updates and unwanted router navigation if the user leaves the processing page
+  // before the async evaluation resolves.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const onCompletedRef = useRef(onCompleted);
   const onFailedRef = useRef(onFailed);
+  const isFinishedRef = useRef(false);
 
   useEffect(() => {
     onCompletedRef.current = onCompleted;
     onFailedRef.current = onFailed;
-  });
+  }, [onCompleted, onFailed, onCompletedRef, onFailedRef]);
 
-  const checkStatus = useCallback(async () => {
-    if (!assessmentId) return false;
+  const executeEvaluation = useCallback(async () => {
+    if (!assessmentId) return;
+
+    setIsFailed(false);
+    setErrorMessage(null);
+    isFinishedRef.current = false;
+
     try {
-      const assessment = await aiprepApi.getAssessment(assessmentId);
-      const currentStatus = assessment?.status || 'EVALUATING';
-      setStatus(currentStatus);
+      const res = await aiprepApi.triggerEvaluation(assessmentId, true);
 
-      if (currentStatus === 'COMPLETED') {
+      // Guard: if user navigated away while the request was in-flight, do nothing.
+      if (!isMountedRef.current) return;
+
+      if (res?.status === 'COMPLETED' || res?.id) {
+        isFinishedRef.current = true;
         setProgressPercent(100);
         setSteps({
           stt: 'COMPLETED',
@@ -78,161 +92,101 @@ export function useProcessingStatus({
           llm: 'COMPLETED',
           finalize: 'COMPLETED',
         });
+        setStatus('COMPLETED');
         setIsCompleted(true);
-        setIsFailed(false);
-        if (!hasTriggeredCompleteRef.current) {
-          hasTriggeredCompleteRef.current = true;
-          if (onCompletedRef.current) onCompletedRef.current();
-        }
-        return true;
-      }
-
-      if (currentStatus === 'FAILED') {
+        onCompletedRef.current?.();
+      } else {
+        isFinishedRef.current = true;
         setIsFailed(true);
-        setIsCompleted(false);
-        setErrorMessage('Evaluation processing encountered an error.');
-        if (!hasTriggeredFailedRef.current) {
-          hasTriggeredFailedRef.current = true;
-          if (onFailedRef.current) onFailedRef.current('Evaluation processing encountered an error.');
-        }
-        return true;
+        const errText = 'Evaluation processing encountered an error.';
+        setErrorMessage(errText);
+        onFailedRef.current?.(errText);
       }
-
-      return false;
-    } catch (err) {
-      console.warn('[ProcessingStatus Check Note]:', err);
-      return false;
+    } catch (err: unknown) {
+      if (!isMountedRef.current) return;
+      isFinishedRef.current = true;
+      setIsFailed(true);
+      const msg = err instanceof Error ? err.message : 'Failed to complete evaluation. Please try again.';
+      setErrorMessage(msg);
+      onFailedRef.current?.(msg);
     }
-  }, [assessmentId]);
+  }, [
+    assessmentId,
+    isMountedRef,
+    setIsFailed,
+    setErrorMessage,
+    isFinishedRef,
+    setProgressPercent,
+    setSteps,
+    setStatus,
+    setIsCompleted,
+    onCompletedRef,
+    onFailedRef,
+  ]);
 
   useEffect(() => {
     if (!assessmentId) return;
 
     let active = true;
-    const timers: NodeJS.Timeout[] = [];
-    const resolvers: (() => void)[] = [];
+    const timers: number[] = [];
 
-    const delay = (ms: number) =>
-      new Promise<void>((resolve) => {
-        resolvers.push(resolve);
-        const t = setTimeout(() => {
-          resolve();
-          const idx = resolvers.indexOf(resolve);
-          if (idx > -1) resolvers.splice(idx, 1);
-        }, ms);
-        timers.push(t);
-      });
-
-    // Stage 1: STT transcribing (0s - 3s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setProgressPercent(32);
-      }, 1800)
-    );
-
-    // Stage 2: Audio cadence analysis (3s - 7s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'RUNNING',
-          video: 'QUEUED',
-          llm: 'QUEUED',
-          finalize: 'QUEUED',
-        });
-        setProgressPercent(54);
-      }, 4500)
-    );
-
-    // Stage 3: Video analysis & AI Evaluation Engine (7s - 12s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'RUNNING',
-          finalize: 'QUEUED',
-        });
-        setProgressPercent(76);
-      }, 8500)
-    );
-
-    // Stage 4: Report generation finalizing (12s - 15s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'COMPLETED',
-          finalize: 'RUNNING',
-        });
-        setProgressPercent(92);
-      }, 12500)
-    );
-
-    // Single asynchronous evaluation check when the pipeline reaches completion window
-    const executeEvaluation = async () => {
-      // Allow realistic LLM pipeline window (~15 seconds for OpenAI evaluation)
-      await delay(15000);
-
-      if (!active) return;
-
-      // Make a single async call to check the final report status
-      let done = await checkStatus();
-
-      // If backend LLM needs extra time, continue gentle checks until a terminal state (COMPLETED or FAILED) is reached
-      let attempts = 0;
-      const MAX_SAFETY_ATTEMPTS = 15; // Up to ~75s additional window for complex LLM rubrics
-      while (!done && active && attempts < MAX_SAFETY_ATTEMPTS) {
-        attempts++;
-        await delay(5000);
-        if (active) {
-          done = await checkStatus();
-        }
-      }
-
-      // If still not finished after safety timeout, show friendly stall state with Retry Check button
-      if (!done && active && !hasTriggeredCompleteRef.current && !hasTriggeredFailedRef.current) {
-        setIsFailed(true);
-        setErrorMessage('Evaluation is taking longer than usual. Please click Retry Check below.');
-        return;
-      }
-
-      // Transition to completed and auto-navigate to report ONLY if backend actually completed
-      if (done && active && !hasTriggeredCompleteRef.current && !hasTriggeredFailedRef.current) {
-        setProgressPercent(100);
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'COMPLETED',
-          finalize: 'COMPLETED',
-        });
-        setIsCompleted(true);
-        hasTriggeredCompleteRef.current = true;
-        if (onCompletedRef.current) onCompletedRef.current();
-      }
+    const schedule = (ms: number, updateFn: () => void) => {
+      const id = window.setTimeout(() => {
+        if (active && !isFinishedRef.current) updateFn();
+      }, ms);
+      timers.push(id);
     };
+
+    schedule(1800, () => setProgressPercent(32));
+    schedule(4500, () => {
+      setSteps({
+        stt: 'COMPLETED',
+        audio: 'RUNNING',
+        video: 'QUEUED',
+        llm: 'QUEUED',
+        finalize: 'QUEUED',
+      });
+      setProgressPercent(54);
+    });
+    schedule(8500, () => {
+      setSteps({
+        stt: 'COMPLETED',
+        audio: 'COMPLETED',
+        video: 'COMPLETED',
+        llm: 'RUNNING',
+        finalize: 'QUEUED',
+      });
+      setProgressPercent(76);
+    });
+    schedule(12500, () => {
+      setSteps({
+        stt: 'COMPLETED',
+        audio: 'COMPLETED',
+        video: 'COMPLETED',
+        llm: 'COMPLETED',
+        finalize: 'RUNNING',
+      });
+      setProgressPercent(92);
+    });
 
     executeEvaluation();
 
     return () => {
       active = false;
-      timers.forEach((t) => clearTimeout(t));
-      resolvers.forEach((res) => res());
-      resolvers.length = 0;
+      timers.forEach((t) => window.clearTimeout(t));
     };
-  }, [assessmentId, checkStatus]);
-
-  const refetch = useCallback(async () => {
-    await checkStatus();
-  }, [checkStatus]);
+  }, [
+    assessmentId,
+    executeEvaluation,
+    isMountedRef,
+    isFinishedRef,
+    setProgressPercent,
+    setSteps,
+    setIsFailed,
+    setErrorMessage,
+    onCompletedRef,
+    onFailedRef,
+  ]);
 
   return {
     status,
@@ -241,7 +195,7 @@ export function useProcessingStatus({
     isCompleted,
     isFailed,
     errorMessage,
-    refetch,
+    refetch: executeEvaluation,
   };
 }
 
