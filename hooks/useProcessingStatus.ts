@@ -39,6 +39,39 @@ const INITIAL_STEPS: ProcessingPipelineSteps = {
   finalize: 'QUEUED',
 };
 
+const COMPLETED_STEPS: ProcessingPipelineSteps = {
+  stt: 'COMPLETED',
+  audio: 'COMPLETED',
+  video: 'COMPLETED',
+  llm: 'COMPLETED',
+  finalize: 'COMPLETED',
+};
+
+interface StageSchedule {
+  delayMs: number;
+  percent: number;
+  steps?: ProcessingPipelineSteps;
+}
+
+const STAGE_SCHEDULES: StageSchedule[] = [
+  { delayMs: 1800, percent: 32 },
+  {
+    delayMs: 4500,
+    percent: 54,
+    steps: { stt: 'COMPLETED', audio: 'RUNNING', video: 'QUEUED', llm: 'QUEUED', finalize: 'QUEUED' },
+  },
+  {
+    delayMs: 8500,
+    percent: 76,
+    steps: { stt: 'COMPLETED', audio: 'COMPLETED', video: 'COMPLETED', llm: 'RUNNING', finalize: 'QUEUED' },
+  },
+  {
+    delayMs: 12500,
+    percent: 92,
+    steps: { stt: 'COMPLETED', audio: 'COMPLETED', video: 'COMPLETED', llm: 'COMPLETED', finalize: 'RUNNING' },
+  },
+];
+
 export function useProcessingStatus({
   assessmentId,
   onCompleted,
@@ -74,13 +107,7 @@ export function useProcessingStatus({
 
       if (res?.status === 'COMPLETED' || res?.id) {
         setProgressPercent(100);
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'COMPLETED',
-          finalize: 'COMPLETED',
-        });
+        setSteps(COMPLETED_STEPS);
         setStatus('COMPLETED');
         setIsCompleted(true);
         if (!hasTriggeredCompleteRef.current) {
@@ -105,66 +132,34 @@ export function useProcessingStatus({
         if (onFailedRef.current) onFailedRef.current(msg);
       }
     }
-  }, [assessmentId]);
+  }, [
+    assessmentId,
+    setIsFailed,
+    setErrorMessage,
+    setProgressPercent,
+    setSteps,
+    setStatus,
+    setIsCompleted,
+    hasTriggeredCompleteRef,
+    hasTriggeredFailedRef,
+    onCompletedRef,
+    onFailedRef,
+  ]);
 
   useEffect(() => {
     if (!assessmentId) return;
 
     let active = true;
-    const timers: NodeJS.Timeout[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-    // Stage 1: STT transcribing (0s - 3s)
-    timers.push(
-      setTimeout(() => {
+    STAGE_SCHEDULES.forEach((sched) => {
+      const t = setTimeout(() => {
         if (!active) return;
-        setProgressPercent(32);
-      }, 1800)
-    );
-
-    // Stage 2: Audio cadence analysis (3s - 7s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'RUNNING',
-          video: 'QUEUED',
-          llm: 'QUEUED',
-          finalize: 'QUEUED',
-        });
-        setProgressPercent(54);
-      }, 4500)
-    );
-
-    // Stage 3: Video analysis & AI Evaluation Engine (7s - 12s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'RUNNING',
-          finalize: 'QUEUED',
-        });
-        setProgressPercent(76);
-      }, 8500)
-    );
-
-    // Stage 4: Report generation finalizing (12s - 15s)
-    timers.push(
-      setTimeout(() => {
-        if (!active) return;
-        setSteps({
-          stt: 'COMPLETED',
-          audio: 'COMPLETED',
-          video: 'COMPLETED',
-          llm: 'COMPLETED',
-          finalize: 'RUNNING',
-        });
-        setProgressPercent(92);
-      }, 12500)
-    );
+        if (sched.steps) setSteps(sched.steps);
+        setProgressPercent(sched.percent);
+      }, sched.delayMs);
+      timers.push(t);
+    });
 
     // Trigger exactly ONE evaluation call
     runEvaluation();
@@ -173,13 +168,13 @@ export function useProcessingStatus({
       active = false;
       timers.forEach((t) => clearTimeout(t));
     };
-  }, [assessmentId, runEvaluation]);
+  }, [assessmentId, runEvaluation, setSteps, setProgressPercent]);
 
   const refetch = useCallback(async () => {
     hasTriggeredCompleteRef.current = false;
     hasTriggeredFailedRef.current = false;
     await runEvaluation();
-  }, [runEvaluation]);
+  }, [runEvaluation, hasTriggeredCompleteRef, hasTriggeredFailedRef]);
 
   return {
     status,
