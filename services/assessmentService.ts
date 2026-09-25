@@ -194,6 +194,29 @@ export const assessmentService = {
     }
   },
 
+  fetchAssessmentRecord: async (assessmentId: number) => {
+    try {
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}`
+      );
+      return res;
+    } catch (err: any) {
+      return null;
+    }
+  },
+
+  fetchAssessmentReport: async (assessmentId: number) => {
+    try {
+      const res = await apiFetch(
+        `api/aiprep/employee/assessments/${assessmentId}/report`
+      );
+      return res;
+    } catch (err: any) {
+      // 404 is expected if report has not been generated yet (e.g. IN_PROGRESS or FAILED)
+      return null;
+    }
+  },
+
   fetchAssessmentData: async (assessmentId: number) => {
     try {
       const res = await apiFetch(

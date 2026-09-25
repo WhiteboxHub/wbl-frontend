@@ -39,7 +39,15 @@ import {
   IconWifi,
   IconMaximize,
   IconMinimize,
+  IconCheck,
+  IconArrowRight,
+  IconFileText,
+  IconX,
 } from '@tabler/icons-react';
+import {
+  getDifficultySeconds,
+  getDefaultTypeSeconds,
+} from '@/components/aiprep/assessment-details';
 
 /**
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
@@ -110,25 +118,35 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
     };
   }, [stream, isMuted]);
 
-  if (isMuted) return null;
+  if (isMuted && !isLight) return null;
+
+  if (isLight) {
+    return (
+      <div className="flex items-center gap-[3px] h-5 overflow-hidden">
+        {audioLevels.slice(0, 12).map((height, i) => (
+          <div
+            key={i}
+            style={{ height: isMuted ? '3px' : `${height}px` }}
+            className={`w-[3px] rounded-full shrink-0 transition-all duration-75 ${
+              isMuted
+                ? 'bg-slate-300 dark:bg-slate-600'
+                : 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
+            }`}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors ${
-      isLight
-        ? 'bg-slate-100/90 border border-slate-200 text-slate-700'
-        : 'bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg'
-    }`}>
-      <IconMicrophone size={14} stroke={2} className={`${isLight ? 'text-indigo-600' : 'text-emerald-400'} shrink-0`} />
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg">
+      <IconMicrophone size={14} stroke={2} className="text-emerald-400 shrink-0" />
       <div className="flex items-center gap-[2.5px] h-4 overflow-hidden">
         {audioLevels.map((height, i) => (
           <div
             key={i}
             style={{ height: `${height}px` }}
-            className={`w-[2.5px] rounded-full shrink-0 transition-all duration-75 ${
-              isLight
-                ? 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
-                : 'bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300'
-            }`}
+            className="w-[2.5px] rounded-full shrink-0 transition-all duration-75 bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300"
           />
         ))}
       </div>
@@ -187,6 +205,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const hasAutoStartedRef = useRef<boolean>(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionInitializedRef = useRef<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   // Live Speech Recognition Transcript & Retention Buffers
   const [liveTranscript, setLiveTranscript] = useState<string>('');
@@ -197,7 +216,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   >([]);
   const recognitionRef = useRef<any>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
+
+  // Per-Question Time Tracking & Multi-Question Answers
+  const [questionTimeElapsed, setQuestionTimeElapsed] = useState<number>(0);
+  const [questionTimeLimit, setQuestionTimeLimit] = useState<number>(180);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
+  const [isTransitioningQuestion, setIsTransitioningQuestion] = useState<boolean>(false);
   const elapsedTimeRef = useRef<number>(0);
+
+  // Target Job Description State (for JD_INTRO track)
+  const [jobDescription, setJobDescription] = useState<string>('');
+  const [targetRole, setTargetRole] = useState<string>('');
+  const [targetCompany, setTargetCompany] = useState<string>('');
+  const [showJdModal, setShowJdModal] = useState<boolean>(false);
 
   // Exit Modal
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
@@ -218,7 +249,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         if (v && v.length > 0) {
           setCachedVoices(v);
         }
-      } catch (_) {}
+      } catch (_) { }
     };
     populateVoices();
     window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
@@ -352,7 +383,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   startRecorderRef.current = startRecorderCore;
   const cleanupRecorderRef = useRef(cleanupRecorder);
   cleanupRecorderRef.current = cleanupRecorder;
-  const startAnswerRef = useRef<() => void>(() => {});
+  const startAnswerRef = useRef<() => void>(() => { });
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
@@ -441,10 +472,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           const details = await aiprepApi.getAssessment(Number(assessmentId));
           if (details?.assessment_type) resolvedType = details.assessment_type;
           if (details?.media_type) resolvedMode = details.media_type;
+          if (details?.assessment_type === 'JD_INTRO' && details?.job_description) {
+            setJobDescription(details.job_description);
+          }
         } catch (_) { }
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'VIDEO';
+
+        if (finalType === 'JD_INTRO' && typeof window !== 'undefined') {
+          const storedJd = sessionStorage.getItem('aiprep_jd_text');
+          const storedRole = sessionStorage.getItem('aiprep_jd_role');
+          const storedCompany = sessionStorage.getItem('aiprep_jd_company');
+          if (storedJd) setJobDescription((prev) => prev || storedJd);
+          if (storedRole) setTargetRole(storedRole);
+          if (storedCompany) setTargetCompany(storedCompany);
+        } else {
+          setJobDescription('');
+          setTargetRole('');
+          setTargetCompany('');
+        }
 
         setAssessmentType(finalType);
         setMediaType(finalMode);
@@ -458,6 +505,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         } catch (qErr) {
           console.warn('Questions API fallback failed:', qErr);
+        }
+
+        if (!loadedQuestions || loadedQuestions.length === 0) {
+          setErrorMsg('Unable to load questions from server. Please retry or contact support.');
+          setIsLoading(false);
+          return;
         }
 
         setQuestions(loadedQuestions);
@@ -496,7 +549,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech]);
+  }, [assessmentId, stopAiSpeech, retryCount]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -700,7 +753,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           console.warn('[Assessment] Speech synthesis safeguard timeout triggered');
           try {
             window.speechSynthesis.cancel();
-          } catch (_) {}
+          } catch (_) { }
           triggerStartRecording();
         }, maxWaitMs);
 
@@ -714,16 +767,97 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   };
   startAnswerRef.current = handleStartAnswer;
 
+  // ── Per-Question Time Tracking ─────────────────────────────────────────────
+  useEffect(() => {
+    const activeQ = questions[currentQuestionIndex];
+    let limit = 180;
+    if (assessmentType === 'JD_INTRO') {
+      limit = 300; // 5:00 mins max for JD Walkthrough
+    } else if (assessmentType === 'INTRO') {
+      limit = 240; // 4:00 mins max for Intro
+    } else {
+      limit = getDifficultySeconds(activeQ?.difficulty_level) || getDefaultTypeSeconds(assessmentType);
+    }
+    setQuestionTimeLimit(limit);
+    setQuestionTimeElapsed(0);
+  }, [currentQuestionIndex, questions, assessmentType]);
+
+  const handleNextQuestionRef = useRef<() => void>(() => { });
+
+  useEffect(() => {
+    if (!isRecording) return;
+    const timer = setInterval(() => {
+      setQuestionTimeElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isRecording]);
+
+  useEffect(() => {
+    if (isRecording && questionTimeElapsed >= questionTimeLimit + 3 && !isTransitioningQuestion) {
+      if (currentQuestionIndex < questions.length - 1) {
+        handleNextQuestionRef.current();
+      }
+    }
+  }, [isRecording, questionTimeElapsed, questionTimeLimit, isTransitioningQuestion, currentQuestionIndex, questions.length]);
+
+  const questionTimeRemaining = Math.max(0, questionTimeLimit - questionTimeElapsed);
+  const isQuestionLowTime = isRecording && questionTimeRemaining <= 30 && questionTimeRemaining > 0;
+  const isQuestionTimeExpired = isRecording && questionTimeRemaining === 0;
+  const questionProgressPct = Math.min(100, Math.round((questionTimeElapsed / (questionTimeLimit || 1)) * 100));
+
   // ── Navigation Between Questions ───────────────────────────────────────────
   const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+    if (currentQuestionIndex < questions.length - 1 && !isTransitioningQuestion) {
+      setIsTransitioningQuestion(true);
+      stopAiSpeech();
+
+      // 1. Snapshot current question's live transcript
+      const currentText = liveTranscript.trim();
+      setQuestionAnswers((prev) => ({
+        ...prev,
+        [currentQuestionIndex]: currentText || prev[currentQuestionIndex] || '',
+      }));
+      setLiveTranscript(''); // Clear for next question
+
+      // 2. Advance index and reset timer
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      setQuestionTimeElapsed(0);
+
+      // 3. Read the new question aloud if not muted
+      const nextQ = questions[nextIndex];
+      if (nextQ?.question_text && !isSpeechMuted) {
+        speakAiText(nextQ.question_text);
+      }
+
+      setTimeout(() => {
+        setIsTransitioningQuestion(false);
+      }, 350);
     }
   };
+  handleNextQuestionRef.current = handleNextQuestion;
 
   const handlePrevQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
+    if (currentQuestionIndex > 0 && !isTransitioningQuestion) {
+      setIsTransitioningQuestion(true);
+      stopAiSpeech();
+
+      const currentText = liveTranscript.trim();
+      if (currentText) {
+        setQuestionAnswers((prev) => ({
+          ...prev,
+          [currentQuestionIndex]: currentText,
+        }));
+      }
+
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
+      setLiveTranscript(questionAnswers[prevIndex] || '');
+      setQuestionTimeElapsed(0);
+
+      setTimeout(() => {
+        setIsTransitioningQuestion(false);
+      }, 300);
     }
   };
 
@@ -769,18 +903,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         transcriptSegmentsRef.current.length > 0
           ? transcriptSegmentsRef.current
           : [
-              {
-                speaker: 'Candidate',
-                text: actualTranscript,
-                timestamp: '00:00',
-                timestamp_s: 0,
-              },
-            ];
+            {
+              speaker: 'Candidate',
+              text: actualTranscript,
+              timestamp: '00:00',
+              timestamp_s: 0,
+            },
+          ];
 
       // 3. Assemble session questions & transcript payload without client-mocked audio telemetry
       const telemetryPayload = {
-        questions: questions.map((q) => ({
-          question_id: q.id,
+        questions: questions.map((q, idx) => ({
+          question_id: q.id || (q as any).question_id || idx + 1,
           question_text: q.question_text,
         })),
         transcript: {
@@ -801,32 +935,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         console.warn('Telemetry submission note:', submitErr);
       }
 
-      // 5. Trigger primary LLM Evaluation Orchestrator
-      let triggerSuccess = false;
-      try {
-        await aiprepApi.triggerEvaluation(assessmentId);
-        triggerSuccess = true;
-      } catch (evalErr) {
-        console.warn('Evaluation trigger note, falling back to assembleMedia:', evalErr);
-        try {
-          await aiprepApi.assembleMedia(assessmentId);
-          triggerSuccess = true;
-        } catch (assembleErr) {
-          console.error('Failed both evaluation trigger and media assembly:', assembleErr);
-        }
-      }
-
-      if (!triggerSuccess) {
-        setErrorMsg('Failed to finalize assessment. Please check your network connection and try submitting again.');
-        setIsEnding(false);
-        return;
-      }
-
-      // 6. Clean up browser session storage flags
+      // 5. Clean up browser session storage flags
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_wizard_step');
 
-      // 7. Transition candidate to processing screen
+      // 6. Transition candidate to processing screen where single synchronous evaluation executes
       const processingUrl = isEmbedded
         ? `/aiprep/session/${assessmentId}/processing?embed=true`
         : `/aiprep/session/${assessmentId}/processing`;
@@ -868,7 +981,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     );
   }
 
-  if (errorMsg && !assessmentId) {
+  if (errorMsg && questions.length === 0) {
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
         <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center mb-4 text-rose-500">
@@ -876,12 +989,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">Session Room Error</h3>
         <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto mb-5 leading-relaxed">{errorMsg}</p>
-        <button
-          onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
-          className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer"
-        >
-          Return to Portal
-        </button>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => {
+              setErrorMsg(null);
+              setIsLoading(true);
+              sessionInitializedRef.current = false;
+              setRetryCount((prev) => prev + 1);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Return to Portal
+          </button>
+        </div>
       </div>
     );
   }
@@ -911,45 +1037,57 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           </div>
         </div>
 
-        {/* CENTER: Countdown Timer — counts down from the max allowed time */}
-        {(() => {
-          const remaining = Math.max(0, MAX_RECORDING_SECONDS - elapsedTime);
-          const isLow = remaining <= 60;
-          const isCritical = remaining <= 30;
-          return (
-            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-xs transition-colors duration-300 ${
-              isCritical
-                ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700'
-                : isLow
-                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700'
-                  : 'bg-slate-100 dark:bg-slate-800/90 border-slate-200/80 dark:border-slate-700/80'
-            }`}>
-              <IconClock
-                size={15}
-                className={isCritical ? 'text-rose-500 animate-pulse' : isLow ? 'text-amber-500' : 'text-indigo-600 dark:text-indigo-400'}
-              />
-              <span className={`font-mono text-xs sm:text-sm font-bold tracking-tight ${
-                isCritical
-                  ? 'text-rose-600 dark:text-rose-400 animate-pulse'
-                  : isLow
-                    ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-slate-800 dark:text-slate-100'
-              }`}>
-                {formatTime(remaining)}
+        {/* CENTER: Interview Question Countdown & Total Clock */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Active Question Countdown Badge */}
+          <div
+            className={`h-8 px-3 sm:px-3.5 rounded-full border shadow-xs inline-flex items-center gap-2 transition-colors duration-200 ${isQuestionTimeExpired
+                ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+                : isQuestionLowTime
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400'
+                  : 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
+              }`}
+            title={`Time allocated for Question ${currentQuestionIndex + 1}: ${formatTime(questionTimeLimit)}`}
+          >
+            <IconClock size={15} className={`shrink-0 ${isQuestionTimeExpired ? 'text-rose-500' : isQuestionLowTime ? 'text-amber-500' : 'text-indigo-600 dark:text-indigo-400'}`} />
+            <div className="flex items-center gap-1.5 leading-none">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
+                Q{currentQuestionIndex + 1} Time:
+              </span>
+              <span className="font-mono text-xs sm:text-sm font-black whitespace-nowrap">
+                {formatTime(questionTimeRemaining)}
               </span>
             </div>
-          );
-        })()}
+            {isQuestionLowTime && (
+              <span className="hidden sm:inline-flex items-center justify-center text-[9px] font-extrabold uppercase bg-amber-200 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded leading-none">
+                30s Left
+              </span>
+            )}
+            {isQuestionTimeExpired && (
+              <span className="inline-flex items-center justify-center text-[9px] font-extrabold uppercase bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200 px-1.5 py-0.5 rounded leading-none">
+                Time Up
+              </span>
+            )}
+          </div>
+
+          {/* Session Total Duration Clock */}
+          <div className="hidden md:inline-flex items-center h-8 gap-1.5 px-3 rounded-full bg-slate-100 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 shadow-xs">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">Total:</span>
+            <span className="font-mono text-xs font-bold leading-none">
+              {formatTime(elapsedTime)}
+            </span>
+          </div>
+        </div>
 
         {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
         <div className="flex items-center gap-2">
           {/* Connection Quality Icon Indicator (Green/Yellow/Red) */}
           <div
             className={`p-1.5 rounded-xl border transition-colors flex items-center justify-center ${networkQuality === 'good'
-                ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50'
-                : networkQuality === 'average'
-                  ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50'
-                  : 'text-rose-500 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50'
+              ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50'
+              : networkQuality === 'average'
+                ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50'
+                : 'text-rose-500 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50'
               }`}
             title={
               networkQuality === 'good'
@@ -975,9 +1113,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       </header>
 
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
-      <div className="flex-1 min-h-0 p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full">
+      <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3 max-w-[1600px] mx-auto w-full overflow-hidden">
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
-        <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-3">
+        <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-2 h-full overflow-hidden">
           {/* CINEMA CAMERA STAGE */}
           <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${
             isAudioOnly
@@ -1010,35 +1148,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 }`}
             />
 
-            {/* Audio-Only Placeholder: Centered mic with live waveform animation */}
+            {/* Audio-Only Placeholder: Large bare mic + compact waveform, dead centre */}
             {isAudioOnly && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 z-10 pointer-events-none">
-                {/* Soft ambient background glow */}
-                <div className="absolute w-96 h-96 rounded-full bg-gradient-to-tr from-indigo-100/60 to-purple-100/60 blur-3xl pointer-events-none" />
+              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4">
+                {/* Soft ambient glow behind mic */}
+                <div className="absolute w-64 h-64 rounded-full bg-gradient-to-tr from-indigo-200/40 to-purple-200/40 blur-3xl pointer-events-none" />
 
-                {/* Pulsing mic icon rings */}
-                <div className="relative flex items-center justify-center">
-                  {isRecording && (
-                    <>
-                      <span className="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-indigo-500/10 animate-ping" />
-                      <span className="absolute w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-indigo-500/15 animate-pulse" />
-                    </>
-                  )}
-                  <div className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex items-center justify-center shadow-xl border-4 transition-all duration-300 ${
-                    isRecording
-                      ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 border-indigo-200/80 shadow-indigo-500/25 ring-8 ring-indigo-50'
-                      : 'bg-slate-100 border-slate-200'
-                  }`}>
-                    <IconMicrophone size={44} stroke={2} className={isRecording ? 'text-white' : 'text-slate-400'} />
-                  </div>
+                {/* Large bare mic icon — no circle, just the icon */}
+                <IconMicrophone
+                  size={80}
+                  stroke={1.5}
+                  className={`relative z-10 transition-all duration-300 ${isRecording ? 'text-indigo-600 animate-pulse' : 'text-slate-400'}`}
+                />
+
+                {/* Compact waveform + status text */}
+                <div className="relative z-10 flex flex-col items-center gap-1">
+                  <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
+                  <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
+                    {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
+                  </span>
                 </div>
-                {/* Live audio waveform bars in light mode */}
-                <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
-                <span className="text-xs sm:text-sm font-semibold text-slate-500">
-                  {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
-                </span>
               </div>
             )}
+
 
             {/* Top-Left Live REC Badge */}
             <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
@@ -1068,98 +1200,116 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           </div>
 
           {/* FLOATING GLASS MEETING DOCK */}
-          <div className="w-full flex items-center justify-center shrink-0 pt-1">
-            <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-xl w-full max-w-2xl">
-              <div className="flex items-center gap-2">
-                {/* 1. Quit / Exit Modal Trigger */}
+          <div className="w-full flex items-center justify-center shrink-0 py-2">
+            <div className="flex items-center justify-between gap-3 w-full max-w-2xl h-14 sm:h-16 px-4 sm:px-6 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-xl">
+              {/* Left Group: Exit Button + Previous Question Button */}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowExitModal(true)}
-                  className="h-10 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold"
+                  className="h-10 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 inline-flex items-center justify-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold shrink-0"
                   title="Exit Assessment"
                 >
                   <IconLogout size={16} stroke={2} />
                   <span>Exit Assessment</span>
                 </button>
 
-                {/* 2. Question Navigation Arrows (if multiple questions exist) */}
-                {questions.length > 1 && (
-                  <div className="flex items-center gap-1 ml-1">
-                    <button
-                      type="button"
-                      onClick={handlePrevQuestion}
-                      disabled={currentQuestionIndex === 0}
-                      className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all disabled:cursor-not-allowed cursor-pointer"
-                      title="Previous Question"
-                    >
-                      <IconChevronLeft size={18} stroke={2} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleNextQuestion}
-                      disabled={currentQuestionIndex === questions.length - 1}
-                      className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all disabled:cursor-not-allowed cursor-pointer"
-                      title="Next Question"
-                    >
-                      <IconChevronRight size={18} stroke={2} />
-                    </button>
-                  </div>
+                {/* Previous Button (Only when recording and past Question 1) */}
+                {isRecording && currentQuestionIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={handlePrevQuestion}
+                    disabled={isTransitioningQuestion}
+                    className="h-10 px-3 sm:px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-30 text-slate-700 dark:text-slate-200 inline-flex items-center justify-center gap-1 transition-all disabled:cursor-not-allowed cursor-pointer text-xs font-semibold shrink-0"
+                    title="Return to Previous Question"
+                  >
+                    <IconChevronLeft size={16} stroke={2.5} />
+                    <span>Previous</span>
+                  </button>
                 )}
               </div>
 
-              {/* Center Status / Start CTA */}
-              <div className="flex items-center gap-2">
+              {/* Center Column: Perfectly Centered Primary CTA or Live Answering Indicator */}
+              <div className="flex items-center justify-center shrink-0">
                 {isInactive ? (
                   !isIntroType ? (
                     <button
                       type="button"
                       onClick={handleStartAnswer}
-                      className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer animate-pulse"
+                      className="h-10 px-6 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      title="Reveal Question & Begin Answering"
                     >
                       <IconPlayerPlay size={16} fill="currentColor" />
                       <span>Start Answer</span>
                     </button>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <div className="h-10 inline-flex items-center justify-center gap-1.5 px-4 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400">
                       <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
                       <span>Starting countdown{countdownValue !== null ? ` (${countdownValue}s)` : ''}…</span>
                     </div>
                   )
                 ) : (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                      Recording in progress
+                  <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                      Answering Q{currentQuestionIndex + 1} ({formatTime(questionTimeElapsed)})
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Complete Session Button */}
-              <button
-                type="button"
-                onClick={handleEndSession}
-                disabled={isEnding || countdownValue !== null}
-                className={`px-6 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 shrink-0 ${
-                  countdownValue !== null
-                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
-                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
-                }`}
-                title={countdownValue !== null ? `Starting in ${countdownValue}s...` : 'Finish Assessment'}
-              >
-                {isEnding ? (
-                  <>
-                    <IconLoader2 size={16} className="animate-spin" />
-                    <span>Finalizing…</span>
-                  </>
+              {/* Right Group: Forward Progression (Next Question / Finish Assessment) or Symmetrical Spacer */}
+              <div className="flex items-center justify-end shrink-0">
+                {isRecording ? (
+                  currentQuestionIndex < questions.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={handleNextQuestion}
+                      disabled={isTransitioningQuestion}
+                      className="h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 transition-all shrink-0"
+                      title="Submit answer and proceed to next question"
+                    >
+                      {isTransitioningQuestion ? (
+                        <>
+                          <IconLoader2 size={16} className="animate-spin" />
+                          <span>Saving…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Next Question</span>
+                          <IconArrowRight size={16} stroke={2.5} />
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleEndSession}
+                      disabled={isEnding || countdownValue !== null}
+                      className={`h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-all duration-200 shrink-0 ${countdownValue !== null
+                          ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
+                          : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
+                        }`}
+                      title="Finish Assessment"
+                    >
+                      {isEnding ? (
+                        <>
+                          <IconLoader2 size={16} className="animate-spin" />
+                          <span>Finalizing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Finish Assessment</span>
+                          <IconCheck size={16} stroke={2.5} />
+                        </>
+                      )}
+                    </button>
+                  )
                 ) : (
-                  <>
-                    <span>Finish Assessment</span>
-                    <IconChevronRight size={16} stroke={3} />
-                  </>
+                  /* Symmetrical spacer matching Exit button width so Start Answer is dead-center */
+                  <div className="w-[72px] shrink-0" />
                 )}
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1184,21 +1334,103 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 </div>
               )}
 
-              <div className={`flex items-center justify-between gap-2 shrink-0 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-sm select-none opacity-40' : ''}`}>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
-                  {activeQuestion.category || assessmentType}
-                </span>
+              {/* Top Row: Stepper Pills & Category Badge */}
+              <div className={`flex flex-col gap-2 shrink-0 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-sm select-none opacity-40' : ''}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
+                      {activeQuestion.category || assessmentType}
+                    </span>
+                    {assessmentType === 'JD_INTRO' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowJdModal(true)}
+                        className="text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800/60 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                        title="View the target Job Description this interview is tailored to"
+                      >
+                        <IconFileText size={13} stroke={2} />
+                        <span>View Target JD</span>
+                      </button>
+                    )}
+                  </div>
 
-                <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                  Question {currentQuestionIndex + 1} of {questions.length}
-                </span>
+                  <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                    Question {currentQuestionIndex + 1} of {questions.length}
+                  </span>
+                </div>
+
+                {/* Multi-Question Stepper Dots/Pills */}
+                {questions.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-1 border-b border-slate-100 dark:border-slate-800/80">
+                    {questions.map((_, idx) => {
+                      const isCompleted = idx < currentQuestionIndex || (!!questionAnswers[idx] && idx !== currentQuestionIndex);
+                      const isCurrent = idx === currentQuestionIndex;
+                      return (
+                        <div
+                          key={idx}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${isCurrent
+                              ? 'bg-indigo-600 text-white shadow-xs'
+                              : isCompleted
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+                            }`}
+                        >
+                          {isCompleted && <IconCheck size={12} stroke={3} className="text-emerald-500 shrink-0" />}
+                          <span>Q{idx + 1}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
+              {/* Question Text */}
               <div className={`flex-1 min-h-0 overflow-y-auto py-1 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-md select-none pointer-events-none opacity-30' : ''}`}>
                 <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed">
                   {activeQuestion.question_text}
                 </h2>
               </div>
+
+              {/* Per-Question Elapsed Progress Bar */}
+              {isRecording && (
+                <div className="w-full space-y-1 shrink-0">
+                  <div className="flex items-center justify-between text-[10px] font-mono font-semibold text-slate-400">
+                    <span>Q{currentQuestionIndex + 1} Progress</span>
+                    <span className={isQuestionTimeExpired ? 'text-rose-500 font-bold' : isQuestionLowTime ? 'text-amber-500 font-bold' : ''}>
+                      {formatTime(questionTimeElapsed)} / {formatTime(questionTimeLimit)}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${isQuestionTimeExpired
+                          ? 'bg-rose-500'
+                          : isQuestionLowTime
+                            ? 'bg-amber-500'
+                            : 'bg-indigo-600'
+                        }`}
+                      style={{ width: `${questionProgressPct}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Time Expired Notice */}
+              {isQuestionTimeExpired && currentQuestionIndex < questions.length - 1 && (
+                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 flex items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 text-xs font-semibold min-w-0">
+                    <IconAlertTriangle size={16} className="text-rose-500 shrink-0" />
+                    <span className="truncate">Allocated time reached. Wrap up and proceed.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNextQuestion}
+                    className="h-8 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center justify-center gap-1 shrink-0 transition-all hover:scale-105 active:scale-95"
+                  >
+                    <span>Next Question</span>
+                    <IconArrowRight size={14} stroke={2.5} />
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 shrink-0">
                 {/* AI Voice Narration — plays the question text aloud via speech synthesis */}
@@ -1227,7 +1459,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           )}
 
           {/* CARD 2: Live Speech Transcript Card (Compact fixed height) */}
-          <div className="h-[180px] sm:h-[200px] shrink-0 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm dark:shadow-xl flex flex-col justify-between overflow-hidden">
+          <div className="h-[140px] sm:h-[160px] shrink-0 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm dark:shadow-xl flex flex-col justify-between overflow-hidden">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -1262,6 +1494,55 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           </div>
         </div>
       </div>
+
+      {/* Target JD Viewer Modal */}
+      {showJdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                  <IconFileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {targetRole || 'Target Job Description'}
+                  </h3>
+                  {targetCompany && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {targetCompany}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowJdModal(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto max-h-[60vh]">
+              <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm font-mono whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                {jobDescription || 'No job description text was provided for this assessment session.'}
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowJdModal(false)}
+                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors cursor-pointer shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. EXIT CONFIRMATION MODAL */}
       {showExitModal && (
