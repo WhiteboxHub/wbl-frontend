@@ -155,8 +155,8 @@ export const aiPrepApi = {
     }),
 
   // Trigger evaluation orchestrator
-  triggerEvaluation: (assessmentId: string | number): Promise<any> =>
-    apiFetch(endpoint(`candidate/assessments/${assessmentId}/evaluate`), {
+  triggerEvaluation: (assessmentId: string | number, wait: boolean = false): Promise<any> =>
+    apiFetch(endpoint(`candidate/assessments/${assessmentId}/evaluate${wait ? '?wait=true' : ''}`), {
       method: "POST",
     }),
 
