@@ -94,6 +94,7 @@ const Header = ({
                 width={50}
                 height={50}
                 className="dark:hidden"
+                priority
               />
               <Image
                 src={WBLlight}
@@ -101,6 +102,7 @@ const Header = ({
                 width={50}
                 height={50}
                 className="hidden dark:block"
+                priority
               />
             </Link>
           </div>

@@ -317,7 +317,6 @@ export default function RecordingBatchPage() {
     };
 
     if (showLoader) return <Loader />;
-    if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
     return (
         <div className="space-y-6">

@@ -193,8 +193,6 @@ export default function RecordingsPage() {
       {/* Table */}
       {showLoader ? (
         <Loader />
-      ) : recordings.length === 0 ? (
-        <p className="text-center mt-8 text-gray-500">No recordings found.</p>
       ) : (
         <AGGridTable
           rowData={recordings}
