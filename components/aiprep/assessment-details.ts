@@ -36,9 +36,10 @@ export function getDifficultySeconds(difficulty?: string): number {
 
 export function getDefaultTypeSeconds(type: AssessmentType): number {
   switch (type) {
-    case 'INTRO':
     case 'JD_INTRO':
-      return 240;
+      return 300; // 5 mins max for JD Walkthrough
+    case 'INTRO':
+      return 240; // 4 mins for Intro elevator pitch
     case 'RECRUITER':
       return 120;
     case 'HIRING_MANAGER':
@@ -54,7 +55,8 @@ export function formatTimeEstimate(
   secPerQuestion: number = 120,
   type?: AssessmentType
 ): string {
-  if (type === 'INTRO' || type === 'JD_INTRO') return '4 mins';
+  if (type === 'JD_INTRO') return '3–5 mins';
+  if (type === 'INTRO') return '3–4 mins';
   if (count > 0) {
     const totalMin = Math.round((count * secPerQuestion) / 60);
     return `~${totalMin} mins`;

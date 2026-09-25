@@ -27,6 +27,7 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
   onClose,
   isAdmin = false,
 }) => {
+  const [detailData, setDetailData] = useState<any>(null);
   const [reportData, setReportData] = useState<any>(null);
   const [telemetryData, setTelemetryData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,33 +56,57 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
   };
 
   useEffect(() => {
+    let isCancelled = false;
+
     if (isOpen && assessment?.id) {
       setIsLoading(true);
       Promise.all([
+        assessmentService.fetchAssessmentRecord(assessment.id).catch(() => null),
         assessmentService.fetchAssessmentDetail(assessment.id).catch(() => null),
         assessmentService.fetchAssessmentData(assessment.id).catch(() => null),
       ])
-        .then(([rep, tel]) => {
-          setReportData(rep);
-          setTelemetryData(tel);
+        .then(([record, report, tel]) => {
+          if (!isCancelled) {
+            setDetailData(record);
+            setReportData(report || record?.report || null);
+            setTelemetryData(tel || record?.data || null);
+          }
         })
-        .finally(() => setIsLoading(false));
+        .finally(() => {
+          if (!isCancelled) {
+            setIsLoading(false);
+          }
+        });
     } else {
+      setDetailData(null);
       setReportData(null);
       setTelemetryData(null);
       setActiveTab("overview");
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [
     isOpen,
     assessment,
     assessment?.id,
     setIsLoading,
+    setDetailData,
     setReportData,
     setTelemetryData,
     setActiveTab,
   ]);
 
   if (!isOpen || !assessment) return null;
+
+  const resolvedUuid =
+    assessment.assessment_uuid ||
+    detailData?.assessment_uuid ||
+    reportData?.assessment_uuid ||
+    telemetryData?.assessment_uuid ||
+    telemetryData?.telemetry?.assessment_uuid ||
+    "—";
 
   // -------------------------------------------------------------
   // ADMIN / AVATAR SIDE: 4-Column Layout (Matching Given Image)
@@ -231,8 +256,11 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                       <label className="block text-xs font-bold text-blue-700 dark:text-blue-400">
                         Assessment UUID
                       </label>
-                      <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-mono min-h-[34px] flex items-center truncate" title={reportData?.assessment_uuid || telemetryData?.telemetry?.assessment_uuid || `as-${assessment.id}`}>
-                        {reportData?.assessment_uuid || telemetryData?.telemetry?.assessment_uuid || `as-${assessment.id}`}
+                      <div
+                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-mono min-h-[34px] flex items-center truncate"
+                        title={resolvedUuid}
+                      >
+                        {resolvedUuid}
                       </div>
                     </div>
 
@@ -244,6 +272,10 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         {assessment.score != null ? (
                           <span className="text-blue-600 dark:text-blue-400 text-sm font-black">
                             {assessment.score}%
+                          </span>
+                        ) : detailData?.score != null ? (
+                          <span className="text-blue-600 dark:text-blue-400 text-sm font-black">
+                            {detailData.score}%
                           </span>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -282,12 +314,12 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         Email
                       </label>
                       <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center truncate">
-                        {assessment.candidate_email ? (
+                        {assessment.candidate_email || detailData?.candidate_email ? (
                           <a
-                            href={`mailto:${assessment.candidate_email}`}
+                            href={`mailto:${assessment.candidate_email || detailData?.candidate_email}`}
                             className="text-blue-600 underline hover:text-blue-800 truncate"
                           >
-                            {assessment.candidate_email}
+                            {assessment.candidate_email || detailData?.candidate_email}
                           </a>
                         ) : (
                           <span className="text-gray-400">—</span>
@@ -300,9 +332,9 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         Recording URL
                       </label>
                       <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center">
-                        {assessment.youtube_url || reportData?.video_url ? (
+                        {detailData?.youtube_url || assessment.youtube_url || reportData?.video_url ? (
                           <a
-                            href={assessment.youtube_url || reportData?.video_url}
+                            href={detailData?.youtube_url || assessment.youtube_url || reportData?.video_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 underline hover:text-blue-800 font-semibold"
@@ -320,7 +352,7 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         Client IP Address
                       </label>
                       <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-mono min-h-[34px] flex items-center">
-                        {reportData?.ip_address || (assessment as any)?.ip_address || telemetryData?.telemetry?.ip || telemetryData?.telemetry?.client_ip || "127.0.0.1"}
+                        {detailData?.ip_address || reportData?.ip_address || (assessment as any)?.ip_address || telemetryData?.telemetry?.ip || telemetryData?.telemetry?.client_ip || "127.0.0.1"}
                       </div>
                     </div>
 
@@ -328,8 +360,11 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                       <label className="block text-xs font-bold text-blue-700 dark:text-blue-400">
                         Browser / Device
                       </label>
-                      <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center truncate" title={reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent || "Web Browser"}>
-                        {(reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent) ? (reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent).slice(0, 36) + "..." : "Web Browser (Chrome)"}
+                      <div className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-800/80 px-3 py-2 text-xs text-slate-800 dark:text-slate-200 shadow-2xs font-medium min-h-[34px] flex items-center truncate" title={detailData?.user_agent || reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent || "Web Browser"}>
+                        {(() => {
+                          const ua = detailData?.user_agent || reportData?.user_agent || (assessment as any)?.user_agent || telemetryData?.telemetry?.user_agent;
+                          return ua ? (ua.length > 36 ? ua.slice(0, 36) + "..." : ua) : "Web Browser (Chrome)";
+                        })()}
                       </div>
                     </div>
 
@@ -683,6 +718,12 @@ export const AssessmentDetailModal: React.FC<AssessmentDetailModalProps> = ({
                         {assessment.candidate_email ? ` • ${assessment.candidate_email}` : ""}
                       </p>
                     )}
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Assessment UUID</span>
+                    <p className="font-mono text-gray-800 dark:text-gray-200 truncate" title={resolvedUuid}>
+                      {resolvedUuid}
+                    </p>
                   </div>
                   <div>
                     <span className="text-gray-400">Created At</span>

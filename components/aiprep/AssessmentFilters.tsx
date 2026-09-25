@@ -37,9 +37,9 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
   };
 
   return (
-    <div className="flex flex-wrap items-end gap-3 max-w-2xl">
+    <div className="flex flex-wrap items-end gap-3">
       {/* Search Assessments */}
-      <div className="flex-1 min-w-[200px]">
+      <div className="w-72 max-w-full">
         <Label
           htmlFor="assessment-search-input"
           className="text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -61,7 +61,7 @@ export const AssessmentFilters: React.FC<AssessmentFiltersProps> = ({
 
       {/* Candidate Filter */}
       {isAdmin && (
-        <div className="flex-1 min-w-[200px]">
+        <div className="w-80 max-w-full">
           <Label
             htmlFor="candidate-search-input"
             className="text-sm font-medium text-gray-700 dark:text-gray-300"

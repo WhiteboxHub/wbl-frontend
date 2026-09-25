@@ -49,6 +49,7 @@ import {
   paramFromTab,
   type ReportTab,
 } from "./report-tabs";
+import { getUserTeamRole } from "@/utils/auth";
 import VideoPlayer from "./VideoPlayer";
 
 export type { ReportTab };
@@ -841,6 +842,15 @@ function formatFeedbackToSecondPerson(
 
 export function EmptyEvaluationCard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromAvatar = searchParams.get("from") === "avatar";
+  const userRole = typeof window !== "undefined" ? getUserTeamRole() : null;
+  const isAdminSide =
+    fromAvatar ||
+    userRole === "admin" ||
+    userRole === "employee" ||
+    (typeof window !== "undefined" &&
+      sessionStorage.getItem("aiprep_return_url")?.includes("avatar"));
 
   return (
     <div className="flex items-center justify-center py-6 sm:py-10 px-4 animate-in fade-in zoom-in-95 duration-150">
@@ -854,16 +864,22 @@ export function EmptyEvaluationCard() {
         </h2>
 
         <p className="mt-1 text-xs text-slate-600 leading-snug">
-          No spoken responses were detected during this session. Please make sure to speak clearly and perform well in your assessment to receive an evaluation.
+          {isAdminSide
+            ? "No spoken responses were detected during this candidate's session."
+            : "No spoken responses were detected during this session. Please make sure to speak clearly and perform well in your assessment to receive an evaluation."}
         </p>
 
         <div className="mt-3.5 flex items-center justify-center">
           <button
             type="button"
-            onClick={() => navigateToAssessmentType(router)}
+            onClick={() =>
+              isAdminSide
+                ? navigateToAssessmentsList(router)
+                : navigateToAssessmentType(router)
+            }
             className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors cursor-pointer"
           >
-            Start Assessment
+            {isAdminSide ? "Assessment List" : "Start Assessment"}
           </button>
         </div>
       </div>
@@ -2264,6 +2280,47 @@ export interface ReportHeaderProps {
   onSelectTab: (tab: ReportTab) => void;
 }
 
+export function getAssessmentsListUrl(): string {
+  if (typeof window !== "undefined") {
+    // 1. Query parameter check (e.g. ?from=avatar or ?from=/avatar/assessments)
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromParam = searchParams.get("from");
+    if (fromParam === "avatar" || fromParam?.includes("avatar")) {
+      return "/avatar/assessments";
+    }
+    if (fromParam && fromParam.startsWith("/")) {
+      return fromParam;
+    }
+
+    // 2. Explicit return URL stored in sessionStorage
+    const stored = sessionStorage.getItem("aiprep_return_url");
+    if (stored) {
+      return stored;
+    }
+
+    // 3. Document referrer check
+    if (document.referrer) {
+      if (document.referrer.includes("/avatar/assessments") || document.referrer.includes("/avatar")) {
+        return "/avatar/assessments";
+      }
+      if (document.referrer.includes("/aiprep/reports/dashboard")) {
+        return "/aiprep/reports/dashboard";
+      }
+    }
+
+    // 4. Role-based fallback: employees and admins belong in avatar/assessments
+    try {
+      const role = getUserTeamRole();
+      if (role === "employee" || role === "admin" || role === "instructor") {
+        return "/avatar/assessments";
+      }
+    } catch {
+      // fallback
+    }
+  }
+  return "/user_dashboard/ai-prep/assessments";
+}
+
 export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
   if (typeof window !== "undefined") {
     try {
@@ -2276,6 +2333,12 @@ export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
       );
     } catch {
       // Ignore storage errors
+    }
+
+    const role = getUserTeamRole();
+    if (role === "employee" || role === "admin") {
+      router.push("/avatar/assessments");
+      return;
     }
   }
   router.push("/user_dashboard/ai-prep/assessment-type");
@@ -2297,16 +2360,11 @@ export function navigateToAssessmentsList(router: ReturnType<typeof useRouter>) 
       // Ignore storage errors
     }
 
-    if (document.referrer && document.referrer.includes("/avatar/assessments")) {
-      router.push("/avatar/assessments");
-      return;
-    }
-    if (document.referrer && document.referrer.includes("/aiprep/reports/dashboard")) {
-      router.push("/aiprep/reports/dashboard");
-      return;
-    }
+    const targetUrl = getAssessmentsListUrl();
+    router.push(targetUrl);
+    return;
   }
-  router.push("/user_dashboard/ai-prep/assessments");
+  router.push("/avatar/assessments");
 }
 
 export function ReportHeader({
@@ -2397,7 +2455,7 @@ export function ReportHeader({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => navigateToAssessmentType(router)}
+          onClick={() => navigateToAssessmentsList(router)}
           className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors print:hidden cursor-pointer"
         >
           <ArrowLeft size={15} />
