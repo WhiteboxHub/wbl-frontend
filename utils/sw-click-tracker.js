@@ -3,6 +3,20 @@
  * 12-Hour Sync Logic using IndexedDB
  */
 
+const DEBUG = false;
+
+function swLog(...args) {
+    if (DEBUG) console.log(...args);
+}
+
+function swWarn(...args) {
+    if (DEBUG) console.warn(...args);
+}
+
+function swError(...args) {
+    if (DEBUG) console.error(...args);
+}
+
 const DB_NAME = 'JobClickTracker';
 const STORE_NAME = 'pending_clicks';
 const META_STORE = 'sync_meta';
@@ -28,7 +42,7 @@ function openDB() {
         };
         request.onsuccess = (event) => resolve(event.target.result);
         request.onerror = (e) => {
-            console.error('[SW] DB Open Error:', e);
+            swError('[SW] DB Open Error:', e);
             reject(e);
         };
     });
@@ -97,7 +111,7 @@ async function clearClicks(ids) {
 // THE FLUSH LOGIC
 async function attemptFlush(force = false) {
     if (!baseUrl || !cachedToken) {
-        console.warn('[SW] Sync skipped: Config/Token not received yet');
+        swWarn('[SW] Sync skipped: Config/Token not received yet');
         return;
     }
 
@@ -129,10 +143,10 @@ async function attemptFlush(force = false) {
                 await clearClicks(clicks.map(c => c.job_listing_id));
                 await setLastSyncedAt(Date.now());
             } else {
-                console.error('[SW] ❌ Sync Error: HTTP', response.status);
+                swError('[SW] ❌ Sync Error: HTTP', response.status);
             }
         } catch (err) {
-            console.error('[SW] ❌ Sync Error:', err);
+            swError('[SW] ❌ Sync Error:', err);
         }
     }
 }

@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { ColDef } from "ag-grid-community";
-import dynamic from "next/dynamic";
+import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -12,10 +12,6 @@ import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api.js";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
-import { Loader } from "@/components/admin_ui/loader";
-import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
-
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
 const BadgeRenderer = (params: any, map: Record<string, string>) => {
   const value = params?.value?.toString() || "None";
@@ -440,7 +436,6 @@ export default function VendorPage() {
   const selectedRowsRef = useRef<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -499,6 +494,7 @@ export default function VendorPage() {
   const fetchVendors = async () => {
     try {
       setLoading(true);
+      setError("");
       const data = await cachedApiFetch("/vendors");
       const arr = Array.isArray(data) ? data : data?.data || [];
       console.log("[fetchVendors] Successfully loaded", arr.length, "vendors");
@@ -507,6 +503,7 @@ export default function VendorPage() {
       console.error("[fetchVendors] Error:", e);
       toast.error(e?.message || e?.body || "Failed to load vendors");
       setError(e?.message || e?.body || "Failed to load vendors");
+      setVendors([]);
     } finally {
       setLoading(false);
     }
@@ -711,13 +708,16 @@ export default function VendorPage() {
     });
   }, [fetchVendors, getVisibleSelectedRows]);
 
-  if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
-
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Vendors</h1>
       </div>
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+          {error}
+        </div>
+      )}
       <div className="max-w-md">
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
@@ -734,62 +734,59 @@ export default function VendorPage() {
 
       <div className="flex w-full justify-center">
         <div className="w-full max-w-7xl">
-          {showLoader ? (
-            <Loader />
-          ) : (
-            <AGGridTable
-              rowData={filteredVendors}
-              columnDefs={columnDefs}
-              title={`All Vendors (${filteredVendors.length})`}
-              height="calc(70vh)"
-              onRowUpdated={handleRowUpdated}
-              onRowDeleted={handleRowDeleted}
-              skipDeleteConfirmation={true}
-              showSearch={false}
-              onFilterChanged={() => {
-                setSelectedRows([]);
-                selectedRowsRef.current = [];
-              }}
-              onSelectionChanged={(rows: any[]) => {
-                selectedRowsRef.current = rows;
-                setSelectedRows(rows);
-              }}
-              onRowAdded={async (newRow: any) => {
-                try {
-                  const payload = {
-                    full_name: newRow.full_name || newRow.name || "",
-                    phone_number: newRow.phone_number || newRow.phone || null,
-                    secondary_phone: newRow.secondary_phone || null,
-                    email: newRow.email || null,
-                    linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
-                    type: newRow.type || newRow.vendor_type || "client",
-                    status: newRow.status || "active",
-                    company_name: newRow.company_name || newRow.company || null,
-                    city: newRow.city || null,
-                    postal_code: newRow.postal_code || null,
-                    address: newRow.address || null,
-                    country: newRow.country || null,
-                    location: newRow.location || null,
-                    linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
-                    intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
-                    intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
-                    notes: newRow.notes || null,
-                    linkedin_internal_id: newRow.linkedin_internal_id || null,
-                  };
-                  if (!payload.full_name) { console.warn('Vendor name required'); return; }
-                  const res = await apiFetch("/vendors", { method: "POST", body: payload });
-                  await invalidateCache("/vendors");
-                  const created = Array.isArray(res) ? res : (res?.data ?? res);
-                  console.log("[onRowAdded] Successfully created vendor:", created);
-                  setVendors((prev) => [created, ...prev]);
-                  toast.success("Vendor created successfully");
-                } catch (e: any) {
-                  console.error('Failed to create vendor', e);
-                  toast.error(e?.message || "Failed to create vendor");
-                }
-              }}
-            />
-          )}
+          <AGGridTable
+            loading={loading}
+            rowData={filteredVendors}
+            columnDefs={columnDefs}
+            title={`All Vendors (${filteredVendors.length})`}
+            height="calc(70vh)"
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
+            skipDeleteConfirmation={true}
+            showSearch={false}
+            onFilterChanged={() => {
+              setSelectedRows([]);
+              selectedRowsRef.current = [];
+            }}
+            onSelectionChanged={(rows: any[]) => {
+              selectedRowsRef.current = rows;
+              setSelectedRows(rows);
+            }}
+            onRowAdded={async (newRow: any) => {
+              try {
+                const payload = {
+                  full_name: newRow.full_name || newRow.name || "",
+                  phone_number: newRow.phone_number || newRow.phone || null,
+                  secondary_phone: newRow.secondary_phone || null,
+                  email: newRow.email || null,
+                  linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
+                  type: newRow.type || newRow.vendor_type || "client",
+                  status: newRow.status || "active",
+                  company_name: newRow.company_name || newRow.company || null,
+                  city: newRow.city || null,
+                  postal_code: newRow.postal_code || null,
+                  address: newRow.address || null,
+                  country: newRow.country || null,
+                  location: newRow.location || null,
+                  linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
+                  intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
+                  intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
+                  notes: newRow.notes || null,
+                  linkedin_internal_id: newRow.linkedin_internal_id || null,
+                };
+                if (!payload.full_name) { console.warn('Vendor name required'); return; }
+                const res = await apiFetch("/vendors", { method: "POST", body: payload });
+                await invalidateCache("/vendors");
+                const created = Array.isArray(res) ? res : (res?.data ?? res);
+                console.log("[onRowAdded] Successfully created vendor:", created);
+                setVendors((prev) => [created, ...prev]);
+                toast.success("Vendor created successfully");
+              } catch (e: any) {
+                console.error('Failed to create vendor', e);
+                toast.error(e?.message || "Failed to create vendor");
+              }
+            }}
+          />
 
           {/* Confirmation Dialog */}
           {confirmDialog.isOpen && (
