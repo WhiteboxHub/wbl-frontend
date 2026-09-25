@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Layout from "@/components/Common/Layout";
 import { isAuthenticated } from "@/utils/auth";
 import ClassComp from "@/components/Recording/ClassComp";
@@ -8,11 +8,13 @@ import SearchComp from "@/components/Recording/SearchComp";
 import SessionComp from "@/components/Recording/SessionComp";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 
+type ComponentType = "class" | "search" | "session";
 
-type ComponentType = "class" | "search" | "session"
-
-export default function Recordings() {
+function RecordingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const course = searchParams.get("course");
+
   const [loading, setLoading] = useState(true);
   const components = ["class", "search", "session"];
   const [activeComponent, setActiveComponent] = useState<ComponentType>("class");
@@ -35,13 +37,14 @@ export default function Recordings() {
   };
 
   useEffect(() => {
-    router.push(`/recording?course=ML`);
-  }, [router]);
+    if (!course) {
+      router.replace(`/recording?course=ML`);
+    }
+  }, [course, router]);
 
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        // Introduce an intentional delay (500ms)
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         const { valid } = await isAuthenticated();
@@ -108,5 +111,19 @@ export default function Recordings() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function Recordings() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen w-screen items-center justify-center">
+          <p className="text-lg text-gray-500">Loading...</p>
+        </div>
+      }
+    >
+      <RecordingContent />
+    </Suspense>
   );
 }
