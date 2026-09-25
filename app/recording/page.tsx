@@ -10,11 +10,22 @@ import CourseNavigation from "@/components/Common/CourseNavigation";
 
 type ComponentType = "class" | "search" | "session";
 
-function RecordingContent() {
+function CourseParamHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const course = searchParams.get("course");
 
+  useEffect(() => {
+    if (!course) {
+      router.replace(`/recording?course=ML`);
+    }
+  }, [course, router]);
+
+  return null;
+}
+
+export default function Recordings() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const components = ["class", "search", "session"];
   const [activeComponent, setActiveComponent] = useState<ComponentType>("class");
@@ -35,12 +46,6 @@ function RecordingContent() {
         return null;
     }
   };
-
-  useEffect(() => {
-    if (!course) {
-      router.replace(`/recording?course=ML`);
-    }
-  }, [course, router]);
 
   useEffect(() => {
     const checkAuthentication = async () => {
@@ -72,6 +77,9 @@ function RecordingContent() {
 
   return (
     <div>
+      <Suspense fallback={null}>
+        <CourseParamHandler />
+      </Suspense>
       <main className="container">
         <nav className="mt-20 flex h-28 flex-col items-start justify-center sm:mt-28 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-center text-2xl font-bold sm:pt-0 sm:text-start sm:text-3xl lg:text-4xl">
@@ -107,23 +115,13 @@ function RecordingContent() {
             </div>
           </div>
 
-          <div className="mt-6">{renderComponent()}</div>
+          <div className="mt-6">
+            <Suspense fallback={<div className="text-center py-4">Loading recordings...</div>}>
+              {renderComponent()}
+            </Suspense>
+          </div>
         </section>
       </main>
     </div>
-  );
-}
-
-export default function Recordings() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen w-screen items-center justify-center">
-          <p className="text-lg text-gray-500">Loading...</p>
-        </div>
-      }
-    >
-      <RecordingContent />
-    </Suspense>
   );
 }
