@@ -154,165 +154,6 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
   );
 });
 
-const DEFAULT_TRACK_QUESTIONS: Record<string, QuestionBankItem[]> = {
-  TECHNICAL: [
-    {
-      id: 101,
-      question_text: 'Describe your core technical stack and explain how you design and structure scalable backend or full-stack architectures.',
-      category: 'TECHNICAL',
-      sub_category: 'Architecture',
-      difficulty_level: 'MEDIUM',
-      is_active: true,
-    },
-    {
-      id: 102,
-      question_text: 'How do you manage concurrency, state synchronization, and database query optimization in high-throughput applications?',
-      category: 'TECHNICAL',
-      sub_category: 'Performance',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 103,
-      question_text: 'Explain your experience with asynchronous processing, background worker queues, and resilient error recovery patterns.',
-      category: 'TECHNICAL',
-      sub_category: 'Distributed Systems',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 104,
-      question_text: 'Walk through a challenging production bug or system performance bottleneck you diagnosed. What was your systematic debugging methodology?',
-      category: 'TECHNICAL',
-      sub_category: 'Troubleshooting',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-  ],
-  HIRING_MANAGER: [
-    {
-      id: 201,
-      question_text: 'Walk me through an end-to-end engineering initiative you spearheaded. What were the biggest architectural trade-offs you navigated?',
-      category: 'HIRING_MANAGER',
-      sub_category: 'Project Ownership',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 202,
-      question_text: 'Describe a high-stakes technical disagreement you had with senior stakeholders or engineers. How did you negotiate consensus?',
-      category: 'HIRING_MANAGER',
-      sub_category: 'Leadership & Collaboration',
-      difficulty_level: 'MEDIUM',
-      is_active: true,
-    },
-    {
-      id: 203,
-      question_text: 'How do you balance rapid delivery pressures against testing rigor, security considerations, and paying down technical debt?',
-      category: 'HIRING_MANAGER',
-      sub_category: 'Delivery & Execution',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 204,
-      question_text: 'Tell me about a project that experienced scope creep or unexpected blockers. What retrospective steps did you take to deliver successfully?',
-      category: 'HIRING_MANAGER',
-      sub_category: 'Accountability',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-  ],
-  RECRUITER: [
-    {
-      id: 301,
-      question_text: 'Walk me through your professional career journey, recent transitions, and what specifically excites you about your next career move.',
-      category: 'RECRUITER',
-      sub_category: 'Career Overview',
-      difficulty_level: 'MEDIUM',
-      is_active: true,
-    },
-    {
-      id: 302,
-      question_text: 'What engineering team culture, tech stack, and leadership style allow you to do your most impactful work?',
-      category: 'RECRUITER',
-      sub_category: 'Culture Fit',
-      difficulty_level: 'MEDIUM',
-      is_active: true,
-    },
-    {
-      id: 303,
-      question_text: 'What are your expectations regarding compensation, preferred working arrangements (remote/hybrid), and availability to start?',
-      category: 'RECRUITER',
-      sub_category: 'Logistics',
-      difficulty_level: 'EASY',
-      is_active: true,
-    },
-  ],
-  SYSTEM_DESIGN: [
-    {
-      id: 401,
-      question_text: 'Design a high-throughput, low-latency distributed system that ingests and processes streaming data at enterprise scale with zero data loss.',
-      category: 'SYSTEM_DESIGN',
-      sub_category: 'Streaming & Ingestion',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 402,
-      question_text: 'How would you design a distributed caching layer and manage cache invalidation, thundering herds, and data consistency across regions?',
-      category: 'SYSTEM_DESIGN',
-      sub_category: 'Caching & Consistency',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 403,
-      question_text: 'Explain how you would architect multi-tenant rate limiting, authentication, and service mesh routing for an enterprise API gateway.',
-      category: 'SYSTEM_DESIGN',
-      sub_category: 'Security & Networking',
-      difficulty_level: 'EXPERT',
-      is_active: true,
-    },
-  ],
-  JD_INTRO: [
-    {
-      id: 501,
-      question_text: 'Walk through the target job description: how does your technical background, domain experience, and portfolio match its core requirements?',
-      category: 'JD_INTRO',
-      sub_category: 'Role Alignment',
-      difficulty_level: 'MEDIUM',
-      is_active: true,
-    },
-    {
-      id: 502,
-      question_text: 'Looking closely at the key responsibilities in the job description, which area do you anticipate having the most immediate impact in, and what is your 30-60-90 day execution plan?',
-      category: 'JD_INTRO',
-      sub_category: 'Impact & Strategy',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-    {
-      id: 503,
-      question_text: 'Identify the most technically demanding requirement or qualification in this job description. Walk me through a relevant project where you mastered a similar challenge.',
-      category: 'JD_INTRO',
-      sub_category: 'Technical Fit',
-      difficulty_level: 'HARD',
-      is_active: true,
-    },
-  ],
-  INTRO: [
-    {
-      id: 601,
-      question_text: 'Tell me about yourself, your background, and your key achievements building software and AI systems.',
-      category: 'INTRO',
-      sub_category: 'Self-Introduction',
-      difficulty_level: 'MEDIUM',
-      is_active: true,
-    },
-  ],
-};
-
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
 export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
@@ -364,6 +205,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const hasAutoStartedRef = useRef<boolean>(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionInitializedRef = useRef<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   // Live Speech Recognition Transcript & Retention Buffers
   const [liveTranscript, setLiveTranscript] = useState<string>('');
@@ -666,7 +508,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
 
         if (!loadedQuestions || loadedQuestions.length === 0) {
-          loadedQuestions = DEFAULT_TRACK_QUESTIONS[finalType] || DEFAULT_TRACK_QUESTIONS['TECHNICAL'];
+          setErrorMsg('Unable to load questions from server. Please retry or contact support.');
+          setIsLoading(false);
+          return;
         }
 
         setQuestions(loadedQuestions);
@@ -705,7 +549,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech]);
+  }, [assessmentId, stopAiSpeech, retryCount]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -1158,7 +1002,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     );
   }
 
-  if (errorMsg && !assessmentId) {
+  if (errorMsg && questions.length === 0) {
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
         <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 flex items-center justify-center mb-4 text-rose-500">
@@ -1166,12 +1010,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-1.5">Session Room Error</h3>
         <p className="text-slate-500 dark:text-slate-400 text-xs max-w-md mx-auto mb-5 leading-relaxed">{errorMsg}</p>
-        <button
-          onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
-          className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer"
-        >
-          Return to Portal
-        </button>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => {
+              setErrorMsg(null);
+              setIsLoading(true);
+              sessionInitializedRef.current = false;
+              setRetryCount((prev) => prev + 1);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
+          >
+            Return to Portal
+          </button>
+        </div>
       </div>
     );
   }
