@@ -56,7 +56,7 @@ export function useProcessingStatus({
   useEffect(() => {
     onCompletedRef.current = onCompleted;
     onFailedRef.current = onFailed;
-  }, [onCompleted, onFailed]);
+  }, [onCompleted, onFailed, onCompletedRef, onFailedRef]);
 
   const executeEvaluation = useCallback(async () => {
     if (!assessmentId) return;
