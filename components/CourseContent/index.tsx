@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { getCourseContentData } from "@/lib/courseContentApi";
+import { getCourseContentData } from "@/lib/api";
 import CourseContentTable from "@/components/Common/CourseContentTable";
 import { toast } from "sonner";
 
