@@ -11,7 +11,7 @@ const CourseContentTable = (props: any) => {
               Fundamentals
             </th>
             <th className="mb-1 w-1/4 border border-gray-500 bg-primary px-4 py-2 text-white">
-               AI and Machine Learning Course Overview and Syllabus
+               AIML (Artificial Intelligence & Machine Learning)
             </th>
           </tr>
         </thead>
