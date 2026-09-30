@@ -23,17 +23,33 @@ const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
+    // 1. Prioritize authenticated user profile object
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const parsed = JSON.parse(userStr);
+        if (parsed?.candidate_id || parsed?.id) return parsed.candidate_id || parsed.id;
+      } catch {}
+    }
+
+    // 2. Fallback to JWT access token payload
+    const token =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token") ||
+      localStorage.getItem("auth_token");
+    if (token && token.includes(".")) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload?.candidate_id || payload?.id) return payload.candidate_id || payload.id;
+      } catch {}
+    }
+
+    // 3. Fallback to direct candidate ID storage keys
     const directCandidateId =
       localStorage.getItem("candidate_id") ||
       sessionStorage.getItem("aiprep_candidate_id") ||
       sessionStorage.getItem("candidate_id");
     if (directCandidateId) return directCandidateId;
-
-    const user = localStorage.getItem("user");
-    if (user) {
-      const parsed = JSON.parse(user);
-      if (parsed.candidate_id || parsed.id) return parsed.candidate_id || parsed.id;
-    }
   } catch {}
   return fallback;
 };
