@@ -26,7 +26,17 @@ export const assessmentService = {
 
     const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || '') : '';
     const urlCid = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('candidateId') || '') : '';
-    const effectiveCandidateId = filters.candidate_id?.trim() || urlCid.trim() || getStoredCandidateId();
+    const effectiveCandidateId = String(filters.candidate_id?.trim() || urlCid.trim() || getStoredCandidateId() || "").trim();
+
+    if (!effectiveCandidateId) {
+      return {
+        items: [],
+        total: 0,
+        page,
+        pageSize: limit,
+        totalPages: 0,
+      };
+    }
 
     const tokenSnippet = token ? token.slice(-25) : 'anon';
     const cacheKey = `candidate_${effectiveCandidateId}_${tokenSnippet}_${queryParams.toString()}`;
