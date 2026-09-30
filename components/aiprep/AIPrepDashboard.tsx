@@ -117,7 +117,7 @@ export function AIPrepDashboard({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [setReadiness]);
 
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [starting, setStarting] = useState(false);

@@ -157,82 +157,29 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
 const TECH_TERMS_REPLACEMENTS: [RegExp, string][] = [
-  // Names & Introductions
-  [/\b(?:hello\s+)?(?:I\s+)?myself\s+got\s+your\s+face\s+within\b/gi, 'Hello, I am Khaja Faizuddin.'],
-  [/\bgot\s+your\s+face\s+within\b/gi, 'Khaja Faizuddin'],
-  [/\byour\s+face\s+within\b/gi, 'Khaja Faizuddin'],
-  [/\bface\s+within\b/gi, 'Faizuddin'],
-  [/\b(?:hello\s+)?myself\s+as\s+a\s+FreshMaza\b/gi, 'Hello, I am Khaja Faizuddin'],
-  [/\b(?:as\s+a\s+)?fresh\s*maza\b/gi, 'Khaja Faizuddin'],
-  [/\bself-catch-office\b/gi, 'myself Khaja'],
-  [/\bmy\s*within\b/gi, 'Faizuddin'],
-  [/\bhaja\s+faisal\b/gi, 'Khaja Faizuddin'],
-  [/\bkhazha\s+phazmatiin\b/gi, 'Khaja Faizuddin'],
-  [/\bkhazha\s+faiz\s+martin\b/gi, 'Khaja Faizuddin'],
-  [/\bmy\s+team\s+has\s+started\b/gi, 'I started'],
-
-  // Career & Tech
-  [/\b(?:bought|board|brought|more)\s+into\s+machine\s+(?:learning|lending)\b/gi, 'moved into Machine Learning'],
-  [/\bmachine\s+lending\b/gi, 'Machine Learning'],
-  [/\b(?:as\s+)?started\s+with\s+(?:m\s*l\s*ops|ml\s*ops|envelops)(?:\s+now\.?)?\b/gi, 'started with MLOps. Now'],
-  [/\benvelops\b/gi, 'MLOps'],
+  // Common Industry Acronyms & AI Terminology
   [/\bm\s*l\s*ops\b/gi, 'MLOps'],
   [/\bml\s*ops\b/gi, 'MLOps'],
-  [/\bchain\s+area\s+and\s+agent(?:\s+basically)?\b/gi, 'GenAI and Agentic AI'],
-  [/\bchain\s*area\b/gi, 'GenAI'],
-  [/\bagent\s+basically\b/gi, 'Agentic AI'],
-  [/\bchain\s*ai\b/gi, 'GenAI'],
+  [/\benvelops\b/gi, 'MLOps'],
   [/\bgen\s*ai\b/gi, 'GenAI'],
-  [/\bagents?\s*with\s*ai\b/gi, 'Agentic AI'],
-  [/\bagentic\s*area\b/gi, 'Agentic AI'],
-
-  // Projects & Architecture
-  [/\ban\s+(?:into\s+and|in\s+to\s+end)\s+customer\s+care(?:\s+a)?\s+assistant\b/gi, 'an end-to-end customer care AI assistant'],
-  [/\b(?:into\s+and|in\s+to\s+end)\s+customer\s+care(?:\s+a)?\s+assistant\b/gi, 'end-to-end customer care AI assistant'],
-  [/\b(?:into\s+and|in\s+to\s+end)\b/gi, 'end-to-end'],
-  [/\bcustomer\s+care\s+a\s+assistant\b/gi, 'customer care AI assistant'],
-  [/\bplatform\s+of\s+concept\b/gi, 'platform. First, I did a proof-of-concept'],
-  [/\b(?:proof\s+of\s+concept|poc)\s+of\s+a\s+(?:rat|rack|rac)\s+customer\s+assistant\b/gi, 'proof-of-concept of a RAG customer assistant'],
-  [/\bof\s+concept\s+of\s+a\s+(?:rat|rack|rac)\s+customer\b/gi, 'proof of concept of a RAG customer'],
-  [/\b(?:rat|rack|rac)\s+customer(?:\s+assistant)?\b/gi, 'RAG customer assistant'],
-  [/\b(?:a\s+)?rat\s+customer\b/gi, 'a RAG customer'],
-  [/\b(?:want|went|worked)\s+on\s+facebook\b/gi, 'worked on Phase 1'],
-  [/\bon\s+facebook\b/gi, 'on Phase 1'],
-  [/\bfacebook\s+main\b/gi, 'Phase 1 main'],
-  [/\b(?:a\s+)?live\s+introduction\b/gi, 'a live production system'],
-  [/\blive\s+introduction\b/gi, 'live production'],
-  [/\bphase\s+1\s+is\s+a\s+(?:rack|rac|rat)\s+system\b/gi, 'Phase 1 is a RAG system'],
-  [/\b(?:a\s+)?(?:rack|rac|rat)\s+system\b/gi, 'a RAG system'],
-  [/\ba\s*rack\b/gi, 'a RAG'],
-  [/\brac\b/gi, 'RAG'],
-
-  // Pipelines & Data
-  [/\b(?:initial|injection|injition)\s+pipeline\b/gi, 'Ingestion Pipeline'],
-  [/\b(?:coiry|query)\s+pipeline\b/gi, 'Query Pipeline'],
-  [/\bstructure\s+data\b/gi, 'unstructured data'],
-  [/\b(?:toggling|togling|dogling|dockling|dock\s*link|docking)\b/gi, 'Docling'],
-  [/\bchanking\b/gi, 'chunking'],
-  [/\bchecking\s+and\s+embeddings\b/gi, 'chunking and embeddings'],
-
-  // Orchestration & Vector DB
-  [/\bused\s+to\s+(?:toggling|Docling)\b/gi, 'used Docling'],
-  [/\bsentence\s+(?:performance|prepomas|performers?)\b/gi, 'Sentence Transformers'],
-  [/\b(?:a\s+function|to\s+lunch|lunch)\s+for\s+(?:orkestration|orchestration)\b/gi, 'LangChain for orchestration'],
-  [/\b(?:use|used)-?(?:lang-?chain|lanchion)\b/gi, 'LangChain'],
-  [/\borkestration\b/gi, 'orchestration'],
-  [/\b(?:a\s+)?hybrid\s+retriever\s+semantic\s+complex\b/gi, 'a hybrid retriever (semantic + BM25)'],
-  [/\bsemantic\s+complex\b/gi, 'semantic + BM25'],
-  [/\b(?:see\s+)?romantic\s+(?:place|plus)\b/gi, 'semantic + BM25'],
-  [/\b(?:millversa|milversa|milvers)\b/gi, 'Milvus'],
+  [/\bchain\s*ai\b/gi, 'GenAI'],
+  [/\bagentic\s*ai\b/gi, 'Agentic AI'],
+  [/\bagents?\s+with\s+ai\b/gi, 'Agentic AI'],
+  [/\bl\s*l\s*m\s*s?\b/gi, 'LLMs'],
+  [/\bn\s*l\s*p\b/gi, 'NLP'],
+  [/\br\s*a\s*g\b/gi, 'RAG'],
+  [/\ba\s*rack\s+system\b/gi, 'a RAG system'],
+  [/\ba\s*p\s*i\s*s?\b/gi, 'APIs'],
+  [/\bci\s*\/?\s*cd\b/gi, 'CI/CD'],
+  [/\binto\s+and\b/gi, 'end-to-end'],
+  [/\bin\s+to\s+end\b/gi, 'end-to-end'],
+  [/\bproof\s+of\s+concept\b/gi, 'proof-of-concept'],
   [/\bvector\s+data\s*base\b/gi, 'vector database'],
-  [/\bused\s+as\s+the\s+database\b/gi, 'used Milvus as the vector database'],
-  [/\b(?:in\s+)?melbourne\b/gi, 'in Milvus'],
-  [/\bfor\s+the\s+generation\s+I\s+use\b/gi, 'for generation I used'],
-
-  // Models & Providers
-  [/\bclouds?\s+on\s+(?:it|net)\b/gi, 'Claude Sonnet'],
-  [/\bbetter\s*off\s*with\s*(?:the\s*)?clouds?\b/gi, 'Bedrock with Claude'],
-  [/\baws\s*yes\b/gi, 'AWS'],
+  [/\bstructure\s+data\b/gi, 'unstructured data'],
+  [/\bcoiry\s+pipeline\b/gi, 'query pipeline'],
+  [/\binjection\s+pipeline\b/gi, 'ingestion pipeline'],
+  [/\binjition\s+pipeline\b/gi, 'ingestion pipeline'],
+  [/\bchanking\b/gi, 'chunking'],
 ];
 
 function cleanTechnicalSpeech(text: string): string {
@@ -672,25 +619,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        // Tier 4: Built-in reliable track defaults so candidate is never blocked
+        // Check that questions were successfully loaded from backend API or session
         if (!loadedQuestions || loadedQuestions.length === 0) {
-          const defaultTextMap: Record<string, string> = {
-            INTRO: "Tell me about yourself, your background, and your experience building production AI and software systems.",
-            JD_INTRO: "How does your technical experience match the key requirements and tech stack of this job description?",
-            RECRUITER: "Walk me through your recent career transitions and what motivates you to pursue this next role.",
-            HIRING_MANAGER: "Describe a high-stakes project you led where you encountered significant blockers. How did you resolve them?",
-            SYSTEM_DESIGN: "Design a high-throughput, low-latency RAG pipeline that handles multi-tenant enterprise documents with semantic caching and guardrails.",
-            TECHNICAL: "Explain the difference between ReAct patterns and Plan-and-Solve agent frameworks. When would you choose one over the other?",
-          };
-          loadedQuestions = [
-            {
-              id: 1,
-              category: finalType,
-              question_text: defaultTextMap[finalType] || defaultTextMap.INTRO,
-              difficulty_level: "MEDIUM",
-              is_active: true,
-            },
-          ];
+          setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
+          setIsLoading(false);
+          return;
         }
 
         setQuestions(loadedQuestions);
@@ -729,7 +662,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech, retryCount, setIsLoading, setErrorMsg]);
+  }, [
+    assessmentId,
+    stopAiSpeech,
+    retryCount,
+    setIsLoading,
+    setErrorMsg,
+    setAssessmentType,
+    setMediaType,
+    setJobDescription,
+    setTargetRole,
+    setTargetCompany,
+    setQuestions,
+    setCountdownValue,
+  ]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -899,6 +845,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     transcriptScrollRef,
     elapsedTimeRef,
     transcriptSegmentsRef,
+    restartTimeoutRef,
+    isRecordingRef,
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
