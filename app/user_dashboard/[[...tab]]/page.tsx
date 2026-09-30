@@ -55,7 +55,7 @@ function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }
 
   const containerClasses = isAssessment
     ? `w-full h-full flex-1 min-h-0 overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-900 ${
-        headerCollapsed ? "pt-0" : "pt-[64px] lg:pt-[70px]"
+        headerCollapsed ? "pt-0" : "pt-[80px] lg:pt-[84px]"
       }`
     : `pt-24 pb-12 transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-900 min-h-screen`;
 

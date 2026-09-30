@@ -101,6 +101,24 @@ export function AIPrepDashboard({
     }
   }, [controlledView]);
 
+  useEffect(() => {
+    let isCancelled = false;
+    const fetchReadiness = async () => {
+      try {
+        const res = await aiPrepApi.checkReadiness();
+        if (!isCancelled && res) {
+          setReadiness(res);
+        }
+      } catch (err) {
+        console.warn("checkReadiness error:", err);
+      }
+    };
+    fetchReadiness();
+    return () => {
+      isCancelled = true;
+    };
+  }, [setReadiness]);
+
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [starting, setStarting] = useState(false);
 
@@ -297,8 +315,8 @@ export function AIPrepDashboard({
                         <Icon
                           size={19}
                           className={`transition-colors duration-200 ${
-                            cardAccessible && title === "Start an assessment"
-                              ? "group-hover:fill-white"
+                            cardAccessible
+                              ? `text-[#7C3AED] group-hover:text-white ${title === "Start an assessment" ? "group-hover:fill-white" : ""}`
                               : "text-slate-400 dark:text-slate-500"
                           }`}
                         />

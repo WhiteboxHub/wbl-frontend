@@ -144,38 +144,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
     return 'INTRO';
   });
-  // 2. Consent State (Centralized in ConsentModal module)
-  const isAudioOnlyMode = useMemo(() => {
-    if (initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO') return false;
-    if (initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO' || audioOnly) return true;
-    // Safe SSR default: default to Audio Only, client-side saved mode restored in useEffect
-    return true;
-  }, [initialMode, audioOnly]);
+  // 2. Consent State (Centralized in ConsentModal module - Video disabled as of now)
+  const isAudioOnlyMode = true;
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(isAudioOnlyMode);
-  }, [isAudioOnlyMode]);
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
-  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
+    return getInitialConsentState(true);
+  }, []);
+  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
+  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(false);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
-  const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
+  const [consentCamera, setConsentCamera] = useState<boolean>(false);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
 
-  // Hydrate client-side saved mode safely in useEffect to prevent Next.js SSR hydration mismatch
+  // Enforce Audio Only mode across session storage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (initialMode || audioOnly) return; // Props take precedence
-    const savedMode = sessionStorage.getItem('aiprep_active_mode');
-    if (savedMode === 'VIDEO_AUDIO' || savedMode === 'VIDEO') {
-      setVideoEnabled(true);
-      setConsentCamera(true);
-      setVideoAnalyticsEnabled(true);
-    } else if (savedMode === 'AUDIO_ONLY' || savedMode === 'AUDIO') {
-      setVideoEnabled(false);
-      setConsentCamera(false);
-      setVideoAnalyticsEnabled(false);
-    }
-  }, [initialMode, audioOnly, setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
+    setVideoEnabled(false);
+    setConsentCamera(false);
+    setVideoAnalyticsEnabled(false);
+    window.sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
+    window.sessionStorage.setItem('aiprep_video_enabled', 'false');
+  }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
     return '';
@@ -1380,7 +1369,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         } catch {}
       }
       const userResponse = await apiFetch("user_dashboard");
-      if (userResponse?.candidate_id || userResponse?.id) return userResponse.candidate_id || userResponse.id;
+      const resolvedId = userResponse?.candidate_id || userResponse?.id;
+      if (resolvedId && typeof window !== 'undefined') {
+        sessionStorage.setItem('aiprep_candidate_id', String(resolvedId));
+      }
+      if (resolvedId) return resolvedId;
     } catch (err) {
       console.warn("[DeviceCheckWizard] Could not resolve candidate profile:", err);
     }
@@ -1401,6 +1394,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       audio_enabled: true,
       video_enabled: videoEnabled,
       jd_text: jdText,
+      consent_save_recording: consentSaveRecording,
+      consent_save_transcript: consentSaveTranscript,
     };
 
     if (onComplete) {
@@ -1408,18 +1403,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } else {
       try {
         const cid = await getCandidateId();
+        if (cid && typeof window !== 'undefined') {
+          sessionStorage.setItem('aiprep_candidate_id', String(cid));
+        }
         const targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
         const assessment = await aiPrepApi.createAssessment({
           assessment_type: targetType,
           assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
           candidate_id: cid,
           job_description_text: targetType === 'JD_INTRO' ? (jdText || null) : null,
+          consent_save_recording: consentSaveRecording,
+          consent_save_transcript: consentSaveTranscript,
         });
 
-        if (!assessment || !assessment.id) {
+        const targetId = assessment?.id || assessment?.data?.assessment_id || (assessment as any)?.assessment_id;
+        if (!assessment || !targetId) {
           throw new Error('Failed to initialize assessment session on server.');
         }
-        const targetId = assessment.id;
         const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
         const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
@@ -1427,6 +1427,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
+          const qList = assessment?.questions || assessment?.data?.questions;
+          if (qList && Array.isArray(qList) && qList.length > 0) {
+            sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
+          }
         }
 
         router.push(targetSessionUrl);
@@ -2382,7 +2386,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                         <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col justify-between h-full min-h-0 ${isCompact ? 'gap-1.5' : 'gap-2'}`}>
                           {/* Audio-Only Card */}
                           <div
-                            className="relative w-full flex-1 min-h-[120px] max-h-[220px] rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-[#F7F9FE] dark:bg-slate-900/90"
+                            className="relative w-full flex-1 min-h-[160px] rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-[#F7F9FE] dark:bg-slate-900/90"
                           >
                             <div className="flex flex-col items-center justify-center text-center select-none w-full h-full gap-1 p-2 sm:p-2.5">
                               {speakerTested && speakerOk === false ? (
@@ -2452,6 +2456,12 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       ? 'Listening... speak into your microphone to test.'
                                       : 'Camera is turned off for this assessment mode.'}
                                   </p>
+                                  {micTested && micOk && !micTesting && (
+                                    <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10.5px] font-semibold border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs animate-in fade-in duration-200">
+                                      <Check className="w-3 h-3 stroke-[2.5]" />
+                                      <span>Microphone &amp; Audio Ready</span>
+                                    </div>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -2765,16 +2775,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                           ) : (
                             /* Default Device Status Card */
                             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs animate-in fade-in duration-200 min-w-0 flex flex-col">
-                              <div className={`px-3.5 sm:px-4 ${hasVisibleErrorCard ? 'py-2.5 sm:py-3.5' : 'py-2 sm:py-2.5'} border-b border-slate-100 dark:border-slate-800/80`}>
-                                <h3 className={`font-bold text-slate-900 dark:text-white leading-tight ${hasVisibleErrorCard ? 'text-sm sm:text-[14px]' : 'text-xs sm:text-[13px]'}`}>Device Status</h3>
+                              <div className={`px-4 ${hasVisibleErrorCard ? 'py-2.5 sm:py-3' : 'py-2.5 sm:py-3'} border-b border-slate-100 dark:border-slate-800/80`}>
+                                <h3 className={`font-bold text-slate-900 dark:text-white leading-tight ${hasVisibleErrorCard ? 'text-xs sm:text-[13.5px]' : 'text-xs sm:text-[13.5px]'}`}>Device Status</h3>
                               </div>
                               <div className="divide-y divide-slate-100 dark:divide-slate-800/80 flex flex-col">
-                                <div className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 ${hasVisibleErrorCard ? 'py-3 sm:py-3.5' : 'py-1.5 sm:py-2'}`}>
+                                <div className={`flex items-center justify-between px-4 min-w-0 ${hasVisibleErrorCard ? 'py-2.5 sm:py-3' : 'py-2.5 sm:py-3'}`}>
                                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                    <div className={`${hasVisibleErrorCard ? 'w-7.5 h-7.5 sm:w-8 sm:h-8' : 'w-6.5 h-6.5 sm:w-7 sm:h-7'} rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0`}><Globe className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} /></div>
-                                    <span className={`font-semibold text-slate-800 dark:text-slate-200 truncate ${hasVisibleErrorCard ? 'text-xs sm:text-[13px]' : 'text-xs sm:text-[12.5px]'}`}>Browser support</span>
+                                    <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Globe className="w-4 h-4" /></div>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate text-xs sm:text-[13px]">Browser support</span>
                                   </div>
-                                  <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-emerald-600 shrink-0 ml-1.5 whitespace-nowrap">
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 shrink-0 ml-1.5 whitespace-nowrap">
                                     <CheckCircle2 className="w-3.5 h-3.5" /> Passed <ChevronRight className="w-3 h-3 text-slate-400" />
                                   </span>
                                 </div>
@@ -2785,14 +2795,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       checkRealInternet().finally(() => setBandwidthChecking(false));
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 ${hasVisibleErrorCard ? 'py-3 sm:py-3.5' : 'py-1.5 sm:py-2'} transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`} >
+                                  className={`flex items-center justify-between px-4 min-w-0 ${hasVisibleErrorCard ? 'py-2.5 sm:py-3' : 'py-2.5 sm:py-3'} transition-colors ${internetStatus === 'unstable' || internetStatus === 'failed' ? 'cursor-pointer hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : ''}`} >
                                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                    <div className={`${hasVisibleErrorCard ? 'w-7.5 h-7.5 sm:w-8 sm:h-8' : 'w-6.5 h-6.5 sm:w-7 sm:h-7'} rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600`}>
-                                      {internetStatus === 'failed' ? <WifiOff className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} /> : <Wifi className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} />}
+                                    <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl flex items-center justify-center shrink-0 bg-emerald-50 text-emerald-600">
+                                      {internetStatus === 'failed' ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
                                     </div>
-                                    <span className={`font-semibold text-slate-800 dark:text-slate-200 truncate ${hasVisibleErrorCard ? 'text-xs sm:text-[13px]' : 'text-xs sm:text-[12.5px]'}`}>Internet connection</span>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate text-xs sm:text-[13px]">Internet connection</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-blue-600' : 'text-rose-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${internetStatus === 'passed' ? 'text-emerald-600' : internetStatus === 'unstable' ? 'text-amber-600 dark:text-amber-400' : internetStatus === 'checking' ? 'text-blue-600' : 'text-rose-600'}`}>
                                     {internetStatus === 'checking' ? (
                                       'Testing...'
                                     ) : internetStatus === 'passed' ? (
@@ -2813,14 +2823,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       testMicrophone();
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 ${hasVisibleErrorCard ? 'py-3 sm:py-3.5' : 'py-1.5 sm:py-2'} transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                  className={`flex items-center justify-between px-4 min-w-0 ${hasVisibleErrorCard ? 'py-2.5 sm:py-3' : 'py-2.5 sm:py-3'} transition-colors cursor-pointer ${micTested && micOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
                                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                    <div className={`${hasVisibleErrorCard ? 'w-7.5 h-7.5 sm:w-8 sm:h-8' : 'w-6.5 h-6.5 sm:w-7 sm:h-7'} rounded-lg flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                      {micTested && micOk === false ? <MicOff className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} /> : <Mic className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'}`} />}
+                                    <div className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl flex items-center justify-center shrink-0 ${micTested && micOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : micTested && micOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                      {micTested && micOk === false ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                                     </div>
-                                    <span className={`font-semibold text-slate-800 dark:text-slate-200 truncate ${hasVisibleErrorCard ? 'text-xs sm:text-[13px]' : 'text-xs sm:text-[12.5px]'}`}>Microphone</span>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate text-xs sm:text-[13px]">Microphone</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${micTesting ? 'text-blue-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap ${micTesting ? 'text-blue-600' : micTested && micOk ? 'text-emerald-600' : micTested && micOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {micTesting ? (
                                       'Testing...'
                                     ) : micTested && micOk ? (
@@ -2841,16 +2851,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       playChimeTone();
                                     }
                                   }}
-                                  className={`flex items-center justify-between px-3.5 sm:px-4 min-w-0 ${hasVisibleErrorCard ? 'py-3 sm:py-3.5' : 'py-1.5 sm:py-2'} transition-colors cursor-pointer ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
+                                  className={`flex items-center justify-between px-4 min-w-0 ${hasVisibleErrorCard ? 'py-2.5 sm:py-3' : 'py-2.5 sm:py-3'} transition-colors cursor-pointer ${speakerTested && speakerOk === false ? 'hover:bg-rose-50/50 dark:hover:bg-rose-950/20' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40'}`} >
                                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                                    <div className={`${hasVisibleErrorCard ? 'w-7.5 h-7.5 sm:w-8 sm:h-8' : 'w-6.5 h-6.5 sm:w-7 sm:h-7'} rounded-lg flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
-                                      {speakerTested && speakerOk === false ? <VolumeX className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'} shrink-0`} /> : <Volume2 className={`${hasVisibleErrorCard ? 'w-4 h-4' : 'w-3.5 h-3.5'} shrink-0`} />}
+                                    <div className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-xl flex items-center justify-center shrink-0 ${speakerTested && speakerOk === false ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400' : speakerTested && speakerOk ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                      {speakerTested && speakerOk === false ? <VolumeX className="w-4 h-4 shrink-0" /> : <Volume2 className="w-4 h-4 shrink-0" />}
                                     </div>
-                                    <span className={`font-semibold text-slate-800 dark:text-slate-200 truncate ${hasVisibleErrorCard ? 'text-xs sm:text-[13px]' : 'text-xs sm:text-[12.5px]'}`}>Speaker</span>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate text-xs sm:text-[13px]">Speaker</span>
                                   </div>
-                                  <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap leading-none ${speakerTestState === 'playing' ? 'text-blue-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
+                                  <span className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ml-1.5 whitespace-nowrap leading-none ${speakerTestState === 'playing' ? 'text-blue-600' : speakerTested && speakerOk ? 'text-emerald-600' : speakerTested && speakerOk === false ? 'text-rose-600' : 'text-blue-600'}`}>
                                     {speakerTestState === 'playing' ? (
-                                      <span className="inline-flex items-center gap-1 text-blue-600 font-semibold"><Volume2 className="w-3 h-3 animate-pulse shrink-0" /> Playing...</span>
+                                      <span className="inline-flex items-center gap-1 text-blue-600 font-semibold"><Volume2 className="w-3.5 h-3.5 animate-pulse shrink-0" /> Playing...</span>
                                     ) : speakerTestState === 'confirming' ? (
                                       <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                         <span className="text-[10.5px] font-semibold text-slate-500">Heard?</span>
@@ -2870,7 +2880,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                             </div>
                           )}
                           {allChecksPass && (
-                            <div className={`bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl flex items-center shadow-2xs min-w-0 shrink-0 ${isCompact ? 'p-2 gap-2' : 'p-2.5 sm:p-3 gap-2.5 sm:gap-3'}`}>
+                            <div className={`bg-[#F6F2FF] dark:bg-purple-950/30 border border-purple-200/80 rounded-2xl flex items-center shadow-2xs min-w-0 shrink-0 ${isCompact ? 'p-2.5 gap-2.5' : 'p-3 sm:p-3.5 gap-3'}`}>
                               <div className={`${isCompact ? 'w-6 h-6' : 'w-7 h-7'} rounded-full bg-[#8B5CF6] text-white flex items-center justify-center shrink-0 shadow-xs`}><Check className="w-4 h-4 stroke-[3]" /></div>
                               <div className="min-w-0">
                                 <p className={`font-bold text-[#6D28D9] dark:text-purple-300 leading-tight ${isCompact ? 'text-xs' : 'text-xs sm:text-[13px]'}`}>All checks passed!</p>
