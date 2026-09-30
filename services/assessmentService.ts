@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import { getStoredCandidateId } from "@/lib/aiprep-api";
 import {
   AssessmentFiltersState,
   AssessmentGridItem,
@@ -25,26 +26,22 @@ export const assessmentService = {
 
     const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || '') : '';
     const urlCid = typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('candidateId') || '') : '';
-    const effectiveCandidateId = filters.candidate_id?.trim() || urlCid.trim();
-
-    if (effectiveCandidateId) {
-      queryParams.set("candidate_id", effectiveCandidateId);
-    }
+    const effectiveCandidateId = filters.candidate_id?.trim() || urlCid.trim() || getStoredCandidateId();
 
     const tokenSnippet = token ? token.slice(-25) : 'anon';
-    const cacheKey = `candidate_${tokenSnippet}_${queryParams.toString()}`;
+    const cacheKey = `candidate_${effectiveCandidateId}_${tokenSnippet}_${queryParams.toString()}`;
     if (inFlightCandidateAssessments.has(cacheKey)) {
       return inFlightCandidateAssessments.get(cacheKey)!;
     }
 
     const fetchPromise = (async (): Promise<AssessmentListApiResponse> => {
       try {
-        const res = await apiFetch(
-          `api/aiprep/candidate/assessments?${queryParams.toString()}`
+        const res: any = await apiFetch(
+          `api/aiprep/candidates/${effectiveCandidateId}/assessments?${queryParams.toString()}`
         );
 
-        const items: AssessmentGridItem[] = res?.items || [];
-        const total: number = res?.total ?? items.length;
+        const items: AssessmentGridItem[] = res?.items || res?.data?.items || [];
+        const total: number = res?.total ?? res?.data?.total ?? items.length;
         const totalPages = Math.max(1, Math.ceil(total / limit));
 
         return {
@@ -182,8 +179,22 @@ export const assessmentService = {
     }
   },
 
-  fetchAssessmentDetail: async (assessmentId: number) => {
+  fetchAssessmentDetail: async (assessmentId: number, candidateId?: string | number) => {
     try {
+      const cid = candidateId || (typeof window !== "undefined" ? getStoredCandidateId() : null);
+      if (cid) {
+        try {
+          const res: any = await apiFetch(`api/aiprep/candidates/${cid}/assessments/${assessmentId}`);
+          if (res?.data?.report?.llm_evaluation) {
+            return res.data.report.llm_evaluation;
+          }
+          if (res?.data?.report) {
+            return res.data.report;
+          }
+          if (res?.data) return res.data;
+          if (res) return res;
+        } catch (_) {}
+      }
       const res = await apiFetch(
         `api/aiprep/employee/assessments/${assessmentId}/report`
       );
@@ -194,8 +205,24 @@ export const assessmentService = {
     }
   },
 
-  fetchAssessmentRecord: async (assessmentId: number) => {
+  fetchAssessmentRecord: async (assessmentId: number, candidateId?: string | number) => {
     try {
+      const cid = candidateId || (typeof window !== "undefined" ? getStoredCandidateId() : null);
+      if (cid) {
+        try {
+          const res: any = await apiFetch(`api/aiprep/candidates/${cid}/assessments/${assessmentId}`);
+          if (res?.data?.assessment) {
+            return {
+              ...res.data.assessment,
+              report: res.data.report?.llm_evaluation || res.data.report,
+              data: res.data.assessment_data,
+              questions: res.data.questions,
+            };
+          }
+          if (res?.data) return res.data;
+          if (res) return res;
+        } catch (_) {}
+      }
       const res = await apiFetch(
         `api/aiprep/employee/assessments/${assessmentId}`
       );
@@ -205,8 +232,20 @@ export const assessmentService = {
     }
   },
 
-  fetchAssessmentReport: async (assessmentId: number) => {
+  fetchAssessmentReport: async (assessmentId: number, candidateId?: string | number) => {
     try {
+      const cid = candidateId || (typeof window !== "undefined" ? getStoredCandidateId() : null);
+      if (cid) {
+        try {
+          const res: any = await apiFetch(`api/aiprep/candidates/${cid}/assessments/${assessmentId}`);
+          if (res?.data?.report?.llm_evaluation) {
+            return res.data.report.llm_evaluation;
+          }
+          if (res?.data?.report) {
+            return res.data.report;
+          }
+        } catch (_) {}
+      }
       const res = await apiFetch(
         `api/aiprep/employee/assessments/${assessmentId}/report`
       );
@@ -217,8 +256,25 @@ export const assessmentService = {
     }
   },
 
-  fetchAssessmentData: async (assessmentId: number) => {
+  fetchAssessmentData: async (assessmentId: number, candidateId?: string | number) => {
     try {
+      const cid = candidateId || (typeof window !== "undefined" ? getStoredCandidateId() : null);
+      if (cid) {
+        try {
+          const res: any = await apiFetch(`api/aiprep/candidates/${cid}/assessments/${assessmentId}`);
+          if (res?.data?.assessment_data) {
+            return {
+              id: assessmentId,
+              questions: res.data.questions || [],
+              telemetry: res.data.assessment_data?.video_telemetry || {},
+              transcript: res.data.assessment_data?.transcript || {},
+              audio_telemetry: res.data.assessment_data?.audio_telemetry || {},
+            };
+          }
+          if (res?.data) return res.data;
+          if (res) return res;
+        } catch (_) {}
+      }
       const res = await apiFetch(
         `api/aiprep/employee/assessments/${assessmentId}/data`
       );

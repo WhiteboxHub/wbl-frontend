@@ -261,33 +261,33 @@ const Header = ({
               </nav>
             </div>
             {/* Desktop section */}
-            <div className="hidden items-center justify-end pr-16 lg:flex lg:pr-0">
-              <div className="items-center justify-end pr-4 lg:flex">
+            <div className="hidden items-center justify-end gap-3 pr-16 lg:flex lg:pr-0">
+              <div className="flex items-center">
                 <ThemeToggler />
               </div>
               {isAuthenticated ? (
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   {(userRole === "admin" || userRole === "employee") && (
                     <Link
                       href={userRole === 'employee' ? '/avatar/employee/employee-dashboard' : '/avatar'}
                       onClick={handleAvatarClick}
-                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                      className="inline-flex items-center justify-center h-12 px-7 text-sm font-bold text-white lg:text-base whitespace-nowrap rounded-xl bg-gradient-to-br from-indigo-900 to-purple-400 hover:bg-gradient-to-tl transition duration-300 shadow-sm hover:shadow"
                     >
                       Avatar
                     </Link>
                   )}
 
-                  {
-                    <button
-                      onClick={display_user_dashboard}
-                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
-                    >
-                      {userRole === "candidate" ? "My App" : "Dashboard"}
-                    </button>
-                  }
                   <button
+                    type="button"
+                    onClick={display_user_dashboard}
+                    className="inline-flex items-center justify-center h-12 px-7 text-sm font-bold text-white lg:text-base whitespace-nowrap rounded-xl bg-gradient-to-br from-indigo-900 to-purple-400 hover:bg-gradient-to-tl transition duration-300 shadow-sm hover:shadow cursor-pointer"
+                  >
+                    {userRole === "candidate" ? "My App" : "Dashboard"}
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleLogout}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                    className="inline-flex items-center justify-center h-12 px-7 text-sm font-bold text-white lg:text-base whitespace-nowrap rounded-xl bg-gradient-to-br from-indigo-900 to-purple-400 hover:bg-gradient-to-tl transition duration-300 shadow-sm hover:shadow cursor-pointer"
                   >
                     Logout
                   </button>

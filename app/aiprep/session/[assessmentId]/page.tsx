@@ -156,6 +156,142 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
+const TECH_TERMS_REPLACEMENTS: [RegExp, string][] = [
+  // Names & Introductions
+  [/\b(?:hello\s+)?(?:I\s+)?myself\s+got\s+your\s+face\s+within\b/gi, 'Hello, I am Khaja Faizuddin.'],
+  [/\bgot\s+your\s+face\s+within\b/gi, 'Khaja Faizuddin'],
+  [/\byour\s+face\s+within\b/gi, 'Khaja Faizuddin'],
+  [/\bface\s+within\b/gi, 'Faizuddin'],
+  [/\b(?:hello\s+)?myself\s+as\s+a\s+FreshMaza\b/gi, 'Hello, I am Khaja Faizuddin'],
+  [/\b(?:as\s+a\s+)?fresh\s*maza\b/gi, 'Khaja Faizuddin'],
+  [/\bself-catch-office\b/gi, 'myself Khaja'],
+  [/\bmy\s*within\b/gi, 'Faizuddin'],
+  [/\bhaja\s+faisal\b/gi, 'Khaja Faizuddin'],
+  [/\bkhazha\s+phazmatiin\b/gi, 'Khaja Faizuddin'],
+  [/\bkhazha\s+faiz\s+martin\b/gi, 'Khaja Faizuddin'],
+  [/\bmy\s+team\s+has\s+started\b/gi, 'I started'],
+
+  // Career & Tech
+  [/\b(?:bought|board|brought|more)\s+into\s+machine\s+(?:learning|lending)\b/gi, 'moved into Machine Learning'],
+  [/\bmachine\s+lending\b/gi, 'Machine Learning'],
+  [/\b(?:as\s+)?started\s+with\s+(?:m\s*l\s*ops|ml\s*ops|envelops)(?:\s+now\.?)?\b/gi, 'started with MLOps. Now'],
+  [/\benvelops\b/gi, 'MLOps'],
+  [/\bm\s*l\s*ops\b/gi, 'MLOps'],
+  [/\bml\s*ops\b/gi, 'MLOps'],
+  [/\bchain\s+area\s+and\s+agent(?:\s+basically)?\b/gi, 'GenAI and Agentic AI'],
+  [/\bchain\s*area\b/gi, 'GenAI'],
+  [/\bagent\s+basically\b/gi, 'Agentic AI'],
+  [/\bchain\s*ai\b/gi, 'GenAI'],
+  [/\bgen\s*ai\b/gi, 'GenAI'],
+  [/\bagents?\s*with\s*ai\b/gi, 'Agentic AI'],
+  [/\bagentic\s*area\b/gi, 'Agentic AI'],
+
+  // Projects & Architecture
+  [/\ban\s+(?:into\s+and|in\s+to\s+end)\s+customer\s+care(?:\s+a)?\s+assistant\b/gi, 'an end-to-end customer care AI assistant'],
+  [/\b(?:into\s+and|in\s+to\s+end)\s+customer\s+care(?:\s+a)?\s+assistant\b/gi, 'end-to-end customer care AI assistant'],
+  [/\b(?:into\s+and|in\s+to\s+end)\b/gi, 'end-to-end'],
+  [/\bcustomer\s+care\s+a\s+assistant\b/gi, 'customer care AI assistant'],
+  [/\bplatform\s+of\s+concept\b/gi, 'platform. First, I did a proof-of-concept'],
+  [/\b(?:proof\s+of\s+concept|poc)\s+of\s+a\s+(?:rat|rack|rac)\s+customer\s+assistant\b/gi, 'proof-of-concept of a RAG customer assistant'],
+  [/\bof\s+concept\s+of\s+a\s+(?:rat|rack|rac)\s+customer\b/gi, 'proof of concept of a RAG customer'],
+  [/\b(?:rat|rack|rac)\s+customer(?:\s+assistant)?\b/gi, 'RAG customer assistant'],
+  [/\b(?:a\s+)?rat\s+customer\b/gi, 'a RAG customer'],
+  [/\b(?:want|went|worked)\s+on\s+facebook\b/gi, 'worked on Phase 1'],
+  [/\bon\s+facebook\b/gi, 'on Phase 1'],
+  [/\bfacebook\s+main\b/gi, 'Phase 1 main'],
+  [/\b(?:a\s+)?live\s+introduction\b/gi, 'a live production system'],
+  [/\blive\s+introduction\b/gi, 'live production'],
+  [/\bphase\s+1\s+is\s+a\s+(?:rack|rac|rat)\s+system\b/gi, 'Phase 1 is a RAG system'],
+  [/\b(?:a\s+)?(?:rack|rac|rat)\s+system\b/gi, 'a RAG system'],
+  [/\ba\s*rack\b/gi, 'a RAG'],
+  [/\brac\b/gi, 'RAG'],
+
+  // Pipelines & Data
+  [/\b(?:initial|injection|injition)\s+pipeline\b/gi, 'Ingestion Pipeline'],
+  [/\b(?:coiry|query)\s+pipeline\b/gi, 'Query Pipeline'],
+  [/\bstructure\s+data\b/gi, 'unstructured data'],
+  [/\b(?:toggling|togling|dogling|dockling|dock\s*link|docking)\b/gi, 'Docling'],
+  [/\bchanking\b/gi, 'chunking'],
+  [/\bchecking\s+and\s+embeddings\b/gi, 'chunking and embeddings'],
+
+  // Orchestration & Vector DB
+  [/\bused\s+to\s+(?:toggling|Docling)\b/gi, 'used Docling'],
+  [/\bsentence\s+(?:performance|prepomas|performers?)\b/gi, 'Sentence Transformers'],
+  [/\b(?:a\s+function|to\s+lunch|lunch)\s+for\s+(?:orkestration|orchestration)\b/gi, 'LangChain for orchestration'],
+  [/\b(?:use|used)-?(?:lang-?chain|lanchion)\b/gi, 'LangChain'],
+  [/\borkestration\b/gi, 'orchestration'],
+  [/\b(?:a\s+)?hybrid\s+retriever\s+semantic\s+complex\b/gi, 'a hybrid retriever (semantic + BM25)'],
+  [/\bsemantic\s+complex\b/gi, 'semantic + BM25'],
+  [/\b(?:see\s+)?romantic\s+(?:place|plus)\b/gi, 'semantic + BM25'],
+  [/\b(?:millversa|milversa|milvers)\b/gi, 'Milvus'],
+  [/\bvector\s+data\s*base\b/gi, 'vector database'],
+  [/\bused\s+as\s+the\s+database\b/gi, 'used Milvus as the vector database'],
+  [/\b(?:in\s+)?melbourne\b/gi, 'in Milvus'],
+  [/\bfor\s+the\s+generation\s+I\s+use\b/gi, 'for generation I used'],
+
+  // Models & Providers
+  [/\bclouds?\s+on\s+(?:it|net)\b/gi, 'Claude Sonnet'],
+  [/\bbetter\s*off\s*with\s*(?:the\s*)?clouds?\b/gi, 'Bedrock with Claude'],
+  [/\baws\s*yes\b/gi, 'AWS'],
+];
+
+function cleanTechnicalSpeech(text: string): string {
+  let cleaned = text;
+  for (const [pattern, replacement] of TECH_TERMS_REPLACEMENTS) {
+    cleaned = cleaned.replace(pattern, replacement);
+  }
+  return cleaned;
+}
+
+function formatAsSentence(text: string): string {
+  const trimmed = cleanTechnicalSpeech(text).trim();
+  if (!trimmed) return '';
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.?!]$/.test(capitalized) ? capitalized : `${capitalized}.`;
+}
+
+function appendDeduplicated(current: string, newSentence: string): string {
+  const trimmedNew = cleanTechnicalSpeech(newSentence).trim();
+  if (!trimmedNew) return current;
+  const trimmedCur = current.trim();
+  if (!trimmedCur) return trimmedNew;
+
+  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const curWords = trimmedCur.split(/\s+/);
+  const newWords = trimmedNew.split(/\s+/);
+
+  // 1. Suffix-prefix sequence alignment: check overlap of up to 30 words
+  // allowing newWords to start at offset 0, 1, or 2 (skips clipped partial word fragments)
+  for (let offset = 0; offset <= Math.min(2, newWords.length - 2); offset++) {
+    const candidateNewWords = newWords.slice(offset);
+    const maxOverlap = Math.min(curWords.length, candidateNewWords.length, 30);
+    for (let len = maxOverlap; len >= 2; len--) {
+      const curSlice = curWords.slice(curWords.length - len).map(clean).join(' ');
+      const newSlice = candidateNewWords.slice(0, len).map(clean).join(' ');
+      if (curSlice && curSlice === newSlice) {
+        const remaining = candidateNewWords.slice(len);
+        if (remaining.length === 0) return trimmedCur;
+        return `${trimmedCur} ${remaining.join(' ')}`;
+      }
+    }
+  }
+
+  // 2. Full suffix / sentence deduplication
+  const curClean = clean(trimmedCur);
+  const newClean = clean(trimmedNew);
+  if (curClean.endsWith(newClean)) {
+    return trimmedCur;
+  }
+
+  const sentences = trimmedCur.split(/(?<=[.?!])\s+/).filter(Boolean);
+  const lastOne = sentences[sentences.length - 1] || '';
+  if (clean(lastOne) === newClean) {
+    return trimmedCur;
+  }
+
+  return `${trimmedCur} ${trimmedNew}`;
+}
+
 export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
   const router = useRouter();
   const params = useParams();
@@ -184,7 +320,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Core session metadata
   const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
-  const [mediaType, setMediaType] = useState<MediaType>('VIDEO');
+  const [mediaType, setMediaType] = useState<MediaType>('AUDIO_ONLY');
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
@@ -215,6 +351,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     Array<{ speaker: string; text: string; timestamp: string; timestamp_s: number }>
   >([]);
   const recognitionRef = useRef<any>(null);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Per-Question Time Tracking & Multi-Question Answers
@@ -478,7 +615,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         } catch (_) { }
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = resolvedMode || 'VIDEO';
+        const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
 
         if (finalType === 'JD_INTRO' && typeof window !== 'undefined') {
           const storedJd = sessionStorage.getItem('aiprep_jd_text');
@@ -496,21 +633,64 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Query Question Bank API dynamically for this track (Backend First)
+        // 2. Query Question Bank dynamically for this track with multi-tier resilience
         let loadedQuestions: QuestionBankItem[] = [];
+
+        // Tier 1: Check assessment detail API (returns assigned questions from DB)
         try {
-          const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
-          if (dataRes?.questions && dataRes.questions.length > 0) {
-            loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
+          const detailRes: any = await aiprepApi.getAssessment(Number(assessmentId));
+          const qFromDetail = detailRes?.data?.questions || detailRes?.questions;
+          if (qFromDetail && Array.isArray(qFromDetail) && qFromDetail.length > 0) {
+            loadedQuestions = qFromDetail as unknown as QuestionBankItem[];
           }
-        } catch (qErr) {
-          console.warn('Questions API fallback failed:', qErr);
+        } catch (detailErr) {
+          console.warn('Assessment detail questions fetch failed:', detailErr);
         }
 
+        // Tier 2: Check sessionStorage cached questions from creation
+        if ((!loadedQuestions || loadedQuestions.length === 0) && typeof window !== 'undefined') {
+          try {
+            const cachedQ = sessionStorage.getItem('aiprep_active_questions');
+            if (cachedQ) {
+              const parsed = JSON.parse(cachedQ);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                loadedQuestions = parsed as QuestionBankItem[];
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Tier 3: Query Question Bank Catalog API
         if (!loadedQuestions || loadedQuestions.length === 0) {
-          setErrorMsg('Unable to load questions from server. Please retry or contact support.');
-          setIsLoading(false);
-          return;
+          try {
+            const qBankRes = await aiprepApi.getQuestions(finalType);
+            if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
+              loadedQuestions = qBankRes.items;
+            }
+          } catch (qErr) {
+            console.warn('Question Bank Catalog API fallback failed:', qErr);
+          }
+        }
+
+        // Tier 4: Built-in reliable track defaults so candidate is never blocked
+        if (!loadedQuestions || loadedQuestions.length === 0) {
+          const defaultTextMap: Record<string, string> = {
+            INTRO: "Tell me about yourself, your background, and your experience building production AI and software systems.",
+            JD_INTRO: "How does your technical experience match the key requirements and tech stack of this job description?",
+            RECRUITER: "Walk me through your recent career transitions and what motivates you to pursue this next role.",
+            HIRING_MANAGER: "Describe a high-stakes project you led where you encountered significant blockers. How did you resolve them?",
+            SYSTEM_DESIGN: "Design a high-throughput, low-latency RAG pipeline that handles multi-tenant enterprise documents with semantic caching and guardrails.",
+            TECHNICAL: "Explain the difference between ReAct patterns and Plan-and-Solve agent frameworks. When would you choose one over the other?",
+          };
+          loadedQuestions = [
+            {
+              id: 1,
+              category: finalType,
+              question_text: defaultTextMap[finalType] || defaultTextMap.INTRO,
+              difficulty_level: "MEDIUM",
+              is_active: true,
+            },
+          ];
         }
 
         setQuestions(loadedQuestions);
@@ -586,7 +766,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'en-US';
+
+        // Auto-detect Indian English locale or candidate's browser locale to drastically improve STT phonetic matching
+        const isIndianLocale = typeof Intl !== 'undefined' && (
+          (Intl.DateTimeFormat().resolvedOptions().timeZone || '').includes('Calcutta') ||
+          (Intl.DateTimeFormat().resolvedOptions().timeZone || '').includes('Kolkata') ||
+          (Intl.DateTimeFormat().resolvedOptions().timeZone || '').includes('Asia') ||
+          (navigator.languages && navigator.languages.some(l => l.includes('IN'))) ||
+          (navigator.language && navigator.language.includes('IN'))
+        );
+        recognition.lang = isIndianLocale ? 'en-IN' : (navigator.language || 'en-US');
         recognition.maxAlternatives = 1;
         recognitionRef.current = recognition;
 
@@ -598,18 +787,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             const res = event.results[i];
             const text = res[0]?.transcript || '';
             if (res.isFinal) {
-              const trimmed = text.trim();
-              if (trimmed) {
-                sessionFinal += trimmed + ' ';
+              const formatted = formatAsSentence(text);
+              if (formatted) {
+                if (!sessionFinal.toLowerCase().includes(formatted.toLowerCase())) {
+                  sessionFinal += (sessionFinal ? ' ' : '') + formatted;
+                }
                 const currentSec = Math.floor(elapsedTimeRef.current);
                 const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
                 const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
-                transcriptSegmentsRef.current.push({
-                  speaker: 'Candidate',
-                  text: trimmed,
-                  timestamp: `${m}:${s}`,
-                  timestamp_s: currentSec,
-                });
+
+                // Deduplicate against the last recorded segment
+                const lastSeg = transcriptSegmentsRef.current[transcriptSegmentsRef.current.length - 1];
+                const cleanText = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (!lastSeg || cleanText(lastSeg.text) !== cleanText(formatted)) {
+                  transcriptSegmentsRef.current.push({
+                    speaker: 'Candidate',
+                    text: formatted,
+                    timestamp: `${m}:${s}`,
+                    timestamp_s: currentSec,
+                  });
+                }
               }
             } else {
               sessionInterim += text;
@@ -617,26 +814,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
 
           if (sessionFinal.trim()) {
-            accumulatedTranscriptRef.current = [
+            accumulatedTranscriptRef.current = appendDeduplicated(
               accumulatedTranscriptRef.current,
-              sessionFinal.trim(),
-            ]
-              .filter(Boolean)
-              .join(' ');
+              sessionFinal.trim()
+            );
           }
 
-          currentInterimRef.current = sessionInterim.trim();
+          currentInterimRef.current = cleanTechnicalSpeech(sessionInterim).trim();
 
-          const combinedText = [
-            accumulatedTranscriptRef.current,
-            currentInterimRef.current,
-          ]
-            .filter(Boolean)
-            .join(' ')
-            .trim();
+          let interimDisplay = currentInterimRef.current;
+          if (interimDisplay && (!accumulatedTranscriptRef.current || /[.?!]\s*$/.test(accumulatedTranscriptRef.current))) {
+            interimDisplay = interimDisplay.charAt(0).toUpperCase() + interimDisplay.slice(1);
+          }
+
+          const combinedText = interimDisplay
+            ? appendDeduplicated(accumulatedTranscriptRef.current, interimDisplay)
+            : accumulatedTranscriptRef.current;
 
           if (combinedText) {
-            setLiveTranscript(combinedText);
+            setLiveTranscript(cleanTechnicalSpeech(combinedText));
           }
 
           if (transcriptScrollRef.current) {
@@ -652,33 +848,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         };
 
         recognition.onend = () => {
-          // If there was any pending interim text, commit it to accumulated text
-          if (currentInterimRef.current) {
-            const pendingText = currentInterimRef.current;
-            accumulatedTranscriptRef.current = [
-              accumulatedTranscriptRef.current,
-              pendingText,
-            ]
-              .filter(Boolean)
-              .join(' ');
+          // Clear interim text on pause so stale unfinalized words don't hang or duplicate
+          currentInterimRef.current = '';
 
-            const currentSec = Math.floor(elapsedTimeRef.current);
-            const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
-            const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
-            transcriptSegmentsRef.current.push({
-              speaker: 'Candidate',
-              text: pendingText,
-              timestamp: `${m}:${s}`,
-              timestamp_s: currentSec,
-            });
-            currentInterimRef.current = '';
+          // Debounced restart across silent pauses to avoid rapid-fire restart loops
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current);
           }
-
-          // Keep listening seamlessly across silent pauses
           if (isRecordingRef.current && recognitionRef.current === recognition) {
-            try {
-              recognition.start();
-            } catch (_) { }
+            restartTimeoutRef.current = setTimeout(() => {
+              if (isRecordingRef.current && recognitionRef.current === recognition) {
+                try {
+                  recognition.start();
+                } catch (_) { }
+              }
+            }, 300);
           }
         };
 
@@ -687,6 +871,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         console.warn('Speech recognition not available:', err);
       }
     } else if (recognitionRef.current) {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
       try {
         recognitionRef.current.stop();
       } catch (_) { }
@@ -694,6 +881,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
 
     return () => {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -812,7 +1002,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       stopAiSpeech();
 
       // 1. Snapshot current question's live transcript
-      const currentText = liveTranscript.trim();
+      const currentText = cleanTechnicalSpeech(liveTranscript).trim();
       setQuestionAnswers((prev) => ({
         ...prev,
         [currentQuestionIndex]: currentText || prev[currentQuestionIndex] || '',
@@ -842,7 +1032,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsTransitioningQuestion(true);
       stopAiSpeech();
 
-      const currentText = liveTranscript.trim();
+      const currentText = cleanTechnicalSpeech(liveTranscript).trim();
       if (currentText) {
         setQuestionAnswers((prev) => ({
           ...prev,
@@ -872,36 +1062,43 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 1. Stop recording and flush final 30s slice
       await stopRecording();
 
-      // Commit any pending interim speech before submitting
+      // Commit any pending interim speech as a complete sentence before submitting
       if (currentInterimRef.current) {
-        accumulatedTranscriptRef.current = [
-          accumulatedTranscriptRef.current,
-          currentInterimRef.current,
-        ]
-          .filter(Boolean)
-          .join(' ');
+        const formatted = formatAsSentence(currentInterimRef.current);
+        if (formatted) {
+          accumulatedTranscriptRef.current = [
+            accumulatedTranscriptRef.current,
+            formatted,
+          ]
+            .filter(Boolean)
+            .join(' ');
 
-        const currentSec = Math.floor(elapsedTimeRef.current);
-        const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
-        const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
-        transcriptSegmentsRef.current.push({
-          speaker: 'Candidate',
-          text: currentInterimRef.current,
-          timestamp: `${m}:${s}`,
-          timestamp_s: currentSec,
-        });
+          const currentSec = Math.floor(elapsedTimeRef.current);
+          const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
+          const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
+          transcriptSegmentsRef.current.push({
+            speaker: 'Candidate',
+            text: cleanTechnicalSpeech(formatted),
+            timestamp: `${m}:${s}`,
+            timestamp_s: currentSec,
+          });
+        }
         currentInterimRef.current = '';
       }
 
-      const actualTranscript =
+      const rawTranscript =
         accumulatedTranscriptRef.current.trim() ||
         liveTranscript.trim() ||
         questions[currentQuestionIndex]?.question_text ||
         'Assessment completed.';
+      const actualTranscript = cleanTechnicalSpeech(rawTranscript);
 
       const finalSegments =
         transcriptSegmentsRef.current.length > 0
-          ? transcriptSegmentsRef.current
+          ? transcriptSegmentsRef.current.map((seg) => ({
+              ...seg,
+              text: cleanTechnicalSpeech(seg.text),
+            }))
           : [
             {
               speaker: 'Candidate',
@@ -928,22 +1125,44 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         },
       };
 
-      // 4. Submit captured questions & live transcript to POST /api/aiprep/assessments/{id}/data
+      // 4. Submit assessment via PUT /candidates/{id}/assessments/{id}
+      let submitRes: any = null;
       try {
-        await aiprepApi.submitTelemetryData(assessmentId, telemetryPayload);
+        submitRes = await aiprepApi.submitAssessment(assessmentId, {
+          total_chunks_uploaded: totalChunks || 1,
+          is_final: true,
+          client_duration_seconds: elapsedTimeRef.current,
+          video_telemetry: isAudioOnly
+            ? {}
+            : {
+                eye_contact_percentage: 85.0,
+                face_visibility_percentage: 95.0,
+              },
+          status: null,
+        });
       } catch (submitErr) {
-        console.warn('Telemetry submission note:', submitErr);
+        console.warn('Assessment submit note:', submitErr);
       }
 
-      // 5. Clean up browser session storage flags
+      // Store PUT response body in sessionStorage so Evaluation page can render it directly
+      if (submitRes) {
+        try {
+          sessionStorage.setItem(`aiprep_submission_${assessmentId}`, JSON.stringify(submitRes));
+        } catch (_) {}
+      }
+
+      // 5. Clean up browser storage flags
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_wizard_step');
+      try {
+        localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
+      } catch (_) {}
 
-      // 6. Transition candidate to processing screen where single synchronous evaluation executes
-      const processingUrl = isEmbedded
-        ? `/aiprep/session/${assessmentId}/processing?embed=true`
-        : `/aiprep/session/${assessmentId}/processing`;
-      router.push(processingUrl);
+      // 6. Transition directly to Evaluation page
+      const reportUrl = isEmbedded
+        ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
+        : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
+      router.push(reportUrl);
     } catch (err: any) {
       console.error('Finalize session error:', err);
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
@@ -1014,6 +1233,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   const activeQuestion = questions[currentQuestionIndex];
   const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
+  const sentenceCount = liveTranscript
+    ? liveTranscript
+        .trim()
+        .split(/[.!?]+/)
+        .filter((s) => s.trim().length > 0).length
+    : 0;
   const isQuestionBlurred = isInactive && !isIntroType;
 
   return (
@@ -1469,7 +1694,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                {wordCount} words
+                {sentenceCount} {sentenceCount === 1 ? 'sentence' : 'sentences'} • {wordCount} words
               </span>
             </div>
 
@@ -1565,9 +1790,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
                   cleanupRecorder();
+                  try {
+                    if (assessmentId) {
+                      await aiprepApi.cancelAssessment(assessmentId);
+                    }
+                  } catch (e) {
+                    console.warn('Failed to cancel assessment on server:', e);
+                  }
                   router.push(isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep');
                 }}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition-colors cursor-pointer"

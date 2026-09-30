@@ -29,12 +29,12 @@ export interface ConsentState {
   consentSaveTranscript: boolean;
 }
 
-export const getInitialConsentState = (audioOnly = true): ConsentState => {
+export const getInitialConsentState = (_audioOnly = true): ConsentState => {
   return {
-    videoEnabled: !audioOnly,
+    videoEnabled: false,
     consentMic: true,
-    consentCamera: !audioOnly,
-    videoAnalyticsEnabled: !audioOnly,
+    consentCamera: false,
+    videoAnalyticsEnabled: false,
     consentSaveRecording: true,
     consentSaveTranscript: true,
   };
@@ -86,29 +86,32 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     return document.body;
   };
 
-  const canProceed = !!consentSaveRecording;
-
   const handleSelectAudioOnly = () => {
     setVideoEnabled(false);
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(false);
     if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(false);
-    syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false, videoAnalyticsEnabled: false });
+    syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false, videoAnalyticsEnabled: false, consentSaveRecording, consentSaveTranscript });
   };
 
   const handleSelectVideoAudio = () => {
-    setVideoEnabled(true);
-    if (setConsentMic) setConsentMic(true);
-    if (setConsentCamera) setConsentCamera(true);
-    if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(true);
-    syncConsentToSessionStorage({ videoEnabled: true, consentMic: true, consentCamera: true, videoAnalyticsEnabled: true });
+    // Video assessment is disabled as of now
+    return;
   };
 
   const handleNextClick = () => {
     try {
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('aiprep_active_mode', videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
-        syncConsentToSessionStorage({ videoEnabled, consentMic: true, consentCamera: videoEnabled, videoAnalyticsEnabled });
+        sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
+        sessionStorage.setItem('aiprep_video_enabled', 'false');
+        syncConsentToSessionStorage({
+          videoEnabled: false,
+          consentMic: true,
+          consentCamera: false,
+          videoAnalyticsEnabled: false,
+          consentSaveRecording,
+          consentSaveTranscript,
+        });
       }
     } catch (e) { }
     onNext();
@@ -118,217 +121,228 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
   return (
     <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between text-left overflow-hidden">
-      <div className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-2.5 sm:py-3 space-y-2 sm:space-y-2.5">
-        {/* ── Header Title & Subtitle ── */}
-        <div className="space-y-0.5">
-          <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white leading-tight">
+      {/* ── Content Area Spanning Full Width and Height Evenly ── */}
+      <div className="flex-1 min-h-0 px-4 sm:px-6 md:px-8 py-3.5 sm:py-5 flex flex-col justify-evenly w-full overflow-y-auto">
+        {/* ── Section 1: Header ── */}
+        <div className="space-y-0.5 shrink-0">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
             Media &amp; Consent
           </h2>
-          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-            Choose your assessment format and review the consent options below.
+          <p className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400">
+            Choose your assessment format and configure your privacy &amp; recording preferences.
           </p>
         </div>
 
-      {/* ── Media Selection Cards (Audio Only vs Video + Audio) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
-        {/* Card 1: Audio Only */}
-        <div
-          onClick={handleSelectAudioOnly}
-          className={`relative flex items-center justify-between py-1.5 px-3 sm:py-2 sm:px-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[46px] sm:min-h-[50px] ${!videoEnabled
-            ? 'border-[#7C3AED] bg-purple-50/20 dark:bg-purple-950/20 shadow-xs ring-1 ring-[#7C3AED]/20'
-            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-        >
-          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] shrink-0">
-              <Mic className="w-3.5 h-3.5 stroke-[2]" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-tight">
-                Audio Only
-              </h3>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                Voice-based interview. No camera required.
-              </p>
-            </div>
+        {/* ── Section 2: Assessment Format ── */}
+        <div className="space-y-1.5 sm:space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Assessment Format
+            </span>
+            <span className="text-[10.5px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+              Audio-only mode enforced
+            </span>
           </div>
 
-          {/* Radio Indicator */}
-          <div className="shrink-0 pl-1.5">
-            {!videoEnabled ? (
-              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-[#7C3AED] flex items-center justify-center">
-                <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-[#7C3AED]" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
+            {/* Card 1: Audio Only (Active) */}
+            <div
+              onClick={handleSelectAudioOnly}
+              className={`relative flex items-center justify-between py-3 px-4 sm:py-3.5 sm:px-4.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[60px] sm:min-h-[64px] ${
+                !videoEnabled
+                  ? 'border-[#7C3AED] bg-purple-50/30 dark:bg-purple-950/20 shadow-xs ring-1 ring-[#7C3AED]/20'
+                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-purple-100/80 dark:bg-purple-950/50 text-[#7C3AED] shrink-0">
+                  <Mic className="w-4.5 h-4.5 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs sm:text-[13.5px] font-bold text-slate-900 dark:text-white leading-tight">
+                      Audio Only
+                    </h3>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold bg-purple-100 text-[#7C3AED] dark:bg-purple-900/50 dark:text-purple-300">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
+                    Voice-based interview with AI. No webcam required.
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-slate-300 dark:border-slate-600" />
-            )}
-          </div>
-        </div>
 
-        {/* Card 2: Video + Audio */}
-        <div
-          onClick={handleSelectVideoAudio}
-          className={`relative flex items-center justify-between py-1.5 px-3 sm:py-2 sm:px-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[46px] sm:min-h-[50px] ${videoEnabled
-            ? 'border-[#7C3AED] bg-purple-50/20 dark:bg-purple-950/20 shadow-xs ring-1 ring-[#7C3AED]/20'
-            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
-            }`}
-        >
-          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] shrink-0">
-              <Video className="w-3.5 h-3.5 stroke-[2]" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-tight">
-                Video + Audio
-              </h3>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                Includes camera &amp; voice. <span className="text-[#7C3AED] dark:text-purple-400 font-semibold">Recommended.</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Radio Indicator */}
-          <div className="shrink-0 pl-1.5">
-            {videoEnabled ? (
-              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-[#7C3AED] flex items-center justify-center">
-                <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-[#7C3AED]" />
+              {/* Radio Indicator */}
+              <div className="shrink-0 pl-2">
+                <div className="w-4.5 h-4.5 rounded-full border-2 border-[#7C3AED] flex items-center justify-center bg-white dark:bg-slate-900">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" />
+                </div>
               </div>
-            ) : (
-              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-slate-300 dark:border-slate-600" />
-            )}
+            </div>
+
+            {/* Card 2: Video + Audio (Disabled) */}
+            <div
+              aria-disabled="true"
+              className="relative flex items-center justify-between py-3 px-4 sm:py-3.5 sm:px-4.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 opacity-60 cursor-not-allowed min-h-[60px] sm:min-h-[64px] select-none"
+              title="Video assessment is temporarily disabled. Please proceed with Audio Only."
+            >
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 shrink-0">
+                  <Video className="w-4.5 h-4.5 stroke-[2]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs sm:text-[13.5px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
+                      Video + Audio
+                    </h3>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                      Disabled
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] sm:text-[11px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 truncate">
+                    Temporarily unavailable. Please use Audio Only.
+                  </p>
+                </div>
+              </div>
+
+              {/* Radio Indicator (Disabled) */}
+              <div className="shrink-0 pl-2">
+                <div className="w-4.5 h-4.5 rounded-full border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80" />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Consent Options Section ── */}
-      <div className="space-y-1.5 pt-0.5">
-        <div className="space-y-0.5">
-          <h3 className="text-xs sm:text-[12.5px] font-bold text-slate-900 dark:text-white leading-tight">
-            Consent Options
-          </h3>
-          <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-            Used for assessment &amp; feedback only. Changeable anytime in Settings.
-          </p>
-        </div>
+        {/* ── Section 3: Consent Options (Stacked One After One) ── */}
+        <div className="space-y-1.5 sm:space-y-2">
+          <div className="space-y-0.5">
+            <h3 className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Consent &amp; Privacy Preferences
+            </h3>
+            <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400">
+              Used exclusively for your assessment evaluation and feedback. Manageable anytime in Settings.
+            </p>
+          </div>
 
-        <div className="space-y-2 sm:space-y-2.5">
-          {/* Checkbox 1: AI Video Analytics (Shown in Video + Audio mode) */}
-          {videoEnabled && (
-            <div className="py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-2 animate-in fade-in duration-200">
-              <label className="flex items-center gap-2 sm:gap-2.5 flex-1 cursor-pointer select-none">
+          <div className="space-y-2.5 sm:space-y-3 w-full">
+            {/* Checkbox 1: AI Video Analytics (Only shown if videoEnabled) */}
+            {videoEnabled && (
+              <div className="py-2.5 px-3.5 sm:py-3 sm:px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-3 shadow-2xs">
+                <label className="flex items-center gap-3.5 flex-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={videoAnalyticsEnabled}
+                    onChange={(e) => setVideoAnalyticsEnabled && setVideoAnalyticsEnabled(e.target.checked)}
+                    className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                  />
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
+                    <Video className="w-4.5 h-4.5 stroke-[2]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs sm:text-[13px] font-semibold text-slate-900 dark:text-white leading-tight">
+                        Enable AI Video Analytics
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveModal('ANALYTICS');
+                        }}
+                        className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
+                        title="Learn more about AI Video Analytics"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold bg-purple-100 text-[#7C3AED] dark:bg-purple-900/50 dark:text-purple-300">
+                        Recommended
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                      Real-time video analysis for engagement, attention, and presentation feedback.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            {/* Checkbox 2: Save Interview Recording */}
+            <div className="py-2.5 px-3.5 sm:py-3 sm:px-4.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex items-center justify-between gap-3 shadow-2xs">
+              <label className="flex items-center gap-3.5 flex-1 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={videoAnalyticsEnabled}
-                  onChange={(e) => setVideoAnalyticsEnabled && setVideoAnalyticsEnabled(e.target.checked)}
-                  className="w-3.5 h-3.5 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                  checked={consentSaveRecording}
+                  onChange={(e) => setConsentSaveRecording && setConsentSaveRecording(e.target.checked)}
+                  className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
                 />
-                <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
-                  <Video className="w-3 h-3 stroke-[2]" />
+                <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
+                  <Video className="w-4.5 h-4.5 stroke-[2]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs sm:text-[12.5px] font-bold text-slate-900 dark:text-white leading-tight">
-                      Enable AI Video Analytics
+                    <span className="text-xs sm:text-[13px] font-semibold text-slate-900 dark:text-white leading-tight">
+                      Save Interview Recording
                     </span>
                     <button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setActiveModal('ANALYTICS');
+                        setActiveModal('RECORDING');
                       }}
                       className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
-                      title="Learn more about AI Video Analytics"
+                      title="Learn more about Interview Recording"
                     >
-                      <Info className="w-3 h-3" />
+                      <Info className="w-3.5 h-3.5" />
                     </button>
-                    <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold bg-purple-100 text-[#7C3AED] dark:bg-purple-900/50 dark:text-purple-300">
-                      Recommended
-                    </span>
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                    Real-time video analysis for engagement, attention, and presentation feedback.
+                  <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                    Store audio recording securely in your account to replay responses and review feedback.
                   </p>
                 </div>
               </label>
             </div>
-          )}
 
-          {/* Checkbox 2: Save Interview Recording */}
-          <div className="py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-2">
-            <label className="flex items-center gap-2 sm:gap-2.5 flex-1 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={consentSaveRecording}
-                onChange={(e) => setConsentSaveRecording && setConsentSaveRecording(e.target.checked)}
-                className="w-3.5 h-3.5 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
-              />
-              <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
-                <Video className="w-3 h-3 stroke-[2]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs sm:text-[12.5px] font-bold text-slate-900 dark:text-white leading-tight">
-                    Save Interview Recording
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveModal('RECORDING');
-                    }}
-                    className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
-                    title="Learn more about Interview Recording"
-                  >
-                    <Info className="w-3 h-3" />
-                  </button>
+            {/* Checkbox 3: Save Interview Transcript */}
+            <div className="py-2.5 px-3.5 sm:py-3 sm:px-4.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex items-center justify-between gap-3 shadow-2xs">
+              <label className="flex items-center gap-3.5 flex-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentSaveTranscript}
+                  onChange={(e) => setConsentSaveTranscript(e.target.checked)}
+                  className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
+                />
+                <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
+                  <FileText className="w-4.5 h-4.5 stroke-[2]" />
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                  Store full video/audio recording in your account for evaluation and feedback.
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {/* Checkbox 3: Save Interview Transcript */}
-          <div className="py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 transition-all flex items-center justify-between gap-2">
-            <label className="flex items-center gap-2 sm:gap-2.5 flex-1 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={consentSaveTranscript}
-                onChange={(e) => setConsentSaveTranscript(e.target.checked)}
-                className="w-3.5 h-3.5 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
-              />
-              <div className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
-                <FileText className="w-3 h-3 stroke-[2]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs sm:text-[12.5px] font-bold text-slate-900 dark:text-white leading-tight">
-                    Save Interview Transcript
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setActiveModal('TRANSCRIPT');
-                    }}
-                    className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
-                    title="Learn more about Interview Transcript"
-                  >
-                    <Info className="w-3 h-3" />
-                  </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs sm:text-[13px] font-semibold text-slate-900 dark:text-white leading-tight">
+                      Save Interview Transcript
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setActiveModal('TRANSCRIPT');
+                      }}
+                      className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
+                      title="Learn more about Interview Transcript"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                    Save complete question and answer transcript with AI scoring and coaching notes.
+                  </p>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
-                  Save full question and answer text with AI feedback for future review.
-                </p>
-              </div>
-            </label>
+              </label>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* ── Footer Navigation Buttons ── */}
@@ -344,17 +358,14 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
         <button
           type="button"
-          disabled={!canProceed}
           onClick={handleNextClick}
-          className={`px-6 sm:px-7 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 ${canProceed
-            ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white cursor-pointer active:scale-95 shadow-md shadow-purple-500/20'
-            : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-            }`}
+          className="px-6 sm:px-7 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#7C3AED] hover:bg-[#6D28D9] text-white cursor-pointer active:scale-95 shadow-md shadow-purple-500/20"
         >
           <span>Next: Device Check</span>
           <ChevronRight className="w-4 h-4 stroke-[2.5]" />
         </button>
       </div>
+
 
       {/* ══════════════════════════════════════════════════════════════════ */}
       {/* INFO MODALS POPUP (Mounted via Portal over Full Page)               */}
