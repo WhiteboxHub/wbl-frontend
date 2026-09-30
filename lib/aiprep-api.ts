@@ -20,19 +20,27 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (fallback: string | number = ""): string | number => {
+export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
-    // 1. Prioritize authenticated user profile object
+    // 1. Direct candidate ID storage keys (highest priority for legacy compatibility)
+    const directCandidateId =
+      localStorage.getItem("candidate_id") ||
+      sessionStorage.getItem("aiprep_candidate_id") ||
+      sessionStorage.getItem("candidate_id");
+    if (directCandidateId) return directCandidateId;
+
+    // 2. Authenticated user profile object (candidate_id prioritized over id)
     const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
         const parsed = JSON.parse(userStr);
-        if (parsed?.candidate_id || parsed?.id) return String(parsed.candidate_id || parsed.id);
+        if (parsed?.candidate_id) return String(parsed.candidate_id);
+        if (parsed?.id) return String(parsed.id);
       } catch {}
     }
 
-    // 2. Fallback to JWT access token payload
+    // 3. Fallback to JWT access token payload
     const token =
       localStorage.getItem("access_token") ||
       localStorage.getItem("token") ||
@@ -40,48 +48,29 @@ export const getStoredCandidateId = (fallback: string | number = ""): string | n
     if (token && token.includes(".")) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        if (payload?.candidate_id || payload?.id) return String(payload.candidate_id || payload.id);
+        if (payload?.candidate_id) return String(payload.candidate_id);
+        if (payload?.id) return String(payload.id);
       } catch {}
     }
-
-    // 3. Fallback to direct candidate ID storage keys
-    const directCandidateId =
-      localStorage.getItem("candidate_id") ||
-      sessionStorage.getItem("aiprep_candidate_id") ||
-      sessionStorage.getItem("candidate_id");
-    if (directCandidateId) return String(directCandidateId);
   } catch {}
   return fallback;
 };
 
-export const resolveCandidateId = (candidateId?: string | number): string => {
-  return String(candidateId || getStoredCandidateId() || "").trim();
+export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "1"): string | number => {
+  if (candidateId !== undefined && candidateId !== null && candidateId !== "") {
+    return candidateId;
+  }
+  return getStoredCandidateId(fallback);
 };
 
 export const aiPrepApi = {
   // Pre-flight readiness (New: /api/aiprep/candidates/{id}/assessment-readiness-precheck)
   getReadiness: (candidateId?: string | number): Promise<ReadinessCheck> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      return Promise.resolve({
-        eligible: false,
-        allowed_to_proceed: false,
-        action_required: "login",
-        message: "Authentication required. Please sign in to verify assessment readiness.",
-      });
-    }
     return apiFetch(endpoint(`candidates/${cid}/assessment-readiness-precheck`)) as Promise<ReadinessCheck>;
   },
   checkReadiness: (candidateId?: string | number): Promise<ReadinessCheck> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      return Promise.resolve({
-        eligible: false,
-        allowed_to_proceed: false,
-        action_required: "login",
-        message: "Authentication required. Please sign in to verify assessment readiness.",
-      });
-    }
     return apiFetch(endpoint(`candidates/${cid}/assessment-readiness-precheck`)) as Promise<ReadinessCheck>;
   },
 
@@ -94,23 +83,12 @@ export const aiPrepApi = {
   // List candidate assessments (New: /api/aiprep/candidates/{id}/assessments)
   listAssessments: (limit = 20, offset = 0, candidateId?: string | number): Promise<AssessmentListResponse> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      return Promise.resolve({
-        items: [],
-        total: 0,
-        page: 1,
-        page_size: limit,
-      });
-    }
     return apiFetch(endpoint(`candidates/${cid}/assessments?limit=${limit}&offset=${offset}`)) as Promise<AssessmentListResponse>;
   },
 
   // Get single assessment details (New: /api/aiprep/candidates/{id}/assessments/{assessment_id})
   getAssessment: async (assessmentId: string | number, candidateId?: string | number): Promise<AssessmentDetail> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      throw new Error("Candidate ID is required to retrieve assessment details.");
-    }
     const res: any = await apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`));
     if (res?.data?.assessment) {
       const rawReport = res.data.report || {};
@@ -132,9 +110,6 @@ export const aiPrepApi = {
   // Get submitted telemetry/transcript data for an assessment
   getAssessmentData: async (assessmentId: string | number, candidateId?: string | number): Promise<AssessmentDataResponse> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      throw new Error("Candidate ID is required to retrieve assessment data.");
-    }
     const res: any = await apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`));
     if (res?.data?.assessment_data) {
       return {
@@ -149,9 +124,6 @@ export const aiPrepApi = {
   // Get LLM-generated evaluation report for an assessment
   getAssessmentReport: async (assessmentId: string | number, candidateId?: string | number): Promise<AssessmentReportResponse> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      throw new Error("Candidate ID is required to retrieve assessment report.");
-    }
     const res: any = await apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`));
     if (res?.data?.report) {
       const llmEval = res.data.report.llm_evaluation || {};
@@ -170,12 +142,11 @@ export const aiPrepApi = {
     mediaTypeArg: string = "VIDEO",
     jobDescriptionArg?: string
   ): Promise<CreateAssessmentResponse & AssessmentSummary> => {
-    let cid: string;
+    let cid: string | number;
     let body: Record<string, unknown>;
 
     if (typeof payload === "string") {
       cid = resolveCandidateId();
-      if (!cid) throw new Error("Candidate ID is required to create an assessment session.");
       body = {
         candidate_id: Number(cid),
         assessment_type: payload,
@@ -184,7 +155,6 @@ export const aiPrepApi = {
       };
     } else {
       cid = resolveCandidateId(payload.candidate_id);
-      if (!cid) throw new Error("Candidate ID is required to create an assessment session.");
       const isAudioOnly =
         payload.media_type === "AUDIO" ||
         payload.assessment_mode === "AUDIO_ONLY" ||
@@ -246,9 +216,6 @@ export const aiPrepApi = {
   ): Promise<{ success: boolean; chunk_index: number }> => {
     const isFinal = typeof mediaTypeOrFinal === "boolean" ? mediaTypeOrFinal : !!isFinalArg;
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      throw new Error("Candidate ID is required to upload media chunks.");
-    }
     const formData = new FormData();
     formData.append("chunk_index", String(chunkIndex));
     formData.append("is_final", String(isFinal));
@@ -294,9 +261,6 @@ export const aiPrepApi = {
     candidateId?: string | number
   ): Promise<CandidateSubmitAssessmentResponse> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      throw new Error("Candidate ID is required to submit assessment.");
-    }
     return apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`), {
       method: "PUT",
       body: payload,
@@ -309,9 +273,6 @@ export const aiPrepApi = {
     candidateId?: string | number
   ): Promise<{ status: string }> => {
     const cid = resolveCandidateId(candidateId);
-    if (!cid) {
-      throw new Error("Candidate ID is required to cancel assessment.");
-    }
     return apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}?status=cancelled`), {
       method: "PUT",
     }) as Promise<{ status: string }>;
