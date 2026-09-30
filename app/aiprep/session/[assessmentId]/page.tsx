@@ -983,41 +983,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             },
           ];
 
-      // 3. Assemble session questions & transcript payload without client-mocked audio telemetry
-      const telemetryPayload = {
-        questions: questions.map((q, idx) => ({
-          question_id: q.id || (q as any).question_id || idx + 1,
-          question_text: q.question_text,
-        })),
-        transcript: {
-          full_text: actualTranscript,
-          segments: finalSegments,
-        },
-        video_telemetry: {
-          is_video_mode: !isAudioOnly,
-          face_visible_pct: 100,
-          head_nods_count: 0,
-        },
-      };
-
-      // 4. Submit assessment via PUT /candidates/{id}/assessments/{id}
-      let submitRes: any = null;
-      try {
-        submitRes = await aiprepApi.submitAssessment(assessmentId, {
-          total_chunks_uploaded: totalChunks || 1,
-          is_final: true,
-          client_duration_seconds: elapsedTimeRef.current,
-          video_telemetry: isAudioOnly
-            ? {}
-            : {
-                eye_contact_percentage: 85.0,
-                face_visibility_percentage: 95.0,
-              },
-          status: null,
-        });
-      } catch (submitErr) {
-        console.warn('Assessment submit note:', submitErr);
-      }
+      // 3. Submit assessment via PUT /candidates/{id}/assessments/{id}
+      const submitRes = await aiprepApi.submitAssessment(assessmentId, {
+        total_chunks_uploaded: totalChunks || 1,
+        is_final: true,
+        client_duration_seconds: elapsedTimeRef.current,
+        video_telemetry: isAudioOnly
+          ? {}
+          : {
+              eye_contact_percentage: 85.0,
+              face_visibility_percentage: 95.0,
+            },
+        status: null,
+      });
 
       // Store PUT response body in sessionStorage so Evaluation page can render it directly
       if (submitRes) {

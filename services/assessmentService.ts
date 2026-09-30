@@ -33,7 +33,7 @@ export const assessmentService = {
         items: [],
         total: 0,
         page,
-        pageSize: limit,
+        limit,
         totalPages: 0,
       };
     }
