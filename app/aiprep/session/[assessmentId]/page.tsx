@@ -675,6 +675,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     setTargetCompany,
     setQuestions,
     setCountdownValue,
+    sessionInitializedRef,
+    hasAutoStartedRef,
+    startAnswerRef,
+    countdownIntervalRef,
+    cleanupRecorderRef,
   ]);
 
   // Connect video element to active stream

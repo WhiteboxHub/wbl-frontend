@@ -20,7 +20,9 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
+export function getStoredCandidateId(): string | number;
+export function getStoredCandidateId(fallback: string | number): string | number;
+export function getStoredCandidateId(fallback: string | number = "1"): string | number {
   if (typeof window === "undefined") return fallback;
   try {
     const directCandidateId =
@@ -36,7 +38,7 @@ export const getStoredCandidateId = (fallback: string | number = "1"): string | 
     }
   } catch {}
   return fallback;
-};
+}
 
 export const aiPrepApi = {
   // Pre-flight readiness (New: /api/aiprep/candidates/{id}/assessment-readiness-precheck)
