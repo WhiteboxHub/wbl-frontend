@@ -2433,6 +2433,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         { id: 'my-sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
         { id: 'my-interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
         { id: 'my-applications' as TabType, name: 'My Applications', icon: ClipboardList },
+        { id: 'ai-prep' as TabType, name: 'AI PrepTool', icon: Sparkles },
     ];
 
     return (
@@ -2467,12 +2468,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         <div className="space-y-0.5">
                             {tabs.map((tab) => {
                                 const Icon = tab.icon;
-                                const isActive = activeTab === tab.id;
+                                const isActive = tab.id === 'ai-prep'
+                                    ? (activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep')
+                                    : activeTab === tab.id;
                                 return (
                                     <React.Fragment key={tab.id}>
                                         <button
                                             onClick={() => goToTab(tab.id)}
-                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 select-none cursor-pointer ${isActive
                                                 ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                                                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                                                 }`}
@@ -2481,21 +2484,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             <span>{tab.name}</span>
                                             {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                                         </button>
-
                                     </React.Fragment>
                                 );
                             })}
-
-                            <button
-                                onClick={() => goToTab('ai-prep')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold select-none cursor-pointer transition-all duration-150 ${activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep'
-                                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                    }`}
-                            >
-                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
-                                <span>AI PrepTool</span>
-                            </button>
                         </div>
                     </div>
 

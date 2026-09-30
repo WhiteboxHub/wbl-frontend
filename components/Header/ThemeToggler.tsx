@@ -60,14 +60,14 @@ const ThemeToggler = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="bg-gray-2 dark:bg-dark-bg flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-black dark:text-white md:h-14 md:w-14"
+      className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       name="theme_button"
       aria-label="Toggle theme"
     >
       {/* Light mode icon (Moon) - shown in light mode */}
       <svg
         viewBox="0 0 23 23"
-        className="h-5 w-5 stroke-current dark:hidden md:h-6 md:w-6"
+        className="h-5 w-5 stroke-current dark:hidden"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -80,34 +80,20 @@ const ThemeToggler = () => {
       </svg>
 
       {/* Dark mode icon (Sun) - shown in dark mode */}
-      {/* <svg
+      <svg
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="hidden h-5 w-5 dark:block md:h-6 md:w-6"
+        className="hidden h-5 w-5 dark:block"
       >
         <path
-          d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12ZM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+          d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8ZM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-      </svg> */}
-      <svg
-  viewBox="0 0 24 24"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
-  className="hidden h-5 w-5 dark:block md:h-6 md:w-6"
->
-  <path
-    d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8ZM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  />
-</svg>
+      </svg>
     </button>
   );
 };
