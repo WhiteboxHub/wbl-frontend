@@ -729,7 +729,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech, retryCount]);
+  }, [assessmentId, stopAiSpeech, retryCount, setIsLoading, setErrorMsg]);
 
   // Connect video element to active stream
   useEffect(() => {

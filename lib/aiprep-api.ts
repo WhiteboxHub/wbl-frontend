@@ -20,18 +20,22 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (): string | number => {
-  if (typeof window === "undefined") return "1";
-  const user = localStorage.getItem("user");
-  if (user) {
-    try {
+export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const directCandidateId =
+      localStorage.getItem("candidate_id") ||
+      sessionStorage.getItem("aiprep_candidate_id") ||
+      sessionStorage.getItem("candidate_id");
+    if (directCandidateId) return directCandidateId;
+
+    const user = localStorage.getItem("user");
+    if (user) {
       const parsed = JSON.parse(user);
       if (parsed.candidate_id || parsed.id) return parsed.candidate_id || parsed.id;
-    } catch {}
-  }
-  const cached = sessionStorage.getItem("aiprep_candidate_id");
-  if (cached) return cached;
-  return "1";
+    }
+  } catch {}
+  return fallback;
 };
 
 export const aiPrepApi = {

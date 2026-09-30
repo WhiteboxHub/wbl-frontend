@@ -29,12 +29,13 @@ export interface ConsentState {
   consentSaveTranscript: boolean;
 }
 
-export const getInitialConsentState = (_audioOnly = true): ConsentState => {
+export const getInitialConsentState = (audioOnly: boolean = true): ConsentState => {
+  const isVideo = !audioOnly;
   return {
-    videoEnabled: false,
+    videoEnabled: isVideo,
     consentMic: true,
-    consentCamera: false,
-    videoAnalyticsEnabled: false,
+    consentCamera: isVideo,
+    videoAnalyticsEnabled: isVideo,
     consentSaveRecording: true,
     consentSaveTranscript: true,
   };
