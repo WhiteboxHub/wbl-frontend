@@ -20,7 +20,8 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (): string | number => {
+export const getStoredCandidateId = (candidateId?: string | number): string | number => {
+  if (candidateId !== undefined && candidateId !== null && candidateId !== "") return candidateId;
   if (typeof window === "undefined") return "1";
   try {
     const directCandidateId =
