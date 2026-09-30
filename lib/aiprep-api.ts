@@ -20,9 +20,8 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (candidateId?: string | number): string | number => {
-  if (candidateId !== undefined && candidateId !== null && candidateId !== "") return candidateId;
-  if (typeof window === "undefined") return "1";
+export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
+  if (typeof window === "undefined") return fallback;
   try {
     const directCandidateId =
       localStorage.getItem("candidate_id") ||
@@ -36,7 +35,7 @@ export const getStoredCandidateId = (candidateId?: string | number): string | nu
       if (parsed.candidate_id || parsed.id) return parsed.candidate_id || parsed.id;
     }
   } catch {}
-  return "1";
+  return fallback;
 };
 
 export const aiPrepApi = {
