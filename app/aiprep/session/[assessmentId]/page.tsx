@@ -18,6 +18,7 @@ import type {
   QuestionBankItem,
 } from '@/types/aiprep';
 import { NO_PAUSE_ASSESSMENT_TYPES } from '@/types/aiprep';
+import { cleanTechnicalSpeech, formatAsSentence, appendDeduplicated } from '@/lib/aiprep-speech';
 import { useTheme } from 'next-themes';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
 import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
@@ -156,89 +157,6 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-const TECH_TERMS_REPLACEMENTS: [RegExp, string][] = [
-  // Common Industry Acronyms & AI Terminology
-  [/\bm\s*l\s*ops\b/gi, 'MLOps'],
-  [/\bml\s*ops\b/gi, 'MLOps'],
-  [/\benvelops\b/gi, 'MLOps'],
-  [/\bgen\s*ai\b/gi, 'GenAI'],
-  [/\bchain\s*ai\b/gi, 'GenAI'],
-  [/\bagentic\s*ai\b/gi, 'Agentic AI'],
-  [/\bagents?\s+with\s+ai\b/gi, 'Agentic AI'],
-  [/\bl\s*l\s*m\s*s?\b/gi, 'LLMs'],
-  [/\bn\s*l\s*p\b/gi, 'NLP'],
-  [/\br\s*a\s*g\b/gi, 'RAG'],
-  [/\ba\s*rack\s+system\b/gi, 'a RAG system'],
-  [/\ba\s*p\s*i\s*s?\b/gi, 'APIs'],
-  [/\bci\s*\/?\s*cd\b/gi, 'CI/CD'],
-  [/\binto\s+and\b/gi, 'end-to-end'],
-  [/\bin\s+to\s+end\b/gi, 'end-to-end'],
-  [/\bproof\s+of\s+concept\b/gi, 'proof-of-concept'],
-  [/\bvector\s+data\s*base\b/gi, 'vector database'],
-  [/\bstructure\s+data\b/gi, 'unstructured data'],
-  [/\bcoiry\s+pipeline\b/gi, 'query pipeline'],
-  [/\binjection\s+pipeline\b/gi, 'ingestion pipeline'],
-  [/\binjition\s+pipeline\b/gi, 'ingestion pipeline'],
-  [/\bchanking\b/gi, 'chunking'],
-];
-
-function cleanTechnicalSpeech(text: string): string {
-  let cleaned = text;
-  for (const [pattern, replacement] of TECH_TERMS_REPLACEMENTS) {
-    cleaned = cleaned.replace(pattern, replacement);
-  }
-  return cleaned;
-}
-
-function formatAsSentence(text: string): string {
-  const trimmed = cleanTechnicalSpeech(text).trim();
-  if (!trimmed) return '';
-  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  return /[.?!]$/.test(capitalized) ? capitalized : `${capitalized}.`;
-}
-
-function appendDeduplicated(current: string, newSentence: string): string {
-  const trimmedNew = cleanTechnicalSpeech(newSentence).trim();
-  if (!trimmedNew) return current;
-  const trimmedCur = current.trim();
-  if (!trimmedCur) return trimmedNew;
-
-  const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const curWords = trimmedCur.split(/\s+/);
-  const newWords = trimmedNew.split(/\s+/);
-
-  // 1. Suffix-prefix sequence alignment: check overlap of up to 30 words
-  // allowing newWords to start at offset 0, 1, or 2 (skips clipped partial word fragments)
-  for (let offset = 0; offset <= Math.min(2, newWords.length - 2); offset++) {
-    const candidateNewWords = newWords.slice(offset);
-    const maxOverlap = Math.min(curWords.length, candidateNewWords.length, 30);
-    for (let len = maxOverlap; len >= 2; len--) {
-      const curSlice = curWords.slice(curWords.length - len).map(clean).join(' ');
-      const newSlice = candidateNewWords.slice(0, len).map(clean).join(' ');
-      if (curSlice && curSlice === newSlice) {
-        const remaining = candidateNewWords.slice(len);
-        if (remaining.length === 0) return trimmedCur;
-        return `${trimmedCur} ${remaining.join(' ')}`;
-      }
-    }
-  }
-
-  // 2. Full suffix / sentence deduplication
-  const curClean = clean(trimmedCur);
-  const newClean = clean(trimmedNew);
-  if (curClean.endsWith(newClean)) {
-    return trimmedCur;
-  }
-
-  const sentences = trimmedCur.split(/(?<=[.?!])\s+/).filter(Boolean);
-  const lastOne = sentences[sentences.length - 1] || '';
-  if (clean(lastOne) === newClean) {
-    return trimmedCur;
-  }
-
-  return `${trimmedCur} ${trimmedNew}`;
-}
-
 export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
   const router = useRouter();
   const params = useParams();
@@ -286,7 +204,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const hasAutoStartedRef = useRef<boolean>(false);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<any>(null);
   const sessionInitializedRef = useRef<boolean>(false);
   const [retryCount, setRetryCount] = useState<number>(0);
 
@@ -298,7 +216,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     Array<{ speaker: string; text: string; timestamp: string; timestamp_s: number }>
   >([]);
   const recognitionRef = useRef<any>(null);
-  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const restartTimeoutRef = useRef<any>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Per-Question Time Tracking & Multi-Question Answers
@@ -549,11 +467,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setIsLoading(true);
 
         // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
-        let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
-        let resolvedMode: MediaType = (sessionStorage.getItem('aiprep_active_mode') as MediaType);
+        let resolvedType: AssessmentType = typeof window !== 'undefined' ? (window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) : 'INTRO';
+        let resolvedMode: MediaType = typeof window !== 'undefined' ? (window.sessionStorage.getItem('aiprep_active_mode') as MediaType) : 'AUDIO_ONLY';
 
         try {
-          const details = await aiprepApi.getAssessment(Number(assessmentId));
+          const details = await aiprepApi.getAssessment(+assessmentId);
           if (details?.assessment_type) resolvedType = details.assessment_type;
           if (details?.media_type) resolvedMode = details.media_type;
           if (details?.assessment_type === 'JD_INTRO' && details?.job_description) {
@@ -565,9 +483,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
 
         if (finalType === 'JD_INTRO' && typeof window !== 'undefined') {
-          const storedJd = sessionStorage.getItem('aiprep_jd_text');
-          const storedRole = sessionStorage.getItem('aiprep_jd_role');
-          const storedCompany = sessionStorage.getItem('aiprep_jd_company');
+          const storedJd = window.sessionStorage.getItem('aiprep_jd_text');
+          const storedRole = window.sessionStorage.getItem('aiprep_jd_role');
+          const storedCompany = window.sessionStorage.getItem('aiprep_jd_company');
           if (storedJd) setJobDescription((prev) => prev || storedJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
@@ -585,7 +503,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
         // Tier 1: Check assessment detail API (returns assigned questions from DB)
         try {
-          const detailRes: any = await aiprepApi.getAssessment(Number(assessmentId));
+          const detailRes: any = await aiprepApi.getAssessment(+assessmentId);
           const qFromDetail = detailRes?.data?.questions || detailRes?.questions;
           if (qFromDetail && Array.isArray(qFromDetail) && qFromDetail.length > 0) {
             loadedQuestions = qFromDetail as unknown as QuestionBankItem[];
@@ -597,7 +515,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // Tier 2: Check sessionStorage cached questions from creation
         if ((!loadedQuestions || loadedQuestions.length === 0) && typeof window !== 'undefined') {
           try {
-            const cachedQ = sessionStorage.getItem('aiprep_active_questions');
+            const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
             if (cachedQ) {
               const parsed = JSON.parse(cachedQ);
               if (Array.isArray(parsed) && parsed.length > 0) {
@@ -633,11 +551,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           hasAutoStartedRef.current = true;
           let currentCount = 5;
           setCountdownValue(currentCount);
-          countdownIntervalRef.current = setInterval(() => {
+          countdownIntervalRef.current = typeof window !== 'undefined' ? window.setInterval(() => {
             currentCount -= 1;
             if (currentCount <= 0) {
               if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
+                window.clearInterval(countdownIntervalRef.current);
                 countdownIntervalRef.current = null;
               }
               setCountdownValue(null);
@@ -645,7 +563,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             } else {
               setCountdownValue(currentCount);
             }
-          }, 1000);
+          }, 1000) : null;
         }
       } catch (err: any) {
         console.error('Session initialization error:', err);
@@ -659,7 +577,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     return () => {
       stopAiSpeech();
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
   }, [
@@ -719,14 +637,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         recognition.interimResults = true;
 
         // Auto-detect Indian English locale or candidate's browser locale to drastically improve STT phonetic matching
-        const isIndianLocale = typeof Intl !== 'undefined' && (
-          (Intl.DateTimeFormat().resolvedOptions().timeZone || '').includes('Calcutta') ||
-          (Intl.DateTimeFormat().resolvedOptions().timeZone || '').includes('Kolkata') ||
-          (Intl.DateTimeFormat().resolvedOptions().timeZone || '').includes('Asia') ||
-          (navigator.languages && navigator.languages.some(l => l.includes('IN'))) ||
-          (navigator.language && navigator.language.includes('IN'))
+        const hasIntl = typeof window !== 'undefined' && typeof window.Intl !== 'undefined';
+        const browserNav = typeof window !== 'undefined' ? window.navigator : null;
+        const timeZone = hasIntl ? (window.Intl.DateTimeFormat().resolvedOptions().timeZone || '') : '';
+        const isIndianLocale = hasIntl && (
+          timeZone.includes('Calcutta') ||
+          timeZone.includes('Kolkata') ||
+          timeZone.includes('Asia') ||
+          (browserNav?.languages && browserNav.languages.some(l => l.includes('IN'))) ||
+          (browserNav?.language && browserNav.language.includes('IN'))
         );
-        recognition.lang = isIndianLocale ? 'en-IN' : (navigator.language || 'en-US');
+        recognition.lang = isIndianLocale ? 'en-IN' : (browserNav?.language || 'en-US');
         recognition.maxAlternatives = 1;
         recognitionRef.current = recognition;
 
@@ -803,17 +724,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           currentInterimRef.current = '';
 
           // Debounced restart across silent pauses to avoid rapid-fire restart loops
-          if (restartTimeoutRef.current) {
-            clearTimeout(restartTimeoutRef.current);
+          if (restartTimeoutRef.current && typeof window !== 'undefined') {
+            window.clearTimeout(restartTimeoutRef.current);
           }
           if (isRecordingRef.current && recognitionRef.current === recognition) {
-            restartTimeoutRef.current = setTimeout(() => {
+            restartTimeoutRef.current = typeof window !== 'undefined' ? window.setTimeout(() => {
               if (isRecordingRef.current && recognitionRef.current === recognition) {
                 try {
                   recognition.start();
                 } catch (_) { }
               }
-            }, 300);
+            }, 300) : null;
           }
         };
 
@@ -822,8 +743,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         console.warn('Speech recognition not available:', err);
       }
     } else if (recognitionRef.current) {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
       }
       try {
         recognitionRef.current.stop();
@@ -832,8 +753,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
 
     return () => {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
       }
       if (recognitionRef.current) {
         try {
@@ -843,6 +764,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     };
   }, [
     isRecording,
+    finalTranscriptRef,
     accumulatedTranscriptRef,
     recognitionRef,
     currentInterimRef,
@@ -1744,7 +1666,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               <button
                 type="button"
                 onClick={async () => {
-                  if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+                  if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
                   cleanupRecorder();
                   try {
                     if (assessmentId) {
