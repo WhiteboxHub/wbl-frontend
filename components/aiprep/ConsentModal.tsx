@@ -29,19 +29,16 @@ export interface ConsentState {
   consentSaveTranscript: boolean;
 }
 
-export function getInitialConsentState(): ConsentState;
-export function getInitialConsentState(audioOnly: boolean): ConsentState;
-export function getInitialConsentState(audioOnly: boolean = true): ConsentState {
-  const isVideo = !audioOnly;
+export const getInitialConsentState = (audioOnly = true): ConsentState => {
   return {
-    videoEnabled: isVideo,
+    videoEnabled: !audioOnly,
     consentMic: true,
-    consentCamera: isVideo,
-    videoAnalyticsEnabled: isVideo,
+    consentCamera: !audioOnly,
+    videoAnalyticsEnabled: !audioOnly,
     consentSaveRecording: true,
     consentSaveTranscript: true,
   };
-}
+};
 
 export const syncConsentToSessionStorage = (state: Partial<ConsentState>) => {
   if (typeof window === 'undefined') return;

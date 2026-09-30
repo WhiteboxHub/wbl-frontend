@@ -20,10 +20,8 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export function getStoredCandidateId(): string | number;
-export function getStoredCandidateId(fallback: string | number): string | number;
-export function getStoredCandidateId(fallback: string | number = "1"): string | number {
-  if (typeof window === "undefined") return fallback;
+export const getStoredCandidateId = (): string | number => {
+  if (typeof window === "undefined") return "1";
   try {
     const directCandidateId =
       localStorage.getItem("candidate_id") ||
@@ -37,8 +35,8 @@ export function getStoredCandidateId(fallback: string | number = "1"): string | 
       if (parsed.candidate_id || parsed.id) return parsed.candidate_id || parsed.id;
     }
   } catch {}
-  return fallback;
-}
+  return "1";
+};
 
 export const aiPrepApi = {
   // Pre-flight readiness (New: /api/aiprep/candidates/{id}/assessment-readiness-precheck)
