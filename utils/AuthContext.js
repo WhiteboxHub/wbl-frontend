@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { isTokenExpired, fetchUserRole, getUserTeamRole, clearUserRoleCache } from "./auth";
+import { isTokenExpired, fetchUserRole, getUserTeamRole, clearUserRoleCache, isAssessmentPage } from "./auth";
 
 const AuthContext = createContext();
 
@@ -52,7 +52,11 @@ export const AuthProvider = ({ children }) => {
           if (typeof logoutRef.current === "function") logoutRef.current();
           return;
         }
-        _checkToken(t);
+        if (!isAssessmentPage()) {
+          _checkToken(t);
+        } else if (isTokenExpired(t)) {
+          handleTokenExpiration();
+        }
       }
     }, 60 * 1000);
 

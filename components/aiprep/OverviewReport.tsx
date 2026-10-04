@@ -2593,9 +2593,14 @@ export default function AiPrepReport({
     }
   };
 
-  // Fetch real report data
+  const lastLoadedIdRef = useRef<string | null>(null);
+
+  // Fetch real report data (single consolidated GET call)
   const loadReport = useCallback(async () => {
     if (!assessmentId) return;
+    if (lastLoadedIdRef.current === String(assessmentId)) return;
+    lastLoadedIdRef.current = String(assessmentId);
+
     setLoading(true);
     setError("");
     setIsProcessing(false);
@@ -2614,28 +2619,14 @@ export default function AiPrepReport({
         ) &&
         !assessment.report
       ) {
-        try {
-          const reportRes = await aiPrepApi.getAssessmentReport(assessmentId);
-          const dataRes = await aiPrepApi
-            .getAssessmentData(assessmentId)
-            .catch(() => null);
-          setReport(normalizeReport(assessment, dataRes, reportRes));
-        } catch {
-          setIsProcessing(true);
-          setStatusMsg("Your assessment report is still being prepared.");
-        }
+        setIsProcessing(true);
+        setStatusMsg("Your assessment report is still being prepared.");
         setLoading(false);
         return;
       }
 
-      const [dataRes, reportRes] = await Promise.allSettled([
-        aiPrepApi.getAssessmentData(assessmentId),
-        aiPrepApi.getAssessmentReport(assessmentId),
-      ]);
-
-      const dataVal = dataRes.status === "fulfilled" ? dataRes.value : null;
-      const reportVal =
-        reportRes.status === "fulfilled" ? reportRes.value : null;
+      const dataVal = (assessment.data as any) || null;
+      const reportVal = (assessment.report as any) || null;
 
       if (!reportVal && !assessment.report) {
         setError(

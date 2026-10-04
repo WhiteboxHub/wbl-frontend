@@ -347,10 +347,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     isComplete,
     enqueueChunk,
     retryFailedChunks,
+    clearQueue,
+    waitForAllChunks,
   } = useChunkUploadQueue({
     assessmentId,
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
   });
+
+  const isUploadingRef = useRef(isUploading);
+  useEffect(() => {
+    isUploadingRef.current = isUploading;
+  }, [isUploading]);
+
+  const pendingChunksRef = useRef(pendingChunks);
+  useEffect(() => {
+    pendingChunksRef.current = pendingChunks;
+  }, [pendingChunks]);
 
   // ── Media Recorder Hook (30s slicing) ──────────────────────────────────────
   const {
@@ -466,18 +478,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       try {
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
-        let resolvedType: AssessmentType = typeof window !== 'undefined' ? (window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) : 'INTRO';
-        let resolvedMode: MediaType = typeof window !== 'undefined' ? (window.sessionStorage.getItem('aiprep_active_mode') as MediaType) : 'AUDIO_ONLY';
-
-        try {
-          const details = await aiprepApi.getAssessment(+assessmentId);
-          if (details?.assessment_type) resolvedType = details.assessment_type;
-          if (details?.media_type) resolvedMode = details.media_type;
-          if (details?.assessment_type === 'JD_INTRO' && details?.job_description) {
-            setJobDescription(details.job_description);
-          }
-        } catch (_) { }
+        // 1. Recover stored session track & mode directly from sessionStorage (no backend GET call)
+        const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
+        const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
+        let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
@@ -498,22 +502,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Query Question Bank dynamically for this track with multi-tier resilience
-        let loadedQuestions: QuestionBankItem[] = [];
-
-        // Tier 1: Check assessment detail API (returns assigned questions from DB)
-        try {
-          const detailRes: any = await aiprepApi.getAssessment(+assessmentId);
-          const qFromDetail = detailRes?.data?.questions || detailRes?.questions;
-          if (qFromDetail && Array.isArray(qFromDetail) && qFromDetail.length > 0) {
-            loadedQuestions = qFromDetail as unknown as QuestionBankItem[];
-          }
-        } catch (detailErr) {
-          console.warn('Assessment detail questions fetch failed:', detailErr);
-        }
-
-        // Tier 2: Check sessionStorage cached questions from creation
-        if ((!loadedQuestions || loadedQuestions.length === 0) && typeof window !== 'undefined') {
+        // 2. Load questions from sessionStorage (cached during assessment creation)
+        if (typeof window !== 'undefined') {
           try {
             const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
             if (cachedQ) {
@@ -777,58 +767,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
-  // Recording starts only AFTER the AI finishes reading the question aloud.
+  // Immediately starts assessment recording and question timer as soon as countdown completes (no automatic AI voice)
   const handleStartAnswer = () => {
-    const activeQ = questions[currentQuestionIndex];
-    if (!isSpeechMuted && activeQ?.question_text && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      stopAiSpeech();
-      let hasStartedRecording = false;
-
-      const triggerStartRecording = () => {
-        if (hasStartedRecording) return;
-        hasStartedRecording = true;
-        if (speechTimeoutRef.current) {
-          clearTimeout(speechTimeoutRef.current);
-          speechTimeoutRef.current = null;
-        }
-        speechUtteranceRef.current = null;
-        setIsAiSpeaking(false);
-        startRecorderCore();
-      };
-
-      try {
-        const cleanText = activeQ.question_text.replace(/^"|"$/g, '').trim();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        speechUtteranceRef.current = utterance;
-
-        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
-        const preferredVoice = getBestVoice(currentVoices);
-        if (preferredVoice) utterance.voice = preferredVoice;
-        utterance.rate = 0.95;
-
-        utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => triggerStartRecording();
-        utterance.onerror = () => triggerStartRecording();
-
-        // Safeguard timeout: calculate based on word count (avg ~2.5 words/sec + 5s buffer, min 8s, max 20s)
-        const wordCount = cleanText.split(/\s+/).length;
-        const maxWaitMs = Math.min(Math.max(Math.ceil((wordCount / 2.5) * 1000) + 5000, 8000), 20000);
-
-        speechTimeoutRef.current = setTimeout(() => {
-          console.warn('[Assessment] Speech synthesis safeguard timeout triggered');
-          try {
-            window.speechSynthesis.cancel();
-          } catch (_) { }
-          triggerStartRecording();
-        }, maxWaitMs);
-
-        window.speechSynthesis.speak(utterance);
-      } catch (_) {
-        triggerStartRecording();
-      }
-    } else {
-      startRecorderCore();
-    }
+    stopAiSpeech();
+    startRecorderCore();
   };
   startAnswerRef.current = handleStartAnswer;
 
@@ -848,22 +790,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [currentQuestionIndex, questions, assessmentType]);
 
   const handleNextQuestionRef = useRef<() => void>(() => { });
+  const handleEndSessionRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const hasAutoEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isRecording) return;
+    if (!isRecording || isEnding) return;
     const timer = setInterval(() => {
       setQuestionTimeElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRecording]);
+  }, [isRecording, isEnding]);
 
   useEffect(() => {
-    if (isRecording && questionTimeElapsed >= questionTimeLimit + 3 && !isTransitioningQuestion) {
+    if (isRecording && questionTimeElapsed >= questionTimeLimit && !isTransitioningQuestion && !isEnding && !hasAutoEndedRef.current) {
       if (currentQuestionIndex < questions.length - 1) {
         handleNextQuestionRef.current();
+      } else {
+        // Last question or single question (INTRO assessment):
+        // Automatically stop timer, stop recording/chunks, show spinner, and submit via PUT API
+        hasAutoEndedRef.current = true;
+        void handleEndSessionRef.current();
       }
     }
-  }, [isRecording, questionTimeElapsed, questionTimeLimit, isTransitioningQuestion, currentQuestionIndex, questions.length]);
+  }, [isRecording, questionTimeElapsed, questionTimeLimit, isTransitioningQuestion, isEnding, currentQuestionIndex, questions.length]);
 
   const questionTimeRemaining = Math.max(0, questionTimeLimit - questionTimeElapsed);
   const isQuestionLowTime = isRecording && questionTimeRemaining <= 30 && questionTimeRemaining > 0;
@@ -934,8 +883,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsEnding(true);
       stopAiSpeech();
 
-      // 1. Stop recording and flush final 30s slice
+      // 1. Stop recording and flush final slice
       await stopRecording();
+
+      // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
+      await waitForAllChunks(8000);
 
       // Commit any pending interim speech as a complete sentence before submitting
       if (currentInterimRef.current) {
@@ -1004,14 +956,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         } catch (_) {}
       }
 
-      // 5. Clean up browser storage flags
+      // 5. Clean up browser storage flags & queue
+      clearQueue();
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_wizard_step');
       try {
         localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
       } catch (_) {}
 
-      // 6. Transition directly to Evaluation page
+      // 6. Transition directly to Evaluation page once response arrives
       const reportUrl = isEmbedded
         ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
         : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
@@ -1020,19 +973,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       console.error('Finalize session error:', err);
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
       setIsEnding(false);
-    } finally {
-      setIsEnding(false);
     }
   };
+  handleEndSessionRef.current = handleEndSession;
 
   // ── Max Recording Duration Enforcer ───────────────────────────────────────
   // Auto-ends the session when the type-specific time limit is reached
   useEffect(() => {
-    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding) {
+    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding && !hasAutoEndedRef.current) {
       console.warn(`[Assessment] Max recording time (${MAX_RECORDING_SECONDS / 60} min) reached — auto-ending session.`);
-      handleEndSession();
+      hasAutoEndedRef.current = true;
+      void handleEndSessionRef.current();
     }
-  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS, handleEndSession]);
+  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1148,13 +1101,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             )}
           </div>
 
-          {/* Session Total Duration Clock */}
-          <div className="hidden md:inline-flex items-center h-8 gap-1.5 px-3 rounded-full bg-slate-100 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">Total:</span>
-            <span className="font-mono text-xs font-bold leading-none">
-              {formatTime(elapsedTime)}
-            </span>
-          </div>
+
         </div>
 
         {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
@@ -1285,7 +1232,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <button
                   type="button"
                   onClick={() => setShowExitModal(true)}
-                  className="h-10 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 inline-flex items-center justify-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold shrink-0"
+                  disabled={isEnding}
+                  className="h-10 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 inline-flex items-center justify-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold shrink-0"
                   title="Exit Assessment"
                 >
                   <IconLogout size={16} stroke={2} />
@@ -1293,7 +1241,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 </button>
 
                 {/* Previous Button (Only when recording and past Question 1) */}
-                {isRecording && currentQuestionIndex > 0 && (
+                {isRecording && currentQuestionIndex > 0 && !isEnding && (
                   <button
                     type="button"
                     onClick={handlePrevQuestion}
@@ -1309,7 +1257,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
               {/* Center Column: Perfectly Centered Primary CTA or Live Answering Indicator */}
               <div className="flex items-center justify-center shrink-0">
-                {isInactive ? (
+                {isEnding ? (
+                  <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 shrink-0 shadow-xs text-purple-700 dark:text-purple-300">
+                    <IconLoader2 size={15} className="animate-spin text-purple-600 dark:text-purple-400" />
+                    <span className="text-xs font-bold whitespace-nowrap">
+                      Submitting Assessment…
+                    </span>
+                  </div>
+                ) : isInactive ? (
                   !isIntroType ? (
                     <button
                       type="button"
@@ -1338,8 +1293,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
               {/* Right Group: Forward Progression (Next Question / Finish Assessment) or Symmetrical Spacer */}
               <div className="flex items-center justify-end shrink-0">
-                {isRecording ? (
-                  currentQuestionIndex < questions.length - 1 ? (
+                {isRecording || isEnding ? (
+                  !isEnding && currentQuestionIndex < questions.length - 1 ? (
                     <button
                       type="button"
                       onClick={handleNextQuestion}
@@ -1646,6 +1601,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 onClick={async () => {
                   if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
                   cleanupRecorder();
+                  clearQueue();
                   try {
                     if (assessmentId) {
                       await aiprepApi.cancelAssessment(assessmentId);
@@ -1659,6 +1615,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               >
                 Exit Session
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. SUBMITTING & FINALIZING MODAL SPINNER OVERLAY */}
+      {isEnding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200 select-none">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 max-w-sm w-full mx-auto shadow-2xl flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[#7C3AED]/10 dark:bg-[#7C3AED]/20 border border-[#7C3AED]/30 flex items-center justify-center mb-4 text-[#7C3AED] shadow-sm">
+              <IconLoader2 size={36} className="animate-spin text-[#7C3AED]" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
+              Submitting Assessment
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
+              Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
+            </p>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
             </div>
           </div>
         </div>
