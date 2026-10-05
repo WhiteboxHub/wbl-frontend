@@ -20,6 +20,7 @@ import {
   Lock,
   Play,
   Pause,
+  Check,
   CheckCircle2,
   Info,
   Sparkles,
@@ -524,15 +525,25 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   50% { height: 22px; }
                 }
               `}</style>
-              {/* Animated mic icon */}
-              <div className="flex items-center justify-center py-1 transition-all duration-300">
-                <Mic
-                  className={`w-9 h-9 sm:w-10 sm:h-10 transition-all duration-300 ${
-                    isRecording
-                      ? 'text-indigo-600 dark:text-indigo-400 animate-pulse scale-105'
-                      : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                />
+              {/* Audio Mic Badge matching Device Check (Image 1 / Image 3) */}
+              <div className="relative flex items-center justify-center py-1">
+                {isRecording && (
+                  <>
+                    <div className="absolute w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-blue-500/10 animate-ping pointer-events-none" />
+                    <div className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-500/20 animate-pulse pointer-events-none" />
+                  </>
+                )}
+
+                <div className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200/80 dark:border-blue-800/60 shadow-sm transition-all duration-300">
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-blue-600 text-white shadow-md shadow-blue-500/25 transition-transform duration-200 ${isRecording ? 'scale-105' : ''}`}>
+                    <Mic className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[2.2]" />
+                  </div>
+
+                  {/* Verified Status Badge */}
+                  <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/30">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  </div>
+                </div>
               </div>
 
               {/* Animated waveform bars */}
@@ -1026,15 +1037,32 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         </button>
 
         <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Skip Practice — always visible, for users who want to skip without recording */}
-          <button
-            type="button"
-            onClick={handleLaunchAssessment}
-            disabled={isRecording || isLaunching}
-            className="px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Skip Practice
-          </button>
+          {/* Skip Practice — only visible before practice recording starts; once recording is completed/stopped, only Start Assessment is shown */}
+          {!isRecording && !testAudioUrl && (
+            <button
+              type="button"
+              onClick={handleLaunchAssessment}
+              disabled={isLaunching}
+              className={`px-5 sm:px-6 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                isLaunching
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                  : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer'
+              }`}
+              title={isLaunching ? 'Launching Assessment...' : 'Skip Practice'}
+            >
+              {isLaunching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Launching...</span>
+                </>
+              ) : (
+                <>
+                  <span>Skip Practice</span>
+                  <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                </>
+              )}
+            </button>
+          )}
 
           {/* Start Assessment — only shown after a practice recording has been completed */}
           {testAudioUrl && (

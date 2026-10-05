@@ -100,11 +100,13 @@ export function AssessmentCard({
 }: AssessmentCardProps) {
   if (!card) return null;
 
+  const canClick = Boolean(isClickable && !card.isLocked);
+
   return (
     <div
-      onClick={isClickable ? onClick : undefined}
+      onClick={canClick ? onClick : undefined}
       className={`relative rounded-xl p-3 sm:p-3.5 transition-all duration-200 select-none flex flex-col justify-between min-h-[140px] sm:min-h-[150px] ${
-        isClickable ? 'cursor-pointer' : 'cursor-default'
+        canClick ? 'cursor-pointer' : 'cursor-default'
       } ${
         isSelected
           ? 'bg-white dark:bg-slate-900 border-2 border-[#7C3AED] dark:border-purple-500 ring-2 ring-purple-500/10 shadow-xs'
@@ -169,17 +171,19 @@ export function AssessmentCard({
               {card.lockBadge}
             </span>
           )}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onInfoClick) onInfoClick();
-            }}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#7C3AED] hover:text-[#6D28D9] dark:text-purple-300 transition-colors cursor-pointer py-0.5"
-          >
-            <span>Info</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
+          {!card.isLocked && onInfoClick && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onInfoClick();
+              }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#7C3AED] hover:text-[#6D28D9] dark:text-purple-300 transition-colors cursor-pointer py-0.5"
+            >
+              <span>Info</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -253,7 +257,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                     isSelected={isSelected}
                     isClickable={isClickable}
                     onClick={() => handleTypeSelect(card.type, card.isLocked)}
-                    onInfoClick={() => setInfoModalType(card.type)}
+                    onInfoClick={!card.isLocked ? () => setInfoModalType(card.type) : undefined}
                   />
                 );
               })}
@@ -289,7 +293,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
       {/* ── Assessment Info Modal ── */}
       <AssessmentInfoModal
-        isOpen={infoModalType !== null}
+        isOpen={infoModalType !== null && UNLOCKED_ASSESSMENT_TYPES.includes(infoModalType)}
         type={infoModalType}
         onClose={() => setInfoModalType(null)}
         onSelect={(type) => {
