@@ -8,8 +8,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
-import Image from 'next/image';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import AiPrepReport from "@/components/aiprep/OverviewReport";
 import { aiprepApi } from '@/lib/aiprep-api';
 import type {
   AssessmentType,
@@ -176,9 +176,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return () => window.removeEventListener('storage', syncTheme);
   }, [theme, setTheme]);
 
-  // Extract assessmentId from route params
+  // Extract assessmentId from route params or prop
   const assessmentIdStr = params?.assessmentId;
-  const assessmentId = assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0;
+  const assessmentId = assessmentIdProp ? Number(assessmentIdProp) : (assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0);
+  const [finishedAssessmentId, setFinishedAssessmentId] = useState<number | null>(null);
 
   const isEmbedded = searchParams?.get('embed') === 'true';
 
@@ -968,7 +969,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       const reportUrl = isEmbedded
         ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
         : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
-      router.push(reportUrl);
+      try {
+        if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
+          History.prototype.replaceState.call(window.history, {}, '', reportUrl);
+        }
+      } catch (_) {}
+      setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
@@ -992,6 +998,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (finishedAssessmentId) {
+    return <AiPrepReport assessmentId={String(finishedAssessmentId)} />;
+  }
 
   // ── Loading & Error Displays ───────────────────────────────────────────────
   if (isLoading) {
@@ -1053,14 +1063,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       <header className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-30">
         {/* LEFT: Logo & Assessment Track Title */}
         <div className="flex items-center gap-3">
-          <Image
-            src="/images/logos/whitebox-cube-logo.png"
-            alt="Whitebox Learning"
-            width={32}
-            height={32}
-            className="w-8 h-8 object-contain"
-            priority
-          />
+          <div className="w-8 h-8 rounded-lg bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/30 shrink-0">
+            <IconSparkles size={18} />
+          </div>
           <div>
             <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
               {assessmentType} Assessment
