@@ -20,7 +20,7 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (fallback: string | number = "me"): string | number => {
+export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
     // 1. Direct candidate ID storage keys (highest priority for legacy compatibility)
@@ -85,7 +85,7 @@ export const fetchAndCacheCandidateId = async (): Promise<string | number | null
   return _userDashboardPromise;
 };
 
-export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "me"): string | number => {
+export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "1"): string | number => {
   if (candidateId !== undefined && candidateId !== null && candidateId !== "") {
     return candidateId;
   }
@@ -204,9 +204,9 @@ export const aiPrepApi = {
     let body: Record<string, unknown>;
 
     if (typeof payload === "string") {
-      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1");
       body = {
-        candidate_id: cid === "me" ? undefined : Number(cid),
+        candidate_id: Number(cid),
         assessment_type: payload,
         media_type: mediaTypeArg,
         job_description: jobDescriptionArg ?? null,
@@ -214,14 +214,14 @@ export const aiPrepApi = {
     } else {
       cid = payload.candidate_id 
         ? resolveCandidateId(payload.candidate_id) 
-        : ((await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me"));
+        : ((await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1"));
       const isAudioOnly =
         payload.media_type === "AUDIO" ||
         payload.assessment_mode === "AUDIO_ONLY" ||
         (typeof payload.media_type === "string" && payload.media_type.toUpperCase() === "AUDIO");
 
       body = {
-        candidate_id: cid === "me" ? undefined : Number(cid),
+        candidate_id: Number(cid),
         assessment_type: payload.assessment_type || "INTRO",
         media_type: isAudioOnly ? "AUDIO" : "VIDEO",
       };
