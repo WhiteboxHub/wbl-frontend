@@ -2,7 +2,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import {X,MessageSquare, Briefcase,UserCheck,Target,Code2,Layers,Clock,FileText,BarChart2,PlayCircle,User,Cpu,Settings,Sparkles, CheckCircle2,
+import {
+  X,
+  MessageSquare,
+  Briefcase,
+  UserCheck,
+  Target,
+  Code2,
+  Layers,
+  Clock,
+  FileText,
+  BarChart2,
+  User,
+  Cpu,
+  Settings,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import { AssessmentType } from '@/types/aiprep';
 import { ASSESSMENT_INFO_DETAILS } from './assessment-details';
@@ -151,12 +166,6 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
     { icon: 'chart', text: 'Real-time feedback after completion' },
   ];
 
-  const exampleData = info.example || {
-    title: `Example ${info.title} and Transcript`,
-    description: 'Watch an example introduction to see how to structure your response.',
-    linkText: `View Example ${info.subtitle || 'Intro'} →`,
-  };
-
   const modalNode = (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
       {/* Backdrop */}
@@ -288,58 +297,32 @@ export const AssessmentInfoModal: React.FC<AssessmentInfoModalProps> = ({
             </div>
           </div>
 
-          {/* 4. Bottom Row: What to Expect + Example Link */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-            {/* Left: What to Expect */}
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200/70 dark:border-slate-800 p-2.5 sm:p-3 flex flex-col justify-between">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight uppercase mb-1">
-                What to Expect:
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] sm:text-[11.5px] text-slate-700 dark:text-slate-200">
-                {expectItems.map((item, idx) => {
-                  const isDuration = item.text.startsWith('Duration:');
-                  return (
-                    <div key={idx} className="flex items-center gap-1.5">
-                      <div className="w-3.5 h-3.5 flex items-center justify-center text-slate-400 shrink-0">
-                        {getExpectIcon(item.icon)}
-                      </div>
-                      <span className="leading-tight">
-                        {isDuration ? (
-                          <>
-                            <strong className="font-semibold text-slate-900 dark:text-white">Duration:</strong>{' '}
-                            {item.text.replace('Duration:', '').trim()}
-                          </>
-                        ) : (
-                          item.text
-                        )}
-                      </span>
+          {/* 4. What to Expect */}
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200/70 dark:border-slate-800 p-2.5 sm:p-3">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight uppercase mb-1.5">
+              What to Expect:
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2 text-[11px] sm:text-[11.5px] text-slate-700 dark:text-slate-200">
+              {expectItems.map((item, idx) => {
+                const isDuration = item.text.startsWith('Duration:');
+                return (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 flex items-center justify-center text-slate-400 shrink-0">
+                      {getExpectIcon(item.icon)}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right: Example Walkthrough */}
-            <div className="rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 p-2.5 sm:p-3 flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900 dark:text-purple-300">
-                <FileText className="w-3.5 h-3.5 text-[#7C3AED] dark:text-purple-400 shrink-0" />
-                <span>{exampleData.title}</span>
-              </div>
-              <div className="mt-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-snug">
-                  {exampleData.description}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (type === 'INTRO' && onSelect) onSelect(type);
-                  }}
-                  className="text-xs font-semibold text-[#7C3AED] hover:text-[#6D28D9] dark:text-purple-300 flex items-center gap-1 shrink-0 cursor-pointer whitespace-nowrap py-0.5"
-                >
-                  <PlayCircle className="w-3.5 h-3.5" />
-                  <span>{exampleData.linkText}</span>
-                </button>
-              </div>
+                    <span className="leading-tight">
+                      {isDuration ? (
+                        <>
+                          <strong className="font-semibold text-slate-900 dark:text-white">Duration:</strong>{' '}
+                          {item.text.replace('Duration:', '').trim()}
+                        </>
+                      ) : (
+                        item.text
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

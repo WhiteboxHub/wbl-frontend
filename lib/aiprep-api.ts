@@ -20,7 +20,7 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
+export const getStoredCandidateId = (fallback: string | number = "me"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
     // 1. Direct candidate ID storage keys (highest priority for legacy compatibility)
@@ -56,22 +56,80 @@ export const getStoredCandidateId = (fallback: string | number = "1"): string | 
   return fallback;
 };
 
-export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "1"): string | number => {
+let _userDashboardPromise: Promise<string | number | null> | null = null;
+
+export const fetchAndCacheCandidateId = async (): Promise<string | number | null> => {
+  if (typeof window === "undefined") return null;
+  const stored = getStoredCandidateId("");
+  if (stored && stored !== "me") return stored;
+
+  if (_userDashboardPromise) return _userDashboardPromise;
+
+  _userDashboardPromise = (async () => {
+    try {
+      const userResponse = await apiFetch("user_dashboard");
+      const cid = userResponse?.candidate_id || userResponse?.id;
+      if (cid) {
+        localStorage.setItem("candidate_id", String(cid));
+        sessionStorage.setItem("aiprep_candidate_id", String(cid));
+        return cid;
+      }
+    } catch (e) {
+      console.warn("[aiPrepApi] Could not fetch user_dashboard for candidate ID:", e);
+    } finally {
+      _userDashboardPromise = null;
+    }
+    return null;
+  })();
+
+  return _userDashboardPromise;
+};
+
+export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "me"): string | number => {
   if (candidateId !== undefined && candidateId !== null && candidateId !== "") {
     return candidateId;
   }
   return getStoredCandidateId(fallback);
 };
 
+let _readinessPromiseMap: Record<string, Promise<ReadinessCheck>> = {};
+let _readinessCacheMap: Record<string, { data: ReadinessCheck; timestamp: number }> = {};
+
+export const clearReadinessCache = () => {
+  _readinessPromiseMap = {};
+  _readinessCacheMap = {};
+};
+
 export const aiPrepApi = {
-  // Pre-flight readiness (New: /api/aiprep/candidates/{id}/assessment-readiness-precheck)
-  getReadiness: (candidateId?: string | number): Promise<ReadinessCheck> => {
-    const cid = resolveCandidateId(candidateId);
-    return apiFetch(endpoint(`candidates/${cid}/assessment-readiness-precheck`)) as Promise<ReadinessCheck>;
+  // Pre-flight readiness (/api/aiprep/candidates/{id}/assessment-readiness-precheck)
+  getReadiness: async (candidateId?: string | number): Promise<ReadinessCheck> => {
+    let cid = candidateId;
+    if (!cid || cid === "me") {
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1");
+    }
+    const cacheKey = String(cid);
+    const now = Date.now();
+    if (_readinessCacheMap[cacheKey] && now - _readinessCacheMap[cacheKey].timestamp < 5000) {
+      return _readinessCacheMap[cacheKey].data;
+    }
+    if (_readinessPromiseMap[cacheKey]) {
+      return _readinessPromiseMap[cacheKey];
+    }
+
+    _readinessPromiseMap[cacheKey] = (async () => {
+      try {
+        const data = (await apiFetch(endpoint(`candidates/${cid}/assessment-readiness-precheck`))) as ReadinessCheck;
+        _readinessCacheMap[cacheKey] = { data, timestamp: Date.now() };
+        return data;
+      } finally {
+        delete _readinessPromiseMap[cacheKey];
+      }
+    })();
+
+    return _readinessPromiseMap[cacheKey];
   },
-  checkReadiness: (candidateId?: string | number): Promise<ReadinessCheck> => {
-    const cid = resolveCandidateId(candidateId);
-    return apiFetch(endpoint(`candidates/${cid}/assessment-readiness-precheck`)) as Promise<ReadinessCheck>;
+  checkReadiness: async (candidateId?: string | number): Promise<ReadinessCheck> => {
+    return aiPrepApi.getReadiness(candidateId);
   },
 
   getLlmKeys: (): Promise<LlmKeyStatus> =>
@@ -146,22 +204,24 @@ export const aiPrepApi = {
     let body: Record<string, unknown>;
 
     if (typeof payload === "string") {
-      cid = resolveCandidateId();
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
       body = {
-        candidate_id: Number(cid),
+        candidate_id: cid === "me" ? undefined : Number(cid),
         assessment_type: payload,
         media_type: mediaTypeArg,
         job_description: jobDescriptionArg ?? null,
       };
     } else {
-      cid = resolveCandidateId(payload.candidate_id);
+      cid = payload.candidate_id 
+        ? resolveCandidateId(payload.candidate_id) 
+        : ((await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me"));
       const isAudioOnly =
         payload.media_type === "AUDIO" ||
         payload.assessment_mode === "AUDIO_ONLY" ||
         (typeof payload.media_type === "string" && payload.media_type.toUpperCase() === "AUDIO");
 
       body = {
-        candidate_id: Number(cid),
+        candidate_id: cid === "me" ? undefined : Number(cid),
         assessment_type: payload.assessment_type || "INTRO",
         media_type: isAudioOnly ? "AUDIO" : "VIDEO",
       };
@@ -232,9 +292,8 @@ export const aiPrepApi = {
         null);
 
     const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-    const url = baseUrl
-      ? `${baseUrl}/aiprep/candidates/${cid}/assessments/${assessmentId}/media/chunk`
-      : `/api/aiprep/candidates/${cid}/assessments/${assessmentId}/media/chunk`;
+    const apiPrefix = baseUrl.endsWith("/api") ? baseUrl : (baseUrl ? `${baseUrl}/api` : "/api");
+    const url = `${apiPrefix}/aiprep/candidates/${cid}/assessments/${assessmentId}/media/chunk`;
 
     const headers: Record<string, string> = {};
     if (token) {
@@ -249,7 +308,10 @@ export const aiPrepApi = {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `Upload chunk failed: ${res.statusText}`);
+      const error: any = new Error(err.detail || `Upload chunk failed: ${res.statusText} (${res.status})`);
+      error.status = res.status;
+      error.statusCode = res.status;
+      throw error;
     }
     return res.json();
   },
