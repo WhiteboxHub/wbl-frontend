@@ -10,7 +10,7 @@
 //  - Section E: AiPrepReport (Shell: data fetching, state handling, natural scroll)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useRef, useCallback, useMemo, type RefObject } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -60,7 +60,7 @@ export type { ReportTab };
 //  HELPERS & QUALITATIVE BADGE (NO NUMERIC SCORES)
 // ═════════════════════════════════════════════════════════════════════════════
 
-const QualitativeBadge = React.memo(function QualitativeBadge({
+const QualitativeBadge = memo(function QualitativeBadge({
   status,
   inverted = false,
 }: {
