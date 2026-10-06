@@ -33,6 +33,7 @@ export interface UseChunkUploadQueueReturn {
   enqueueChunk: (blob: Blob, chunkIndex: number, isFinal?: boolean) => void;
   retryFailedChunks: () => void;
   clearQueue: () => void;
+  waitForAllChunks: (maxWaitMs?: number) => Promise<boolean>;
 }
 
 export function useChunkUploadQueue({
@@ -111,8 +112,14 @@ export function useChunkUploadQueue({
     } catch (err: any) {
       if (!isMountedRef.current) return;
 
+      const isConflict409 =
+        err?.status === 409 ||
+        err?.statusCode === 409 ||
+        String(err?.message || '').includes('409') ||
+        String(err?.message || '').toLowerCase().includes('already');
+
       const newRetryCount = currentItem.retryCount + 1;
-      const willRetry = newRetryCount <= maxRetries;
+      const willRetry = !isConflict409 && newRetryCount <= maxRetries;
 
       queueRef.current[nextIndex] = {
         ...queueRef.current[nextIndex],
@@ -124,6 +131,20 @@ export function useChunkUploadQueue({
 
       if (onUploadError) {
         onUploadError(err, currentItem.chunkIndex);
+      }
+
+      // If assessment is already finalized / closed on server (409), abort remaining queued chunks immediately
+      if (isConflict409) {
+        console.warn(`[ChunkUploadQueue] Assessment ${assessmentId} is already finalized/evaluating (409 Conflict). Halting chunk queue.`);
+        queueRef.current.forEach((item, idx) => {
+          if (item.status === 'queued' || item.status === 'uploading') {
+            queueRef.current[idx] = { ...item, status: 'failed', error: 'Assessment already finalized' };
+          }
+        });
+        setQueue([...queueRef.current]);
+        setIsUploading(false);
+        isProcessingRef.current = false;
+        return;
       }
 
       // Exponential backoff before processing next
@@ -201,6 +222,24 @@ export function useChunkUploadQueue({
   const hasFinal = queue.some((i) => i.isFinal && i.status === 'uploaded');
   const isComplete = totalChunks > 0 && uploadedChunks === totalChunks && hasFinal;
 
+  // Wait for all queued and in-flight chunks to finish uploading
+  const waitForAllChunks = useCallback(
+    async (maxWaitMs: number = 8000): Promise<boolean> => {
+      const start = Date.now();
+      while (Date.now() - start < maxWaitMs) {
+        const hasPending = queueRef.current.some(
+          (i) => i.status === 'queued' || i.status === 'uploading'
+        );
+        if (!hasPending && !isProcessingRef.current) {
+          return true;
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return false;
+    },
+    []
+  );
+
   return {
     queue,
     totalChunks,
@@ -212,6 +251,7 @@ export function useChunkUploadQueue({
     enqueueChunk,
     retryFailedChunks,
     clearQueue,
+    waitForAllChunks,
   };
 }
 export default useChunkUploadQueue;

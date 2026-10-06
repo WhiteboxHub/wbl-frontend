@@ -9,6 +9,7 @@ import { apiFetch } from '@/lib/api';
 import { DeviceCheckWizard } from '@/components/aiprep/DeviceCheckWizard';
 import { SUPPORTED_ASSESSMENT_TYPES } from '@/components/aiprep/Assessmentselection';
 import AIPrepDashboard from '@/components/aiprep/AIPrepDashboard';
+import AssessmentSessionPage from './session/[assessmentId]/page';
 import { AlertCircle, Loader2, Laptop, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AIPrepPage() {
@@ -101,13 +102,20 @@ export default function AIPrepPage() {
 
       const targetId = assessment.id;
       sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
-      sessionStorage.removeItem('aiprep_active_id');
+      sessionStorage.setItem('aiprep_active_id', String(targetId));
       sessionStorage.removeItem('aiprep_wizard_step');
 
       const isEmbedded = window.self !== window.top || window.location.search.includes('embed=true');
       const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
-      router.push(targetSessionUrl);
+      try {
+        if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
+          History.prototype.replaceState.call(window.history, {}, '', targetSessionUrl);
+        }
+      } catch (_) {}
+
+      setActiveAssessmentId(targetId);
+      setIsSaving(false);
     } catch (err: any) {
       console.error('[Session Setup Error] Creation pipeline failed:', err);
       setErrorMsg(err.message || 'Setup pipeline failed. Please try again.');
@@ -133,6 +141,7 @@ export default function AIPrepPage() {
     window.addEventListener('aiprep-layout-mode', handleExternalLayout);
     return () => window.removeEventListener('aiprep-layout-mode', handleExternalLayout);
   }, []);
+
 
   const showWizard = started || searchParams.get('start') === 'true';
 
@@ -250,6 +259,11 @@ export default function AIPrepPage() {
         </button>
       </div>
     );
+  }
+
+  // Active session in-place render (avoids dynamic router.push chunk downloads)
+  if (activeAssessmentId) {
+    return <AssessmentSessionPage assessmentIdProp={activeAssessmentId} />;
   }
 
   // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.

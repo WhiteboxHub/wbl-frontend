@@ -44,12 +44,37 @@ export interface AssessmentQuestion {
 }
 
 export interface CreateAssessmentRequest {
-  candidate_id?: number;
+  candidate_id?: number | string;
   assessment_type: AssessmentType;
   media_type?: MediaType;
   assessment_mode?: string;
   job_description?: string | null;
   job_description_text?: string | null;
+  consent_save_recording?: boolean;
+  consent_save_transcript?: boolean;
+}
+
+export interface CandidateSubmitAssessmentRequest {
+  total_chunks_uploaded?: number;
+  is_final?: boolean;
+  client_duration_seconds?: number;
+  video_telemetry?: Record<string, unknown>;
+  status?: string;
+}
+
+export interface CandidateSubmitAssessmentResponse {
+  status: string;
+  data?: {
+    assessment?: AssessmentSummary;
+    assessment_data?: unknown;
+    audio_telemetry?: Record<string, unknown>;
+    video_telemetry?: Record<string, unknown>;
+    report?: {
+      insufficient_content?: boolean;
+      message?: string | null;
+      llm_evaluation?: Record<string, unknown>;
+    };
+  };
 }
 
 export type AssessmentStatus =
@@ -57,6 +82,7 @@ export type AssessmentStatus =
   | "EVALUATING"
   | "COMPLETED"
   | "FAILED"
+  | "CANCELLED"
   | string;
 
 export type AssessmentCategory =
@@ -102,10 +128,12 @@ export type ResumeStatus = {
 
 export interface ReadinessCheck {
   eligible: boolean;
+  allowed_to_proceed?: boolean;
   candidate_id?: number;
+  action_required?: string | null;
+  message?: string | null;
   llm_check?: LlmKeyStatus;
   resume_check?: ResumeStatus;
-  message?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +177,18 @@ export interface AssessmentDetail extends AssessmentSummary {
 // ---------------------------------------------------------------------------
 
 export interface CreateAssessmentResponse {
-  id: number;
+  id?: number;
+  assessment_id?: number;
+  data?: {
+    assessment_id: number;
+    assessment_uuid?: string;
+    candidate_id?: number;
+    assessment_type?: string;
+    media_type?: string;
+    status?: string;
+    started_at?: string | null;
+    questions?: AssessmentQuestion[] | unknown[];
+  };
   assessment_uuid?: string;
   status: AssessmentStatus;
   started_at?: string | null;
@@ -224,6 +263,8 @@ export interface HardwareCheckResults {
   audio_enabled: boolean;
   video_enabled: boolean;
   jd_text: string;
+  consent_save_recording?: boolean;
+  consent_save_transcript?: boolean;
 }
 
 // ============================================================================

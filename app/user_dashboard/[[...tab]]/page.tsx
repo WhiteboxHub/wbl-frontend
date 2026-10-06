@@ -55,7 +55,7 @@ function CandidateDashboardWithSetupCheck({ currentTab }: { currentTab: string }
 
   const containerClasses = isAssessment
     ? `w-full h-full flex-1 min-h-0 overflow-hidden flex flex-col transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-900 ${
-        headerCollapsed ? "pt-0" : "pt-[64px] lg:pt-[70px]"
+        headerCollapsed ? "pt-0" : "pt-[80px] lg:pt-[84px]"
       }`
     : `pt-24 pb-12 transition-all duration-300 ease-in-out bg-gray-50 dark:bg-gray-900 min-h-screen`;
 
@@ -167,14 +167,28 @@ export default function UserDashboardPage({ params }: { params: { tab?: string[]
   }
 
   // Render Role-Based Dashboards
-  if (userRole === "employee") {
+  if (userRole === "employee" || userRole === "admin") {
     const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     const cid = searchParams?.get("candidateId");
     if (cid) {
       return <CandidateDashboardWithSetupCheck currentTab={currentTab} />;
     }
-    router.replace("/avatar/employee/employee-dashboard");
-    return null;
+    if (
+      currentTab.startsWith("ai-prep") ||
+      currentTab.startsWith("aiprep") ||
+      currentTab === "wbl-smartprep"
+    ) {
+      router.replace("/avatar/assessments");
+      return null;
+    }
+    if (userRole === "employee") {
+      router.replace("/avatar/employee/employee-dashboard");
+      return null;
+    }
+    if (userRole === "admin") {
+      router.replace("/avatar/assessments");
+      return null;
+    }
   }
 
   if (userRole === "candidate") {

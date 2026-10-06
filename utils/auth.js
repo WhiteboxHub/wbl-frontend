@@ -34,9 +34,30 @@ export const clearUserRoleCache = () => {
  * Call backend /user_role to get role + status with in-memory caching and deduplication.
  * Backend response expected: { role: string, status: "active" | "inactive" | "registered", ... }
  */
+export const isAssessmentPage = () => {
+  if (typeof window === "undefined") return false;
+  const p = window.location.pathname.toLowerCase();
+  return (
+    p.includes("/aiprep/session") ||
+    p.includes("/aiprep/reports") ||
+    p.includes("/session/") ||
+    p.includes("/reports/")
+  );
+};
+
 export const fetchUserRole = async (token, forceRefresh = false) => {
   const t = token || (typeof window !== "undefined" ? localStorage.getItem("access_token") : null);
   if (!t) return { role: null, status: "inactive" };
+
+  // On assessment pages, bypass user_role network call completely
+  if (isAssessmentPage()) {
+    if (userRoleCache.data) return userRoleCache.data;
+    const teamRole = getUserTeamRole(t) || "candidate";
+    const localRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null;
+    const res = { role: localRole || teamRole, status: "active", raw: { role: localRole || teamRole, status: "active" } };
+    userRoleCache = { token: t, data: res, timestamp: Date.now() };
+    return res;
+  }
 
   // Return cached result if valid for 60 seconds
   if (!forceRefresh && userRoleCache.token === t && (Date.now() - userRoleCache.timestamp < 60000) && userRoleCache.data) {
@@ -74,6 +95,9 @@ export const fetchUserRole = async (token, forceRefresh = false) => {
       };
 
       userRoleCache = { token: t, data: res, timestamp: Date.now() };
+      if (typeof window !== "undefined" && res.role) {
+        try { localStorage.setItem("user_role", res.role); } catch (_) {}
+      }
       return res;
     } catch (error) {
       if (process.env.NODE_ENV === "development") {
@@ -120,11 +144,11 @@ export const getUserTeamRole = (token = null) => {
 };
 
 /**
- * Validate token + remote status check
+ * Validate token + remote status check (bypassed on assessment pages)
  * Returns { valid: boolean, message: string }
  */
 export const isAuthenticated = async () => {
-  const token = localStorage.getItem("access_token");
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
   if (!token) {
     return { valid: false, message: "Please Login!" };
@@ -132,6 +156,12 @@ export const isAuthenticated = async () => {
 
   if (isTokenExpired(token)) {
     return { valid: false, message: "Session expired, please login again." };
+  }
+
+  // On assessment pages, do not make any network calls to user_role
+  if (isAssessmentPage()) {
+    const role = getUserTeamRole(token) || "candidate";
+    return { valid: true, message: "", role };
   }
 
   try {

@@ -267,27 +267,19 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     setSelectedRow((prev) => (prev?.id === a.id ? null : a));
   };
 
-  const handleRowDoubleClick = (a: AssessmentGridItem) => {
-    setSelectedRow(a);
-    if (onViewDetails) onViewDetails(a);
-    else if (onEdit) onEdit(a);
-    else onView(a);
-  };
-
   const allColumnsList = useMemo(() => {
     const list = [
-      { field: "id", label: "Assessment UUID" },
+      { field: "id", label: "Assessment ID" },
     ];
     if (isAdmin) {
       list.push({ field: "candidate", label: "Candidate" });
     }
     list.push(
+      { field: "date", label: "Assessment Date & Time" },
       { field: "assessment_type", label: "Assessment Type" },
-      { field: "mode", label: "Mode" },
-      { field: "status", label: "Status" },
-      { field: "score", label: "Score" },
-      { field: "date", label: "Date" },
-      { field: "actions", label: "Actions" }
+      { field: "mode", label: "Assessment Mode" },
+      { field: "status", label: "Assessment Status" },
+      { field: "actions", label: "Report" }
     );
     return list;
   }, [isAdmin]);
@@ -395,7 +387,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       const rect = dateButtonRef.current.getBoundingClientRect();
       setDateDropdownPos({
         top: rect.bottom + 6,
-        left: Math.max(10, rect.left - 100),
+        left: Math.max(10, rect.left - 30),
       });
     }
     setDateDropdownOpen((prev) => !prev);
@@ -580,34 +572,100 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     );
   };
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "—";
+  const parsePacificDate = (dateStr?: string | null): Date | null => {
+    if (!dateStr) return null;
     try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      const yyyy = d.getFullYear();
-      return `${mm}/${dd}/${yyyy}`;
+      let s = String(dateStr).trim();
+      if (!s.endsWith("Z") && !s.includes("+")) {
+        s = s.replace(" ", "T") + "Z";
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
     } catch {
-      return dateStr;
+      return null;
+    }
+  };
+
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "—";
+    const d = parsePacificDate(dateStr);
+    if (!d) return String(dateStr);
+    try {
+      return d.toLocaleDateString("en-US", {
+        timeZone: "America/Los_Angeles",
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return String(dateStr);
+    }
+  };
+
+  const formatTime = (dateStr?: string | null) => {
+    if (!dateStr) return "";
+    const d = parsePacificDate(dateStr);
+    if (!d) return "";
+    try {
+      return (
+        d.toLocaleTimeString("en-US", {
+          timeZone: "America/Los_Angeles",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }) + " PT"
+      );
+    } catch {
+      return "";
     }
   };
 
   const displayedAssessments = useMemo(() => {
     if (!assessments || !Array.isArray(assessments)) return [];
+
+    const rawSearch = (filters?.search || "").trim();
+    const searchTerm = rawSearch.toLowerCase();
+    const cleanId = searchTerm.replace(/^(as|#)[\s-]*/i, "").trim();
+    const isNumericSearch = cleanId !== "" && /^\d+$/.test(cleanId);
+
+    // If user enters an assessment ID (e.g. "155", "AS-155", "#155") and that ID exists,
+    // prioritize exact ID match so ONLY that assessment is rendered.
+    const exactIdItem = isNumericSearch
+      ? assessments.find(
+          (a) =>
+            String(a.id) === cleanId ||
+            getAssessmentDisplayId(a).toLowerCase() === searchTerm
+        )
+      : null;
+
     return assessments.filter((a) => {
       // 1. Search term filter (Assessment ID / UUID)
-      if (filters?.search?.trim()) {
-        const term = filters.search.toLowerCase().trim();
-        const displayId = getAssessmentDisplayId(a).toLowerCase();
-        const matchId =
-          displayId.includes(term) ||
-          `as-${a.id}`.toLowerCase().includes(term) ||
-          String(a.id).toLowerCase().includes(term) ||
-          Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(term));
-        if (!matchId) {
-          return false;
+      if (searchTerm) {
+        if (exactIdItem) {
+          // If the searched assessment ID exists, render ONLY that exact assessment
+          if (a.id !== exactIdItem.id) {
+            return false;
+          }
+        } else if (isNumericSearch) {
+          // User is searching by numeric ID: match strictly against assessment ID (never against UUID substrings)
+          const displayId = getAssessmentDisplayId(a).toLowerCase();
+          const matchId =
+            String(a.id) === cleanId ||
+            String(a.id).startsWith(cleanId) ||
+            displayId.includes(searchTerm);
+          if (!matchId) {
+            return false;
+          }
+        } else {
+          // Non-numeric search (e.g. prefix "as-", or UUID search like "2b8ed773...")
+          const displayId = getAssessmentDisplayId(a).toLowerCase();
+          const matchId =
+            displayId.includes(searchTerm) ||
+            `as-${a.id}`.toLowerCase().includes(searchTerm) ||
+            Boolean(a.assessment_uuid && a.assessment_uuid.toLowerCase().includes(searchTerm));
+          if (!matchId) {
+            return false;
+          }
         }
       }
 
@@ -687,15 +745,21 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       if (currentDateValue) {
         const parseItemDateKey = (dateStr?: string | null): string => {
           if (!dateStr) return "";
+          const d = parsePacificDate(dateStr);
+          if (!d) return String(dateStr).slice(0, 10);
           try {
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, "0");
-            const dd = String(d.getDate()).padStart(2, "0");
+            const parts = new Intl.DateTimeFormat("en-US", {
+              timeZone: "America/Los_Angeles",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+            }).formatToParts(d);
+            const yyyy = parts.find((p) => p.type === "year")?.value || "";
+            const mm = parts.find((p) => p.type === "month")?.value || "";
+            const dd = parts.find((p) => p.type === "day")?.value || "";
             return `${yyyy}-${mm}-${dd}`;
           } catch {
-            return "";
+            return String(dateStr).slice(0, 10);
           }
         };
 
@@ -716,12 +780,22 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
   }, [
     assessments,
     filters,
+    filters?.search,
+    filters?.candidate_id,
+    filters?.candidate_search,
+    filters?.category,
+    filters?.status,
+    filters?.media_type,
     currentCategory,
     currentStatus,
     currentMode,
     currentDateOperator,
     currentDateValue,
     currentDateTo,
+    getAssessmentDisplayId,
+    getCanonicalAssessmentType,
+    getCanonicalStatus,
+    getCanonicalMode,
   ]);
 
   const handleExportCSV = () => {
@@ -729,26 +803,26 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
       displayedAssessments.length > 0 ? displayedAssessments : assessments;
     if (!listToExport || listToExport.length === 0) return;
     const headers = [
-      "Assessment UUID",
+      "Assessment ID",
       "Candidate Name",
       "Candidate ID",
       "Candidate Email",
+      "Assessment Date & Time",
       "Assessment Type",
-      "Mode",
-      "Status",
-      "Score",
-      "Date",
+      "Assessment Mode",
+      "Assessment Status",
     ];
     const rows = listToExport.map((a) => [
       getAssessmentDisplayId(a),
       `"${a.candidate_name || ""}"`,
       a.candidate_id || "",
       `"${a.candidate_email || ""}"`,
+      formatDate(a.started_at || a.created_at) && formatTime(a.started_at || a.created_at)
+        ? `"${formatDate(a.started_at || a.created_at)} & ${formatTime(a.started_at || a.created_at)}"`
+        : `"${formatDate(a.started_at || a.created_at)}"`,
       a.assessment_type || "",
       a.media_type || (a as any).media_mode || "",
       a.status || "",
-      a.score != null ? `${a.score}%` : "—",
-      formatDate(a.created_at),
     ]);
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -782,45 +856,13 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
     <div className="space-y-4">
       {/* Sub-toolbar: title/records count + settings and export buttons */}
       <div className="flex items-center justify-between">
-        {isAdmin ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Candidate Assessment List ({recordCount})
-            </h3>
-            {filters?.search && filters.search.trim() && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-2xs">
-                <span>{filters.search.trim()}</span>
-                <button
-                  type="button"
-                  onClick={() => onFilterChange?.({ search: "" })}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer ml-0.5"
-                  title="Clear filter"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="inline-flex items-center px-3 py-1 rounded-full border border-gray-200 bg-white text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 text-xs font-semibold shadow-2xs">
-              {recordCount} records
-            </div>
-            {filters?.search && filters.search.trim() && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 shadow-2xs">
-                <span>{filters.search.trim()}</span>
-                <button
-                  type="button"
-                  onClick={() => onFilterChange?.({ search: "" })}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer ml-0.5"
-                  title="Clear filter"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </span>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {isAdmin
+              ? `Candidates Assessment List (${recordCount})`
+              : `Assessment List (${recordCount})`}
+          </h3>
+        </div>
 
         {isAdmin && (
           <div className="flex items-center gap-2">
@@ -936,12 +978,38 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                 <tr className="border-b border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-900 dark:text-gray-100">
                   {!hiddenColumns.has("id") && (
                     <th className="py-3 px-4 w-36 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
-                      Assessment UUID
+                      Assessment ID
                     </th>
                   )}
                   {isAdmin && !hiddenColumns.has("candidate") && (
                     <th className="py-3 px-4 w-44 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       Candidate
+                    </th>
+                  )}
+
+                  {/* Assessment Date Column with Funnel Filter */}
+                  {!hiddenColumns.has("date") && (
+                    <th className="py-3 px-4 w-56 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
+                      <div
+                        ref={dateButtonRef}
+                        className="flex items-center justify-between min-w-0"
+                      >
+                        <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
+                          Assessment Date & Time
+                        </span>
+                        <div
+                          onClick={toggleDateDropdown}
+                          className="ml-1 flex shrink-0 cursor-pointer items-center justify-center rounded p-0.5 hover:bg-gray-200/60 dark:hover:bg-gray-700 transition-colors"
+                          title="Filter by Assessment Date"
+                        >
+                          {isDateFiltered && (
+                            <span className="mr-1 min-w-[16px] rounded-full bg-blue-600 px-1 py-0.2 text-center text-[10px] font-bold text-white">
+                              1
+                            </span>
+                          )}
+                          <FunnelFilterIcon isActive={isDateFiltered} />
+                        </div>
+                      </div>
                     </th>
                   )}
 
@@ -971,7 +1039,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     </th>
                   )}
 
-                  {/* Mode Column with Funnel Filter */}
+                  {/* Assessment Mode Column with Funnel Filter */}
                   {!hiddenColumns.has("mode") && (
                     <th className="py-3 px-4 w-44 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       <div
@@ -979,12 +1047,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         className="flex items-center justify-between min-w-0"
                       >
                         <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
-                          Mode
+                          Assessment Mode
                         </span>
                         <div
                           onClick={toggleModeDropdown}
                           className="ml-1 flex shrink-0 cursor-pointer items-center justify-center rounded p-0.5 hover:bg-gray-200/60 dark:hover:bg-gray-700 transition-colors"
-                          title="Filter by Mode"
+                          title="Filter by Assessment Mode"
                         >
                           {isModeFiltered && (
                             <span className="mr-1 min-w-[16px] rounded-full bg-blue-600 px-1 py-0.2 text-center text-[10px] font-bold text-white">
@@ -997,7 +1065,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     </th>
                   )}
 
-                  {/* Status Column with Funnel Filter */}
+                  {/* Assessment Status Column with Funnel Filter */}
                   {!hiddenColumns.has("status") && (
                     <th className="py-3 px-4 w-44 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
                       <div
@@ -1005,12 +1073,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         className="flex items-center justify-between min-w-0"
                       >
                         <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
-                          Status
+                          Assessment Status
                         </span>
                         <div
                           onClick={toggleStatusDropdown}
                           className="ml-1 flex shrink-0 cursor-pointer items-center justify-center rounded p-0.5 hover:bg-gray-200/60 dark:hover:bg-gray-700 transition-colors"
-                          title="Filter by Status"
+                          title="Filter by Assessment Status"
                         >
                           {isStatusFiltered && (
                             <span className="mr-1 min-w-[16px] rounded-full bg-blue-600 px-1 py-0.2 text-center text-[10px] font-bold text-white">
@@ -1023,41 +1091,9 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                     </th>
                   )}
 
-                  {!hiddenColumns.has("score") && (
-                    <th className="py-3 px-4 w-24 font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
-                      Score
-                    </th>
-                  )}
-
-                  {/* Date Column with Funnel Filter */}
-                  {!hiddenColumns.has("date") && (
-                    <th className="py-3 px-4 w-44 relative font-bold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-700">
-                      <div
-                        ref={dateButtonRef}
-                        className="flex items-center justify-between min-w-0"
-                      >
-                        <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
-                          Date
-                        </span>
-                        <div
-                          onClick={toggleDateDropdown}
-                          className="ml-1 flex shrink-0 cursor-pointer items-center justify-center rounded p-0.5 hover:bg-gray-200/60 dark:hover:bg-gray-700 transition-colors"
-                          title="Filter by Date"
-                        >
-                          {isDateFiltered && (
-                            <span className="mr-1 min-w-[16px] rounded-full bg-blue-600 px-1 py-0.2 text-center text-[10px] font-bold text-white">
-                              1
-                            </span>
-                          )}
-                          <FunnelFilterIcon isActive={isDateFiltered} />
-                        </div>
-                      </div>
-                    </th>
-                  )}
-
                   {!hiddenColumns.has("actions") && (
                     <th className="py-3 px-4 w-28 text-center font-bold text-gray-900 dark:text-gray-100">
-                      Actions
+                      Report
                     </th>
                   )}
                 </tr>
@@ -1066,7 +1102,7 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                 {displayedAssessments.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={isAdmin ? 8 : 7}
+                      colSpan={isAdmin ? 7 : 6}
                       className="py-12 text-center text-gray-400 dark:text-gray-500 font-medium"
                     >
                       No assessment records match the selected filters
@@ -1079,7 +1115,6 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                       <tr
                         key={a.id}
                         onClick={() => handleRowClick(a)}
-                        onDoubleClick={() => handleRowDoubleClick(a)}
                         className={`cursor-pointer transition-colors ${
                           isSelected
                             ? "bg-[#BAE6FD] dark:bg-sky-900/60 font-medium"
@@ -1087,23 +1122,12 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         }`}
                       >
                         {!hiddenColumns.has("id") && (
-                          <td className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const val = getAssessmentDisplayId(a);
-                                if (onFilterChange) {
-                                  onFilterChange({ search: val });
-                                } else {
-                                  onView(a);
-                                }
-                              }}
-                              className="hover:underline text-purple-600 dark:text-purple-400 font-semibold cursor-pointer text-left whitespace-nowrap font-mono"
-                              title="Click to filter"
-                            >
-                              {getAssessmentDisplayId(a)}
-                            </button>
+                          <td
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => e.stopPropagation()}
+                            className="py-3.5 px-4 font-mono font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap cursor-default select-text"
+                          >
+                            {getAssessmentDisplayId(a)}
                           </td>
                         )}
 
@@ -1112,6 +1136,22 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                             <p className="font-bold text-gray-900 dark:text-white">
                               {a.candidate_name || (a.candidate_id ? `Candidate #${a.candidate_id}` : "—")}
                             </p>
+                          </td>
+                        )}
+
+                        {!hiddenColumns.has("date") && (
+                          <td className="py-3.5 px-4 text-gray-900 dark:text-gray-100 whitespace-nowrap text-xs">
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">
+                              {formatDate(a.started_at || a.created_at)}
+                            </span>
+                            {formatTime(a.started_at || a.created_at) && (
+                              <>
+                                <span className="mx-2.5 text-gray-400 font-normal">&</span>
+                                <span className="text-gray-600 dark:text-gray-300 font-medium">
+                                  {formatTime(a.started_at || a.created_at)}
+                                </span>
+                              </>
+                            )}
                           </td>
                         )}
 
@@ -1136,20 +1176,6 @@ export const AssessmentGrid: React.FC<AssessmentGridProps> = ({
                         {!hiddenColumns.has("status") && (
                           <td className="py-3.5 px-4">
                             {getStatusBadge(a.status)}
-                          </td>
-                        )}
-
-                        {!hiddenColumns.has("score") && (
-                          <td className="py-3.5 px-4 font-medium text-gray-500 dark:text-gray-400">
-                            {a.score != null && a.score > 0
-                              ? `${a.score}%`
-                              : "—"}
-                          </td>
-                        )}
-
-                        {!hiddenColumns.has("date") && (
-                          <td className="py-3.5 px-4 text-gray-600 dark:text-gray-400 font-medium">
-                            {formatDate(a.created_at)}
                           </td>
                         )}
 
