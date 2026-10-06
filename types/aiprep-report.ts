@@ -329,6 +329,22 @@ export interface NormalizedReport {
 
   // ── Transcript evidence (from transcript_evidence_json) ──
   transcript_evidence: TranscriptEvidence[];
+
+  // ── Backend-determined content sufficiency ──────────────────────────────────
+  // TRUE when the backend says there wasn't enough spoken content to evaluate.
+  // The frontend MUST NOT calculate this — only consume it.
+  insufficient_content: boolean;
+
+  // ── Consent — what the candidate agreed to retain ────────────────────────────
+  // Controls visibility of recording and transcript sections on the eval page.
+  // Populated from the backend response when available; defaults to permissive
+  // so that existing reports without consent data still show everything.
+  consent: {
+    /** Whether the candidate consented to retain the recording for playback */
+    save_recording: boolean;
+    /** Whether the candidate consented to retain the transcript for display */
+    save_transcript: boolean;
+  };
 }
 
 // ─── Normalization ────────────────────────────────────────────────────────────
@@ -853,6 +869,41 @@ export function normalizeReport(
   const rawTranscript = data?.transcript ?? asRecord(assessment.data).transcript;
   const transcript = parseTranscript(rawTranscript);
 
+  // ── insufficient_content ─────────────────────────────────────────────────
+  // Never calculated here — only read from backend.
+  // Sources: report.insufficient_content, data.insufficient_content, txEval.insufficient_content
+  const insufficientContent: boolean = Boolean(
+    (apiReport as any)?.insufficient_content ??
+    (assessment as any)?.insufficient_content ??
+    asRecord(assessment.data).insufficient_content ??
+    (data as any)?.insufficient_content ??
+    txEval.insufficient_content ??
+    false
+  );
+
+  // ── Consent ──────────────────────────────────────────────────────────────
+  // Read from backend consent fields. Default to permissive (true) so that
+  // existing reports without consent metadata still display everything.
+  const rawConsent = asRecord(
+    (assessment as any)?.consent ??
+    asRecord(assessment.data).consent ??
+    (data as any)?.consent ??
+    (apiReport as any)?.consent ??
+    {}
+  );
+  const consentSaveRecording: boolean =
+    typeof rawConsent.save_recording === "boolean"
+      ? rawConsent.save_recording
+      : typeof (assessment as any).save_recording === "boolean"
+        ? (assessment as any).save_recording
+        : true;
+  const consentSaveTranscript: boolean =
+    typeof rawConsent.save_transcript === "boolean"
+      ? rawConsent.save_transcript
+      : typeof (assessment as any).save_transcript === "boolean"
+        ? (assessment as any).save_transcript
+        : true;
+
   const overallReadiness =
     asStr(scoresRaw.overall_band) ??
     asStr(overallAssessment.readiness);
@@ -944,8 +995,13 @@ export function normalizeReport(
     coaching_suggestions,
     improvements,
     gaps_to_validate,
-    transcript,
-    transcript_evidence,
+    transcript: consentSaveTranscript ? transcript : { full_text: "", segments: [] },
+    transcript_evidence: consentSaveTranscript ? transcript_evidence : [],
+    insufficient_content: insufficientContent,
+    consent: {
+      save_recording: consentSaveRecording,
+      save_transcript: consentSaveTranscript,
+    },
   };
 }
 
