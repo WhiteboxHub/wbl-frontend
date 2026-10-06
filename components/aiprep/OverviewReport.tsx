@@ -60,7 +60,7 @@ export type { ReportTab };
 //  HELPERS & QUALITATIVE BADGE (NO NUMERIC SCORES)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function QualitativeBadge({
+const QualitativeBadge = React.memo(function QualitativeBadge({
   status,
   inverted = false,
 }: {
@@ -117,7 +117,7 @@ function QualitativeBadge({
       {displayLabel}
     </span>
   );
-}
+});
 
 function HighlightCard({
   icon,

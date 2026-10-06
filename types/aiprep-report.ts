@@ -874,9 +874,12 @@ export function normalizeReport(
   // Sources: report.insufficient_content, data.insufficient_content, txEval.insufficient_content
   const insufficientContent: boolean = Boolean(
     (apiReport as any)?.insufficient_content ??
+    (apiReport as any)?.assessment_eval?.insufficient_content ??
     (assessment as any)?.insufficient_content ??
     asRecord(assessment.data).insufficient_content ??
+    asRecord(assessment.data)?.assessment_eval?.insufficient_content ??
     (data as any)?.insufficient_content ??
+    (data as any)?.assessment_eval?.insufficient_content ??
     txEval.insufficient_content ??
     false
   );

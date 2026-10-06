@@ -261,6 +261,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     };
   }, []);
 
+  // Speech Recognition Safety Cleanup on Unmount
+  useEffect(() => {
+    return () => {
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) { }
+      }
+    };
+  }, []);
+
   const getBestVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
     if (!voices || voices.length === 0) return undefined;
     return (
