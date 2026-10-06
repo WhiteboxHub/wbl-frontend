@@ -274,7 +274,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         } catch (_) { }
       }
     };
-  }, []);
+  }, [restartTimeoutRef, recognitionRef]);
 
   const getBestVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
     if (!voices || voices.length === 0) return undefined;
