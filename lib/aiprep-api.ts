@@ -231,6 +231,13 @@ export const aiPrepApi = {
         body.job_description = jobDescription;
       }
 
+      const saveRec = payload.consent_save_recording ?? payload.consent?.save_recording ?? true;
+      const saveTx = payload.consent_save_transcript ?? payload.consent?.save_transcript ?? true;
+      body.consent = {
+        save_recording: saveRec,
+        save_transcript: saveTx,
+        video_analytics: !isAudioOnly,
+      };
       if (payload.consent_save_recording !== undefined) {
         body.consent_save_recording = payload.consent_save_recording;
       }

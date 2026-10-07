@@ -10,7 +10,7 @@
 //  - Section E: AiPrepReport (Shell: data fetching, state handling, natural scroll)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useRef, useCallback, useMemo, type RefObject } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo, memo, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -30,10 +30,13 @@ import {
   ExternalLink,
   Download,
   X,
+  XCircle,
   Copy,
   Check,
   ChevronDown,
   MicOff,
+  Cloud,
+  GitBranch,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
@@ -57,7 +60,7 @@ export type { ReportTab };
 //  HELPERS & QUALITATIVE BADGE (NO NUMERIC SCORES)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function QualitativeBadge({
+const QualitativeBadge = memo(function QualitativeBadge({
   status,
   inverted = false,
 }: {
@@ -66,62 +69,45 @@ function QualitativeBadge({
 }) {
   if (!status) return null;
   const raw = status.toUpperCase().trim();
-  const formatted = formatBand(status, inverted);
 
-  const isGood =
-    (!inverted && raw === "HIGH") ||
-    (inverted && (raw === "LOW" || raw === "MINIMAL")) ||
-    [
-      "EXCELLENT",
-      "STRONG",
-      "STRONG PERFORMANCE",
-      "GOOD",
-      "COVERED",
-      "POSITIVE",
-    ].includes(raw) ||
-    formatted === "Good" ||
-    raw.includes("GOOD") ||
-    raw.includes("STRONG");
+  let displayLabel = raw
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const isAvg =
-    !isGood &&
-    (raw === "MODERATE" ||
-      [
-        "ADEQUATE",
-        "AVERAGE",
-        "DEVELOPING",
-        "PARTIAL",
-      ].includes(raw) ||
-      formatted === "Average" ||
-      raw.includes("AVG") ||
-      raw.includes("AVERAGE") ||
-      raw.includes("DEVELOPING"));
+  if (raw === "NOT_APPLICABLE" || raw === "N/A") {
+    displayLabel = "N/A";
+  } else if (raw === "INSUFFICIENT_DATA") {
+    displayLabel = "Insufficient Data";
+  }
 
-  const isSpecialNA = raw === "NOT_APPLICABLE" || raw === "N/A";
-  const isSpecialNoData = raw === "INSUFFICIENT_DATA";
+  let colorClasses = "bg-slate-100 text-slate-700 border-slate-200";
 
-  // Strictly 3 standardized rating labels:
-  const displayLabel = isGood
-    ? "Good"
-    : isAvg
-      ? "Average"
-      : isSpecialNA
-        ? "N/A"
-        : isSpecialNoData
-          ? "Insufficient Data"
-          : "Needs Improvement";
-
-  // Strictly 3 standardized rating colors:
-  // 1. Good -> Green
-  // 2. Average -> Amber
-  // 3. Needs Improvement (bad) -> Red
-  const colorClasses = isGood
-    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-    : isAvg
-      ? "bg-amber-50 text-amber-700 border-amber-200"
-      : isSpecialNA || isSpecialNoData
-        ? "bg-slate-50 text-slate-600 border-slate-200"
-        : "bg-rose-50 text-rose-700 border-rose-200";
+  if (inverted) {
+    if (raw === "LOW" || raw === "MINIMAL") {
+      colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    } else if (raw === "MODERATE") {
+      colorClasses = "bg-amber-50 text-amber-700 border-amber-200";
+    } else if (raw === "HIGH" || raw === "EXCESSIVE") {
+      colorClasses = "bg-rose-50 text-rose-700 border-rose-200";
+    }
+  } else {
+    if (
+      ["STRONG", "EXCELLENT", "GOOD", "COVERED", "POSITIVE"].includes(raw) ||
+      raw.includes("STRONG") ||
+      raw.includes("GOOD")
+    ) {
+      colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200";
+    } else if (["ADEQUATE"].includes(raw)) {
+      colorClasses = "bg-teal-50 text-teal-700 border-teal-200";
+    } else if (["NEEDS_POLISH", "PARTIAL", "MODERATE", "AVERAGE", "DEVELOPING"].includes(raw)) {
+      colorClasses = "bg-amber-50 text-amber-700 border-amber-200";
+    } else if (["WEAK", "NEEDS_IMPROVEMENT", "NEEDS_WORK", "POOR", "NEGATIVE"].includes(raw)) {
+      colorClasses = "bg-rose-50 text-rose-700 border-rose-200";
+    } else if (["NOT_MENTIONED", "NOT_APPLICABLE", "N/A", "INSUFFICIENT_DATA"].includes(raw)) {
+      colorClasses = "bg-slate-100 text-slate-600 border-slate-200";
+    }
+  }
 
   return (
     <span
@@ -131,7 +117,7 @@ function QualitativeBadge({
       {displayLabel}
     </span>
   );
-}
+});
 
 function HighlightCard({
   icon,
@@ -271,6 +257,16 @@ function isOnlyGreetingsOrTestUtterances(text: string): boolean {
 }
 
 function hasRealSpeech(report: NormalizedReport): boolean {
+  // If LLM evaluation results exist (e.g., Scenario 4 where transcript consent was declined),
+  // candidate spoke and evaluation was performed.
+  if (
+    isRealContent(report.overall_summary) ||
+    (report.intro_sections && report.intro_sections.length > 0) ||
+    Boolean(report.scores?.overall_band || report.scores?.ai_engineering?.band)
+  ) {
+    return true;
+  }
+
   const fullText = (report.transcript?.full_text || "").trim();
   const segments = report.transcript?.segments || [];
   let combined = fullText;
@@ -298,20 +294,132 @@ function isPositiveStatus(status?: string | null): boolean {
   return ["COVERED", "PARTIAL", "STRONG", "GOOD", "ADEQUATE", "AVERAGE", "DEVELOPING", "POSITIVE", "EXCELLENT"].includes(s);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  MODULE-LEVEL LOOKUP TABLES
+//  Defined once at module scope so they are never recreated per render.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Maps intro-section key → human-readable group label (used in "What You Missed") */
+const CONCEPT_GROUP_LABEL: Readonly<Record<string, string>> = {
+  agentic_ai:               "Agentic AI",
+  rag_and_retrieval:        "RAG & Retrieval",
+  models_and_ai_platforms:  "Models & AI Platforms",
+  software_engineering:     "Software Engineering",
+  cloud_and_infrastructure: "Cloud Technologies",
+  cicd_and_delivery:        "DevOps & CI/CD",
+};
+
+/**
+ * Maps individual concept keys (from the LLM JSON) → friendly display labels.
+ * Covers every concept key defined in the intro prompt schema.
+ */
+const CONCEPT_LABEL: Readonly<Record<string, string>> = {
+  // ── Agentic AI ──
+  agentic_ai:           "Agentic AI",
+  agent_framework:      "Agent Framework",
+  orchestration:        "Orchestration",
+  design_patterns:      "Design Patterns",
+  agent_to_agent:       "Agent-to-Agent Communication",
+  multi_agent:          "Multi-Agent Architecture",
+  mcp:                  "MCP / Tool Calling",
+  tool_calling:         "Tool Calling",
+  memory_management:    "Memory Management",
+  context_engineering:  "Context Engineering",
+  evaluations:          "Evaluations",
+  guardrails:           "Guardrails",
+  observability:        "Observability / Tracing",
+  governance:           "Governance",
+  prompt_engineering:   "Prompt Engineering",
+  reasoning_strategy:   "Reasoning Strategy",
+  // ── RAG & Retrieval ──
+  rag:                  "RAG",
+  retrieval:            "Retrieval",
+  ingestion:            "Data Ingestion",
+  cleaning_preprocessing: "Cleaning & Preprocessing",
+  chunking:             "Chunking",
+  embeddings:           "Embeddings",
+  vector_database:      "Vector Database",
+  hybrid_retrieval:     "Hybrid Retrieval",
+  reranking:            "Re-ranking",
+  metadata_filtering:   "Metadata Filtering",
+  knowledge_graph:      "Knowledge Graph",
+  ontology:             "Ontology",
+  query_optimization:   "Query Optimization",
+  caching:              "Caching",
+  retrieval_evaluation: "Retrieval Evaluation",
+  // ── Software Engineering ──
+  apis:                 "APIs / REST",
+  api_gateway:          "API Gateway",
+  fastapi:              "FastAPI",
+  backend_services:     "Backend Services",
+  microservices:        "Microservices",
+  react_frontend:       "React / Frontend",
+  sql_database:         "SQL Database",
+  document_nosql_database: "NoSQL / Document DB",
+  // ── DevOps & CI/CD ──
+  cicd:                 "CI/CD Pipeline",
+  github_actions:       "GitHub Actions",
+  gitops:               "GitOps",
+  automated_testing:    "Automated Testing",
+  deployment_strategy:  "Deployment Strategy",
+};
+
+/**
+ * Ordered list of technical section keys evaluated in "What You Missed".
+ * Order determines the display sequence in the grouped concept pills.
+ */
+const TECHNICAL_SECTION_KEYS: readonly string[] = [
+  "agentic_ai",
+  "rag_and_retrieval",
+  "models_and_ai_platforms",
+  "software_engineering",
+  "cloud_and_infrastructure",
+  "cicd_and_delivery",
+];
+
+/** Section keys that belong to the Introduction evaluation block. */
+const INTRO_SECTION_KEYS: readonly string[] = [
+  "career_story",
+  "current_role",
+  "current_project",
+  "introduced_self",
+  "career_arc_covered",
+];
+
+/** Section keys that belong to the AI Engineering evaluation block. */
+const AI_SECTION_KEYS: readonly string[] = [
+  "agentic_ai",
+  "rag_and_retrieval",
+  "models_and_ai_platforms",
+  "rag_retrieval_chunking_mentioned",
+  "ai_agents_multiagent_mentioned",
+];
+
+/** Section keys that belong to Software Engineering (excludes Cloud & CI/CD). */
+const SE_SECTION_KEYS: readonly string[] = [
+  "software_engineering",
+  "mcp_mentioned",
+  "memory_context_engineering_mentioned",
+];
+
+/**
+ * Common capitalized words that are NOT candidate names.
+ * Used in formatFeedbackToSecondPerson to avoid false-positive name detection.
+ */
+const NON_NAME_WORDS = new Set([
+  "the", "this", "that", "these", "those", "here", "there", "it", "they",
+  "our", "your", "my", "each", "both", "section", "key", "overview",
+  "however", "overall", "introduction", "audio", "video", "transcript",
+  "summary", "assessment", "analysis", "evaluation", "feedback", "report",
+]);
+
+
 // ── Explicit Topic Detectors ─────────────────────────────────────────────────
 export function hasExplainedIntroduction(report: NormalizedReport): boolean {
   if (!hasRealSpeech(report)) return false;
 
-  const introKeys = [
-    "career_story",
-    "current_role",
-    "current_project",
-    "introduced_self",
-    "career_arc_covered",
-  ];
-
   const introSections = (report.intro_sections || []).filter((s) =>
-    introKeys.includes(s.key)
+    INTRO_SECTION_KEYS.includes(s.key)
   );
 
   // 1. Check if any intro section has a genuinely covered/partial status
@@ -338,16 +446,8 @@ export function hasExplainedIntroduction(report: NormalizedReport): boolean {
 export function hasExplainedAiEngineering(report: NormalizedReport): boolean {
   if (!hasRealSpeech(report)) return false;
 
-  const aiKeys = [
-    "agentic_ai",
-    "rag_and_retrieval",
-    "models_and_ai_platforms",
-    "rag_retrieval_chunking_mentioned",
-    "ai_agents_multiagent_mentioned",
-  ];
-
   const aiSections = (report.intro_sections || []).filter((s) =>
-    aiKeys.includes(s.key)
+    AI_SECTION_KEYS.includes(s.key)
   );
 
   // 1. Check if any AI concept is COVERED or PARTIAL
@@ -398,19 +498,11 @@ export function hasExplainedAiEngineering(report: NormalizedReport): boolean {
 export function hasExplainedSoftwareEngineering(report: NormalizedReport): boolean {
   if (!hasRealSpeech(report)) return false;
 
-  const seKeys = [
-    "software_engineering",
-    "cloud_and_infrastructure",
-    "cicd_and_delivery",
-    "mcp_mentioned",
-    "memory_context_engineering_mentioned",
-  ];
-
+  // Only pure SE keys (NOT cloud or cicd — those have their own helpers)
   const seSections = (report.intro_sections || []).filter((s) =>
-    seKeys.includes(s.key)
+    SE_SECTION_KEYS.includes(s.key)
   );
 
-  // 1. Check if any SE concept is COVERED or PARTIAL
   const hasSeConcepts = seSections.some(
     (s) =>
       s.concepts &&
@@ -418,22 +510,16 @@ export function hasExplainedSoftwareEngineering(report: NormalizedReport): boole
   );
   if (hasSeConcepts) return true;
 
-  // 2. Check if any SE section has genuine transcript evidence
   const hasEvidence = seSections.some(
     (s) => Array.isArray(s.evidence) && s.evidence.some((e) => e && e.trim().length > 0)
   );
   if (hasEvidence) return true;
 
-  // 3. Check if actual SE technologies were mentioned
   const techInv = report.technology_inventory;
   const seTech = [
     ...(techInv?.backend_and_api || []),
     ...(techInv?.frontend || []),
     ...(techInv?.databases || []),
-    ...(techInv?.cloud || []),
-    ...(techInv?.containers_and_orchestration || []),
-    ...(techInv?.infrastructure_as_code || []),
-    ...(techInv?.cicd || []),
   ].filter(Boolean);
   if (seTech.length > 0) return true;
 
@@ -444,15 +530,53 @@ export function hasExplainedSoftwareEngineering(report: NormalizedReport): boole
   );
   if (hasSectionTech) return true;
 
-  // 4. Check if section has positive status
   const hasPositiveSecStatus = seSections.some((s) => isPositiveStatus(s.status));
   if (hasPositiveSecStatus) return true;
 
-  // 5. Check if any observation passes isRealContent
   const hasRealObs = seSections.some((s) => isRealContent(s.observation));
   if (hasRealObs) return true;
 
   if (isRealContent(report.final_assessment?.production_engineering_depth)) return true;
+
+  return false;
+}
+
+export function hasExplainedCloud(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+
+  const cloudSec = (report.intro_sections || []).find((s) => s.key === "cloud_and_infrastructure");
+
+  if (cloudSec?.concepts && Object.values(cloudSec.concepts).some((st) => isPositiveStatus(String(st)))) return true;
+  if (Array.isArray(cloudSec?.evidence) && cloudSec.evidence.some((e) => e && e.trim().length > 0)) return true;
+  if (Array.isArray(cloudSec?.technologies_mentioned) && cloudSec.technologies_mentioned.filter(Boolean).length > 0) return true;
+  if (isPositiveStatus(cloudSec?.status)) return true;
+  if (isRealContent(cloudSec?.observation)) return true;
+
+  const cloudTech = [
+    ...(report.technology_inventory?.cloud || []),
+    ...(report.technology_inventory?.containers_and_orchestration || []),
+    ...(report.technology_inventory?.infrastructure_as_code || []),
+  ].filter(Boolean);
+  if (cloudTech.length > 0) return true;
+
+  return false;
+}
+
+export function hasExplainedCicd(report: NormalizedReport): boolean {
+  if (!hasRealSpeech(report)) return false;
+
+  const cicdSec = (report.intro_sections || []).find((s) => s.key === "cicd_and_delivery");
+
+  if (cicdSec?.concepts && Object.values(cicdSec.concepts).some((st) => isPositiveStatus(String(st)))) return true;
+  if (Array.isArray(cicdSec?.evidence) && cicdSec.evidence.some((e) => e && e.trim().length > 0)) return true;
+  if (Array.isArray(cicdSec?.technologies_mentioned) && cicdSec.technologies_mentioned.filter(Boolean).length > 0) return true;
+  if (isPositiveStatus(cicdSec?.status)) return true;
+  if (isRealContent(cicdSec?.observation)) return true;
+
+  const cicdTech = [
+    ...(report.technology_inventory?.cicd || []),
+  ].filter(Boolean);
+  if (cicdTech.length > 0) return true;
 
   return false;
 }
@@ -662,12 +786,7 @@ function formatFeedbackToSecondPerson(
   }
 
   // Common non-name capitalized words that might start sentences or appear before verbs
-  const nonNameWords = new Set([
-    "the", "this", "that", "these", "those", "here", "there", "it", "they",
-    "our", "your", "my", "each", "both", "section", "key", "overview",
-    "however", "overall", "introduction", "audio", "video", "transcript",
-    "summary", "assessment", "analysis", "evaluation", "feedback", "report"
-  ]);
+  // (module-level constant NON_NAME_WORDS used here — see top of file)
 
   // Dynamically detect names followed by 3rd-person verbs or adverbs
   // e.g. "Vishnu effectively communicates", "Vishnu demonstrates", "Vishnu mentions"
@@ -676,7 +795,7 @@ function formatFeedbackToSecondPerson(
   let dynamicMatch: RegExpExecArray | null;
   while ((dynamicMatch = dynamicNameRegex.exec(s)) !== null) {
     const candidateWord = dynamicMatch[1];
-    if (!nonNameWords.has(candidateWord.toLowerCase())) {
+    if (!NON_NAME_WORDS.has(candidateWord.toLowerCase())) {
       nameSet.add(candidateWord);
     }
   }
@@ -686,7 +805,7 @@ function formatFeedbackToSecondPerson(
   let possMatch: RegExpExecArray | null;
   while ((possMatch = possessiveNameRegex.exec(s)) !== null) {
     const candidateWord = possMatch[1];
-    if (!nonNameWords.has(candidateWord.toLowerCase())) {
+    if (!NON_NAME_WORDS.has(candidateWord.toLowerCase())) {
       nameSet.add(candidateWord);
     }
   }
@@ -890,12 +1009,34 @@ export function EmptyEvaluationCard() {
 //  SECTION B — EVALUATION TAB CONTENT
 // ═════════════════════════════════════════════════════════════════════════════
 
+// ── InsufficientEvaluationState ─────────────────────────────────────────────
+// Shown on the Overview tab when report.insufficient_content === true.
+// Does NOT display fake evaluation — just a clear, user-friendly message.
+function InsufficientEvaluationState() {
+  return (
+    <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-6 sm:p-8 text-center shadow-xs">
+      <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-amber-100 border border-amber-200 text-amber-600">
+        <MicOff size={22} strokeWidth={2} />
+      </div>
+      <h2 className="text-base sm:text-lg font-bold text-slate-900">
+        Evaluation Unavailable
+      </h2>
+      <p className="mt-1.5 text-sm leading-relaxed text-slate-600 max-w-md mx-auto">
+        We don&apos;t have enough information to provide an evaluation for this
+        assessment. Please ensure you speak clearly and provide a complete
+        introduction during your next attempt.
+      </p>
+    </div>
+  );
+}
+
 export interface OverviewProps {
   report: NormalizedReport;
   videoRef: RefObject<HTMLVideoElement | null>;
   seekTo: (seconds: number) => void;
   assessmentId: string;
   onSelectTab: (tab: ReportTab, subTab?: string) => void;
+  onOpenTranscript?: () => void;
 }
 
 export function EvaluationContent({
@@ -904,6 +1045,7 @@ export function EvaluationContent({
   seekTo,
   assessmentId,
   onSelectTab,
+  onOpenTranscript,
 }: OverviewProps) {
   const {
     youtube_url,
@@ -912,293 +1054,180 @@ export function EvaluationContent({
     scores,
     intro_sections,
     audio,
-    video,
     transcript,
-    coaching_suggestions,
-    priority_improvements,
     final_assessment,
+    insufficient_content,
+    consent,
   } = report;
-
-  const candidateSpoke = hasRealSpeech(report);
-
-  const hasIntroContent = hasExplainedIntroduction(report);
-  const hasAiContent = hasExplainedAiEngineering(report);
-  const hasSeContent = hasExplainedSoftwareEngineering(report);
-  const hasAudioContent = hasExplainedAudio(report);
-  const hasVideoContent = hasExplainedVideo(report);
 
   const candidateName = report.candidate_name || (report.assessment as any)?.candidate_name;
 
-  // ── Introduction & Resume ──
-  const introSection = intro_sections.find((s) =>
-    [
-      "career_story",
-      "current_role",
-      "current_project",
-      "introduced_self",
-      "career_arc_covered",
-    ].includes(s.key)
-  );
-  const rawIntroObs =
-    introSection?.observation ??
-    final_assessment?.career_story ??
-    final_assessment?.current_project_clarity ??
-    undefined;
-  const introResumeObs = isRealContent(rawIntroObs)
-    ? formatFeedbackToSecondPerson(rawIntroObs, candidateName)
+  // ── Consent-driven visibility ─────────────────────────────────────────────
+  const canShowRecording = Boolean(consent?.save_recording ?? true);
+  const canShowTranscript = Boolean(consent?.save_transcript ?? true);
+
+  // ── Playback URL ──────────────────────────────────────────────────────────
+  const effectivePlaybackUrl = canShowRecording
+    ? (youtube_url ||
+        (assessmentId
+          ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/playback`
+          : undefined))
     : undefined;
-  const introResumeBand = introSection?.status;
 
-  // ── AI Engineering ──
-  const aiEngSection = intro_sections.find((s) =>
-    [
-      "agentic_ai",
-      "rag_and_retrieval",
-      "models_and_ai_platforms",
-      "rag_retrieval_chunking_mentioned",
-      "ai_agents_multiagent_mentioned",
-    ].includes(s.key)
-  );
-  const rawAiObs =
-    aiEngSection?.observation ??
-    final_assessment?.ai_engineering_depth ??
-    report.technical_analysis?.summary;
-  const aiEngObs = isRealContent(rawAiObs)
-    ? formatFeedbackToSecondPerson(rawAiObs, candidateName)
-    : undefined;
-  const aiEngBand = aiEngSection?.status ?? scores.ai_engineering?.band;
-
-  // ── Software Engineering ──
-  const coreEngSection = intro_sections.find((s) =>
-    [
-      "software_engineering",
-      "cloud_and_infrastructure",
-      "cicd_and_delivery",
-      "mcp_mentioned",
-      "memory_context_engineering_mentioned",
-    ].includes(s.key)
-  );
-  const rawCoreObs =
-    coreEngSection?.observation ??
-    final_assessment?.production_engineering_depth ??
-    report.technical_analysis?.depth_assessment;
-  const coreEngObs = isRealContent(rawCoreObs)
-    ? formatFeedbackToSecondPerson(rawCoreObs, candidateName)
-    : undefined;
-  const coreEngBand = coreEngSection?.status ?? scores.core_engineering?.band;
-
-  // ── Audio Analysis ──
-  const rawAudioStrength =
-    audio?.primary_vocal_strength?.toLowerCase() === "pace"
-      ? "Speaking Speed"
-      : audio?.primary_vocal_strength;
-
-  const candidateAudioObservations = [
-    audio?.executive_summary,
-    rawAudioStrength,
-    audio?.factors?.fluency?.observation,
-    audio?.factors?.confidence_vocal_presence?.observation,
-    report.non_technical?.communication_summary,
-    report.non_technical?.confidence_notes,
-  ];
-
-  const firstRealAudioObs = candidateAudioObservations.find(
-    (obs): obs is string => typeof obs === "string" && isRealContent(obs)
-  );
-
-  const rawAudioObs = firstRealAudioObs ? sanitizeQualitativeText(firstRealAudioObs) : undefined;
-  const audioObs = isRealContent(rawAudioObs)
-    ? formatFeedbackToSecondPerson(rawAudioObs, candidateName)
-    : undefined;
-  const audioBand = (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA")
-    ? audio.overall_readiness
-    : report.scores?.non_technical?.band;
-
-  // ── Video Analysis ──
-  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
-  const isAudioOnly =
-    rawMediaType === "AUDIO" ||
-    rawMediaType === "AUDIO_ONLY";
-
-  const rawVideoObs = sanitizeQualitativeText(
-    video?.overall_summary ??
-    video?.primary_setup_strength ??
-    video?.factors?.camera_framing_centering?.observation ??
-    undefined
-  );
-  const videoObs = isRealContent(rawVideoObs)
-    ? formatFeedbackToSecondPerson(rawVideoObs, candidateName)
-    : undefined;
-  const videoBand = video?.factors?.camera_framing_centering?.status;
-
-  // ── Highlights Cards List (Filtered list built BEFORE rendering) ──
-  const highlightCards: React.ReactNode[] = [];
-  if (hasIntroContent) {
-    highlightCards.push(
-      <HighlightCard
-        key="intro"
-        icon={<User size={18} />}
-        title="Introduction & Resume"
-        observation={introResumeObs}
-        status={introResumeBand}
-      />
-    );
-  }
-  if (hasAiContent) {
-    highlightCards.push(
-      <HighlightCard
-        key="ai"
-        icon={<Cpu size={18} />}
-        title="AI Engineering"
-        observation={aiEngObs}
-        status={aiEngBand}
-      />
-    );
-  }
-  if (hasSeContent) {
-    highlightCards.push(
-      <HighlightCard
-        key="se"
-        icon={<Code2 size={18} />}
-        title="Software Engineering"
-        observation={coreEngObs}
-        status={coreEngBand}
-      />
-    );
-  }
-  if (hasAudioContent) {
-    highlightCards.push(
-      <HighlightCard
-        key="audio"
-        icon={<AudioWaveform size={18} />}
-        title="Audio Analysis"
-        observation={audioObs}
-        status={audioBand}
-      />
-    );
-  }
-  if (hasVideoContent) {
-    highlightCards.push(
-      <HighlightCard
-        key="video"
-        icon={<Video size={18} />}
-        title="Video & On-Camera"
-        observation={videoObs}
-        status={videoBand}
-      />
-    );
-  }
-
-  // If candidate did not speak or there are no valid evaluated topics,
-  // remove the middle cards (Overall Assessment, Highlights, Transcript, Tip)
-  // and display the short popup-style empty state card instead:
-  if (!candidateSpoke || highlightCards.length === 0) {
-    return <EmptyEvaluationCard />;
-  }
-
-  const rawTip =
-    final_assessment?.most_important_improvement ??
-    priority_improvements[0]?.guidance ??
-    coaching_suggestions.find((c) => c.priority === 1)?.suggestion ??
-    coaching_suggestions[0]?.suggestion;
-
-  const validPreviewSegments = candidateSpoke
-    ? transcript.segments
-      .filter((seg) => isRealContent(seg.text.replace(/<\/?s>/gi, "")))
-      .slice(0, 5)
-    : [];
-
-  const hasRecording = Boolean(
-    youtube_url &&
-    youtube_url.trim().length > 0 &&
-    youtube_url.trim().toLowerCase() !== "null" &&
-    youtube_url.trim().toLowerCase() !== "undefined"
-  );
-
+  // ── Duration ──────────────────────────────────────────────────────────────
   const durationStr = getTranscriptDuration(report);
-  const durationSeconds = candidateSpoke
-    ? report.audio?.recording_environment?.speaking_duration_seconds ||
-      (report as any).audio_telemetry?.duration ||
-      (report.transcript.segments.length > 0
-        ? Math.max(...report.transcript.segments.map((s) => s.timestamp_s || 0))
-        : 0) || 0
-    : 0;
+  const durationSeconds =
+    audio?.recording_environment?.speaking_duration_seconds ||
+    (report as any).audio_telemetry?.duration ||
+    (transcript.segments.length > 0
+      ? Math.max(...transcript.segments.map((s) => s.timestamp_s || 0))
+      : 0) || 0;
 
+  // ── Media type ──
+  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
+  const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
 
-  const effectivePlaybackUrl =
-    youtube_url ||
-    (assessmentId
-      ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/playback`
-      : undefined);
-
+  // ── Overall summary ───────────────────────────────────────────────────────
   const validOverallSummary = isRealContent(overall_summary)
     ? formatFeedbackToSecondPerson(overall_summary, candidateName)
     : undefined;
   const rawOverallStatus = overall_readiness ?? scores.overall_band;
   const overallStatus = isPositiveStatus(rawOverallStatus) ? rawOverallStatus : undefined;
 
+  // ── Highlight card observations ───────────────────────────────────────────
+  const introSection = intro_sections.find((s) => INTRO_SECTION_KEYS.includes(s.key));
+  const rawIntroObs = introSection?.observation ?? final_assessment?.career_story ?? final_assessment?.current_project_clarity;
+  const introObs = isRealContent(rawIntroObs) ? formatFeedbackToSecondPerson(rawIntroObs, candidateName) : undefined;
+  const introBand = introSection?.status;
+
+  const aiEngSection = intro_sections.find((s) => AI_SECTION_KEYS.includes(s.key));
+  const rawAiObs = aiEngSection?.observation ?? final_assessment?.ai_engineering_depth ?? report.technical_analysis?.summary;
+  const aiObs = isRealContent(rawAiObs) ? formatFeedbackToSecondPerson(rawAiObs, candidateName) : undefined;
+  const aiEngBand = aiEngSection?.status ?? scores.ai_engineering?.band;
+
+  const seSection = intro_sections.find((s) => SE_SECTION_KEYS.includes(s.key));
+  const rawSeObs = seSection?.observation ?? final_assessment?.production_engineering_depth;
+  const seObs = isRealContent(rawSeObs) ? formatFeedbackToSecondPerson(rawSeObs, candidateName) : undefined;
+  const seBand = seSection?.status ?? scores.core_engineering?.band;
+
+  const cloudSection = intro_sections.find((s) => s.key === "cloud_and_infrastructure");
+  const rawCloudObs = cloudSection?.observation ?? "You covered key cloud & infrastructure technologies.";
+  const cloudObs = isRealContent(rawCloudObs) ? formatFeedbackToSecondPerson(rawCloudObs, candidateName) : undefined;
+  const cloudBand = cloudSection?.status;
+
+  const cicdSection = intro_sections.find((s) => s.key === "cicd_and_delivery");
+  const rawCicdObs = cicdSection?.observation ?? "You mentioned deployment and delivery practices.";
+  const cicdObs = isRealContent(rawCicdObs) ? formatFeedbackToSecondPerson(rawCicdObs, candidateName) : undefined;
+  const cicdBand = cicdSection?.status;
+
+  const rawAudioObs = audio?.executive_summary ?? audio?.primary_vocal_strength;
+  const audioObs = isRealContent(rawAudioObs) ? formatFeedbackToSecondPerson(sanitizeQualitativeText(rawAudioObs), candidateName) : undefined;
+  const audioBand = (audio?.overall_readiness && audio.overall_readiness !== "INSUFFICIENT_DATA")
+    ? audio.overall_readiness
+    : scores.non_technical?.band;
+
+  // Build the 6 Highlight Cards matching requirement (Intro, AI Eng, Software Eng, Cloud, DevOps, Audio):
+  const highlightCards: React.ReactNode[] = [
+    <HighlightCard
+      key="intro"
+      icon={<User size={18} />}
+      title="Introduction & Resume"
+      observation={introObs}
+      status={introBand}
+    />,
+    <HighlightCard
+      key="ai"
+      icon={<Cpu size={18} />}
+      title="AI Engineering"
+      observation={aiObs}
+      status={aiEngBand}
+    />,
+    <HighlightCard
+      key="se"
+      icon={<Code2 size={18} />}
+      title="Software Engineering"
+      observation={seObs}
+      status={seBand}
+    />,
+    <HighlightCard
+      key="cloud"
+      icon={<Cloud size={18} />}
+      title="Cloud Technologies"
+      observation={cloudObs}
+      status={cloudBand}
+    />,
+    <HighlightCard
+      key="devops"
+      icon={<GitBranch size={18} />}
+      title="DevOps & CI/CD"
+      observation={cicdObs}
+      status={cicdBand}
+    />,
+    <HighlightCard
+      key="audio"
+      icon={<AudioWaveform size={18} />}
+      title="Audio Analysis"
+      observation={audioObs}
+      status={audioBand}
+    />,
+  ];
+
   return (
-    <div className="space-y-3 sm:space-y-3.5">
+    <div className="space-y-4 sm:space-y-5">
       {/* ── 1. Overall Assessment (Wide Horizontal Card) ────────────────── */}
-      <section className="rounded-xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+      <section className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
             <span className="text-amber-500 text-sm">✦</span>
-            <h2 className="text-xs sm:text-sm font-bold text-slate-900">
-              Overall Assessment
-            </h2>
+            <h2 className="text-sm font-bold text-slate-900">Overall Assessment</h2>
           </div>
-          {overallStatus && (
-            <QualitativeBadge
-              status={overallStatus}
-            />
+          {overallStatus && !insufficient_content && (
+            <QualitativeBadge status={overallStatus} />
           )}
         </div>
-        {validOverallSummary ? (
-          <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700">
-            {validOverallSummary}
-          </p>
+
+        {insufficient_content ? (
+          <InsufficientEvaluationState />
         ) : (
-          <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700">
-            Assessment evaluation based on the topics presented by the candidate.
-          </p>
+          <>
+            {validOverallSummary ? (
+              <p className="text-xs sm:text-sm leading-relaxed text-slate-700">{validOverallSummary}</p>
+            ) : (
+              <p className="text-xs sm:text-sm leading-relaxed text-slate-600 italic">
+                Assessment evaluation based on the topics presented by the candidate.
+              </p>
+            )}
+          </>
         )}
       </section>
 
-      {/* ── 2. Evaluation Highlights (Dynamic Grid — only real candidate content) ── */}
-      <section>
-        <h2 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
-          Evaluation Highlights
-        </h2>
-        {highlightCards.length > 0 ? (
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ── 2. EVALUATION HIGHLIGHTS Grid — only when content is sufficient ── */}
+      {!insufficient_content && (
+        <section>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+            EVALUATION HIGHLIGHTS
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {highlightCards}
           </div>
-        ) : (
-          <div className="rounded-xl border border-slate-200/80 bg-white p-5 text-center shadow-xs">
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">
-              No evaluation highlights available. The candidate did not provide spoken responses for evaluation.
-            </p>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
-      {/* ── 3. Recording Playback & Transcript Preview ── */}
-      {Boolean(effectivePlaybackUrl) ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* LEFT: Recording Playback */}
-          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-            <div className="mb-3 flex items-center gap-2 text-slate-800">
-              {isAudioOnly ? (
-                <AudioWaveform size={16} className="text-blue-600" />
-              ) : (
-                <Video size={16} className="text-blue-600" />
-              )}
-              <h2 className="text-sm font-bold">
-                {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
-              </h2>
-            </div>
-            <div className="flex-1 min-h-[260px] flex flex-col justify-center">
+      {/* ── 3. Recording Playback (Gated by consent.save_recording) ── */}
+      {!insufficient_content && canShowRecording && effectivePlaybackUrl && (
+        <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
+          <div className="mb-3 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2.5">
+            {isAudioOnly ? (
+              <AudioWaveform size={16} className="text-blue-600" />
+            ) : (
+              <Video size={16} className="text-blue-600" />
+            )}
+            <h2 className="text-sm font-bold">
+              {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
+            </h2>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center py-1 sm:py-2">
+            <div className="w-full max-w-2xl sm:max-w-3xl mx-auto">
               <VideoPlayer
                 youtubeUrl={effectivePlaybackUrl}
                 videoRef={videoRef}
@@ -1207,149 +1236,12 @@ export function EvaluationContent({
                 durationSeconds={durationSeconds}
               />
             </div>
-          </section>
-
-          {/* RIGHT: Transcript Preview */}
-          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-            <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 text-slate-800">
-                <FileText size={16} className="text-blue-600" />
-                <h2 className="text-sm font-bold">Transcript Preview</h2>
-                {durationStr && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                    <Clock size={11} className="text-blue-600" />
-                    {durationStr}
-                  </span>
-                )}
-              </div>
-              {candidateSpoke && (
-                <button
-                  type="button"
-                  onClick={() => onSelectTab("Details", "transcript")}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-                >
-                  <ExternalLink size={12} />
-                  Open Full Transcript
-                </button>
-              )}
-            </div>
-
-            {validPreviewSegments.length > 0 ? (
-              <div className="flex-1 space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                {validPreviewSegments.map((seg, i) => {
-                  const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
-                  return (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      {seg.timestamp_s != null ? (
-                        <button
-                          type="button"
-                          onClick={() => seekTo(seg.timestamp_s!)}
-                          className="w-11 shrink-0 font-mono text-blue-600 hover:text-blue-800 hover:underline text-left transition-colors cursor-pointer"
-                          title={`Seek recording to ${seg.timestamp}`}
-                        >
-                          {seg.timestamp ?? fmtTime(seg.timestamp_s)}
-                        </button>
-                      ) : (
-                        <span className="w-11 shrink-0 font-mono text-slate-400">
-                          {seg.timestamp ?? "—"}
-                        </span>
-                      )}
-                      <span className="shrink-0 font-semibold text-slate-700">
-                        {seg.speaker || "Candidate"}:
-                      </span>
-                      <p className="flex-1 leading-relaxed text-slate-600">
-                        {cleanText}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : candidateSpoke && transcript.full_text && isRealContent(transcript.full_text) ? (
-              <div className="flex-1 max-h-52 overflow-y-auto pr-1 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap select-text">
-                {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
-              </div>
-            ) : (
-              <p className="flex-1 text-xs text-slate-400 italic">
-                No spoken transcript recorded for this session.
-              </p>
-            )}
-          </section>
-        </div>
-      ) : (
-        /* Full-width clean transcript preview when no recording is stored in DB */
-        <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
-          <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-            <div className="flex items-center gap-2 text-slate-800">
-              <FileText size={16} className="text-blue-600" />
-              <h2 className="text-sm font-bold text-slate-900">Transcript Preview</h2>
-              {durationStr && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                  <Clock size={12} className="text-blue-600" />
-                  {durationStr}
-                </span>
-              )}
-            </div>
-            {candidateSpoke && (
-              <button
-                type="button"
-                onClick={() => onSelectTab("Details", "transcript")}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-              >
-                <ExternalLink size={13} />
-                Open Full Transcript
-              </button>
-            )}
-          </div>
-
-          {validPreviewSegments.length > 0 ? (
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-              {validPreviewSegments.map((seg, i) => {
-                const cleanText = seg.text.replace(/<\/?s>/gi, "").trim();
-                return (
-                  <div key={i} className="flex items-start gap-2 text-xs">
-                    <span className="shrink-0 font-mono text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200/70 text-[10px]">
-                      {seg.timestamp ?? fmtTime(seg.timestamp_s) ?? "—"}
-                    </span>
-                    <span className="shrink-0 font-semibold text-slate-800 text-xs">
-                      {seg.speaker || "Candidate"}:
-                    </span>
-                    <p className="flex-1 leading-snug text-slate-600 text-xs">
-                      {cleanText}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          ) : candidateSpoke && transcript.full_text && isRealContent(transcript.full_text) ? (
-            <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600 whitespace-pre-wrap select-text">
-              {transcript.full_text.replace(/<\/?s>/gi, "").trim()}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 italic">
-              No spoken transcript recorded for this session.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* ── 4. Tip Banner (Full Width) — only shown when the LLM generated a tip ── */}
-      {isRealContent(rawTip) && (
-        <section className="flex items-start gap-3 rounded-xl border border-emerald-200/80 bg-[#f0fdf4] p-4 shadow-2xs">
-          <Lightbulb size={22} className="mt-0.5 shrink-0 text-emerald-600" />
-          <div className="space-y-0.5 flex-1">
-            <h3 className="text-sm font-bold text-slate-900">
-              Tip
-            </h3>
-            <p className="text-xs sm:text-sm leading-relaxed text-slate-600">
-              {formatFeedbackToSecondPerson(rawTip, candidateName)}
-            </p>
           </div>
         </section>
       )}
     </div>
   );
 }
-
 // ═════════════════════════════════════════════════════════════════════════════
 //  SECTION C — DETAILS TAB CONTENT (Expandable Real Evaluation Sections)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1371,10 +1263,12 @@ export function DetailsContent({
   report,
   seekTo,
   initialSubTab = "intro",
+  onOpenTranscript,
 }: {
   report: NormalizedReport;
   seekTo: (seconds: number) => void;
   initialSubTab?: string;
+  onOpenTranscript?: () => void;
 }) {
   const {
     intro_sections = [],
@@ -1459,7 +1353,7 @@ export function DetailsContent({
         tabLabel: "Introduction",
         icon: <User size={16} className="text-blue-600" />,
         iconContainerClass: "bg-blue-50 text-blue-600 border-blue-100",
-        title: "Introduction Evaluation (AI Engineering Focus)",
+        title: "Introduction Evaluation",
         status: introStatus,
         description: introDesc,
         observations: realIntroObs.length > 0 ? realIntroObs : undefined,
@@ -1588,55 +1482,38 @@ export function DetailsContent({
     }
   }
 
-  // 3. Software Engineering / QA / Data / DevOps
+  // 3a. Software Engineering
   if (hasExplainedSoftwareEngineering(report)) {
     const seObs: string[] = [];
     const seSec = intro_sections.find((s) => s.key === "software_engineering");
-    const cloudSec = intro_sections.find((s) => s.key === "cloud_and_infrastructure");
-    const cicdSec = intro_sections.find((s) => s.key === "cicd_and_delivery");
 
     const seSectionObs = getSecObs("software_engineering");
     if (seSectionObs && isRealContent(seSectionObs)) seObs.push(seSectionObs);
 
-    const cloudObs = getSecObs("cloud_and_infrastructure");
-    if (cloudObs && isRealContent(cloudObs)) seObs.push(cloudObs);
-
-    const cicdObs = getSecObs("cicd_and_delivery");
-    if (cicdObs && isRealContent(cicdObs)) seObs.push(cicdObs);
-
     const rawSeDesc =
       final_assessment?.production_engineering_depth?.trim() ||
-      seSectionObs ||
-      cloudObs;
+      seSectionObs;
     const seDesc = isRealContent(rawSeDesc) ? rawSeDesc : undefined;
     const realSeObs = seObs.filter(isRealContent);
 
     const seConceptsList: { label: string; status: string }[] = [];
-    [seSec, cloudSec, cicdSec].forEach((sec) => {
-      if (sec?.concepts) {
-        Object.entries(sec.concepts).forEach(([conceptKey, conceptStatus]) => {
-          if (conceptStatus && isPositiveStatus(String(conceptStatus))) {
-            seConceptsList.push({
-              label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-              status: String(conceptStatus).toUpperCase(),
-            });
-          }
-        });
-      }
-    });
+    if (seSec?.concepts) {
+      Object.entries(seSec.concepts).forEach(([conceptKey, conceptStatus]) => {
+        if (conceptStatus && isPositiveStatus(String(conceptStatus))) {
+          seConceptsList.push({
+            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            status: String(conceptStatus).toUpperCase(),
+          });
+        }
+      });
+    }
 
     const seTechnologies = Array.from(
       new Set([
         ...(seSec?.technologies_mentioned || []),
-        ...(cloudSec?.technologies_mentioned || []),
-        ...(cicdSec?.technologies_mentioned || []),
         ...(report.technology_inventory?.backend_and_api || []),
         ...(report.technology_inventory?.frontend || []),
         ...(report.technology_inventory?.databases || []),
-        ...(report.technology_inventory?.cloud || []),
-        ...(report.technology_inventory?.containers_and_orchestration || []),
-        ...(report.technology_inventory?.infrastructure_as_code || []),
-        ...(report.technology_inventory?.cicd || []),
       ])
     ).filter(Boolean);
 
@@ -1645,11 +1522,7 @@ export function DetailsContent({
     );
     const hasSeCustom = coveredSeConcepts.length > 0 || seTechnologies.length > 0;
 
-    const resolvedSeStatus =
-      seSec?.status ||
-      cloudSec?.status ||
-      cicdSec?.status ||
-      scores.core_engineering?.band;
+    const resolvedSeStatus = seSec?.status || scores.core_engineering?.band;
 
     if (seDesc || realSeObs.length > 0 || hasSeCustom) {
       sections.push({
@@ -1687,6 +1560,170 @@ export function DetailsContent({
                   <span
                     key={idx}
                     className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-mono font-medium"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : undefined,
+      });
+    }
+  }
+
+  // 3b. Cloud Technologies
+  if (hasExplainedCloud(report)) {
+    const cloudSec = intro_sections.find((s) => s.key === "cloud_and_infrastructure");
+    const cloudObsText = getSecObs("cloud_and_infrastructure");
+    const cloudObs: string[] = [];
+    if (cloudObsText && isRealContent(cloudObsText)) cloudObs.push(cloudObsText);
+
+    const cloudConceptsList: { label: string; status: string }[] = [];
+    if (cloudSec?.concepts) {
+      Object.entries(cloudSec.concepts).forEach(([conceptKey, conceptStatus]) => {
+        if (conceptStatus && isPositiveStatus(String(conceptStatus))) {
+          cloudConceptsList.push({
+            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            status: String(conceptStatus).toUpperCase(),
+          });
+        }
+      });
+    }
+
+    const cloudTechnologies = Array.from(
+      new Set([
+        ...(cloudSec?.technologies_mentioned || []),
+        ...(report.technology_inventory?.cloud || []),
+        ...(report.technology_inventory?.containers_and_orchestration || []),
+        ...(report.technology_inventory?.infrastructure_as_code || []),
+      ])
+    ).filter(Boolean);
+
+    const coveredCloudConcepts = cloudConceptsList.filter(
+      (c) => c.status === "COVERED" || c.status === "PARTIAL"
+    );
+    const hasCloudCustom = coveredCloudConcepts.length > 0 || cloudTechnologies.length > 0;
+    const cloudDesc = isRealContent(cloudObsText) ? cloudObsText : undefined;
+    const realCloudObs = cloudObs.filter(isRealContent);
+
+    if (cloudDesc || realCloudObs.length > 0 || hasCloudCustom) {
+      sections.push({
+        id: "cloud_technologies",
+        tabLabel: "Cloud",
+        icon: <Cloud size={16} className="text-sky-600" />,
+        iconContainerClass: "bg-sky-50 text-sky-600 border-sky-100",
+        title: "Cloud Technologies",
+        status: isPositiveStatus(cloudSec?.status) ? cloudSec?.status : undefined,
+        description: cloudDesc,
+        observations: realCloudObs.length > 0 ? realCloudObs : undefined,
+        customContent: hasCloudCustom ? (
+          <div className="space-y-1.5 pt-1">
+            {coveredCloudConcepts.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Concepts Covered:
+                </span>
+                {coveredCloudConcepts.map((c, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
+                  >
+                    ✓ {c.label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {cloudTechnologies.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Technologies:
+                </span>
+                {cloudTechnologies.map((t, idx) => (
+                  <span
+                    key={idx}
+                    className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-mono font-medium"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : undefined,
+      });
+    }
+  }
+
+  // 3c. DevOps & CI/CD
+  if (hasExplainedCicd(report)) {
+    const cicdSec = intro_sections.find((s) => s.key === "cicd_and_delivery");
+    const cicdObsText = getSecObs("cicd_and_delivery");
+    const cicdObs: string[] = [];
+    if (cicdObsText && isRealContent(cicdObsText)) cicdObs.push(cicdObsText);
+
+    const cicdConceptsList: { label: string; status: string }[] = [];
+    if (cicdSec?.concepts) {
+      Object.entries(cicdSec.concepts).forEach(([conceptKey, conceptStatus]) => {
+        if (conceptStatus && isPositiveStatus(String(conceptStatus))) {
+          cicdConceptsList.push({
+            label: conceptKey.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            status: String(conceptStatus).toUpperCase(),
+          });
+        }
+      });
+    }
+
+    const cicdTechnologies = Array.from(
+      new Set([
+        ...(cicdSec?.technologies_mentioned || []),
+        ...(report.technology_inventory?.cicd || []),
+      ])
+    ).filter(Boolean);
+
+    const coveredCicdConcepts = cicdConceptsList.filter(
+      (c) => c.status === "COVERED" || c.status === "PARTIAL"
+    );
+    const hasCicdCustom = coveredCicdConcepts.length > 0 || cicdTechnologies.length > 0;
+    const cicdDesc = isRealContent(cicdObsText) ? cicdObsText : undefined;
+    const realCicdObs = cicdObs.filter(isRealContent);
+
+    if (cicdDesc || realCicdObs.length > 0 || hasCicdCustom) {
+      sections.push({
+        id: "devops_cicd",
+        tabLabel: "DevOps & CI/CD",
+        icon: <GitBranch size={16} className="text-orange-600" />,
+        iconContainerClass: "bg-orange-50 text-orange-600 border-orange-100",
+        title: "DevOps & CI/CD",
+        status: isPositiveStatus(cicdSec?.status) ? cicdSec?.status : undefined,
+        description: cicdDesc,
+        observations: realCicdObs.length > 0 ? realCicdObs : undefined,
+        customContent: hasCicdCustom ? (
+          <div className="space-y-1.5 pt-1">
+            {coveredCicdConcepts.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Concepts Covered:
+                </span>
+                {coveredCicdConcepts.map((c, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-medium"
+                  >
+                    ✓ {c.label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {cicdTechnologies.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="font-semibold text-slate-700 text-[10px] uppercase tracking-wider">
+                  Technologies:
+                </span>
+                {cicdTechnologies.map((t, idx) => (
+                  <span
+                    key={idx}
+                    className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-mono font-medium"
                   >
                     {t}
                   </span>
@@ -1848,57 +1885,7 @@ export function DetailsContent({
     }
   }
 
-  // 6. Transcript
-  const transcriptDuration = getTranscriptDuration(report);
-  if (candidateSpoke && isRealContent(fullParagraphText)) {
-    sections.push({
-      id: "transcript",
-      tabLabel: "Transcript",
-      icon: <FileText size={16} className="text-violet-600" />,
-      iconContainerClass: "bg-violet-50 text-violet-600 border-violet-100",
-      title: "Transcript",
-      status: undefined,
-      rightElement: transcriptDuration ? (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-          <Clock size={11} className="text-blue-600" />
-          {transcriptDuration}
-        </span>
-      ) : undefined,
-      customContent: (
-        <div className="space-y-2.5 pt-1">
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 sm:p-3.5 space-y-2">
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                Spoken Transcript (Full Paragraph)
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyTranscript}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
-              >
-                {copiedTranscript ? (
-                  <>
-                    <Check size={11} className="text-emerald-600" />
-                    <span className="text-emerald-700 font-bold">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={11} className="text-slate-500" />
-                    <span>Copy Text</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="max-h-60 sm:max-h-72 overflow-y-auto pr-1">
-              <p className="text-xs text-slate-700 leading-snug sm:leading-normal whitespace-pre-wrap select-text">
-                {fullParagraphText}
-              </p>
-            </div>
-          </div>
-        </div>
-      ),
-    });
-  }
+
 
   // 7. Additional Observations
   const addlObs: string[] = [];
@@ -1986,6 +1973,9 @@ export function DetailsContent({
     const s = new Set<string>();
     if (initialSubTab && filteredSections.some((sec) => sec.id === initialSubTab)) {
       s.add(initialSubTab);
+    } else if (filteredSections.some((sec) => sec.id === "what_you_missed")) {
+      // Auto-open "What You Missed" when present — it's the most actionable feedback
+      s.add("what_you_missed");
     } else if (filteredSections[0]?.id) {
       s.add(filteredSections[0].id);
     }
@@ -2125,7 +2115,7 @@ export function DetailsContent({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowFullTranscriptModal(true);
+                      onOpenTranscript?.();
                     }}
                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer"
                   >
@@ -2178,98 +2168,122 @@ export function DetailsContent({
 
                 {/* Custom Content */}
                 {section.customContent}
-
-                {/* Transcript: Open Full Transcript button (expanded state) */}
-                {section.id === "transcript" && fullParagraphText && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFullTranscriptModal(true)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors cursor-pointer"
-                  >
-                    <ExternalLink size={12} />
-                    Open Full Transcript
-                  </button>
-                )}
               </div>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
 
-      {/* ── Full Transcript Modal ── */}
-      {showFullTranscriptModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center border border-violet-100">
-                  <FileText size={16} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Full Assessment Transcript</h3>
-                  {transcriptDuration && (
-                    <p className="text-xs text-slate-500">Duration: {transcriptDuration}</p>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowFullTranscriptModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+function TranscriptModal({
+  isOpen,
+  onClose,
+  report,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  report: NormalizedReport;
+}) {
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
+  const canShowTranscript = Boolean(report.consent?.save_transcript ?? true);
+
+  if (!isOpen || !canShowTranscript) return null;
+
+  const fullParagraphText = (() => {
+    let raw = report.transcript?.full_text?.trim() || "";
+    if (!raw && report.transcript?.segments && report.transcript.segments.length > 0) {
+      raw = report.transcript.segments.map((s) => s.text).join(" ");
+    }
+    return raw
+      .replace(/<\/?s>/gi, "")
+      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  })();
+
+  const transcriptDuration = getTranscriptDuration(report);
+
+  const handleCopyTranscript = () => {
+    if (fullParagraphText) {
+      navigator.clipboard.writeText(fullParagraphText);
+      setCopiedTranscript(true);
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center border border-violet-100">
+              <FileText size={16} />
             </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="flex items-center justify-between pb-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Continuous Spoken Narrative
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyTranscript}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
-                >
-                  {copiedTranscript ? (
-                    <>
-                      <Check size={13} className="text-emerald-600" />
-                      <span className="text-emerald-700 font-bold">Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={13} className="text-slate-500" />
-                      <span>Copy Full Transcript</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
-                <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">
-                  {fullParagraphText || "No transcript recorded for this assessment."}
-                </p>
-              </div>
-            </div>
-
-            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowFullTranscriptModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                Close
-              </button>
+            <div>
+              <h3 className="font-bold text-slate-900 text-base">Full Assessment Transcript</h3>
+              {transcriptDuration && (
+                <p className="text-xs text-slate-500">Duration: {transcriptDuration}</p>
+              )}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+          >
+            <X size={18} />
+          </button>
         </div>
-      )}
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Continuous Spoken Narrative
+            </span>
+            <button
+              type="button"
+              onClick={handleCopyTranscript}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
+            >
+              {copiedTranscript ? (
+                <>
+                  <Check size={13} className="text-emerald-600" />
+                  <span className="text-emerald-700 font-bold">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={13} className="text-slate-500" />
+                  <span>Copy Full Transcript</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text">
+              {fullParagraphText || "No transcript recorded for this assessment."}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  SECTION D — REPORT HEADER (Back link, Title, Metadata row, Download, Tabs)
+//  SECTION D — REPORT HEADER (Back link, Title, Metadata row, Tabs)
 // ═════════════════════════════════════════════════════════════════════════════
 
 export interface ReportHeaderProps {
@@ -2277,6 +2291,7 @@ export interface ReportHeaderProps {
   report: NormalizedReport;
   activeTab: ReportTab;
   onSelectTab: (tab: ReportTab) => void;
+  onOpenTranscript?: () => void;
 }
 
 export function getAssessmentsListUrl(): string {
@@ -2371,8 +2386,10 @@ export function ReportHeader({
   report,
   activeTab,
   onSelectTab,
+  onOpenTranscript,
 }: ReportHeaderProps) {
   const router = useRouter();
+  const candidateSpoke = hasRealSpeech(report);
 
   // Dynamic role resolution from job description or resume
   const roleStr = (() => {
@@ -2444,13 +2461,9 @@ export function ReportHeader({
 
   const modeStr = isAudioOnly ? "Audio Only" : "Audio + Video";
 
-  const handleDownload = () => {
-    window.print();
-  };
-
   return (
     <header className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs mb-4 sm:mb-5 print:border-none print:shadow-none print:p-0">
-      {/* Top Row: Back link + Download Report */}
+      {/* Top Row: Back link + Optional View Transcript Popup button */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -2461,14 +2474,16 @@ export function ReportHeader({
           Back to Assessments
         </button>
 
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer print:hidden ml-auto"
-        >
-          <Download size={14} className="text-slate-600" />
-          Download Report
-        </button>
+        {Boolean(report.consent?.save_transcript ?? true) && !report.insufficient_content && candidateSpoke && onOpenTranscript && (
+          <button
+            type="button"
+            onClick={onOpenTranscript}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 shadow-2xs hover:bg-violet-100 hover:border-violet-300 transition-colors cursor-pointer print:hidden ml-auto"
+          >
+            <FileText size={14} className="text-violet-600" />
+            View Transcript
+          </button>
+        )}
       </div>
 
       {/* Title */}
@@ -2578,6 +2593,8 @@ export default function AiPrepReport({
   const [error, setError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [isCancelled, setIsCancelled] = useState(false);
+  const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
 
   useEffect(() => {
     if (report && !hasRealSpeech(report) && activeTab === "Details") {
@@ -2604,6 +2621,7 @@ export default function AiPrepReport({
     setLoading(true);
     setError("");
     setIsProcessing(false);
+    setIsCancelled(false);
     setStatusMsg("");
 
     try {
@@ -2613,6 +2631,14 @@ export default function AiPrepReport({
       }
       const statusUpper = (assessment.status || "").toUpperCase();
 
+      // ── Scenario 6: Cancelled assessment ───────────────────────────────────
+      if (statusUpper === "CANCELLED") {
+        setIsCancelled(true);
+        setLoading(false);
+        return;
+      }
+
+      // ── Still processing — LLM pipeline not yet complete ───────────────────
       if (
         ["EVALUATING", "IN_PROGRESS", "SUBMITTED", "PENDING"].includes(
           statusUpper
@@ -2638,6 +2664,9 @@ export default function AiPrepReport({
         return;
       }
 
+      // ── Scenarios 1–5: normalise the report (consent + insufficient flags ──
+      // consent.save_recording and consent.save_transcript drive what is shown.
+      // insufficient_content drives the Scenario 5 single-page banner.
       setReport(normalizeReport(assessment, dataVal, reportVal));
     } catch (err: unknown) {
       console.error("[AiPrepReport] Failed to load real report:", err);
@@ -2645,7 +2674,7 @@ export default function AiPrepReport({
     } finally {
       setLoading(false);
     }
-  }, [assessmentId, setCandidateId, setLoading, setError, setIsProcessing, setStatusMsg, setReport]);
+  }, [assessmentId, setCandidateId, setLoading, setError, setIsProcessing, setIsCancelled, setStatusMsg, setReport]);
 
   useEffect(() => {
     loadReport();
@@ -2717,7 +2746,36 @@ export default function AiPrepReport({
     );
   }
 
-  // Processing state
+  // ── Scenario 6: Cancelled assessment ──────────────────────────────────────
+  if (isCancelled) {
+    return (
+      <main className="min-h-screen grid place-items-center bg-[#f8fafc] p-6">
+        <section className="max-w-md w-full rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <XCircle size={30} />
+          </div>
+          <h1 className="text-xl font-bold text-slate-900">Assessment Cancelled</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            You exited this assessment before completing it. No evaluation report is available for this attempt.
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            You can start a new assessment from your assessments list whenever you are ready.
+          </p>
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => navigateToAssessmentsList(router)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 cursor-pointer"
+            >
+              Back to Assessments
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // ── Processing state (Evaluating) ─────────────────────────────────────────
   if (isProcessing) {
     return (
       <main className="min-h-screen grid place-items-center bg-[#f8fafc] p-6">
@@ -2735,7 +2793,7 @@ export default function AiPrepReport({
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={loadReport}
+              onClick={() => { lastLoadedIdRef.current = null; loadReport(); }}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto cursor-pointer"
             >
               <RefreshCw size={15} /> Check Status
@@ -2800,6 +2858,7 @@ export default function AiPrepReport({
           report={report}
           activeTab={activeTab}
           onSelectTab={handleTabChange}
+          onOpenTranscript={() => setIsTranscriptModalOpen(true)}
         />
 
         <main className="space-y-3 sm:space-y-3.5">
@@ -2810,16 +2869,24 @@ export default function AiPrepReport({
               seekTo={seekTo}
               assessmentId={assessmentId}
               onSelectTab={handleTabChange}
+              onOpenTranscript={() => setIsTranscriptModalOpen(true)}
             />
           ) : (
             <DetailsContent
               report={report}
               seekTo={seekTo}
               initialSubTab={detailsSubTab}
+              onOpenTranscript={() => setIsTranscriptModalOpen(true)}
             />
           )}
         </main>
       </div>
+
+      <TranscriptModal
+        isOpen={isTranscriptModalOpen}
+        onClose={() => setIsTranscriptModalOpen(false)}
+        report={report}
+      />
     </div>
   );
 }
