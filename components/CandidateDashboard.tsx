@@ -589,10 +589,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const isWizardActive = Boolean(
         (activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep') &&
-        (
-            isAiPrepWizardActive ||
-            isWizardPath()
-        )
+        isWizardPath()
     );
 
     const isSidebarCollapsed = isWizardActive && isLayoutCollapsed;
@@ -613,14 +610,33 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 if (e.detail.step || e.detail.slug) {
                     setIsAiPrepWizardActive(true);
                 }
-                if (e.detail.active === false) {
+                if (e.detail.active === false || e.detail.isWizardActive === false) {
                     setIsAiPrepWizardActive(false);
                 }
             }
         };
         const handleLocationChange = () => {
             if (typeof window !== "undefined") {
-                setCurrentSubPath(window.location.pathname.toLowerCase());
+                const cur = window.location.pathname.toLowerCase();
+                setCurrentSubPath(cur);
+                const isWiz = WIZARD_SLUGS.some((slug) => cur.includes(`/${slug}`) || cur.endsWith(`/${slug}`));
+                if (!isWiz && (cur.endsWith('/ai-prep') || cur.endsWith('/aiprep') || cur.endsWith('/wbl-smartprep') || cur.includes('/user_dashboard/ai-prep'))) {
+                    setIsAiPrepWizardActive(false);
+                    sessionStorage.removeItem('aiprep_wizard_step');
+                    sessionStorage.removeItem('aiprep_history_initialized');
+                    window.dispatchEvent(
+                        new CustomEvent("aiprep-layout-mode", {
+                            detail: {
+                                headerCollapsed: false,
+                                sidebarCollapsed: false,
+                                isWizardActive: false,
+                                activeTab: 'ai-prep',
+                                active: false,
+                                fullscreen: false,
+                            },
+                        })
+                    );
+                }
             }
         };
         window.addEventListener('aiprep-layout-mode', handleLayoutEvent);
@@ -695,11 +711,20 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     useEffect(() => {
         if (pathname) {
-            setCurrentSubPath(pathname.toLowerCase());
+            const cur = pathname.toLowerCase();
+            setCurrentSubPath(cur);
             const segments = pathname.split("/").filter(Boolean);
             const tabFromPath = segments.slice(1).join("/");
             if (tabFromPath) {
                 setActiveTab(normalizeTab(tabFromPath));
+            }
+            const isWiz = WIZARD_SLUGS.some((slug) => cur.includes(`/${slug}`) || cur.endsWith(`/${slug}`));
+            if (!isWiz && (cur.endsWith('/ai-prep') || cur.endsWith('/aiprep') || cur.endsWith('/wbl-smartprep') || cur.includes('/user_dashboard/ai-prep'))) {
+                setIsAiPrepWizardActive(false);
+                if (typeof window !== "undefined") {
+                    sessionStorage.removeItem('aiprep_wizard_step');
+                    sessionStorage.removeItem('aiprep_history_initialized');
+                }
             }
         }
     }, [pathname]);
@@ -713,6 +738,24 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 const tabFromUrl = pathSegments.slice(1).join("/");
                 if (tabFromUrl) {
                     setActiveTab(normalizeTab(tabFromUrl));
+                }
+                const isWiz = WIZARD_SLUGS.some((slug) => cur.includes(`/${slug}`) || cur.endsWith(`/${slug}`));
+                if (!isWiz && (cur.endsWith('/ai-prep') || cur.endsWith('/aiprep') || cur.endsWith('/wbl-smartprep') || cur.includes('/user_dashboard/ai-prep'))) {
+                    setIsAiPrepWizardActive(false);
+                    sessionStorage.removeItem('aiprep_wizard_step');
+                    sessionStorage.removeItem('aiprep_history_initialized');
+                    window.dispatchEvent(
+                        new CustomEvent("aiprep-layout-mode", {
+                            detail: {
+                                headerCollapsed: false,
+                                sidebarCollapsed: false,
+                                isWizardActive: false,
+                                activeTab: 'ai-prep',
+                                active: false,
+                                fullscreen: false,
+                            },
+                        })
+                    );
                 }
             }
         };
@@ -3547,8 +3590,25 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         isSidebarCollapsed={isSidebarCollapsed}
                                                         onCancel={() => {
                                                             sessionStorage.removeItem('aiprep_wizard_step');
+                                                            sessionStorage.removeItem('aiprep_history_initialized');
                                                             setIsAiPrepWizardActive(false);
-                                                            goToTab('ai-prep');
+                                                            setCurrentSubPath('/user_dashboard/ai-prep');
+                                                            setActiveTab('ai-prep');
+                                                            window.dispatchEvent(
+                                                                new CustomEvent("aiprep-layout-mode", {
+                                                                    detail: {
+                                                                        headerCollapsed: false,
+                                                                        sidebarCollapsed: false,
+                                                                        isWizardActive: false,
+                                                                        activeTab: 'ai-prep',
+                                                                        active: false,
+                                                                        fullscreen: false,
+                                                                    },
+                                                                })
+                                                            );
+                                                            if (typeof window !== "undefined" && window.location.pathname.toLowerCase() !== '/user_dashboard/ai-prep') {
+                                                                goToTab('ai-prep');
+                                                            }
                                                         }}
                                                     />
                                                 </div>
