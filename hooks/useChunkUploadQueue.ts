@@ -231,7 +231,8 @@ export function useChunkUploadQueue({
           (i) => i.status === 'queued' || i.status === 'uploading'
         );
         if (!hasPending && !isProcessingRef.current) {
-          return true;
+          const hasFailures = queueRef.current.some((i) => i.status === 'failed');
+          return !hasFailures;
         }
         await new Promise((r) => setTimeout(r, 200));
       }
