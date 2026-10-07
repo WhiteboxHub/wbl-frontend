@@ -1585,8 +1585,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       `}</style>
 
-      {/* ── UNIFIED CARD BOUNDARY ("one dev", "one boundary") ── */}
-      <div className={`w-full max-w-5xl xl:max-w-6xl ${step === 'CONFIGURATION' ? 'h-auto max-h-[96vh] my-auto' : 'h-full flex-1 min-h-0'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden`}>
+      <div className={`w-full max-w-5xl xl:max-w-6xl ${step === 'CONFIGURATION' ? 'h-auto max-h-[90vh] my-auto overflow-y-auto' : 'h-full flex-1 min-h-0 overflow-hidden'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col`}>
         {/* Top Bar Header (Stepper inside the card) */}
         <div className="relative w-full px-4 sm:px-6 py-1.5 sm:py-2 min-h-[38px] sm:min-h-[42px] border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
           <div className="w-full flex items-center justify-center gap-1.5 sm:gap-3">
@@ -1611,11 +1610,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className={`${step === 'CONFIGURATION' ? 'h-auto' : 'flex-1 min-h-0'} min-w-0 flex flex-col w-full p-0 overflow-hidden bg-white dark:bg-slate-900`}>
+        <div className={`${step === 'CONFIGURATION' ? 'h-auto overflow-y-auto max-h-[90vh]' : 'flex-1 min-h-0 overflow-hidden'} min-w-0 flex flex-col w-full p-0 bg-white dark:bg-slate-900`}>
 
           {/* STEP 1: CONFIGURATION */}
           {step === 'CONFIGURATION' && (
-            <div className="w-full h-auto flex flex-col overflow-hidden">
+            <div className="w-full h-auto flex flex-col overflow-y-auto">
               <AssessmentConfig
                 assessmentType={assessmentType} setAssessmentType={setAssessmentType}
                 jdText={jdText} setJdText={setJdText}
