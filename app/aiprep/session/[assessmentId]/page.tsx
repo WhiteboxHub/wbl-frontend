@@ -383,7 +383,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
       } catch (_) {}
     };
-  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading]);
+  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading, setIsSessionActiveInOtherTab]);
 
   const handleCloseTab = () => {
     try {
@@ -666,7 +666,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
     } catch (_) {}
     router.replace(targetUrl);
-  }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue]);
+  }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
 
   // Immediate redirect & history check if this session was already exited or finished
   useEffect(() => {

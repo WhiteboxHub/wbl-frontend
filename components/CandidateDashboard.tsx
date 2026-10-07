@@ -645,7 +645,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             window.removeEventListener('aiprep-layout-mode', handleLayoutEvent);
             window.removeEventListener('popstate', handleLocationChange);
         };
-    }, [setCurrentSubPath, setIsAiPrepWizardActive]);
+    }, [setCurrentSubPath, setIsAiPrepWizardActive, WIZARD_SLUGS]);
 
     // When assessment wizard activates, keep sidebar open for 0.5 seconds,
     // then automatically collapse to fullscreen mode.

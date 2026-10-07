@@ -314,7 +314,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         } catch { }
       }
     };
-  }, [onCancel]);
+  }, [onCancel, setStep, SLUG_TO_STEP]);
 
   // Fullscreen container behavior (applies to all wizard steps)
   useEffect(() => {
