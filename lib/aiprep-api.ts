@@ -20,7 +20,7 @@ export * from "@/types/aiprep";
 
 const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 
-export const getStoredCandidateId = (fallback: string | number = "1"): string | number => {
+export const getStoredCandidateId = (fallback: string | number = "me"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
     // 1. Direct candidate ID storage keys (highest priority for legacy compatibility)
@@ -85,7 +85,7 @@ export const fetchAndCacheCandidateId = async (): Promise<string | number | null
   return _userDashboardPromise;
 };
 
-export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "1"): string | number => {
+export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "me"): string | number => {
   if (candidateId !== undefined && candidateId !== null && candidateId !== "") {
     return candidateId;
   }
@@ -105,7 +105,7 @@ export const aiPrepApi = {
   getReadiness: async (candidateId?: string | number): Promise<ReadinessCheck> => {
     let cid = candidateId;
     if (!cid || cid === "me") {
-      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1");
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
     }
     const cacheKey = String(cid);
     const now = Date.now();
@@ -218,7 +218,7 @@ export const aiPrepApi = {
     let body: Record<string, unknown>;
 
     if (typeof payload === "string") {
-      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1");
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
       const candidateId =
         (cid === "me" || isNaN(Number(cid)))
           ? undefined
@@ -232,7 +232,7 @@ export const aiPrepApi = {
     } else {
       cid = payload.candidate_id 
         ? resolveCandidateId(payload.candidate_id) 
-        : ((await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1"));
+        : ((await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me"));
       const isAudioOnly =
         payload.media_type === "AUDIO" ||
         payload.assessment_mode === "AUDIO_ONLY" ||
