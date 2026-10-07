@@ -105,7 +105,7 @@ export const aiPrepApi = {
   getReadiness: async (candidateId?: string | number): Promise<ReadinessCheck> => {
     let cid = candidateId;
     if (!cid || cid === "me") {
-      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1");
     }
     const cacheKey = String(cid);
     const now = Date.now();

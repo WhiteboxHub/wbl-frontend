@@ -383,7 +383,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
       } catch (_) {}
     };
-  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions.length]);
+  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading]);
 
   const handleCloseTab = () => {
     try {

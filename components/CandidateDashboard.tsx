@@ -645,7 +645,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             window.removeEventListener('aiprep-layout-mode', handleLayoutEvent);
             window.removeEventListener('popstate', handleLocationChange);
         };
-    }, []);
+    }, [setCurrentSubPath, setIsAiPrepWizardActive]);
 
     // When assessment wizard activates, keep sidebar open for 0.5 seconds,
     // then automatically collapse to fullscreen mode.
@@ -727,7 +727,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 }
             }
         }
-    }, [pathname]);
+    }, [pathname, setCurrentSubPath, setActiveTab, setIsAiPrepWizardActive]);
 
     useEffect(() => {
         const handlePopState = () => {
@@ -761,7 +761,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         };
         window.addEventListener("popstate", handlePopState);
         return () => window.removeEventListener("popstate", handlePopState);
-    }, []);
+    }, [setCurrentSubPath, setActiveTab, setIsAiPrepWizardActive]);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
 
