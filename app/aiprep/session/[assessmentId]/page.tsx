@@ -202,6 +202,48 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [isEnding, setIsEnding] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Multi-Tab Session Ownership & Duplicate Tab Tracking
+  const [currentTabId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      let id = window.sessionStorage.getItem('aiprep_tab_instance_id');
+      if (!id) {
+        id = `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        window.sessionStorage.setItem('aiprep_tab_instance_id', id);
+      }
+      return id;
+    } catch (_) {
+      return `tab_${Date.now()}`;
+    }
+  });
+
+  const [hasSessionInit] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return true;
+    try {
+      const activeId = window.sessionStorage.getItem('aiprep_active_id');
+      return Boolean(activeId && String(activeId) === String(assessmentId));
+    } catch (_) {
+      return true;
+    }
+  });
+
+  const [isSessionActiveInOtherTab, setIsSessionActiveInOtherTab] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    try {
+      const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        let tabId = window.sessionStorage.getItem('aiprep_tab_instance_id');
+        if (parsed?.tabId && parsed.tabId !== tabId && (Date.now() - (parsed.heartbeat || 0) < 25000)) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  });
+
+  const [closeTabNotice, setCloseTabNotice] = useState<boolean>(false);
+
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const hasAutoStartedRef = useRef<boolean>(false);
@@ -233,8 +275,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [targetCompany, setTargetCompany] = useState<string>('');
   const [showJdModal, setShowJdModal] = useState<boolean>(false);
 
-  // Exit Modal
+  // Exit Modal & Session Exited Guard
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const isExitingRef = useRef<boolean>(false);
+
+  const [isSessionAlreadyEnded, setIsSessionAlreadyEnded] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    try {
+      return Boolean(
+        localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+        sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+        localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+      );
+    } catch (_) {
+      return false;
+    }
+  });
 
   // Speech Synthesis (AI Voice Reading)
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
@@ -260,6 +316,85 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       window.speechSynthesis.removeEventListener('voiceschanged', populateVoices);
     };
   }, []);
+
+  // ── Multi-Tab Coordination & Active Session Heartbeat ────────────────────
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+
+    // 1. Initial check of active session owner in localStorage
+    try {
+      const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.tabId && parsed.tabId !== currentTabId && (Date.now() - (parsed.heartbeat || 0) < 25000)) {
+          setIsSessionActiveInOtherTab(true);
+        }
+      }
+    } catch (_) {}
+
+    // 2. BroadcastChannel coordination
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(`aiprep_session_${assessmentId}`);
+      channel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+        if (data.type === 'PING_ACTIVE_SESSION' && data.tabId !== currentTabId) {
+          if (!isSessionActiveInOtherTab && questions.length > 0) {
+            channel?.postMessage({
+              type: 'PONG_ACTIVE_SESSION',
+              tabId: currentTabId,
+              assessmentId,
+            });
+          }
+        } else if (data.type === 'PONG_ACTIVE_SESSION' && data.tabId !== currentTabId) {
+          setIsSessionActiveInOtherTab(true);
+          setIsLoading(false);
+        }
+      };
+      channel.postMessage({ type: 'PING_ACTIVE_SESSION', tabId: currentTabId, assessmentId });
+    } catch (_) {}
+
+    // 3. Heartbeat if this tab owns the active session
+    const heartbeatTimer = setInterval(() => {
+      if (!isSessionActiveInOtherTab && questions.length > 0) {
+        try {
+          localStorage.setItem(`aiprep_active_session_${assessmentId}`, JSON.stringify({
+            tabId: currentTabId,
+            heartbeat: Date.now(),
+            assessmentId,
+          }));
+        } catch (_) {}
+      }
+    }, 4000);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      try {
+        channel?.close();
+      } catch (_) {}
+      try {
+        const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.tabId === currentTabId) {
+            localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+          }
+        }
+      } catch (_) {}
+    };
+  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading, setIsSessionActiveInOtherTab]);
+
+  const handleCloseTab = () => {
+    try {
+      window.close();
+      setTimeout(() => {
+        setCloseTabNotice(true);
+      }, 300);
+    } catch (_) {
+      setCloseTabNotice(true);
+    }
+  };
 
   // Speech Recognition Safety Cleanup on Unmount
   useEffect(() => {
@@ -480,6 +615,101 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   };
 
+  // ── Clean Exit Session Handler ──────────────────────────────────────────────
+  const handleExitSession = useCallback(async () => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
+    setIsSessionAlreadyEnded(true);
+    setShowExitModal(false);
+
+    if (countdownIntervalRef.current && typeof window !== 'undefined') {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    stopAiSpeech();
+    cleanupRecorder();
+    clearQueue();
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (assessmentId) {
+          localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+          sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+          localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+        }
+        sessionStorage.removeItem('aiprep_active_id');
+        sessionStorage.removeItem('aiprep_active_questions');
+        sessionStorage.removeItem('aiprep_active_type');
+        sessionStorage.removeItem('aiprep_active_mode');
+        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.removeItem('aiprep_hardware_check');
+        window.dispatchEvent(
+          new CustomEvent('aiprep-layout-mode', {
+            detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
+          })
+        );
+      } catch (_) {}
+    }
+
+    try {
+      if (assessmentId) {
+        await aiprepApi.cancelAssessment(assessmentId);
+      }
+    } catch (e) {
+      console.warn('Failed to cancel assessment on server:', e);
+    }
+
+    const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+    try {
+      if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
+        History.prototype.replaceState.call(window.history, {}, '', targetUrl);
+      }
+    } catch (_) {}
+    router.replace(targetUrl);
+  }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
+
+  // Immediate redirect & history check if this session was already exited or finished
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+    const isEnded = Boolean(
+      localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+      sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+      localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+    );
+    if (isEnded) {
+      setIsSessionAlreadyEnded(true);
+      const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+      try {
+        if (window.history && History?.prototype?.replaceState) {
+          History.prototype.replaceState.call(window.history, {}, '', targetUrl);
+        }
+      } catch (_) {}
+      router.replace(targetUrl);
+    }
+  }, [assessmentId, isEmbedded, router]);
+
+  // Intercept browser Back button while inside active assessment room
+  useEffect(() => {
+    if (typeof window === 'undefined' || !assessmentId || isSessionAlreadyEnded || finishedAssessmentId) return;
+
+    try {
+      window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
+    } catch (_) {}
+
+    const handlePopState = () => {
+      if (isExitingRef.current) return;
+      setShowExitModal(true);
+      try {
+        window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
+      } catch (_) {}
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [assessmentId, isSessionAlreadyEnded, finishedAssessmentId]);
+
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
     if (!assessmentId) {
@@ -487,14 +717,44 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsLoading(false);
       return;
     }
-    if (sessionInitializedRef.current) return;
+    if (sessionInitializedRef.current || isSessionAlreadyEnded) return;
     sessionInitializedRef.current = true;
 
     async function initSession() {
       try {
+        // Guard against previously exited or completed session
+        if (typeof window !== 'undefined') {
+          const wasExited = Boolean(
+            localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+            sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+            localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+          );
+          if (wasExited) {
+            setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            router.replace(targetUrl);
+            return;
+          }
+        }
+
+        // Failsafe: check server assessment status
+        try {
+          const detail = await aiprepApi.getAssessment(assessmentId);
+          const status = (detail?.status || '').toUpperCase();
+          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED') {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            }
+            setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            router.replace(targetUrl);
+            return;
+          }
+        } catch (_) {}
+
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode directly from sessionStorage (no backend GET call)
+        // 1. Recover stored session track & mode directly from sessionStorage
         const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
         const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
         let loadedQuestions: QuestionBankItem[] = [];
@@ -974,11 +1234,23 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
       // 5. Clean up browser storage flags & queue
       clearQueue();
-      sessionStorage.removeItem('aiprep_active_id');
-      sessionStorage.removeItem('aiprep_wizard_step');
-      try {
-        localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
-      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        try {
+          if (assessmentId) {
+            localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
+            localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+          }
+          sessionStorage.removeItem('aiprep_active_id');
+          sessionStorage.removeItem('aiprep_active_questions');
+          sessionStorage.removeItem('aiprep_active_type');
+          sessionStorage.removeItem('aiprep_active_mode');
+          sessionStorage.removeItem('aiprep_wizard_step');
+          sessionStorage.removeItem('aiprep_hardware_check');
+          localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
+        } catch (_) {}
+      }
 
       // 6. Transition directly to Evaluation page once response arrives
       const reportUrl = isEmbedded
@@ -1018,6 +1290,33 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return <AiPrepReport assessmentId={String(finishedAssessmentId)} />;
   }
 
+  // ── Session Ended / Exited View ────────────────────────────────────────────
+  if (isSessionAlreadyEnded) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col items-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+            <IconAlertTriangle size={28} />
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Assessment Session Closed</h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            This assessment session (#{assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+              router.replace(targetUrl);
+            }}
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            Return to AI Prep Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading & Error Displays ───────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -1027,6 +1326,101 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Assessment Room</h2>
         <p className="text-slate-500 dark:text-slate-400 text-xs">Calibrating media slicing and dynamic questions…</p>
+      </div>
+    );
+  }
+
+  // ── Duplicate Tab / Assessment Already Active in Another Tab ───────────────
+  if (isSessionActiveInOtherTab || (!hasSessionInit && (errorMsg || questions.length === 0))) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
+        <div className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xl p-6 sm:p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+          
+          {/* Top Pill Status Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-4">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Assessment Session #{assessmentId} Active</span>
+          </div>
+
+          {/* Hero Warning Icon */}
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-amber-500/15 via-orange-500/10 to-purple-500/15 border-2 border-amber-300/80 dark:border-amber-700/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 ring-8 ring-amber-500/10 dark:ring-amber-400/10 shadow-lg shadow-amber-500/5">
+            <IconAlertTriangle size={36} className="stroke-[2.2]" />
+          </div>
+
+          {/* Main Title & Subtitle */}
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-snug">
+            Assessment Already in Progress
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+            This interview session is already active in another browser tab. Please do not switch or open multiple session tabs.
+          </p>
+
+          {/* Structured Guidance Cards */}
+          <div className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 sm:p-4.5 mt-5 text-left space-y-3.5">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Active Recording in Old Tab</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Your live interview questions, microphone, camera feed, and timer are currently running in your original tab.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <IconLock size={15} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Do Not Open Here or Switch Tabs</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  To protect assessment security and prevent hardware recording conflicts, duplicate session windows are blocked.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <IconArrowRight size={15} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Return to Your Original Tab</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Look for the tab marked with the <span className="font-bold text-rose-600 dark:text-rose-400">🔴 recording dot</span> in your browser toolbar above and switch back to it to continue.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 w-full mt-6">
+            <button
+              onClick={handleCloseTab}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] active:bg-[#5B21B6] text-white font-bold text-xs shadow-md shadow-purple-500/20 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <IconX size={15} className="stroke-[2.5]" />
+              <span>Close This Tab</span>
+            </button>
+            <button
+              onClick={() => {
+                const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+                router.replace(targetUrl);
+              }}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <span>Return to Dashboard</span>
+            </button>
+          </div>
+
+          {/* Notice if browser blocks script-closing tab */}
+          {closeTabNotice && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-3 font-semibold animate-in fade-in duration-200">
+              ⚠️ Browser prevented auto-closing. Please manually close this tab (Ctrl+W) and click on the original tab!
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -1052,7 +1446,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             Retry
           </button>
           <button
-            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            onClick={() => {
+              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+              router.replace(targetUrl);
+            }}
             className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
           >
             Return to Portal
@@ -1618,19 +2015,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
-                  cleanupRecorder();
-                  clearQueue();
-                  try {
-                    if (assessmentId) {
-                      await aiprepApi.cancelAssessment(assessmentId);
-                    }
-                  } catch (e) {
-                    console.warn('Failed to cancel assessment on server:', e);
-                  }
-                  router.push(isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep');
-                }}
+                onClick={handleExitSession}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition-colors cursor-pointer"
               >
                 Exit Session

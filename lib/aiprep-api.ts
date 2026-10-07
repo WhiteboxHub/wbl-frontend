@@ -148,6 +148,7 @@ export const aiPrepApi = {
   getAssessment: async (assessmentId: string | number, candidateId?: string | number): Promise<AssessmentDetail> => {
     const cid = resolveCandidateId(candidateId);
     const res: any = await apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`));
+    // Legacy wrapped format: { data: { assessment: ..., report: ..., assessment_data: ... } }
     if (res?.data?.assessment) {
       const rawReport = res.data.report || {};
       const llmEval = rawReport.llm_evaluation || {};
@@ -162,6 +163,19 @@ export const aiPrepApi = {
         questions: res.data.questions || [],
       } as AssessmentDetail;
     }
+
+    // Unified format: { id, status, candidate_id, data: { transcript, assessment_eval, ... } }
+    if (res && (res.id !== undefined || res.status !== undefined)) {
+      const rawData = res.data || {};
+      const assessmentEval = rawData.assessment_eval || res.report || null;
+      return {
+        ...res,
+        data: rawData,
+        report: assessmentEval,
+        questions: res.questions || [],
+      } as AssessmentDetail;
+    }
+
     return (res?.data || res) as AssessmentDetail;
   },
 
@@ -205,8 +219,12 @@ export const aiPrepApi = {
 
     if (typeof payload === "string") {
       cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
+      const candidateId =
+        (cid === "me" || isNaN(Number(cid)))
+          ? undefined
+          : Number(cid);
       body = {
-        candidate_id: cid === "me" ? undefined : Number(cid),
+        candidate_id: candidateId,
         assessment_type: payload,
         media_type: mediaTypeArg,
         job_description: jobDescriptionArg ?? null,
@@ -220,8 +238,13 @@ export const aiPrepApi = {
         payload.assessment_mode === "AUDIO_ONLY" ||
         (typeof payload.media_type === "string" && payload.media_type.toUpperCase() === "AUDIO");
 
+      const candidateId =
+        (cid === "me" || isNaN(Number(cid)))
+          ? undefined
+          : Number(cid);
+
       body = {
-        candidate_id: cid === "me" ? undefined : Number(cid),
+        candidate_id: candidateId,
         assessment_type: payload.assessment_type || "INTRO",
         media_type: isAudioOnly ? "AUDIO" : "VIDEO",
       };
