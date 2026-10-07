@@ -267,7 +267,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     const handlePopState = (e: PopStateEvent) => {
       try {
         isPopStateRef.current = true;
-        const targetPath = (window.top && window.top !== window ? window.top.location.pathname : window.location.pathname).toLowerCase();
+        let targetPath = '';
+        try {
+          if (window.top && window.top.location) {
+            targetPath = window.top.location.pathname.toLowerCase();
+          }
+        } catch { }
+        if (!targetPath) {
+          targetPath = window.location.pathname.toLowerCase();
+        }
+
         let matchedStep: WizardStep | null = null;
         for (const [slugKey, s] of Object.entries(SLUG_TO_STEP)) {
           if (targetPath.includes(`/${slugKey}`) || targetPath.endsWith(`/${slugKey}`)) {
@@ -275,10 +284,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             break;
           }
         }
-        if (matchedStep) setStep(matchedStep); else if (targetPath.endsWith('/ai-prep') || targetPath.endsWith('/aiprep') || targetPath.endsWith('/aiprep/')) {
+        if (matchedStep) {
+          setStep(matchedStep);
+        } else {
           sessionStorage.removeItem('aiprep_history_initialized');
+          sessionStorage.removeItem('aiprep_wizard_step');
           cleanupRef.current?.();
-          onCancel();
+          if (typeof onCancel === 'function') {
+            onCancel();
+          }
         }
       } catch { }
     };
@@ -300,7 +314,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         } catch { }
       }
     };
-  }, [onCancel]);
+  }, [onCancel, setStep, SLUG_TO_STEP]);
 
   // Fullscreen container behavior (applies to all wizard steps)
   useEffect(() => {
@@ -1433,7 +1447,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           }
         }
 
-        router.push(targetSessionUrl);
+        router.replace(targetSessionUrl);
       } catch (err: any) {
         console.error('[DeviceCheckWizard] Failed to start assessment:', err);
         alert(err?.message || 'Failed to start assessment. Please try again.');
@@ -1571,8 +1585,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       `}</style>
 
-      {/* ── UNIFIED CARD BOUNDARY ("one dev", "one boundary") ── */}
-      <div className="w-full max-w-5xl xl:max-w-6xl h-full flex-1 min-h-0 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+      <div className={`w-full max-w-5xl xl:max-w-6xl ${step === 'CONFIGURATION' ? 'h-auto max-h-[90vh] my-auto overflow-y-auto' : 'h-full flex-1 min-h-0 overflow-hidden'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col`}>
         {/* Top Bar Header (Stepper inside the card) */}
         <div className="relative w-full px-4 sm:px-6 py-1.5 sm:py-2 min-h-[38px] sm:min-h-[42px] border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
           <div className="w-full flex items-center justify-center gap-1.5 sm:gap-3">
@@ -1597,11 +1610,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 min-h-0 min-w-0 flex flex-col w-full p-0 overflow-hidden bg-white dark:bg-slate-900">
+        <div className={`${step === 'CONFIGURATION' ? 'h-auto overflow-y-auto max-h-[90vh]' : 'flex-1 min-h-0 overflow-hidden'} min-w-0 flex flex-col w-full p-0 bg-white dark:bg-slate-900`}>
 
           {/* STEP 1: CONFIGURATION */}
           {step === 'CONFIGURATION' && (
-            <div className="w-full h-full flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="w-full h-auto flex flex-col overflow-y-auto">
               <AssessmentConfig
                 assessmentType={assessmentType} setAssessmentType={setAssessmentType}
                 jdText={jdText} setJdText={setJdText}
@@ -2422,12 +2435,12 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                               ) : (
                                 <>
                                   {/* Actionable Microphone Hero Icon Button */}
-                                  <div className="relative flex items-center justify-center my-0.5">
+                                  <div className="relative flex items-center justify-center my-1 sm:my-1.5">
                                     {/* Concentric Audio Pulse Waves when testing */}
                                     {micTesting && (
                                       <>
-                                        <div className="absolute w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-blue-500/15 animate-ping pointer-events-none" />
-                                        <div className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-500/20 animate-pulse pointer-events-none" />
+                                        <div className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-blue-500/15 animate-ping pointer-events-none" />
+                                        <div className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-blue-500/20 animate-pulse pointer-events-none" />
                                       </>
                                     )}
 
@@ -2436,16 +2449,16 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                       onClick={() => testMicrophone()}
                                       disabled={micTesting}
                                       title={micTesting ? 'Listening to microphone...' : micTested && micOk ? 'Click to re-test microphone' : 'Click to test microphone'}
-                                      className="group relative w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200/80 dark:border-blue-800/60 shadow-sm hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/30 active:scale-95"
+                                      className="group relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center bg-blue-50/90 dark:bg-blue-950/40 border-2 sm:border-[3px] border-blue-200/90 dark:border-blue-800/70 shadow-sm hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/30 active:scale-95"
                                     >
-                                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all duration-200">
-                                        <Mic className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
+                                      <div className="w-14 h-14 sm:w-17 sm:h-17 rounded-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/30 group-hover:scale-105 transition-all duration-200">
+                                        <Mic className="w-7 h-7 sm:w-8.5 sm:h-8.5 stroke-[2.2] transition-transform duration-200 group-hover:scale-110" />
                                       </div>
 
                                       {/* Verified Status Badge */}
                                       {micTested && micOk && !micTesting && (
-                                        <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/30 animate-in zoom-in-50 duration-200">
-                                          <Check className="w-3 h-3 stroke-[3]" />
+                                        <div className="absolute -bottom-1 -right-1 sm:-bottom-1 sm:-right-1 w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-emerald-500 border-2 sm:border-[2.5px] border-white dark:border-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/35 animate-in zoom-in-50 duration-200">
+                                          <Check className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[3]" />
                                         </div>
                                       )}
                                     </button>

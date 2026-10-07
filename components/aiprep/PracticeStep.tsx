@@ -525,23 +525,23 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   50% { height: 22px; }
                 }
               `}</style>
-              {/* Audio Mic Badge matching Device Check (Image 1 / Image 3) */}
-              <div className="relative flex items-center justify-center py-1">
+              {/* Audio Mic Badge matching Device Check */}
+              <div className="relative flex items-center justify-center my-1 sm:my-1.5">
                 {isRecording && (
                   <>
-                    <div className="absolute w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-blue-500/10 animate-ping pointer-events-none" />
-                    <div className="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-500/20 animate-pulse pointer-events-none" />
+                    <div className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-blue-500/15 animate-ping pointer-events-none" />
+                    <div className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-blue-500/20 animate-pulse pointer-events-none" />
                   </>
                 )}
 
-                <div className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200/80 dark:border-blue-800/60 shadow-sm transition-all duration-300">
-                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-blue-600 text-white shadow-md shadow-blue-500/25 transition-transform duration-200 ${isRecording ? 'scale-105' : ''}`}>
-                    <Mic className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[2.2]" />
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center bg-blue-50/90 dark:bg-blue-950/40 border-2 sm:border-[3px] border-blue-200/90 dark:border-blue-800/70 shadow-sm transition-all duration-300">
+                  <div className={`w-14 h-14 sm:w-17 sm:h-17 rounded-full flex items-center justify-center bg-blue-600 text-white shadow-md shadow-blue-500/30 transition-transform duration-200 ${isRecording ? 'scale-105' : ''}`}>
+                    <Mic className="w-7 h-7 sm:w-8.5 sm:h-8.5 stroke-[2.2]" />
                   </div>
 
                   {/* Verified Status Badge */}
-                  <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/30">
-                    <Check className="w-3 h-3 stroke-[3]" />
+                  <div className="absolute -bottom-1 -right-1 sm:-bottom-1 sm:-right-1 w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-emerald-500 border-2 sm:border-[2.5px] border-white dark:border-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/35">
+                    <Check className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[3]" />
                   </div>
                 </div>
               </div>

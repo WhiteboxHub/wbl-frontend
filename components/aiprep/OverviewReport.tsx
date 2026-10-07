@@ -2375,10 +2375,10 @@ export function navigateToAssessmentsList(router: ReturnType<typeof useRouter>) 
     }
 
     const targetUrl = getAssessmentsListUrl();
-    router.push(targetUrl);
+    router.replace(targetUrl);
     return;
   }
-  router.push("/avatar/assessments");
+  router.replace("/avatar/assessments");
 }
 
 export function ReportHeader({
