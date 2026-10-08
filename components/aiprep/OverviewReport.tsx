@@ -40,7 +40,7 @@ import {
   Wrench,
   Boxes,
 } from "lucide-react";
-import { aiPrepApi } from "@/lib/aiprep-api";
+import { aiPrepApi, resolveCandidateId } from "@/lib/aiprep-api";
 import {
   normalizeReport,
   type NormalizedReport,
@@ -1791,6 +1791,7 @@ export default function AiPrepReport({
   };
 
   const lastLoadedIdRef = useRef<string | null>(null);
+  const [candidateId, setCandidateId] = useState<string | number | null>(() => initialCandidateId ?? null);
 
   const loadReport = useCallback(async () => {
     if (!assessmentId) return;
@@ -1805,6 +1806,9 @@ export default function AiPrepReport({
 
     try {
       const assessment = await aiPrepApi.getAssessment(assessmentId);
+      if (assessment?.candidate_id) {
+        setCandidateId(assessment.candidate_id);
+      }
       const statusUpper = (assessment.status || "").toUpperCase();
 
       if (statusUpper === "CANCELLED") {
@@ -1848,6 +1852,118 @@ export default function AiPrepReport({
   useEffect(() => {
     loadReport();
   }, [loadReport]);
+
+  // ── Real-Time SSE Stream Listener & Polling Fallback ────────────────────────
+  useEffect(() => {
+    if (!isProcessing || !assessmentId || !candidateId) return;
+
+    let isSubscribed = true;
+    const abortController = new AbortController();
+    let fallbackPollTimer: NodeJS.Timeout | null = null;
+
+    const triggerComplete = () => {
+      if (!isSubscribed) return;
+      setIsProcessing(false);
+      lastLoadedIdRef.current = null;
+      loadReport();
+    };
+
+    const startFallbackPolling = () => {
+      if (fallbackPollTimer || !isSubscribed) return;
+      fallbackPollTimer = setInterval(async () => {
+        try {
+          const check = await aiPrepApi.getAssessment(assessmentId);
+          const st = (check?.status || "").toUpperCase();
+          if (st === "COMPLETED" || check?.report) {
+            if (fallbackPollTimer) clearInterval(fallbackPollTimer);
+            triggerComplete();
+          } else if (st === "FAILED") {
+            if (fallbackPollTimer) clearInterval(fallbackPollTimer);
+            setError("Assessment evaluation could not be completed.");
+            setIsProcessing(false);
+          }
+        } catch (_) {}
+      }, 3000);
+    };
+
+    const connectStream = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("access_token") ||
+              localStorage.getItem("token") ||
+              localStorage.getItem("auth_token") ||
+              localStorage.getItem("bearer_token") ||
+              ""
+            : "";
+
+        const cid = candidateId || resolveCandidateId(initialCandidateId, "1");
+        const rawBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
+        const streamUrl = rawBase ? `${rawBase}/${path}` : `/api/${path}`;
+
+        const response = await fetch(streamUrl, {
+          method: "GET",
+          headers: {
+            Accept: "text/event-stream",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: abortController.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          startFallbackPolling();
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (isSubscribed) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+
+          for (const part of parts) {
+            const dataMatch = part.match(/^data:\s*(.+)$/m);
+            if (dataMatch && dataMatch[1]) {
+              try {
+                const parsed = JSON.parse(dataMatch[1]);
+                if (parsed.status === "COMPLETED") {
+                  triggerComplete();
+                  return;
+                } else if (parsed.status === "FAILED") {
+                  setError("Assessment evaluation could not be completed.");
+                  setIsProcessing(false);
+                  return;
+                }
+              } catch (_) {}
+            }
+          }
+        }
+
+        if (isSubscribed) {
+          startFallbackPolling();
+        }
+      } catch (err: any) {
+        if (err?.name !== "AbortError" && isSubscribed) {
+          startFallbackPolling();
+        }
+      }
+    };
+
+    void connectStream();
+
+    return () => {
+      isSubscribed = false;
+      abortController.abort();
+      if (fallbackPollTimer) clearInterval(fallbackPollTimer);
+    };
+  }, [isProcessing, assessmentId, initialCandidateId, loadReport, candidateId]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
@@ -1923,27 +2039,21 @@ export default function AiPrepReport({
 
   if (isProcessing) {
     return (
-      <main className="min-h-screen grid place-items-center bg-[#f8fafc] p-6">
-        <section className="max-w-md w-full rounded-2xl border border-amber-200 bg-white p-7 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-            <Clock size={26} />
+      <main className="min-h-screen grid place-items-center bg-[#f8fafc] p-4 select-none">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-sm w-full mx-auto shadow-2xl flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#7C3AED]/10 border border-[#7C3AED]/30 flex items-center justify-center mb-4 text-[#7C3AED] shadow-sm">
+            <LoaderCircle size={36} className="animate-spin text-[#7C3AED]" />
           </div>
-          <h1 className="text-lg font-bold text-slate-900">
-            {statusMsg || "Your assessment report is still being prepared."}
-          </h1>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Our AI is analyzing your spoken responses and technical depth.
+          <h3 className="text-base font-bold text-slate-900 mb-2">
+            Submitting Assessment
+          </h3>
+          <p className="text-xs text-slate-500 leading-relaxed mb-5">
+            Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
           </p>
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => { lastLoadedIdRef.current = null; loadReport(); }}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 cursor-pointer"
-            >
-              <RefreshCw size={15} /> Check Status
-            </button>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
           </div>
-        </section>
+        </div>
       </main>
     );
   }
