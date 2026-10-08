@@ -1212,18 +1212,57 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           ];
 
       // 3. Submit assessment via PUT /candidates/{id}/assessments/{id}
-      const submitRes = await aiprepApi.submitAssessment(assessmentId, {
-        total_chunks_uploaded: totalChunks || 1,
-        is_final: true,
-        client_duration_seconds: elapsedTimeRef.current,
-        video_telemetry: isAudioOnly
-          ? {}
-          : {
-              eye_contact_percentage: 85.0,
-              face_visibility_percentage: 95.0,
-            },
-        status: null,
-      });
+      let submitRes: any = null;
+      try {
+        submitRes = await aiprepApi.submitAssessment(assessmentId, {
+          total_chunks_uploaded: totalChunks || 1,
+          is_final: true,
+          client_duration_seconds: elapsedTimeRef.current,
+          video_telemetry: isAudioOnly
+            ? {}
+            : {
+                eye_contact_percentage: 85.0,
+                face_visibility_percentage: 95.0,
+              },
+          status: null,
+        });
+      } catch (submitErr: any) {
+        console.warn('PUT submitAssessment error, checking if status already transitioned:', submitErr);
+        // If 503 Service Unavailable, 504 Gateway Timeout, 409 Conflict, or proxy timeout occurs:
+        try {
+          const currentAssessment = await aiprepApi.getAssessment(assessmentId);
+          const currentStatus = String(currentAssessment?.status || '').toUpperCase();
+          if (
+            currentStatus === 'EVALUATING' ||
+            currentStatus === 'COMPLETED' ||
+            submitErr?.status === 409 ||
+            String(submitErr?.message || '').toLowerCase().includes('already') ||
+            String(submitErr?.message || '').includes('503') ||
+            String(submitErr?.message || '').includes('504')
+          ) {
+            console.log('Assessment status transitioned or in progress. Proceeding to evaluation report.');
+            submitRes = currentAssessment;
+          } else {
+            throw submitErr;
+          }
+        } catch (recoveryErr: any) {
+          const errMsg = String(submitErr?.message || '').toLowerCase();
+          const isTimeoutOrProxyError =
+            submitErr?.status === 503 ||
+            submitErr?.status === 504 ||
+            submitErr?.status === 409 ||
+            errMsg.includes('503') ||
+            errMsg.includes('504') ||
+            errMsg.includes('timeout') ||
+            errMsg.includes('already evaluating');
+
+          if (isTimeoutOrProxyError) {
+            console.warn('Background evaluation likely underway despite proxy timeout. Proceeding to report.');
+          } else {
+            throw submitErr;
+          }
+        }
+      }
 
       // Store PUT response body in sessionStorage so Evaluation page can render it directly
       if (submitRes) {
