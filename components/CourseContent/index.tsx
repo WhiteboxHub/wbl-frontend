@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import axios from "axios";
-import { apiFetch, API_BASE_URL } from "@/lib/api";
+import { getCourseContentData } from "@/lib/api";
 import CourseContentTable from "@/components/Common/CourseContentTable";
 import { toast } from "sonner";
 
@@ -11,79 +10,23 @@ const CourseContent = () => {
   const fetchCourseContent = useCallback(async () => {
     setLoading(true);
 
-    const token = typeof window !== "undefined"
-      ? localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("auth_token")
-      : null;
-
-    if (!token) {
-      toast.error("Please log in to access course content");
-    
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      setLoading(false);
-      return;
-    }
-
-    const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
-    const endpointsToTry = ["/course-content", "/course-content?limit=100"];
-
-    const normalize = (data: any) => {
-      if (!data) return [];
-      if (Array.isArray(data)) return data;
-      if (Array.isArray(data.data)) return data.data;
-      if (Array.isArray(data.results)) return data.results;
-      for (const k of Object.keys(data || {})) if (Array.isArray(data[k])) return data[k];
-      if (typeof data === "object") return [data];
-      return [];
-    };
-
     try {
-      for (const ep of endpointsToTry) {
-        try {
-          const fullUrl = base + (ep.startsWith("/") ? ep : `/${ep}`);
-          
-          const response = await fetch(fullUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            credentials: 'include',
-          });
-
-          if (response.status === 403) {
-            toast.error("Access forbidden - insufficient permissions");
-            continue;
-          }
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-          const normalizedData = normalize(data);
-          setSubjects(normalizedData);
-          
-          if (normalizedData.length > 0) {
-            return;
-          }
-        } catch (err) {
-          console.warn(`Failed for endpoint ${ep}:`, err);
-          continue;
-        }
-      }
-
-      toast.error("Unable to load course content. Please check your permissions.");
-      
+      const data = await getCourseContentData();
+      setSubjects(data);
     } catch (err: any) {
+      if (err.message === "unauthorized") {
+        toast.error("Please log in to access course content");
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        return;
+      }
       console.error("[fetchCourseContent] unexpected error:", err);
       toast.error(err?.message || "Failed to load course content");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setLoading, setSubjects]);
 
   useEffect(() => {
     fetchCourseContent();

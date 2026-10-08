@@ -224,11 +224,10 @@ export default function VideoPlayer({
   if (ytId) {
     return (
       <div
-        className={`relative w-full overflow-hidden rounded-xl bg-black shadow-sm ${className ?? ""}`}
-        style={{ paddingTop: "56.25%" }}
+        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
       >
         <iframe
-          className="absolute inset-0 h-full w-full"
+          className="w-full h-[320px] sm:h-[360px] rounded-2xl"
           src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
           title="Assessment recording"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -239,15 +238,6 @@ export default function VideoPlayer({
   }
 
   // ── 2. Standard Video Mode (when media is Video and has valid URL) ──────────
-  // Use a positive file-type check rather than substring exclusion to avoid
-  // false negatives when the URL contains 'audio' in non-extension segments
-  // (e.g. 's3.amazonaws.com/audio-prep-videos/video.mp4').
-  // Uses URL.pathname + hostname to strip query params first, so presigned
-  // S3/CDN URLs and YouTube URLs without file extensions are matched correctly.
-  // Fix #1: YouTube URLs are already handled by the early-return on L220 (ytId branch),
-  // so the YouTube hostname guards here were unreachable dead code — removed.
-  // Fix #2: short-circuit the IIFE when isAudioOnly=true so we never run new URL()
-  // unnecessarily (it was throwing + swallowing an error on every audio-only render).
   const isVideoFile =
     !isAudioOnly &&
     youtubeUrl &&
@@ -272,15 +262,15 @@ export default function VideoPlayer({
   if (!isAudioOnly && youtubeUrl && isVideoFile) {
     return (
       <div
-        className={`relative w-full overflow-hidden rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-sm ${className ?? ""}`}
+        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center border-2 border-slate-800 shadow-md ${className ?? ""}`}
       >
         {hasMediaError ? (
-          <div className="py-12 px-6 flex flex-col items-center justify-center gap-2 text-center">
-            <VideoOff size={28} className="text-rose-400" />
-            <span className="text-xs font-semibold text-rose-300">
+          <div className="h-[320px] sm:h-[360px] w-full flex flex-col items-center justify-center gap-2 text-center p-6">
+            <VideoOff size={32} className="text-rose-400" />
+            <span className="text-sm font-semibold text-rose-300">
               Failed to load video recording
             </span>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-400">
               The video asset could not be accessed or has expired.
             </span>
           </div>
@@ -292,7 +282,7 @@ export default function VideoPlayer({
             playsInline
             preload="metadata"
             onError={() => setHasMediaError(true)}
-            className="w-full h-auto max-h-[300px] rounded-xl bg-black object-cover"
+            className="w-full h-[320px] sm:h-[360px] rounded-2xl bg-black object-contain"
           >
             Your browser does not support video playback.
           </video>
@@ -311,11 +301,11 @@ export default function VideoPlayer({
 
   return (
     <div
-      className={`relative w-full rounded-xl bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-5 border border-slate-800 shadow-md overflow-hidden min-h-[260px] select-none ${className ?? ""}`}
+      className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto rounded-2xl bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-5 border-2 border-slate-800 shadow-md overflow-hidden min-h-[300px] sm:min-h-[340px] select-none ${className ?? ""}`}
     >
       {/* Background ambient gradient */}
-      <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Hidden audio/media element for native audio playback */}
       {youtubeUrl && (
@@ -329,35 +319,36 @@ export default function VideoPlayer({
       )}
 
       {/* Top Bar: Title & Status Indicator */}
-      <div className="flex items-center justify-between gap-2 z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
-            <Mic size={14} className={isPlaying ? "animate-pulse text-blue-300" : ""} />
+      <div className="flex items-center justify-between gap-2 z-10 border-b border-slate-800/80 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 shadow-inner">
+            <Mic size={18} className={isPlaying ? "animate-pulse text-blue-300" : ""} />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-100 tracking-tight block">
+            <span className="text-sm font-bold text-slate-100 tracking-tight block">
               {candidateName ? `${candidateName}'s Recording` : "Audio Recording"}
             </span>
-            <span className="text-[10px] text-slate-400 block font-medium">
+            <span className="text-xs text-slate-400 block font-medium">
               Candidate Spoken Audio Track
             </span>
           </div>
         </div>
 
         {!isMediaAvailable ? (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-700/60">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/80 border border-rose-700/60">
             <span className="w-2 h-2 rounded-full bg-rose-500" />
-            <span className="text-[10px] font-mono font-semibold text-rose-300">
+            <span className="text-xs font-mono font-semibold text-rose-300">
               {hasMediaError ? "UNAVAILABLE" : "PROCESSING"}
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/80 border border-slate-700/60">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-xs">
             <span
-              className={`w-2 h-2 rounded-full ${isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-                }`}
+              className={`w-2.5 h-2.5 rounded-full ${
+                isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+              }`}
             />
-            <span className="text-[10px] font-mono font-semibold text-slate-300">
+            <span className="text-xs font-mono font-semibold text-slate-300">
               {isPlaying ? "PLAYING" : "PAUSED"}
             </span>
           </div>
@@ -366,12 +357,12 @@ export default function VideoPlayer({
 
       {/* Middle: Dynamic Interactive Audio Waveform Visualization or Error Notice */}
       {!isMediaAvailable ? (
-        <div className="my-3 py-3 px-4 rounded-lg bg-rose-950/20 border border-rose-900/40 flex flex-col items-center justify-center gap-1 h-20 text-center z-10">
-          <div className="flex items-center gap-1.5 text-xs text-rose-400 font-semibold">
-            <AlertCircle size={14} />
+        <div className="my-4 py-6 px-4 rounded-xl bg-rose-950/20 border border-rose-900/40 flex flex-col items-center justify-center gap-2 h-36 text-center z-10">
+          <div className="flex items-center gap-2 text-sm text-rose-400 font-semibold">
+            <AlertCircle size={18} />
             <span>{hasMediaError ? "Failed to load media recording" : "Recording is processing or unavailable"}</span>
           </div>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-xs text-slate-400 max-w-sm">
             {hasMediaError
               ? "The audio asset could not be accessed or has expired."
               : "The recording will appear here once processing is complete."}
@@ -380,7 +371,7 @@ export default function VideoPlayer({
       ) : (
         <div
           aria-hidden="true"
-          className="my-3 py-3 px-2 rounded-lg bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-1 sm:gap-1.5 h-20 cursor-pointer z-10 transition-colors hover:bg-slate-900"
+          className="my-3 py-4 px-3.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between gap-1.5 sm:gap-2 h-32 sm:h-36 cursor-pointer z-10 transition-all hover:bg-slate-900/90 hover:border-slate-700 shadow-inner"
           onClick={(e) => {
             if (!isMediaAvailable) return;
             const rect = e.currentTarget.getBoundingClientRect();

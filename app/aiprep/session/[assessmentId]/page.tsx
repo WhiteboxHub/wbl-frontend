@@ -8,8 +8,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
-import Image from 'next/image';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import AiPrepReport from "@/components/aiprep/OverviewReport";
 import { aiprepApi } from '@/lib/aiprep-api';
 import type {
   AssessmentType,
@@ -18,6 +18,7 @@ import type {
   QuestionBankItem,
 } from '@/types/aiprep';
 import { NO_PAUSE_ASSESSMENT_TYPES } from '@/types/aiprep';
+import { cleanTechnicalSpeech, formatAsSentence, appendDeduplicated } from '@/lib/aiprep-speech';
 import { useTheme } from 'next-themes';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
 import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
@@ -175,16 +176,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return () => window.removeEventListener('storage', syncTheme);
   }, [theme, setTheme]);
 
-  // Extract assessmentId from route params
+  // Extract assessmentId from route params or prop
   const assessmentIdStr = params?.assessmentId;
-  const assessmentId = assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0;
+  const assessmentId = assessmentIdProp ? Number(assessmentIdProp) : (assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0);
+  const [finishedAssessmentId, setFinishedAssessmentId] = useState<number | null>(null);
 
   const isEmbedded = searchParams?.get('embed') === 'true';
 
 
   // Core session metadata
   const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
-  const [mediaType, setMediaType] = useState<MediaType>('VIDEO');
+  const [mediaType, setMediaType] = useState<MediaType>('AUDIO_ONLY');
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
@@ -200,10 +202,52 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [isEnding, setIsEnding] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Multi-Tab Session Ownership & Duplicate Tab Tracking
+  const [currentTabId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      let id = window.sessionStorage.getItem('aiprep_tab_instance_id');
+      if (!id) {
+        id = `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        window.sessionStorage.setItem('aiprep_tab_instance_id', id);
+      }
+      return id;
+    } catch (_) {
+      return `tab_${Date.now()}`;
+    }
+  });
+
+  const [hasSessionInit] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return true;
+    try {
+      const activeId = window.sessionStorage.getItem('aiprep_active_id');
+      return Boolean(activeId && String(activeId) === String(assessmentId));
+    } catch (_) {
+      return true;
+    }
+  });
+
+  const [isSessionActiveInOtherTab, setIsSessionActiveInOtherTab] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    try {
+      const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        let tabId = window.sessionStorage.getItem('aiprep_tab_instance_id');
+        if (parsed?.tabId && parsed.tabId !== tabId && (Date.now() - (parsed.heartbeat || 0) < 25000)) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  });
+
+  const [closeTabNotice, setCloseTabNotice] = useState<boolean>(false);
+
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const hasAutoStartedRef = useRef<boolean>(false);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<any>(null);
   const sessionInitializedRef = useRef<boolean>(false);
   const [retryCount, setRetryCount] = useState<number>(0);
 
@@ -215,6 +259,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     Array<{ speaker: string; text: string; timestamp: string; timestamp_s: number }>
   >([]);
   const recognitionRef = useRef<any>(null);
+  const restartTimeoutRef = useRef<any>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Per-Question Time Tracking & Multi-Question Answers
@@ -230,8 +275,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [targetCompany, setTargetCompany] = useState<string>('');
   const [showJdModal, setShowJdModal] = useState<boolean>(false);
 
-  // Exit Modal
+  // Exit Modal & Session Exited Guard
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const isExitingRef = useRef<boolean>(false);
+
+  const [isSessionAlreadyEnded, setIsSessionAlreadyEnded] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    try {
+      return Boolean(
+        localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+        sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+        localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+      );
+    } catch (_) {
+      return false;
+    }
+  });
 
   // Speech Synthesis (AI Voice Reading)
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
@@ -257,6 +316,100 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       window.speechSynthesis.removeEventListener('voiceschanged', populateVoices);
     };
   }, []);
+
+  // ── Multi-Tab Coordination & Active Session Heartbeat ────────────────────
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+
+    // 1. Initial check of active session owner in localStorage
+    try {
+      const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.tabId && parsed.tabId !== currentTabId && (Date.now() - (parsed.heartbeat || 0) < 25000)) {
+          setIsSessionActiveInOtherTab(true);
+        }
+      }
+    } catch (_) {}
+
+    // 2. BroadcastChannel coordination
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(`aiprep_session_${assessmentId}`);
+      channel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+        if (data.type === 'PING_ACTIVE_SESSION' && data.tabId !== currentTabId) {
+          if (!isSessionActiveInOtherTab && questions.length > 0) {
+            channel?.postMessage({
+              type: 'PONG_ACTIVE_SESSION',
+              tabId: currentTabId,
+              assessmentId,
+            });
+          }
+        } else if (data.type === 'PONG_ACTIVE_SESSION' && data.tabId !== currentTabId) {
+          setIsSessionActiveInOtherTab(true);
+          setIsLoading(false);
+        }
+      };
+      channel.postMessage({ type: 'PING_ACTIVE_SESSION', tabId: currentTabId, assessmentId });
+    } catch (_) {}
+
+    // 3. Heartbeat if this tab owns the active session
+    const heartbeatTimer = setInterval(() => {
+      if (!isSessionActiveInOtherTab && questions.length > 0) {
+        try {
+          localStorage.setItem(`aiprep_active_session_${assessmentId}`, JSON.stringify({
+            tabId: currentTabId,
+            heartbeat: Date.now(),
+            assessmentId,
+          }));
+        } catch (_) {}
+      }
+    }, 4000);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      try {
+        channel?.close();
+      } catch (_) {}
+      try {
+        const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.tabId === currentTabId) {
+            localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+          }
+        }
+      } catch (_) {}
+    };
+  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading, setIsSessionActiveInOtherTab]);
+
+  const handleCloseTab = () => {
+    try {
+      window.close();
+      setTimeout(() => {
+        setCloseTabNotice(true);
+      }, 300);
+    } catch (_) {
+      setCloseTabNotice(true);
+    }
+  };
+
+  // Speech Recognition Safety Cleanup on Unmount
+  useEffect(() => {
+    return () => {
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) { }
+      }
+    };
+  }, [restartTimeoutRef, recognitionRef]);
 
   const getBestVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
     if (!voices || voices.length === 0) return undefined;
@@ -345,10 +498,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     isComplete,
     enqueueChunk,
     retryFailedChunks,
+    clearQueue,
+    waitForAllChunks,
   } = useChunkUploadQueue({
     assessmentId,
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
   });
+
+  const isUploadingRef = useRef(isUploading);
+  useEffect(() => {
+    isUploadingRef.current = isUploading;
+  }, [isUploading]);
+
+  const pendingChunksRef = useRef(pendingChunks);
+  useEffect(() => {
+    pendingChunksRef.current = pendingChunks;
+  }, [pendingChunks]);
 
   // ── Media Recorder Hook (30s slicing) ──────────────────────────────────────
   const {
@@ -450,6 +615,101 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   };
 
+  // ── Clean Exit Session Handler ──────────────────────────────────────────────
+  const handleExitSession = useCallback(async () => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
+    setIsSessionAlreadyEnded(true);
+    setShowExitModal(false);
+
+    if (countdownIntervalRef.current && typeof window !== 'undefined') {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    stopAiSpeech();
+    cleanupRecorder();
+    clearQueue();
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (assessmentId) {
+          localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+          sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+          localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+        }
+        sessionStorage.removeItem('aiprep_active_id');
+        sessionStorage.removeItem('aiprep_active_questions');
+        sessionStorage.removeItem('aiprep_active_type');
+        sessionStorage.removeItem('aiprep_active_mode');
+        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.removeItem('aiprep_hardware_check');
+        window.dispatchEvent(
+          new CustomEvent('aiprep-layout-mode', {
+            detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
+          })
+        );
+      } catch (_) {}
+    }
+
+    try {
+      if (assessmentId) {
+        await aiprepApi.cancelAssessment(assessmentId);
+      }
+    } catch (e) {
+      console.warn('Failed to cancel assessment on server:', e);
+    }
+
+    const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+    try {
+      if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
+        History.prototype.replaceState.call(window.history, {}, '', targetUrl);
+      }
+    } catch (_) {}
+    router.replace(targetUrl);
+  }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
+
+  // Immediate redirect & history check if this session was already exited or finished
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+    const isEnded = Boolean(
+      localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+      sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+      localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+    );
+    if (isEnded) {
+      setIsSessionAlreadyEnded(true);
+      const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+      try {
+        if (window.history && History?.prototype?.replaceState) {
+          History.prototype.replaceState.call(window.history, {}, '', targetUrl);
+        }
+      } catch (_) {}
+      router.replace(targetUrl);
+    }
+  }, [assessmentId, isEmbedded, router]);
+
+  // Intercept browser Back button while inside active assessment room
+  useEffect(() => {
+    if (typeof window === 'undefined' || !assessmentId || isSessionAlreadyEnded || finishedAssessmentId) return;
+
+    try {
+      window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
+    } catch (_) {}
+
+    const handlePopState = () => {
+      if (isExitingRef.current) return;
+      setShowExitModal(true);
+      try {
+        window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
+      } catch (_) {}
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [assessmentId, isSessionAlreadyEnded, finishedAssessmentId]);
+
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
     if (!assessmentId) {
@@ -457,33 +717,55 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsLoading(false);
       return;
     }
-    if (sessionInitializedRef.current) return;
+    if (sessionInitializedRef.current || isSessionAlreadyEnded) return;
     sessionInitializedRef.current = true;
 
     async function initSession() {
       try {
+        // Guard against previously exited or completed session
+        if (typeof window !== 'undefined') {
+          const wasExited = Boolean(
+            localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+            sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+            localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+          );
+          if (wasExited) {
+            setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            router.replace(targetUrl);
+            return;
+          }
+        }
+
+        // Failsafe: check server assessment status
+        try {
+          const detail = await aiprepApi.getAssessment(assessmentId);
+          const status = (detail?.status || '').toUpperCase();
+          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED') {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            }
+            setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            router.replace(targetUrl);
+            return;
+          }
+        } catch (_) {}
+
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode (from backend API first, with fallback to storage)
-        let resolvedType: AssessmentType = (sessionStorage.getItem('aiprep_active_type') as AssessmentType);
-        let resolvedMode: MediaType = (sessionStorage.getItem('aiprep_active_mode') as MediaType);
-
-        try {
-          const details = await aiprepApi.getAssessment(Number(assessmentId));
-          if (details?.assessment_type) resolvedType = details.assessment_type;
-          if (details?.media_type) resolvedMode = details.media_type;
-          if (details?.assessment_type === 'JD_INTRO' && details?.job_description) {
-            setJobDescription(details.job_description);
-          }
-        } catch (_) { }
+        // 1. Recover stored session track & mode directly from sessionStorage
+        const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
+        const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
+        let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = resolvedMode || 'VIDEO';
+        const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
 
         if (finalType === 'JD_INTRO' && typeof window !== 'undefined') {
-          const storedJd = sessionStorage.getItem('aiprep_jd_text');
-          const storedRole = sessionStorage.getItem('aiprep_jd_role');
-          const storedCompany = sessionStorage.getItem('aiprep_jd_company');
+          const storedJd = window.sessionStorage.getItem('aiprep_jd_text');
+          const storedRole = window.sessionStorage.getItem('aiprep_jd_role');
+          const storedCompany = window.sessionStorage.getItem('aiprep_jd_company');
           if (storedJd) setJobDescription((prev) => prev || storedJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
@@ -496,19 +778,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Query Question Bank API dynamically for this track (Backend First)
-        let loadedQuestions: QuestionBankItem[] = [];
-        try {
-          const dataRes = await aiprepApi.getAssessmentData(Number(assessmentId));
-          if (dataRes?.questions && dataRes.questions.length > 0) {
-            loadedQuestions = dataRes.questions as unknown as QuestionBankItem[];
-          }
-        } catch (qErr) {
-          console.warn('Questions API fallback failed:', qErr);
+        // 2. Load questions from sessionStorage (cached during assessment creation)
+        if (typeof window !== 'undefined') {
+          try {
+            const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
+            if (cachedQ) {
+              const parsed = JSON.parse(cachedQ);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                loadedQuestions = parsed as QuestionBankItem[];
+              }
+            }
+          } catch (_) {}
         }
 
+        // Tier 3: Query Question Bank Catalog API
         if (!loadedQuestions || loadedQuestions.length === 0) {
-          setErrorMsg('Unable to load questions from server. Please retry or contact support.');
+          try {
+            const qBankRes = await aiprepApi.getQuestions(finalType);
+            if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
+              loadedQuestions = qBankRes.items;
+            }
+          } catch (qErr) {
+            console.warn('Question Bank Catalog API fallback failed:', qErr);
+          }
+        }
+
+        // Check that questions were successfully loaded from backend API or session
+        if (!loadedQuestions || loadedQuestions.length === 0) {
+          setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
         }
@@ -520,11 +817,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           hasAutoStartedRef.current = true;
           let currentCount = 5;
           setCountdownValue(currentCount);
-          countdownIntervalRef.current = setInterval(() => {
+          countdownIntervalRef.current = typeof window !== 'undefined' ? window.setInterval(() => {
             currentCount -= 1;
             if (currentCount <= 0) {
               if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
+                window.clearInterval(countdownIntervalRef.current);
                 countdownIntervalRef.current = null;
               }
               setCountdownValue(null);
@@ -532,7 +829,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             } else {
               setCountdownValue(currentCount);
             }
-          }, 1000);
+          }, 1000) : null;
         }
       } catch (err: any) {
         console.error('Session initialization error:', err);
@@ -546,10 +843,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     return () => {
       stopAiSpeech();
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
       cleanupRecorderRef.current();
     };
-  }, [assessmentId, stopAiSpeech, retryCount]);
+  }, [
+    assessmentId,
+    stopAiSpeech,
+    retryCount,
+    setIsLoading,
+    setErrorMsg,
+    setAssessmentType,
+    setMediaType,
+    setJobDescription,
+    setTargetRole,
+    setTargetCompany,
+    setQuestions,
+    setCountdownValue,
+    sessionInitializedRef,
+    hasAutoStartedRef,
+    startAnswerRef,
+    countdownIntervalRef,
+    cleanupRecorderRef,
+  ]);
 
   // Connect video element to active stream
   useEffect(() => {
@@ -586,7 +901,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'en-US';
+
+        // Auto-detect Indian English locale or candidate's browser locale to drastically improve STT phonetic matching
+        const hasIntl = typeof window !== 'undefined' && typeof window.Intl !== 'undefined';
+        const browserNav = typeof window !== 'undefined' ? window.navigator : null;
+        const timeZone = hasIntl ? (window.Intl.DateTimeFormat().resolvedOptions().timeZone || '') : '';
+        const isIndianLocale = hasIntl && (
+          timeZone.includes('Calcutta') ||
+          timeZone.includes('Kolkata') ||
+          timeZone.includes('Asia') ||
+          (browserNav?.languages && browserNav.languages.some(l => l.includes('IN'))) ||
+          (browserNav?.language && browserNav.language.includes('IN'))
+        );
+        recognition.lang = isIndianLocale ? 'en-IN' : (browserNav?.language || 'en-US');
         recognition.maxAlternatives = 1;
         recognitionRef.current = recognition;
 
@@ -598,18 +925,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             const res = event.results[i];
             const text = res[0]?.transcript || '';
             if (res.isFinal) {
-              const trimmed = text.trim();
-              if (trimmed) {
-                sessionFinal += trimmed + ' ';
+              const formatted = formatAsSentence(text);
+              if (formatted) {
+                if (!sessionFinal.toLowerCase().includes(formatted.toLowerCase())) {
+                  sessionFinal += (sessionFinal ? ' ' : '') + formatted;
+                }
                 const currentSec = Math.floor(elapsedTimeRef.current);
                 const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
                 const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
-                transcriptSegmentsRef.current.push({
-                  speaker: 'Candidate',
-                  text: trimmed,
-                  timestamp: `${m}:${s}`,
-                  timestamp_s: currentSec,
-                });
+
+                // Deduplicate against the last recorded segment
+                const lastSeg = transcriptSegmentsRef.current[transcriptSegmentsRef.current.length - 1];
+                const cleanText = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (!lastSeg || cleanText(lastSeg.text) !== cleanText(formatted)) {
+                  transcriptSegmentsRef.current.push({
+                    speaker: 'Candidate',
+                    text: formatted,
+                    timestamp: `${m}:${s}`,
+                    timestamp_s: currentSec,
+                  });
+                }
               }
             } else {
               sessionInterim += text;
@@ -617,26 +952,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
 
           if (sessionFinal.trim()) {
-            accumulatedTranscriptRef.current = [
+            accumulatedTranscriptRef.current = appendDeduplicated(
               accumulatedTranscriptRef.current,
-              sessionFinal.trim(),
-            ]
-              .filter(Boolean)
-              .join(' ');
+              sessionFinal.trim()
+            );
           }
 
-          currentInterimRef.current = sessionInterim.trim();
+          currentInterimRef.current = cleanTechnicalSpeech(sessionInterim).trim();
 
-          const combinedText = [
-            accumulatedTranscriptRef.current,
-            currentInterimRef.current,
-          ]
-            .filter(Boolean)
-            .join(' ')
-            .trim();
+          let interimDisplay = currentInterimRef.current;
+          if (interimDisplay && (!accumulatedTranscriptRef.current || /[.?!]\s*$/.test(accumulatedTranscriptRef.current))) {
+            interimDisplay = interimDisplay.charAt(0).toUpperCase() + interimDisplay.slice(1);
+          }
+
+          const combinedText = interimDisplay
+            ? appendDeduplicated(accumulatedTranscriptRef.current, interimDisplay)
+            : accumulatedTranscriptRef.current;
 
           if (combinedText) {
-            setLiveTranscript(combinedText);
+            setLiveTranscript(cleanTechnicalSpeech(combinedText));
           }
 
           if (transcriptScrollRef.current) {
@@ -652,33 +986,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         };
 
         recognition.onend = () => {
-          // If there was any pending interim text, commit it to accumulated text
-          if (currentInterimRef.current) {
-            const pendingText = currentInterimRef.current;
-            accumulatedTranscriptRef.current = [
-              accumulatedTranscriptRef.current,
-              pendingText,
-            ]
-              .filter(Boolean)
-              .join(' ');
+          // Clear interim text on pause so stale unfinalized words don't hang or duplicate
+          currentInterimRef.current = '';
 
-            const currentSec = Math.floor(elapsedTimeRef.current);
-            const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
-            const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
-            transcriptSegmentsRef.current.push({
-              speaker: 'Candidate',
-              text: pendingText,
-              timestamp: `${m}:${s}`,
-              timestamp_s: currentSec,
-            });
-            currentInterimRef.current = '';
+          // Debounced restart across silent pauses to avoid rapid-fire restart loops
+          if (restartTimeoutRef.current && typeof window !== 'undefined') {
+            window.clearTimeout(restartTimeoutRef.current);
           }
-
-          // Keep listening seamlessly across silent pauses
           if (isRecordingRef.current && recognitionRef.current === recognition) {
-            try {
-              recognition.start();
-            } catch (_) { }
+            restartTimeoutRef.current = typeof window !== 'undefined' ? window.setTimeout(() => {
+              if (isRecordingRef.current && recognitionRef.current === recognition) {
+                try {
+                  recognition.start();
+                } catch (_) { }
+              }
+            }, 300) : null;
           }
         };
 
@@ -687,6 +1009,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         console.warn('Speech recognition not available:', err);
       }
     } else if (recognitionRef.current) {
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
+      }
       try {
         recognitionRef.current.stop();
       } catch (_) { }
@@ -694,6 +1019,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
 
     return () => {
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -702,6 +1030,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     };
   }, [
     isRecording,
+    finalTranscriptRef,
     accumulatedTranscriptRef,
     recognitionRef,
     currentInterimRef,
@@ -709,61 +1038,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     transcriptScrollRef,
     elapsedTimeRef,
     transcriptSegmentsRef,
+    restartTimeoutRef,
+    isRecordingRef,
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
-  // Recording starts only AFTER the AI finishes reading the question aloud.
+  // Immediately starts assessment recording and question timer as soon as countdown completes (no automatic AI voice)
   const handleStartAnswer = () => {
-    const activeQ = questions[currentQuestionIndex];
-    if (!isSpeechMuted && activeQ?.question_text && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      stopAiSpeech();
-      let hasStartedRecording = false;
-
-      const triggerStartRecording = () => {
-        if (hasStartedRecording) return;
-        hasStartedRecording = true;
-        if (speechTimeoutRef.current) {
-          clearTimeout(speechTimeoutRef.current);
-          speechTimeoutRef.current = null;
-        }
-        speechUtteranceRef.current = null;
-        setIsAiSpeaking(false);
-        startRecorderCore();
-      };
-
-      try {
-        const cleanText = activeQ.question_text.replace(/^"|"$/g, '').trim();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        speechUtteranceRef.current = utterance;
-
-        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
-        const preferredVoice = getBestVoice(currentVoices);
-        if (preferredVoice) utterance.voice = preferredVoice;
-        utterance.rate = 0.95;
-
-        utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => triggerStartRecording();
-        utterance.onerror = () => triggerStartRecording();
-
-        // Safeguard timeout: calculate based on word count (avg ~2.5 words/sec + 5s buffer, min 8s, max 20s)
-        const wordCount = cleanText.split(/\s+/).length;
-        const maxWaitMs = Math.min(Math.max(Math.ceil((wordCount / 2.5) * 1000) + 5000, 8000), 20000);
-
-        speechTimeoutRef.current = setTimeout(() => {
-          console.warn('[Assessment] Speech synthesis safeguard timeout triggered');
-          try {
-            window.speechSynthesis.cancel();
-          } catch (_) { }
-          triggerStartRecording();
-        }, maxWaitMs);
-
-        window.speechSynthesis.speak(utterance);
-      } catch (_) {
-        triggerStartRecording();
-      }
-    } else {
-      startRecorderCore();
-    }
+    stopAiSpeech();
+    startRecorderCore();
   };
   startAnswerRef.current = handleStartAnswer;
 
@@ -783,22 +1066,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, [currentQuestionIndex, questions, assessmentType]);
 
   const handleNextQuestionRef = useRef<() => void>(() => { });
+  const handleEndSessionRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const hasAutoEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isRecording) return;
+    if (!isRecording || isEnding) return;
     const timer = setInterval(() => {
       setQuestionTimeElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRecording]);
+  }, [isRecording, isEnding]);
 
   useEffect(() => {
-    if (isRecording && questionTimeElapsed >= questionTimeLimit + 3 && !isTransitioningQuestion) {
+    if (isRecording && questionTimeElapsed >= questionTimeLimit && !isTransitioningQuestion && !isEnding && !hasAutoEndedRef.current) {
       if (currentQuestionIndex < questions.length - 1) {
         handleNextQuestionRef.current();
+      } else {
+        // Last question or single question (INTRO assessment):
+        // Automatically stop timer, stop recording/chunks, show spinner, and submit via PUT API
+        hasAutoEndedRef.current = true;
+        void handleEndSessionRef.current();
       }
     }
-  }, [isRecording, questionTimeElapsed, questionTimeLimit, isTransitioningQuestion, currentQuestionIndex, questions.length]);
+  }, [isRecording, questionTimeElapsed, questionTimeLimit, isTransitioningQuestion, isEnding, currentQuestionIndex, questions.length]);
 
   const questionTimeRemaining = Math.max(0, questionTimeLimit - questionTimeElapsed);
   const isQuestionLowTime = isRecording && questionTimeRemaining <= 30 && questionTimeRemaining > 0;
@@ -812,7 +1102,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       stopAiSpeech();
 
       // 1. Snapshot current question's live transcript
-      const currentText = liveTranscript.trim();
+      const currentText = cleanTechnicalSpeech(liveTranscript).trim();
       setQuestionAnswers((prev) => ({
         ...prev,
         [currentQuestionIndex]: currentText || prev[currentQuestionIndex] || '',
@@ -842,7 +1132,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsTransitioningQuestion(true);
       stopAiSpeech();
 
-      const currentText = liveTranscript.trim();
+      const currentText = cleanTechnicalSpeech(liveTranscript).trim();
       if (currentText) {
         setQuestionAnswers((prev) => ({
           ...prev,
@@ -869,39 +1159,49 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsEnding(true);
       stopAiSpeech();
 
-      // 1. Stop recording and flush final 30s slice
+      // 1. Stop recording and flush final slice
       await stopRecording();
 
-      // Commit any pending interim speech before submitting
-      if (currentInterimRef.current) {
-        accumulatedTranscriptRef.current = [
-          accumulatedTranscriptRef.current,
-          currentInterimRef.current,
-        ]
-          .filter(Boolean)
-          .join(' ');
+      // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
+      await waitForAllChunks(8000);
 
-        const currentSec = Math.floor(elapsedTimeRef.current);
-        const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
-        const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
-        transcriptSegmentsRef.current.push({
-          speaker: 'Candidate',
-          text: currentInterimRef.current,
-          timestamp: `${m}:${s}`,
-          timestamp_s: currentSec,
-        });
+      // Commit any pending interim speech as a complete sentence before submitting
+      if (currentInterimRef.current) {
+        const formatted = formatAsSentence(currentInterimRef.current);
+        if (formatted) {
+          accumulatedTranscriptRef.current = [
+            accumulatedTranscriptRef.current,
+            formatted,
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          const currentSec = Math.floor(elapsedTimeRef.current);
+          const m = Math.floor(currentSec / 60).toString().padStart(2, '0');
+          const s = Math.floor(currentSec % 60).toString().padStart(2, '0');
+          transcriptSegmentsRef.current.push({
+            speaker: 'Candidate',
+            text: cleanTechnicalSpeech(formatted),
+            timestamp: `${m}:${s}`,
+            timestamp_s: currentSec,
+          });
+        }
         currentInterimRef.current = '';
       }
 
-      const actualTranscript =
+      const rawTranscript =
         accumulatedTranscriptRef.current.trim() ||
         liveTranscript.trim() ||
         questions[currentQuestionIndex]?.question_text ||
         'Assessment completed.';
+      const actualTranscript = cleanTechnicalSpeech(rawTranscript);
 
       const finalSegments =
         transcriptSegmentsRef.current.length > 0
-          ? transcriptSegmentsRef.current
+          ? transcriptSegmentsRef.current.map((seg) => ({
+              ...seg,
+              text: cleanTechnicalSpeech(seg.text),
+            }))
           : [
             {
               speaker: 'Candidate',
@@ -911,62 +1211,111 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             },
           ];
 
-      // 3. Assemble session questions & transcript payload without client-mocked audio telemetry
-      const telemetryPayload = {
-        questions: questions.map((q, idx) => ({
-          question_id: q.id || (q as any).question_id || idx + 1,
-          question_text: q.question_text,
-        })),
-        transcript: {
-          full_text: actualTranscript,
-          segments: finalSegments,
-        },
-        video_telemetry: {
-          is_video_mode: !isAudioOnly,
-          face_visible_pct: 100,
-          head_nods_count: 0,
-        },
-      };
+      // 3. Submit assessment via PUT /candidates/{id}/assessments/{id}
+      const submitRes = await aiprepApi.submitAssessment(assessmentId, {
+        total_chunks_uploaded: totalChunks || 1,
+        is_final: true,
+        client_duration_seconds: elapsedTimeRef.current,
+        video_telemetry: isAudioOnly
+          ? {}
+          : {
+              eye_contact_percentage: 85.0,
+              face_visibility_percentage: 95.0,
+            },
+        status: null,
+      });
 
-      // 4. Submit captured questions & live transcript to POST /api/aiprep/assessments/{id}/data
-      try {
-        await aiprepApi.submitTelemetryData(assessmentId, telemetryPayload);
-      } catch (submitErr) {
-        console.warn('Telemetry submission note:', submitErr);
+      // Store PUT response body in sessionStorage so Evaluation page can render it directly
+      if (submitRes) {
+        try {
+          sessionStorage.setItem(`aiprep_submission_${assessmentId}`, JSON.stringify(submitRes));
+        } catch (_) {}
       }
 
-      // 5. Clean up browser session storage flags
-      sessionStorage.removeItem('aiprep_active_id');
-      sessionStorage.removeItem('aiprep_wizard_step');
+      // 5. Clean up browser storage flags & queue
+      clearQueue();
+      if (typeof window !== 'undefined') {
+        try {
+          if (assessmentId) {
+            localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
+            localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+          }
+          sessionStorage.removeItem('aiprep_active_id');
+          sessionStorage.removeItem('aiprep_active_questions');
+          sessionStorage.removeItem('aiprep_active_type');
+          sessionStorage.removeItem('aiprep_active_mode');
+          sessionStorage.removeItem('aiprep_wizard_step');
+          sessionStorage.removeItem('aiprep_hardware_check');
+          localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
+        } catch (_) {}
+      }
 
-      // 6. Transition candidate to processing screen where single synchronous evaluation executes
-      const processingUrl = isEmbedded
-        ? `/aiprep/session/${assessmentId}/processing?embed=true`
-        : `/aiprep/session/${assessmentId}/processing`;
-      router.push(processingUrl);
+      // 6. Transition directly to Evaluation page once response arrives
+      const reportUrl = isEmbedded
+        ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
+        : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
+      try {
+        if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
+          History.prototype.replaceState.call(window.history, {}, '', reportUrl);
+        }
+      } catch (_) {}
+      setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
       setIsEnding(false);
-    } finally {
-      setIsEnding(false);
     }
   };
+  handleEndSessionRef.current = handleEndSession;
 
   // ── Max Recording Duration Enforcer ───────────────────────────────────────
   // Auto-ends the session when the type-specific time limit is reached
   useEffect(() => {
-    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding) {
+    if (isRecording && elapsedTime >= MAX_RECORDING_SECONDS && !isEnding && !hasAutoEndedRef.current) {
       console.warn(`[Assessment] Max recording time (${MAX_RECORDING_SECONDS / 60} min) reached — auto-ending session.`);
-      handleEndSession();
+      hasAutoEndedRef.current = true;
+      void handleEndSessionRef.current();
     }
-  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS, handleEndSession]);
+  }, [elapsedTime, isRecording, isEnding, MAX_RECORDING_SECONDS]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (finishedAssessmentId) {
+    return <AiPrepReport assessmentId={String(finishedAssessmentId)} />;
+  }
+
+  // ── Session Ended / Exited View ────────────────────────────────────────────
+  if (isSessionAlreadyEnded) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col items-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+            <IconAlertTriangle size={28} />
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Assessment Session Closed</h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            This assessment session (#{assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+              router.replace(targetUrl);
+            }}
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            Return to AI Prep Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Loading & Error Displays ───────────────────────────────────────────────
   if (isLoading) {
@@ -977,6 +1326,101 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Assessment Room</h2>
         <p className="text-slate-500 dark:text-slate-400 text-xs">Calibrating media slicing and dynamic questions…</p>
+      </div>
+    );
+  }
+
+  // ── Duplicate Tab / Assessment Already Active in Another Tab ───────────────
+  if (isSessionActiveInOtherTab || (!hasSessionInit && (errorMsg || questions.length === 0))) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
+        <div className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xl p-6 sm:p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+          
+          {/* Top Pill Status Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-4">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Assessment Session #{assessmentId} Active</span>
+          </div>
+
+          {/* Hero Warning Icon */}
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-amber-500/15 via-orange-500/10 to-purple-500/15 border-2 border-amber-300/80 dark:border-amber-700/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 ring-8 ring-amber-500/10 dark:ring-amber-400/10 shadow-lg shadow-amber-500/5">
+            <IconAlertTriangle size={36} className="stroke-[2.2]" />
+          </div>
+
+          {/* Main Title & Subtitle */}
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-snug">
+            Assessment Already in Progress
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+            This interview session is already active in another browser tab. Please do not switch or open multiple session tabs.
+          </p>
+
+          {/* Structured Guidance Cards */}
+          <div className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 sm:p-4.5 mt-5 text-left space-y-3.5">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Active Recording in Old Tab</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Your live interview questions, microphone, camera feed, and timer are currently running in your original tab.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <IconLock size={15} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Do Not Open Here or Switch Tabs</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  To protect assessment security and prevent hardware recording conflicts, duplicate session windows are blocked.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <IconArrowRight size={15} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Return to Your Original Tab</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Look for the tab marked with the <span className="font-bold text-rose-600 dark:text-rose-400">🔴 recording dot</span> in your browser toolbar above and switch back to it to continue.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 w-full mt-6">
+            <button
+              onClick={handleCloseTab}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] active:bg-[#5B21B6] text-white font-bold text-xs shadow-md shadow-purple-500/20 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <IconX size={15} className="stroke-[2.5]" />
+              <span>Close This Tab</span>
+            </button>
+            <button
+              onClick={() => {
+                const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+                router.replace(targetUrl);
+              }}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <span>Return to Dashboard</span>
+            </button>
+          </div>
+
+          {/* Notice if browser blocks script-closing tab */}
+          {closeTabNotice && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-3 font-semibold animate-in fade-in duration-200">
+              ⚠️ Browser prevented auto-closing. Please manually close this tab (Ctrl+W) and click on the original tab!
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -1002,7 +1446,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             Retry
           </button>
           <button
-            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            onClick={() => {
+              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+              router.replace(targetUrl);
+            }}
             className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
           >
             Return to Portal
@@ -1014,6 +1461,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   const activeQuestion = questions[currentQuestionIndex];
   const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
+  const sentenceCount = liveTranscript
+    ? liveTranscript
+        .trim()
+        .split(/[.!?]+/)
+        .filter((s) => s.trim().length > 0).length
+    : 0;
   const isQuestionBlurred = isInactive && !isIntroType;
 
   return (
@@ -1022,14 +1475,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       <header className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-30">
         {/* LEFT: Logo & Assessment Track Title */}
         <div className="flex items-center gap-3">
-          <Image
-            src="/images/logos/whitebox-cube-logo.png"
-            alt="Whitebox Learning"
-            width={32}
-            height={32}
-            className="w-8 h-8 object-contain"
-            priority
-          />
+          <div className="w-8 h-8 rounded-lg bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/30 shrink-0">
+            <IconSparkles size={18} />
+          </div>
           <div>
             <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
               {assessmentType} Assessment
@@ -1070,13 +1518,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             )}
           </div>
 
-          {/* Session Total Duration Clock */}
-          <div className="hidden md:inline-flex items-center h-8 gap-1.5 px-3 rounded-full bg-slate-100 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 shadow-xs">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-none">Total:</span>
-            <span className="font-mono text-xs font-bold leading-none">
-              {formatTime(elapsedTime)}
-            </span>
-          </div>
+
         </div>
 
         {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
@@ -1207,7 +1649,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <button
                   type="button"
                   onClick={() => setShowExitModal(true)}
-                  className="h-10 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 inline-flex items-center justify-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold shrink-0"
+                  disabled={isEnding}
+                  className="h-10 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/40 inline-flex items-center justify-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold shrink-0"
                   title="Exit Assessment"
                 >
                   <IconLogout size={16} stroke={2} />
@@ -1215,7 +1658,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 </button>
 
                 {/* Previous Button (Only when recording and past Question 1) */}
-                {isRecording && currentQuestionIndex > 0 && (
+                {isRecording && currentQuestionIndex > 0 && !isEnding && (
                   <button
                     type="button"
                     onClick={handlePrevQuestion}
@@ -1231,7 +1674,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
               {/* Center Column: Perfectly Centered Primary CTA or Live Answering Indicator */}
               <div className="flex items-center justify-center shrink-0">
-                {isInactive ? (
+                {isEnding ? (
+                  <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 shrink-0 shadow-xs text-purple-700 dark:text-purple-300">
+                    <IconLoader2 size={15} className="animate-spin text-purple-600 dark:text-purple-400" />
+                    <span className="text-xs font-bold whitespace-nowrap">
+                      Submitting Assessment…
+                    </span>
+                  </div>
+                ) : isInactive ? (
                   !isIntroType ? (
                     <button
                       type="button"
@@ -1260,8 +1710,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
               {/* Right Group: Forward Progression (Next Question / Finish Assessment) or Symmetrical Spacer */}
               <div className="flex items-center justify-end shrink-0">
-                {isRecording ? (
-                  currentQuestionIndex < questions.length - 1 ? (
+                {isRecording || isEnding ? (
+                  !isEnding && currentQuestionIndex < questions.length - 1 ? (
                     <button
                       type="button"
                       onClick={handleNextQuestion}
@@ -1469,7 +1919,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                {wordCount} words
+                {sentenceCount} {sentenceCount === 1 ? 'sentence' : 'sentences'} • {wordCount} words
               </span>
             </div>
 
@@ -1565,15 +2015,31 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-                  cleanupRecorder();
-                  router.push(isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep');
-                }}
+                onClick={handleExitSession}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition-colors cursor-pointer"
               >
                 Exit Session
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. SUBMITTING & FINALIZING MODAL SPINNER OVERLAY */}
+      {isEnding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200 select-none">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 max-w-sm w-full mx-auto shadow-2xl flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-2xl bg-[#7C3AED]/10 dark:bg-[#7C3AED]/20 border border-[#7C3AED]/30 flex items-center justify-center mb-4 text-[#7C3AED] shadow-sm">
+              <IconLoader2 size={36} className="animate-spin text-[#7C3AED]" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
+              Submitting Assessment
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
+              Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
+            </p>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
             </div>
           </div>
         </div>

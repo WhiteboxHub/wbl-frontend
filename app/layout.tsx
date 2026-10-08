@@ -1,5 +1,5 @@
 "use client";
-import "node_modules/react-modal-video/css/modal-video.css";
+import "react-modal-video/css/modal-video.css";
 import "../styles/index.css";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -11,8 +11,6 @@ import { Providers } from "./providers";
 import { AuthProvider } from "@/utils/AuthContext";
 import { useState, useEffect } from "react";
 import { Poppins } from "next/font/google";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
 import GoogleAnalytics from "@/components/GoogleAnalytics";

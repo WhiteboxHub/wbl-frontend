@@ -202,11 +202,6 @@ export const ASSESSMENT_INFO_DETAILS: Record<AssessmentType, AssessmentInfo> = {
       { icon: 'file', text: 'Questions based on the areas above' },
       { icon: 'chart', text: 'Real-time feedback after completion' },
     ],
-    example: {
-      title: 'Example Intro and Transcript',
-      description: 'Watch an example introduction to see how to structure your response.',
-      linkText: 'View Example Intro →',
-    },
   },
   JD_INTRO: {
     type: 'JD_INTRO',
