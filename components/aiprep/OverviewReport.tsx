@@ -1791,7 +1791,7 @@ export default function AiPrepReport({
   };
 
   const lastLoadedIdRef = useRef<string | null>(null);
-  const candidateIdRef = useRef<string | number | null>(null);
+  const [candidateId, setCandidateId] = useState<string | number | null>(() => initialCandidateId ?? null);
 
   const loadReport = useCallback(async () => {
     if (!assessmentId) return;
@@ -1807,7 +1807,7 @@ export default function AiPrepReport({
     try {
       const assessment = await aiPrepApi.getAssessment(assessmentId);
       if (assessment?.candidate_id) {
-        candidateIdRef.current = assessment.candidate_id;
+        setCandidateId(assessment.candidate_id);
       }
       const statusUpper = (assessment.status || "").toUpperCase();
 
@@ -1897,7 +1897,7 @@ export default function AiPrepReport({
               ""
             : "";
 
-        const cid = candidateIdRef.current || resolveCandidateId(initialCandidateId, "1");
+        const cid = candidateId || resolveCandidateId(initialCandidateId, "1");
         const rawBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
         const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
         const streamUrl = rawBase ? `${rawBase}/${path}` : `/api/${path}`;
@@ -1963,7 +1963,7 @@ export default function AiPrepReport({
       abortController.abort();
       if (fallbackPollTimer) clearInterval(fallbackPollTimer);
     };
-  }, [isProcessing, assessmentId, initialCandidateId, loadReport]);
+  }, [isProcessing, assessmentId, initialCandidateId, loadReport, candidateId]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
