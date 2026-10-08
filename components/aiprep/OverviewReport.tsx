@@ -1855,7 +1855,7 @@ export default function AiPrepReport({
 
   // ── Real-Time SSE Stream Listener & Polling Fallback ────────────────────────
   useEffect(() => {
-    if (!isProcessing || !assessmentId) return;
+    if (!isProcessing || !assessmentId || !candidateId) return;
 
     let isSubscribed = true;
     const abortController = new AbortController();
