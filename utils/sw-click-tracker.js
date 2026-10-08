@@ -94,24 +94,55 @@ async function clearClicks(ids) {
     } catch(e) {}
 }
 
+let isFlushing = false;
+let pendingFlush = false;
+let pendingFlushForce = false;
+
+function handleConfigUpdate() {
+    if (baseUrl && cachedToken) {
+        if (pendingFlush) {
+            const force = pendingFlushForce;
+            pendingFlush = false;
+            pendingFlushForce = false;
+            attemptFlush(force);
+        } else {
+            // On page load/auth, check if we need to flush scheduled sync
+            attemptFlush(false);
+        }
+    }
+}
+
 // THE FLUSH LOGIC
 async function attemptFlush(force = false) {
     if (!baseUrl || !cachedToken) {
-        console.warn('[SW] Sync skipped: Config/Token not received yet');
+        pendingFlush = true;
+        if (force) {
+            pendingFlushForce = true;
+        }
+        console.warn('[SW] Sync deferred: Config/Token not received yet');
         return;
     }
 
-    const lastSyncedAt = await getLastSyncedAt();
-    const now = Date.now();
-
-    // The core logic: If force is true, OR last_synced_at is null OR (now - last_synced_at) > 12 hours -> Flush
-    if (force || lastSyncedAt === null || (now - lastSyncedAt) > SYNC_THRESHOLD_MS) {
-        const clicks = await getPendingClicks();
-        if (clicks.length === 0) {
-            return;
+    if (isFlushing) {
+        pendingFlush = true;
+        if (force) {
+            pendingFlushForce = true;
         }
+        return;
+    }
 
-        try {
+    isFlushing = true;
+
+    try {
+        const lastSyncedAt = await getLastSyncedAt();
+        const now = Date.now();
+
+        if (force || lastSyncedAt === null || (now - lastSyncedAt) > SYNC_THRESHOLD_MS) {
+            const clicks = await getPendingClicks();
+            if (clicks.length === 0) {
+                return;
+            }
+
             const path = '/candidates/track-clicks-batch';
             const cleanBase = baseUrl.replace(/\/+$/, '').replace(/\/api$/, '');
             const url = `${cleanBase}/api${path}`;
@@ -129,10 +160,18 @@ async function attemptFlush(force = false) {
                 await clearClicks(clicks.map(c => c.job_listing_id));
                 await setLastSyncedAt(Date.now());
             } else {
-                console.error('[SW] ❌ Sync Error: HTTP', response.status);
+                console.error('[SW] Sync Error: HTTP', response.status);
             }
-        } catch (err) {
-            console.error('[SW] ❌ Sync Error:', err);
+        }
+    } catch (err) {
+        console.error('[SW] Sync Error:', err);
+    } finally {
+        isFlushing = false;
+        if (pendingFlush) {
+            const nextForce = pendingFlushForce;
+            pendingFlush = false;
+            pendingFlushForce = false;
+            setTimeout(() => attemptFlush(nextForce), 0); 
         }
     }
 }
@@ -154,14 +193,16 @@ setInterval(async () => {
 }, 60 * 1000);
 
 self.addEventListener('message', (event) => {
+    if (!event.data) return;
+
     if (event.data.type === 'SET_API_URL') {
         baseUrl = event.data.url;
+        handleConfigUpdate();
     }
 
     if (event.data.type === 'SET_TOKEN') {
         cachedToken = event.data.token;
-        // On page load/auth, check if we need to flush immediately
-        attemptFlush(false);
+        handleConfigUpdate();
     }
 
     if (event.data.type === 'TRACK_CLICK') {
