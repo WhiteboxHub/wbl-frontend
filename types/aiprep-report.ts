@@ -596,10 +596,11 @@ export function normalizeReport(
   };
 
   // ── Intro quality ────────────────────────────────────────────────────────
+  const bundledLangIQ = asRecord(asRecord(bundled.language).introduction_quality);
   const iq = bundled.introduction_quality
     ? asRecord(bundled.introduction_quality)
-    : asRecord(asRecord(bundled.language).introduction_quality)
-      ? asRecord(asRecord(bundled.language).introduction_quality)
+    : Object.keys(bundledLangIQ).length > 0
+      ? bundledLangIQ
       : introEval.introduction_quality
         ? asRecord(introEval.introduction_quality)
         : null;

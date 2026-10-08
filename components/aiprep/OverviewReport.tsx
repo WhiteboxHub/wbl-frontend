@@ -1878,8 +1878,10 @@ export default function AiPrepReport({
     }
     const param = paramFromTab(tabLabel);
     const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
+    const fromParam = searchParams.get("from");
+    const fromQuery = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
 
-    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}`;
+    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}${fromQuery}`;
     router.push(targetUrl, { scroll: false });
   };
 
