@@ -591,7 +591,7 @@ export class AIPrepTelemetry {
         assessment_uuid: payload.assessment_uuid,
       };
 
-      // Send events to PostHog: Try SDK first, fall back to GET if SDK is unavailable
+      // Send events directly via HTTP GET request with Base64 payload
       try {
         const eventProperties = {
           ...(cleanMeta || {}),
@@ -608,17 +608,7 @@ export class AIPrepTelemetry {
           session_id: preparedEvent.session_id,
         };
 
-        let sdkCaptured = false;
-        if (typeof window !== 'undefined' && (posthog as any).__loaded) {
-          try {
-            posthog.capture(evt.event_type, eventProperties);
-            sdkCaptured = true;
-          } catch (_) { }
-        }
-
-        if (!sdkCaptured) {
-          this.sendPostHogGetEvent(evt.event_type, eventProperties);
-        }
+        this.sendPostHogGetEvent(evt.event_type, eventProperties);
       } catch (_) { }
     });
   }
