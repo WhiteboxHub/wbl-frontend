@@ -216,7 +216,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   // Track Catalog Mount
   useEffect(() => {
     AIPrepTelemetry.trackAssessmentSelectionPage(AIPrepTelemetry.getResolvedCandidateId(), SUPPORTED_ASSESSMENT_TYPES);
-  }, []);
+  }, [SUPPORTED_ASSESSMENT_TYPES]);
 
   const handleTypeSelect = (type: AssessmentType, isLocked?: boolean) => {
     const card = DISPLAY_CARDS.find((c) => c.type === type);

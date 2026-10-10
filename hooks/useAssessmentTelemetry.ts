@@ -33,11 +33,13 @@ export function useAssessmentTelemetry({
   const blurStartRef = useRef<number | null>(null);
   const violationCountRef = useRef<number>(0);
 
-  // Initialize start time on mount
+  // Initialize or reset session start time on assessment change
   useEffect(() => {
-    if (!startTimeRef.current && effectiveUuid && assessmentId) {
-      startTimeRef.current = Date.now();
-    }
+    startTimeRef.current = Date.now();
+    blurStartRef.current = null;
+    violationCountRef.current = 0;
+    answeredQuestionsCount.current = 0;
+    skippedQuestionsCount.current = 0;
   }, [assessmentId, effectiveUuid]);
 
   // 2. Tab switch / Blur detection (Proctoring alerts)
