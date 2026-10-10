@@ -1232,17 +1232,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           status: null,
         },
         (event) => {
-          if (typeof event.progress === "number") {
-            setSubmissionProgress(Math.max(0, Math.min(100, event.progress)));
-          }
-          if (typeof event.step === "string" && event.step.trim()) {
-            setSubmissionStep(event.step);
-          } else if (event.status === "PROCESSING") {
-            setSubmissionStep("Processing recording and audio…");
-          } else if (event.status === "EVALUATING") {
-            setSubmissionStep("Evaluating your assessment with AI…");
-          } else if (event.status === "COMPLETED") {
-            setSubmissionStep("Evaluation complete. Opening report…");
+          // Progress UI must never interrupt consumption of the assessment SSE stream.
+          try {
+            if (typeof event.progress === "number") {
+              setSubmissionProgress(Math.max(0, Math.min(100, event.progress)));
+            }
+            if (typeof event.step === "string" && event.step.trim()) {
+              setSubmissionStep(event.step);
+            } else if (event.status === "PROCESSING") {
+              setSubmissionStep("Processing recording and audio…");
+            } else if (event.status === "EVALUATING") {
+              setSubmissionStep("Evaluating your assessment with AI…");
+            } else if (event.status === "COMPLETED") {
+              setSubmissionStep("Evaluation complete. Opening report…");
+            }
+          } catch (progressError) {
+            console.warn("Could not update assessment submission progress UI:", progressError);
           }
         }
       );
@@ -1281,6 +1286,36 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
+
+      // The server may finish evaluation after the browser's SSE connection drops.
+      // Verify once before showing an error; never resubmit the PUT automatically.
+      if (assessmentId) {
+        try {
+          const latestAssessment = await aiprepApi.getAssessment(assessmentId);
+          const latestStatus = String(latestAssessment?.status || "").toUpperCase();
+          if (latestStatus === "COMPLETED") {
+            setSubmissionProgress(100);
+            setSubmissionStep("Evaluation complete. Opening report…");
+            setFinishedAssessmentId(assessmentId);
+            return;
+          }
+          if (latestStatus === "FAILED" || latestStatus === "CANCELLED") {
+            setErrorMsg(latestStatus === "FAILED"
+              ? "Assessment evaluation failed. Please contact support if this continues."
+              : "This assessment was cancelled before evaluation completed.");
+            setIsEnding(false);
+            return;
+          }
+          if (["EVALUATING", "IN_PROGRESS", "SUBMITTED", "PENDING"].includes(latestStatus)) {
+            setErrorMsg("The progress connection ended, but your assessment may still be processing. Please check the report status before trying again.");
+            setIsEnding(false);
+            return;
+          }
+        } catch (statusCheckError) {
+          console.warn("Could not verify assessment status after submission interruption:", statusCheckError);
+        }
+      }
+
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
       setIsEnding(false);
     }
