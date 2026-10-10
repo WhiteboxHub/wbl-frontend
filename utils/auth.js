@@ -37,12 +37,24 @@ export const clearUserRoleCache = () => {
 export const isAssessmentPage = () => {
   if (typeof window === "undefined") return false;
   const p = window.location.pathname.toLowerCase();
-  return (
+  const isAssessmentFlowPage =
     p.includes("/aiprep/session") ||
     p.includes("/aiprep/reports") ||
     p.includes("/session/") ||
-    p.includes("/reports/")
-  );
+    p.includes("/reports/");
+
+  // The AI Prep wizard steps (assessment type, consent, device check, and practice)
+  // use the existing token/local role and must not call GET /user_role.
+  const wizardSteps = new Set([
+    "assessment-type", "assesment-type", "consent",
+    "device-check", "devicecheck", "practice",
+    "practice-start", "configuration",
+  ]);
+  const isAiPrepWizardPage =
+    p.includes("/user_dashboard/ai-prep/") &&
+    wizardSteps.has(p.split("/").filter(Boolean).at(-1));
+
+  return isAssessmentFlowPage || isAiPrepWizardPage;
 };
 
 export const fetchUserRole = async (token, forceRefresh = false) => {

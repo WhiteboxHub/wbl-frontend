@@ -40,7 +40,7 @@ import {
   Wrench,
   Boxes,
 } from "lucide-react";
-import { aiPrepApi, resolveCandidateId } from "@/lib/aiprep-api";
+import { aiPrepApi } from "@/lib/aiprep-api";
 import {
   normalizeReport,
   type NormalizedReport,
@@ -374,6 +374,15 @@ function isEvaluatorSentence(text?: string | null): boolean {
 }
 
 function hasRealSpeech(report: NormalizedReport): boolean {
+  const isInsufficient = Boolean(
+    report.insufficient_content ||
+    (report.assessment as any)?.insufficient_content ||
+    (report.assessment as any)?.data?.assessment_eval?.insufficient_content ||
+    (report.assessment?.report as any)?.insufficient_content
+  );
+  if (isInsufficient) {
+    return false;
+  }
   if (
     isRealContent(report.overall_summary) ||
     (report.intro_sections && report.intro_sections.length > 0) ||
@@ -801,6 +810,38 @@ export function EvaluationContent({
 
   const rawMediaType = (report.assessment.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
+  const candidateSpoke = hasRealSpeech(report);
+
+  if (!candidateSpoke || insufficient_content) {
+    return (
+      <div className="space-y-3 sm:space-y-3.5">
+        <EmptyEvaluationCard />
+        {canShowRecording && effectivePlaybackUrl && (
+          <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
+            <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
+              {isAudioOnly ? (
+                <AudioWaveform size={15} className="text-blue-600" />
+              ) : (
+                <Video size={15} className="text-blue-600" />
+              )}
+              <h2 className="text-xs sm:text-sm font-bold">
+                {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
+              </h2>
+            </div>
+            <div className="w-full max-w-3xl mx-auto">
+              <VideoPlayer
+                youtubeUrl={effectivePlaybackUrl}
+                videoRef={videoRef}
+                isAudioOnly={isAudioOnly}
+                candidateName={report.candidate_name}
+                durationSeconds={durationSeconds}
+              />
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
 
   // Dynamic values strictly from API payload
   const readiness = overall_readiness || scores.overall_band || "GOOD";
@@ -1828,16 +1869,35 @@ export default function AiPrepReport({
       }
 
       const dataVal = (assessment.data as any) || null;
-      const reportVal = (assessment.report as any) || null;
+      let reportVal = (assessment.report as any) || null;
 
       if (!reportVal && !assessment.report) {
-        setError(
-          statusUpper === "FAILED"
-            ? "Assessment evaluation could not be completed."
-            : "We couldn't load this assessment report."
-        );
-        setLoading(false);
-        return;
+        if (typeof window !== "undefined") {
+          try {
+            const cachedStr = sessionStorage.getItem(`aiprep_submission_${assessmentId}`);
+            if (cachedStr) {
+              const cached = JSON.parse(cachedStr);
+              if (cached?.data?.report || cached?.report) {
+                reportVal = cached.data?.report || cached.report;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (!reportVal && statusUpper === "COMPLETED") {
+          setReport(normalizeReport(assessment, dataVal, null));
+          return;
+        }
+
+        if (!reportVal) {
+          setError(
+            statusUpper === "FAILED"
+              ? "Assessment evaluation could not be completed."
+              : "We couldn't load this assessment report."
+          );
+          setLoading(false);
+          return;
+        }
       }
 
       setReport(normalizeReport(assessment, dataVal, reportVal));
@@ -1853,117 +1913,8 @@ export default function AiPrepReport({
     loadReport();
   }, [loadReport]);
 
-  // ── Real-Time SSE Stream Listener & Polling Fallback ────────────────────────
-  useEffect(() => {
-    if (!isProcessing || !assessmentId || !candidateId) return;
-
-    let isSubscribed = true;
-    const abortController = new AbortController();
-    let fallbackPollTimer: NodeJS.Timeout | null = null;
-
-    const triggerComplete = () => {
-      if (!isSubscribed) return;
-      setIsProcessing(false);
-      lastLoadedIdRef.current = null;
-      loadReport();
-    };
-
-    const startFallbackPolling = () => {
-      if (fallbackPollTimer || !isSubscribed) return;
-      fallbackPollTimer = setInterval(async () => {
-        try {
-          const check = await aiPrepApi.getAssessment(assessmentId);
-          const st = (check?.status || "").toUpperCase();
-          if (st === "COMPLETED" || check?.report) {
-            if (fallbackPollTimer) clearInterval(fallbackPollTimer);
-            triggerComplete();
-          } else if (st === "FAILED") {
-            if (fallbackPollTimer) clearInterval(fallbackPollTimer);
-            setError("Assessment evaluation could not be completed.");
-            setIsProcessing(false);
-          }
-        } catch (_) {}
-      }, 3000);
-    };
-
-    const connectStream = async () => {
-      try {
-        const token =
-          typeof window !== "undefined"
-            ? localStorage.getItem("access_token") ||
-              localStorage.getItem("token") ||
-              localStorage.getItem("auth_token") ||
-              localStorage.getItem("bearer_token") ||
-              ""
-            : "";
-
-        const cid = candidateId || resolveCandidateId(initialCandidateId, "1");
-        const rawBase = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-        const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
-        const streamUrl = rawBase ? `${rawBase}/${path}` : `/api/${path}`;
-
-        const response = await fetch(streamUrl, {
-          method: "GET",
-          headers: {
-            Accept: "text/event-stream",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          signal: abortController.signal,
-        });
-
-        if (!response.ok || !response.body) {
-          startFallbackPolling();
-          return;
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let buffer = "";
-
-        while (isSubscribed) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const parts = buffer.split("\n\n");
-          buffer = parts.pop() || "";
-
-          for (const part of parts) {
-            const dataMatch = part.match(/^data:\s*(.+)$/m);
-            if (dataMatch && dataMatch[1]) {
-              try {
-                const parsed = JSON.parse(dataMatch[1]);
-                if (parsed.status === "COMPLETED") {
-                  triggerComplete();
-                  return;
-                } else if (parsed.status === "FAILED") {
-                  setError("Assessment evaluation could not be completed.");
-                  setIsProcessing(false);
-                  return;
-                }
-              } catch (_) {}
-            }
-          }
-        }
-
-        if (isSubscribed) {
-          startFallbackPolling();
-        }
-      } catch (err: any) {
-        if (err?.name !== "AbortError" && isSubscribed) {
-          startFallbackPolling();
-        }
-      }
-    };
-
-    void connectStream();
-
-    return () => {
-      isSubscribed = false;
-      abortController.abort();
-      if (fallbackPollTimer) clearInterval(fallbackPollTimer);
-    };
-  }, [isProcessing, assessmentId, initialCandidateId, loadReport, candidateId]);
+  // The session page owns the submission SSE connection and navigates here only after COMPLETED.
+  // This page intentionally performs no polling or secondary stream requests.
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
