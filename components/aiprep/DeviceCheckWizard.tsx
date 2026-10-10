@@ -1292,7 +1292,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       intervalId = setInterval(() => {
         heartbeatTick++;
         // Throttle WAN ping probe to run once every ~7.5 seconds (every 5 ticks) to avoid network flooding
-        if (heartbeatTick % 5 === 0) {
+        if (heartbeatTick % 40 === 0) {
           checkRealInternet();
         }
 

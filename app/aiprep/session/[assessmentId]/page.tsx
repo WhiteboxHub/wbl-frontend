@@ -200,6 +200,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Status & loading
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isEnding, setIsEnding] = useState<boolean>(false);
+  const [submissionProgress, setSubmissionProgress] = useState<number>(0);
+  const [submissionStep, setSubmissionStep] = useState<string>("Preparing submission…");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Multi-Tab Session Ownership & Duplicate Tab Tracking
@@ -1211,10 +1213,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             },
           ];
 
-      // 3. Submit assessment via PUT /candidates/{id}/assessments/{id}
-      let submitRes: any = null;
-      try {
-        submitRes = await aiprepApi.submitAssessment(assessmentId, {
+      // 3. Submit assessment and keep this PUT connection open for SSE progress.
+      // The API resolves only after the backend sends a terminal COMPLETED event.
+      setSubmissionProgress(0);
+      setSubmissionStep("Submitting assessment…");
+      await aiprepApi.submitAssessmentStream(
+        assessmentId,
+        {
           total_chunks_uploaded: totalChunks || 1,
           is_final: true,
           client_duration_seconds: elapsedTimeRef.current,
@@ -1225,51 +1230,24 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 face_visibility_percentage: 95.0,
               },
           status: null,
-        });
-      } catch (submitErr: any) {
-        console.warn('PUT submitAssessment error, checking if status already transitioned:', submitErr);
-        // If 503 Service Unavailable, 504 Gateway Timeout, 409 Conflict, or proxy timeout occurs:
-        try {
-          const currentAssessment = await aiprepApi.getAssessment(assessmentId);
-          const currentStatus = String(currentAssessment?.status || '').toUpperCase();
-          if (
-            currentStatus === 'EVALUATING' ||
-            currentStatus === 'COMPLETED' ||
-            submitErr?.status === 409 ||
-            String(submitErr?.message || '').toLowerCase().includes('already') ||
-            String(submitErr?.message || '').includes('503') ||
-            String(submitErr?.message || '').includes('504')
-          ) {
-            console.log('Assessment status transitioned or in progress. Proceeding to evaluation report.');
-            submitRes = currentAssessment;
-          } else {
-            throw submitErr;
+        },
+        (event) => {
+          if (typeof event.progress === "number") {
+            setSubmissionProgress(Math.max(0, Math.min(100, event.progress)));
           }
-        } catch (recoveryErr: any) {
-          const errMsg = String(submitErr?.message || '').toLowerCase();
-          const isTimeoutOrProxyError =
-            submitErr?.status === 503 ||
-            submitErr?.status === 504 ||
-            submitErr?.status === 409 ||
-            errMsg.includes('503') ||
-            errMsg.includes('504') ||
-            errMsg.includes('timeout') ||
-            errMsg.includes('already evaluating');
-
-          if (isTimeoutOrProxyError) {
-            console.warn('Background evaluation likely underway despite proxy timeout. Proceeding to report.');
-          } else {
-            throw submitErr;
+          if (typeof event.step === "string" && event.step.trim()) {
+            setSubmissionStep(event.step);
+          } else if (event.status === "PROCESSING") {
+            setSubmissionStep("Processing recording and audio…");
+          } else if (event.status === "EVALUATING") {
+            setSubmissionStep("Evaluating your assessment with AI…");
+          } else if (event.status === "COMPLETED") {
+            setSubmissionStep("Evaluation complete. Opening report…");
           }
         }
-      }
-
-      // Store PUT response body in sessionStorage so Evaluation page can render it directly
-      if (submitRes) {
-        try {
-          sessionStorage.setItem(`aiprep_submission_${assessmentId}`, JSON.stringify(submitRes));
-        } catch (_) {}
-      }
+      );
+      setSubmissionProgress(100);
+      setSubmissionStep("Evaluation complete. Opening report…");
 
       // 5. Clean up browser storage flags & queue
       clearQueue();
@@ -2064,6 +2042,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
       )}
 
+      {errorMsg && questions.length > 0 && !isEnding && (
+        <div className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 shadow-xl dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+          <div className="flex items-start justify-between gap-3">
+            <p>{errorMsg}</p>
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4. SUBMITTING & FINALIZING MODAL SPINNER OVERLAY */}
       {isEnding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200 select-none">
@@ -2074,12 +2067,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
               Submitting Assessment
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
-              Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+              {submissionStep} Please do not close or refresh this page while evaluation is running.
             </p>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-2">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 transition-all duration-300"
+                style={{ width: `${submissionProgress}%` }}
+              />
             </div>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{submissionProgress}% complete</p>
           </div>
         </div>
       )}
