@@ -18,6 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Mic, Video, FileText, Info, Check, X, ArrowRight, ArrowLeft, ChevronRight } from 'lucide-react';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 export type ConsentInfoModalType = 'MIC' | 'CAMERA' | 'ANALYTICS' | 'RECORDING' | 'TRANSCRIPT' | null;
 
 export interface ConsentState {
@@ -92,12 +93,25 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     if (setConsentCamera) setConsentCamera(false);
     if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(false);
     syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false, videoAnalyticsEnabled: false, consentSaveRecording, consentSaveTranscript });
+    AIPrepTelemetry.trackConsentModeSelected(AIPrepTelemetry.getResolvedCandidateId(), 'AUDIO_ONLY');
   };
 
   const handleSelectVideoAudio = () => {
     if (typeof window !== 'undefined') {
       alert("Video mode is currently disabled. Please proceed with Audio-only mode.");
     }
+  };
+
+  const openInfoModal = (type: ConsentInfoModalType) => {
+    if (type) {
+      AIPrepTelemetry.trackConsentInfoViewed(AIPrepTelemetry.getResolvedCandidateId(), type);
+    }
+    setActiveModal(type);
+  };
+
+  const handleBackClick = () => {
+    AIPrepTelemetry.trackConsentCancelled(AIPrepTelemetry.getResolvedCandidateId());
+    onBack();
   };
 
   const handleNextClick = () => {
@@ -115,6 +129,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
         });
       }
     } catch (e) { }
+    AIPrepTelemetry.trackConsentAccepted(AIPrepTelemetry.getResolvedCandidateId(), videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY', videoAnalyticsEnabled);
     onNext();
   };
 
@@ -234,7 +249,13 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                   <input
                     type="checkbox"
                     checked={videoAnalyticsEnabled}
-                    onChange={(e) => setVideoAnalyticsEnabled && setVideoAnalyticsEnabled(e.target.checked)}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(val);
+                      if (!val) {
+                        AIPrepTelemetry.trackAnalyticsConsentDeclined(AIPrepTelemetry.getResolvedCandidateId(), videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+                      }
+                    }}
                     className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
                   />
                   <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
@@ -275,7 +296,13 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                 <input
                   type="checkbox"
                   checked={consentSaveRecording}
-                  onChange={(e) => setConsentSaveRecording && setConsentSaveRecording(e.target.checked)}
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    if (setConsentSaveRecording) setConsentSaveRecording(val);
+                    if (!val) {
+                    AIPrepTelemetry.trackConsentDeclined(AIPrepTelemetry.getResolvedCandidateId(), videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+                    }
+                  }}
                   className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
                 />
                 <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
@@ -291,7 +318,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setActiveModal('RECORDING');
+                        openInfoModal('RECORDING');
                       }}
                       className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
                       title="Learn more about Interview Recording"
@@ -328,7 +355,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setActiveModal('TRANSCRIPT');
+                        openInfoModal('TRANSCRIPT');
                       }}
                       className="text-slate-400 hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors p-0.5 rounded-full cursor-pointer inline-flex items-center"
                       title="Learn more about Interview Transcript"
@@ -350,7 +377,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
       <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 mt-auto">
         <button
           type="button"
-          onClick={onBack}
+          onClick={handleBackClick}
           className="px-4 py-1.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
