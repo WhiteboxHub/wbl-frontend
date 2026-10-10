@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { aiprepApi } from '@/lib/aiprep-api';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 import type { ChunkStatus } from '@/types/aiprep';
 
 export interface ChunkQueueItem {
@@ -89,6 +90,7 @@ export function useChunkUploadQueue({
     setQueue([...queueRef.current]);
 
     try {
+      const startTime = Date.now();
       await aiprepApi.uploadChunk(
         assessmentId,
         currentItem.chunkIndex,
@@ -96,6 +98,18 @@ export function useChunkUploadQueue({
         mediaType,
         currentItem.isFinal
       );
+      const durationMs = Date.now() - startTime;
+      const sizeBytes = currentItem.blob.size;
+      const bandwidthKbps = Math.max(1, Math.round(((sizeBytes * 8) / (durationMs / 1000)) / 1000));
+
+      try {
+        AIPrepTelemetry.trackWebRtcHealth({
+          assessment_id: assessmentId,
+          ping_ms: durationMs, // End-to-end proxy for latency
+          bandwidth_kbps: bandwidthKbps,
+        });
+      } catch (_) {}
+
 
       if (!isMountedRef.current) return;
 

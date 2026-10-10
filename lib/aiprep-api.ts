@@ -23,7 +23,7 @@ const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 export const getStoredCandidateId = (fallback: string | number = "me"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
-    // 1. Direct candidate ID storage keys (highest priority for legacy compatibility)
+    // 1. Cached candidate_id (SSO / token-less flows)
     const directCandidateId =
       localStorage.getItem("candidate_id") ||
       sessionStorage.getItem("aiprep_candidate_id") ||
@@ -40,16 +40,18 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
       } catch {}
     }
 
-    // 3. Fallback to JWT access token payload
+    // 3. Fallback to JWT access token payload (access_token, token, auth_token, prep_token)
     const token =
       localStorage.getItem("access_token") ||
       localStorage.getItem("token") ||
+      localStorage.getItem("prep_token") ||
       localStorage.getItem("auth_token");
     if (token && token.includes(".")) {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         if (payload?.candidate_id) return String(payload.candidate_id);
         if (payload?.id) return String(payload.id);
+        if (payload?.user_id) return String(payload.user_id);
       } catch {}
     }
   } catch {}
@@ -79,7 +81,7 @@ export const fetchAndCacheCandidateId = async (): Promise<string | number | null
     } finally {
       _userDashboardPromise = null;
     }
-    return null;
+    return getStoredCandidateId("") || null;
   })();
 
   return _userDashboardPromise;
