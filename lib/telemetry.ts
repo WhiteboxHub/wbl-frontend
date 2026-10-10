@@ -627,7 +627,7 @@ export class AIPrepTelemetry {
         api_key: apiKey,
         event: eventName,
         properties: {
-          distinct_id: String(properties.candidate_name || properties.candidate_email || properties.distinct_id || 'anonymous'),
+          distinct_id: String((properties.candidate_name && properties.candidate_name !== 'Candidate' ? properties.candidate_name : undefined) || properties.candidate_email || properties.distinct_id || 'anonymous'),
           $current_url: window.location.href,
           ...properties,
         },
