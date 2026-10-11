@@ -383,7 +383,14 @@ export const aiPrepApi = {
     const cid = resolveCandidateId(candidateId);
     const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
     const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-    const url = baseUrl ? `${baseUrl}/${path}` : `/${path}`;
+    // Match the API prefix used by the other assessment requests and chunk uploads.
+    // NEXT_PUBLIC_API_URL may be either the host root or already end in "/api".
+    const apiPrefix = baseUrl.endsWith("/api")
+      ? baseUrl
+      : baseUrl
+        ? `${baseUrl}/api`
+        : "/api";
+    const url = `${apiPrefix}/${path}`;
     const token =
       typeof window !== "undefined" &&
       (localStorage.getItem("access_token") ||
@@ -406,6 +413,13 @@ export const aiPrepApi = {
       const error: any = new Error(body || `Assessment streaming submission failed (HTTP ${response.status})`);
       error.status = response.status;
       throw error;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("text/event-stream")) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `Expected an assessment progress stream but received ${contentType || "an unknown content type"}.${body ? ` Response: ${body.slice(0, 240)}` : ""}`
+      );
     }
     if (!response.body) {
       throw new Error("The server did not provide an SSE response body.");
