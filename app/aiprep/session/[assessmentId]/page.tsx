@@ -54,7 +54,7 @@ import {
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
  */
 const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stream: MediaStream | null; isMuted: boolean; isLight?: boolean }) => {
-  const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(3));
+  const [audioLevels, setAudioLevels] = useState<number[]>(Array(30).fill(3));
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -69,7 +69,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
         } catch (_) { }
         audioContextRef.current = null;
       }
-      setAudioLevels(Array(20).fill(3));
+      setAudioLevels(Array(30).fill(3));
       return;
     }
 
@@ -93,9 +93,13 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
           lastDrawTime.current = time;
           analyser.getByteFrequencyData(dataArray);
           const bars: number[] = [];
-          for (let i = 0; i < 20; i++) {
+          for (let i = 0; i < 30; i++) {
+            // Shape the live levels into a centered, tapered waveform like the design reference.
+            const centerDistance = Math.abs(i - 14.5) / 14.5;
+            const envelope = 0.12 + (1 - centerDistance) * 0.88;
             const val = dataArray[i % dataArray.length] || 0;
-            const barHeight = Math.max(3, Math.round((val / 255) * 14) + 3);
+            const liveLevel = val / 255;
+            const barHeight = Math.max(2, Math.round((4 + liveLevel * 34) * envelope));
             bars.push(barHeight);
           }
           setAudioLevels(bars);
@@ -123,12 +127,12 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
   if (isLight) {
     return (
-      <div className="flex items-center gap-[3px] h-5 overflow-hidden">
-        {audioLevels.slice(0, 12).map((height, i) => (
+      <div className="flex items-center justify-center gap-[4px] h-12 overflow-hidden">
+        {audioLevels.map((height, i) => (
           <div
             key={i}
             style={{ height: isMuted ? '3px' : `${height}px` }}
-            className={`w-[3px] rounded-full shrink-0 transition-all duration-75 ${
+            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${
               isMuted
                 ? 'bg-slate-300 dark:bg-slate-600'
                 : 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
@@ -1664,29 +1668,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 }`}
             />
 
-            {/* Audio-Only Placeholder: Large bare mic + compact waveform, dead centre */}
+            {/* Audio-only stage styled to match the centered microphone and tapered waveform reference */}
             {isAudioOnly && (
-              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4">
-                {/* Soft ambient glow behind mic */}
-                <div className="absolute w-64 h-64 rounded-full bg-gradient-to-tr from-indigo-200/40 to-purple-200/40 blur-3xl pointer-events-none" />
-
-                {/* Large bare mic icon — no circle, just the icon */}
-                <IconMicrophone
-                  size={80}
-                  stroke={1.5}
-                  className={`relative z-10 transition-all duration-300 ${isRecording ? 'text-indigo-600 animate-pulse' : 'text-slate-400'}`}
-                />
-
-                {/* Compact waveform + status text */}
-                <div className="relative z-10 flex flex-col items-center gap-1">
-                  <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
-                  <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
-                    {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
-                  </span>
+              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4 px-4">
+                <div className="absolute h-64 w-64 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
+                <div className="relative flex flex-col items-center gap-5">
+                  <div className="relative flex h-36 w-36 items-center justify-center">
+                    <div className={`absolute inset-0 rounded-full border-[3px] border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
+                    <div className="absolute inset-3 rounded-full bg-violet-100/60" />
+                    <div className={`relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
+                      <IconMicrophone size={40} stroke={2.2} className="text-white" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-12 w-[290px] max-w-full items-center justify-center gap-[4px]">
+                      <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
+                    </div>
+                    <span className="text-xs sm:text-sm font-semibold tracking-wide text-slate-500 whitespace-nowrap">
+                      {isRecording ? "Microphone active — recording…" : "Microphone ready"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
-
 
             {/* Top-Left Live REC Badge */}
             <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
