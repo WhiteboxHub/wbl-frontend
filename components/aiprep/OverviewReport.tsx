@@ -879,7 +879,7 @@ export function EvaluationContent({
 
   const candidateSpoke = hasRealSpeech(report);
 
-  if (!candidateSpoke || insufficient_content) {
+  if (!candidateSpoke) {
     return <EmptyEvaluationCard />;
   }
 
