@@ -580,9 +580,6 @@ function matchesConceptOrTech(tech: string, conceptKey: string): boolean {
   const normKey = conceptKey.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (!normTech || !normKey) return false;
   if (normTech === normKey) return true;
-  if (normTech.includes(normKey) || normKey.includes(normTech)) {
-    if (Math.min(normTech.length, normKey.length) >= 3) return true;
-  }
   // Common aliases and abbreviations
   if (normKey === "cicd" && (normTech === "cicd" || normTech.includes("continuousintegration") || normTech.includes("continuousdeployment"))) return true;
   if (normKey === "kubernetes" && (normTech === "k8s" || normTech === "kube" || normTech === "kubectl" || normTech === "eks" || normTech === "gke" || normTech === "aks")) return true;
