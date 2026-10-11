@@ -61,65 +61,97 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
   const lastDrawTime = useRef<number>(0);
 
   useEffect(() => {
+    let cancelled = false;
+    let frameId: number | null = null;
+    let audioCtx: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+
     if (!stream || isMuted) {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (_) { }
-        audioContextRef.current = null;
-      }
       setAudioLevels(Array(30).fill(3));
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
+      if (!AudioCtx) {
+        setAudioLevels(Array(30).fill(3));
+        return () => {
+          cancelled = true;
+        };
+      }
 
-      const audioCtx = new AudioCtx();
-      const analyser = audioCtx.createAnalyser();
+      audioCtx = new AudioCtx();
+      analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
-      const source = audioCtx.createMediaStreamSource(stream);
+      source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
       audioContextRef.current = audioCtx;
       analyserRef.current = analyser;
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let previousDrawTime = 0;
 
       const renderWave = (time: number) => {
-        if (time - lastDrawTime.current >= 40) {
+        if (cancelled || !analyser) return;
+
+        if (time - previousDrawTime >= 40) {
+          previousDrawTime = time;
           lastDrawTime.current = time;
           analyser.getByteFrequencyData(dataArray);
+
           const bars: number[] = [];
           for (let i = 0; i < 30; i++) {
             // Shape the live levels into a centered, tapered waveform like the design reference.
             const centerDistance = Math.abs(i - 14.5) / 14.5;
             const envelope = 0.12 + (1 - centerDistance) * 0.88;
-            const val = dataArray[i % dataArray.length] || 0;
-            const liveLevel = val / 255;
-            const barHeight = Math.max(2, Math.round((4 + liveLevel * 34) * envelope));
-            bars.push(barHeight);
+            const liveLevel = (dataArray[i % dataArray.length] || 0) / 255;
+            bars.push(Math.max(2, Math.round((4 + liveLevel * 34) * envelope)));
           }
-          setAudioLevels(bars);
+
+          if (!cancelled) setAudioLevels(bars);
         }
-        animFrameRef.current = requestAnimationFrame(renderWave);
+
+        if (!cancelled) {
+          frameId = requestAnimationFrame(renderWave);
+          animFrameRef.current = frameId;
+        }
       };
 
-      animFrameRef.current = requestAnimationFrame(renderWave);
-    } catch (e) {
-      console.warn('Audio visualizer error:', e);
+      frameId = requestAnimationFrame(renderWave);
+      animFrameRef.current = frameId;
+    } catch (error) {
+      console.warn('Audio visualizer error:', error);
+      cancelled = true;
+      if (source) {
+        try { source.disconnect(); } catch (_) {}
+      }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        void audioCtx.close().catch(() => undefined);
+      }
+      if (audioContextRef.current === audioCtx) audioContextRef.current = null;
+      if (analyserRef.current === analyser) analyserRef.current = null;
+      setAudioLevels(Array(30).fill(3));
     }
 
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (_) { }
-        audioContextRef.current = null;
+      cancelled = true;
+
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      if (animFrameRef.current === frameId) animFrameRef.current = null;
+
+      if (source) {
+        try { source.disconnect(); } catch (_) {}
       }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        void audioCtx.close().catch(() => undefined);
+      }
+
+      if (audioContextRef.current === audioCtx) audioContextRef.current = null;
+      if (analyserRef.current === analyser) analyserRef.current = null;
     };
   }, [stream, isMuted]);
 
