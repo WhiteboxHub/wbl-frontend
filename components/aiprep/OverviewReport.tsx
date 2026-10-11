@@ -1942,12 +1942,19 @@ export default function AiPrepReport({
   };
 
   const lastLoadedIdRef = useRef<string | null>(null);
+  const reportRequestIdRef = useRef(0);
   const [candidateId, setCandidateId] = useState<string | number | null>(() => initialCandidateId ?? null);
 
-  const loadReport = useCallback(async () => {
+  const loadReport = useCallback(async (forceRefresh = false) => {
     if (!assessmentId) return;
-    if (lastLoadedIdRef.current === String(assessmentId)) return;
+    // Avoid duplicate initial loads, but allow an explicit user-triggered status check.
+    if (!forceRefresh && lastLoadedIdRef.current === String(assessmentId)) return;
     lastLoadedIdRef.current = String(assessmentId);
+
+    // If the user refreshes again before a request finishes, only the newest
+    // request is allowed to update the report UI.
+    const requestId = ++reportRequestIdRef.current;
+    const isCurrentRequest = () => requestId === reportRequestIdRef.current;
 
     setLoading(true);
     setError("");
@@ -1957,6 +1964,8 @@ export default function AiPrepReport({
 
     try {
       const assessment = await aiPrepApi.getAssessment(assessmentId);
+      if (!isCurrentRequest()) return;
+
       if (assessment?.candidate_id) {
         setCandidateId(assessment.candidate_id);
       }
@@ -2012,10 +2021,11 @@ export default function AiPrepReport({
 
       setReport(normalizeReport(assessment, dataVal, reportVal));
     } catch (err: unknown) {
+      if (!isCurrentRequest()) return;
       console.error("[AiPrepReport] Failed to load real report:", err);
       setError("We couldn't load this assessment report.");
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) setLoading(false);
     }
   }, [assessmentId]);
 
@@ -2130,8 +2140,16 @@ export default function AiPrepReport({
             Submitting Assessment
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed mb-5">
-            Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
+            {statusMsg || "Your assessment evaluation is still in progress. Check the status to see whether your report is ready."}
           </p>
+          <button
+            type="button"
+            onClick={() => loadReport(true)}
+            className="mb-4 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 cursor-pointer"
+          >
+            <RefreshCw size={15} /> Check status / Refresh report
+          </button>
+          <p className="mb-4 text-xs text-slate-400">This checks once when you click; it does not poll automatically.</p>
           <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
           </div>
@@ -2153,7 +2171,7 @@ export default function AiPrepReport({
           <div className="mt-6 flex items-center justify-center gap-3">
             <button
               type="button"
-              onClick={loadReport}
+              onClick={() => loadReport(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 cursor-pointer"
             >
               <RefreshCw size={15} /> Try Again
