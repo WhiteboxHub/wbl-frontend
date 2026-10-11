@@ -12,6 +12,8 @@ import {
   Mic,
   Maximize2,
   AlertCircle,
+  Video,
+  Loader2,
 } from "lucide-react";
 
 interface Props {
@@ -67,7 +69,7 @@ export default function VideoPlayer({
   waveformAmplitudes,
   onSeek,
 }: Props) {
-  const ytId = !isAudioOnly && youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
+  const ytId = youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -242,19 +244,25 @@ export default function VideoPlayer({
     !isAudioOnly &&
     youtubeUrl &&
     (() => {
+      if (youtubeUrl.startsWith("blob:") || youtubeUrl.startsWith("data:")) {
+        return true;
+      }
       try {
         const pathname = new URL(youtubeUrl).pathname.toLowerCase();
         return (
           pathname.endsWith(".mp4") ||
           pathname.endsWith(".webm") ||
+          pathname.endsWith("/video") ||
           pathname.includes("/playback")
         );
       } catch {
         // Fallback for relative or non-standard URLs the URL constructor rejects
         const lower = youtubeUrl.toLowerCase();
         return (
+          lower.startsWith("blob:") ||
           lower.includes(".mp4") ||
           lower.includes(".webm") ||
+          lower.includes("/video") ||
           lower.includes("/playback")
         );
       }
@@ -287,6 +295,26 @@ export default function VideoPlayer({
             Your browser does not support video playback.
           </video>
         )}
+      </div>
+    );
+  }
+
+  // ── 2b. Video Processing Mode (when media is Video but URL not yet ready) ───
+  if (!isAudioOnly && !youtubeUrl) {
+    return (
+      <div
+        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
+      >
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-amber-950/80 border border-amber-700/60 z-10">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <span className="text-xs font-mono font-semibold text-amber-300">PROCESSING</span>
+        </div>
+        <Video size={40} className="text-blue-400 mb-3 animate-pulse z-10" />
+        <h3 className="text-base font-bold text-slate-100 z-10">Video recording is processing</h3>
+        <p className="text-xs text-slate-400 max-w-sm mt-1.5 z-10">
+          Your interview video is currently being uploaded and will be available for playback shortly.
+        </p>
       </div>
     );
   }
@@ -335,9 +363,9 @@ export default function VideoPlayer({
         </div>
 
         {!isMediaAvailable ? (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/80 border border-rose-700/60">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            <span className="text-xs font-mono font-semibold text-rose-300">
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full ${hasMediaError ? "bg-rose-950/80 border border-rose-700/60" : "bg-amber-950/80 border border-amber-700/60"}`}>
+            <span className={`w-2 h-2 rounded-full ${hasMediaError ? "bg-rose-500" : "bg-amber-400 animate-pulse"}`} />
+            <span className={`text-xs font-mono font-semibold ${hasMediaError ? "text-rose-300" : "text-amber-300"}`}>
               {hasMediaError ? "UNAVAILABLE" : "PROCESSING"}
             </span>
           </div>
@@ -357,15 +385,15 @@ export default function VideoPlayer({
 
       {/* Middle: Dynamic Interactive Audio Waveform Visualization or Error Notice */}
       {!isMediaAvailable ? (
-        <div className="my-4 py-6 px-4 rounded-xl bg-rose-950/20 border border-rose-900/40 flex flex-col items-center justify-center gap-2 h-36 text-center z-10">
-          <div className="flex items-center gap-2 text-sm text-rose-400 font-semibold">
-            <AlertCircle size={18} />
-            <span>{hasMediaError ? "Failed to load media recording" : "Recording is processing or unavailable"}</span>
+        <div className={`my-4 py-6 px-4 rounded-xl flex flex-col items-center justify-center gap-2 h-36 text-center z-10 ${hasMediaError ? "bg-rose-950/20 border border-rose-900/40" : "bg-slate-900/60 border border-slate-800"}`}>
+          <div className={`flex items-center gap-2 text-sm font-semibold ${hasMediaError ? "text-rose-400" : "text-blue-400"}`}>
+            {hasMediaError ? <AlertCircle size={18} /> : <Loader2 size={18} className="animate-spin text-blue-300" />}
+            <span>{hasMediaError ? "Failed to load media recording" : "Audio recording is processing"}</span>
           </div>
           <span className="text-xs text-slate-400 max-w-sm">
             {hasMediaError
               ? "The audio asset could not be accessed or has expired."
-              : "The recording will appear here once processing is complete."}
+              : "Your interview audio is being uploaded and will be available for playback shortly."}
           </span>
         </div>
       ) : (
