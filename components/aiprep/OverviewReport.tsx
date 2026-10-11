@@ -1942,6 +1942,7 @@ export default function AiPrepReport({
   };
 
   const lastLoadedIdRef = useRef<string | null>(null);
+  const reportRequestIdRef = useRef(0);
   const [candidateId, setCandidateId] = useState<string | number | null>(() => initialCandidateId ?? null);
 
   const loadReport = useCallback(async (forceRefresh = false) => {
@@ -1949,6 +1950,11 @@ export default function AiPrepReport({
     // Avoid duplicate initial loads, but allow an explicit user-triggered status check.
     if (!forceRefresh && lastLoadedIdRef.current === String(assessmentId)) return;
     lastLoadedIdRef.current = String(assessmentId);
+
+    // If the user refreshes again before a request finishes, only the newest
+    // request is allowed to update the report UI.
+    const requestId = ++reportRequestIdRef.current;
+    const isCurrentRequest = () => requestId === reportRequestIdRef.current;
 
     setLoading(true);
     setError("");
@@ -1958,6 +1964,8 @@ export default function AiPrepReport({
 
     try {
       const assessment = await aiPrepApi.getAssessment(assessmentId);
+      if (!isCurrentRequest()) return;
+
       if (assessment?.candidate_id) {
         setCandidateId(assessment.candidate_id);
       }
@@ -2013,10 +2021,11 @@ export default function AiPrepReport({
 
       setReport(normalizeReport(assessment, dataVal, reportVal));
     } catch (err: unknown) {
+      if (!isCurrentRequest()) return;
       console.error("[AiPrepReport] Failed to load real report:", err);
       setError("We couldn't load this assessment report.");
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) setLoading(false);
     }
   }, [assessmentId]);
 
