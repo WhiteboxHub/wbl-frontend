@@ -94,6 +94,7 @@ import { DeviceCheckWizard } from "./aiprep/DeviceCheckWizard";
 import AIPrepDashboard from './aiprep/AIPrepDashboard';
 import { aiPrepApi } from "@/lib/aiprep-api";
 import CandidateOnboarding from "./CandidateOnboarding";
+import { ApplyWithAiModal } from "./ApplyWithAiModal";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 interface DashboardData {
@@ -757,6 +758,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     // Resume JSON Viewer/Editor States
     const [isResumeJsonModalOpen, setIsResumeJsonModalOpen] = useState(false);
+    const [isApplyWithAiModalOpen, setIsApplyWithAiModalOpen] = useState(false);
     const [resumeJsonText, setResumeJsonText] = useState("");
     const [resumeJsonError, setResumeJsonError] = useState<string | null>(null);
     const [isSavingResumeJson, setIsSavingResumeJson] = useState(false);
@@ -810,6 +812,44 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setResumeJsonText(JSON.stringify(resumeObj, null, 2));
         } else {
             setResumeJsonText("");
+        }
+    };
+
+    const openApplyWithAiModal = async () => {
+        setIsApplyWithAiModalOpen(true);
+
+        let resumeObj = prefetchedSession?.summaryData?.resume_json;
+        let sid = prefetchedSession?.sessionId;
+
+        if (!resumeObj || !sid) {
+            try {
+                const token = localStorage.getItem("access_token") || "";
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const email = payload.sub || payload.email || payload.uname || "candidate";
+
+                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    sid = data.session_id;
+                    resumeObj = data.summary?.resume_json;
+                    if (sid) {
+                        setPrefetchedSession({ sessionId: sid, summaryData: data.summary });
+                    }
+                }
+            } catch (e) {
+                console.error("Error pre-loading resume JSON for Apply with AI", e);
+            }
+        }
+
+        if (resumeObj && typeof resumeObj === "object") {
+            setResumeJsonText(JSON.stringify(resumeObj, null, 2));
         }
     };
 
@@ -3451,8 +3491,22 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 </div>
                                             ) : <div />}
 
-                                            {/* Right Section: Resume JSON & Autofill Extension Action Buttons */}
-                                            <div className="flex items-center gap-3 sm:ml-auto">
+                                            {/* Right Section: Apply with AI, Resume JSON & Autofill Extension Action Buttons */}
+                                            <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={openApplyWithAiModal}
+                                                    className="group relative flex items-center p-[2px] rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(20,184,166,0.7)] active:scale-95 cursor-pointer border-0 shadow-sm"
+                                                >
+                                                    <div className="flex items-center gap-2.5 px-5 py-2 bg-emerald-50 dark:bg-[#10241f] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                                        <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:text-white transition-colors duration-300 animate-pulse" />
+                                                        <span className="font-semibold text-emerald-700 dark:text-emerald-300 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                                            Apply with AI
+                                                        </span>
+                                                        <ChevronRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:text-white transition-colors duration-300" />
+                                                    </div>
+                                                </button>
+
                                                 <button
                                                     type="button"
                                                     onClick={openResumeJsonModal}
@@ -4219,6 +4273,23 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
                 </Dialog>
+            )}
+
+            {isApplyWithAiModalOpen && (
+                <ApplyWithAiModal
+                    isOpen={isApplyWithAiModalOpen}
+                    onClose={() => setIsApplyWithAiModalOpen(false)}
+                    positions={filteredPositions.length > 0 ? filteredPositions : positions}
+                    resumeJson={prefetchedSession?.summaryData?.resume_json}
+                    resumeJsonText={resumeJsonText}
+                    candidateName={data?.basic_info?.full_name || userProfile?.full_name || "Candidate"}
+                    candidateEmail={data?.basic_info?.email || userProfile?.uname || ""}
+                    onJobClick={handleJobClick}
+                    onOpenResumeJsonModal={() => {
+                        setIsApplyWithAiModalOpen(false);
+                        openResumeJsonModal();
+                    }}
+                />
             )}
 
             {

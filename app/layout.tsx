@@ -106,7 +106,7 @@ export default function RootLayout({
   }, [isAssessment]);
 
   return (
-    <html suppressHydrationWarning lang="en" className={isAssessment ? "h-full overflow-hidden" : ""}>
+    <html suppressHydrationWarning lang="en" className={isAssessment ? "h-full overflow-hidden" : "scroll-smooth"}>
       <head>
         <title>
           Whitebox-Learning - AIML Training and Placements in Bay area
@@ -141,8 +141,8 @@ export default function RootLayout({
                 <>
                   <div
                     className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${headerCollapsed
-                        ? "max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
-                        : "max-h-[100px] translate-y-0 opacity-100"
+                      ? "max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
+                      : "max-h-[100px] translate-y-0 opacity-100"
                       }`}
                   >
                     <Header />

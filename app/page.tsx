@@ -2,8 +2,10 @@
 
 import Features from "@/components/Features";
 import Hero from "@/components/Hero";
+import HomeAIPrep from "@/components/HomeAIPrep";
+import AiCurriculum from "@/components/AiCurriculum";
+import CallToAction from "@/components/Home/CallToAction";
 import { Inter } from "next/font/google";
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/utils/AuthContext";
 
@@ -21,7 +23,11 @@ export default function Home() {
   return (
     <div className="w-full min-h-screen pt-0">
       <Hero />
+      <AiCurriculum />
+      <HomeAIPrep />
       <Features />
+      <CallToAction />
     </div>
   );
 }
+

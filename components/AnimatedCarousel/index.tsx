@@ -3,14 +3,15 @@
 import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
+import aiPrepImg from "public/images/Carousel/ai-prep-resources.jpg";
 import ml1 from "public/images/Carousel/machine-learning-training-bayarea.jpeg";
 import GenAI from "public/images/Carousel/generative-ai-pleasanton-course.jpg";
 import DL1 from "public/images/Carousel/deep-learning-bootcamp-usa.jpg";
 import DL2 from "public/images/Carousel/deep-learning-certification-program.jpg";
 import DL3 from "public/images/Carousel/deep-learning-job-support.jpg";
 import ml3 from "public/images/Carousel/ml-job-prep-support.jpeg";
-import ds1 from "public/images/Carousel/data-science-training-usa.jpg";
 import ds2 from "public/images/Carousel/data-science-career-path.jpg";
+import ds1 from "public/images/Carousel/data-science-training-usa.jpg";
 
 type CarouselItem = {
   quote: string;
@@ -20,6 +21,24 @@ type CarouselItem = {
 };
 
 const carouselData: CarouselItem[] = [
+  {
+    quote: "Transform data into actionable insights with comprehensive data science training. Learn Python, R, SQL, and advanced analytics.",
+    name: "Data Science Career Path",
+    designation: "Analytics & Business Intelligence",
+    src: ds2,
+  },
+  {
+    quote: "Dive deep into neural networks, computer vision, and natural language processing. Learn cutting-edge deep learning techniques.",
+    name: "Deep Learning Bootcamp",
+    designation: "Neural Networks & AI Systems",
+    src: DL1,
+  },
+  {
+    quote: "Master artificial intelligence from foundational algorithms to advanced systems. Build, train, and deploy intelligent AI solutions.",
+    name: "Artificial Intelligence",
+    designation: "AI & Intelligent Systems",
+    src: aiPrepImg,
+  },
   {
     quote: "Master machine learning algorithms and predictive analytics with hands-on projects. Build real-world ML solutions.",
     name: "Machine Learning Mastery",
@@ -39,10 +58,10 @@ const carouselData: CarouselItem[] = [
     src: GenAI,
   },
   {
-    quote: "Transform data into actionable insights with comprehensive data science training. Learn Python, R, SQL, and advanced analytics.",
-    name: "Data Science Career Path",
-    designation: "Analytics & Business Intelligence",
-    src: ds2,
+    quote: "Gain industry-recognized AIML expertise. Validate your skills in machine learning, natural language processing, and intelligent system deployment.",
+    name: "AIML",
+    designation: "Artificial Intelligence & Machine Learning",
+    src: DL2,
   },
   {
     quote: "Get job-ready with personalized ML career coaching, resume optimization, and interview preparation. Land your dream role.",
@@ -51,22 +70,10 @@ const carouselData: CarouselItem[] = [
     src: ml3,
   },
   {
-    quote: "Gain industry-recognized AIML expertise. Validate your skills in machine learning, natural language processing, and intelligent system deployment.",
-    name: "AIML",
-    designation: "Artificial Intelligence & Machine Learning",
-    src: DL2,
-  },
-  {
     quote: "Comprehensive job support including portfolio development, technical interviews, and industry networking. Transition successfully into AI careers.",
     name: "Deep Learning Job Support",
     designation: "Career Transition Program",
     src: DL3,
-  },
-  {
-    quote: "Complete data science training covering statistics, machine learning, data visualization, and big data technologies. Build end-to-end solutions.",
-    name: "Data Science Training",
-    designation: "Full-Stack Data Solutions",
-    src: ds1,
   },
 ];
 
@@ -103,8 +110,9 @@ export const AnimatedCarousel = ({
     }
   }, [autoplay, active, isMounted]);
 
-  const randomRotateY = () => {
-    return isMounted ? Math.floor(Math.random() * 21) - 10 : 0;
+  const rotations = [-6, 6, -9, 7, -5, 8];
+  const getRotation = (index: number) => {
+    return isMounted ? rotations[index % rotations.length] : 0;
   };
 
   if (!isMounted) {
@@ -194,13 +202,13 @@ export const AnimatedCarousel = ({
                     opacity: 0,
                     scale: 0.9,
                     z: -100,
-                    rotate: randomRotateY(),
+                    rotate: getRotation(index),
                   }}
                   animate={{
                     opacity: isActive(index) ? 1 : 0.7,
                     scale: isActive(index) ? 1 : 0.95,
                     z: isActive(index) ? 0 : -100,
-                    rotate: isActive(index) ? 0 : randomRotateY(),
+                    rotate: isActive(index) ? 0 : getRotation(index),
                     zIndex: isActive(index)
                       ? 40
                       : carouselData.length + 2 - index,
@@ -210,7 +218,7 @@ export const AnimatedCarousel = ({
                     opacity: 0,
                     scale: 0.9,
                     z: 100,
-                    rotate: randomRotateY(),
+                    rotate: getRotation(index),
                   }}
                   transition={{
                     duration: 0.4,
