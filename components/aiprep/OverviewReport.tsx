@@ -855,9 +855,7 @@ export function EvaluationContent({
   );
   const localPreviewUrl =
     typeof window !== "undefined"
-      ? (window as any).__aiprep_local_preview?.[assessmentId] ||
-        sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`) ||
-        undefined
+      ? (window as any).__aiprep_local_preview?.[assessmentId] || undefined
       : undefined;
 
   const effectivePlaybackUrl = canShowRecording
