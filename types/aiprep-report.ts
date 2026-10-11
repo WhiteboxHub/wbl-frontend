@@ -649,19 +649,38 @@ export function normalizeReport(
         const val = asStr(cv);
         if (val) concepts[ck] = val;
       }
-      if (!observation && !status && Object.keys(concepts).length === 0) return [];
-
+      // Also pick up top-level concept statuses (e.g. cicd_and_delivery fields)
+      for (const [ck, cv] of Object.entries(sec)) {
+        if (
+          typeof cv === "string" &&
+          ["COVERED", "PARTIAL", "NOT_MENTIONED", "NOT_APPLICABLE", "STRONG", "GOOD", "WEAK", "MISSING"].includes(cv.toUpperCase().trim())
+        ) {
+          if (ck !== "overall_status" && ck !== "status" && ck !== "readiness" && !concepts[ck]) {
+            concepts[ck] = cv;
+          }
+        }
+      }
       const techList = Array.from(new Set([
         ...asStrArray(sec.technologies_mentioned),
+        ...asStrArray(sec.technologies),
+        ...asStrArray(sec.tools_mentioned),
+        ...asStrArray(sec.tools),
         ...asStrArray(sec.frameworks_mentioned),
         ...asStrArray(sec.models_mentioned),
         ...asStrArray(sec.model_platforms_mentioned),
         ...asStrArray(sec.patterns_mentioned),
         ...asStrArray(sec.cloud_providers),
         ...asStrArray(sec.compute_services),
-        ...asStrArray(sec.tools_mentioned),
+        ...asStrArray(sec.container_platforms),
+        ...asStrArray(sec.storage_services),
+        ...asStrArray(sec.ai_cloud_services),
+        ...asStrArray(sec.infrastructure_tools),
+        ...asStrArray(sec.cicd_tools),
+        ...asStrArray(sec.cloud_services),
         ...asStrArray(sec.stages_mentioned),
       ])).filter(Boolean);
+
+      if (!observation && !status && Object.keys(concepts).length === 0 && techList.length === 0) return [];
 
       return [{
         key,

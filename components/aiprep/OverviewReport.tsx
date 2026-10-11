@@ -37,7 +37,6 @@ import {
   X,
   Target,
   Layers,
-  Wrench,
   Boxes,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
@@ -121,6 +120,13 @@ const CONCEPT_LABEL_MAP: Readonly<Record<string, string>> = {
   storage_services: "Storage Services",
   ai_cloud_services: "AI Cloud Services",
   infrastructure_tools: "Infrastructure Tools",
+  docker: "Docker",
+  kubernetes: "Kubernetes",
+  containerization: "Containerization",
+  aws: "AWS",
+  gcp: "GCP",
+  azure: "Azure",
+  terraform: "Terraform",
 };
 
 export function getConceptLabel(key: string): string {
@@ -186,15 +192,15 @@ const DEVOPS_CONCEPTS = [
   "gitops",
   "automated_testing",
   "deployment_strategy",
+  "docker",
+  "kubernetes",
 ] as const;
 
 const CLOUD_CONCEPTS = [
-  "cloud_providers",
-  "compute_services",
-  "container_platforms",
-  "storage_services",
-  "ai_cloud_services",
-  "infrastructure_tools",
+  "aws",
+  "gcp",
+  "azure",
+  "terraform",
 ] as const;
 
 
@@ -569,6 +575,26 @@ function isRelevantToSection(topic: string, secKeys: string[]): boolean {
   return false;
 }
 
+function matchesConceptOrTech(tech: string, conceptKey: string): boolean {
+  const normTech = tech.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normKey = conceptKey.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!normTech || !normKey) return false;
+  if (normTech === normKey) return true;
+  if (normTech.includes(normKey) || normKey.includes(normTech)) {
+    if (Math.min(normTech.length, normKey.length) >= 3) return true;
+  }
+  // Common aliases and abbreviations
+  if (normKey === "cicd" && (normTech === "cicd" || normTech.includes("continuousintegration") || normTech.includes("continuousdeployment"))) return true;
+  if (normKey === "kubernetes" && (normTech === "k8s" || normTech === "kube" || normTech === "kubectl" || normTech === "eks" || normTech === "gke" || normTech === "aks")) return true;
+  if (normKey === "docker" && (normTech === "dockerfile" || normTech === "compose" || normTech === "containerd" || normTech === "containers")) return true;
+  if (normKey === "aws" && (normTech === "amazonwebservices" || normTech === "amazoncloud" || normTech === "ec2" || normTech === "s3" || normTech === "lambda" || normTech === "ecs")) return true;
+  if (normKey === "gcp" && (normTech === "googlecloud" || normTech === "googlecloudplatform" || normTech === "gke")) return true;
+  if (normKey === "azure" && (normTech === "microsoftazure" || normTech === "aks")) return true;
+  if (normKey === "terraform" && (normTech === "tf" || normTech === "opentofu" || normTech === "iac")) return true;
+  if (normKey === "githubactions" && (normTech === "ghactions" || normTech === "githubaction")) return true;
+  return false;
+}
+
 function resolveSectionData(
   report: NormalizedReport,
   secKeys: string[],
@@ -623,44 +649,7 @@ function resolveSectionData(
 
   const observations = Array.from(obsSet);
 
-  // 4. Concepts Covered vs Missed
-  const coveredSet = new Set<string>();
-  const missedSet = new Set<string>();
-
-  if (status !== "NOT_MENTIONED") {
-    conceptMasterList.forEach((cKey) => {
-      let isCovered = false;
-      let isMissed = false;
-
-      matchedSecs.forEach((sec) => {
-        if (sec.concepts) {
-          const st = (sec.concepts[cKey] || "").toUpperCase().trim();
-          if (["COVERED", "STRONG", "GOOD", "EXCELLENT", "PARTIAL"].includes(st)) {
-            isCovered = true;
-          } else if (["NOT_MENTIONED", "WEAK", "MISSING", "NEEDS_POLISH"].includes(st)) {
-            isMissed = true;
-          }
-        }
-        if (sec.technologies_mentioned && Array.isArray(sec.technologies_mentioned)) {
-          const matchedTech = sec.technologies_mentioned.some(
-            (t) => t.toLowerCase().replaceAll(/[-_\s]/g, "") === cKey.replaceAll(/[-_\s]/g, "")
-          );
-          if (matchedTech) isCovered = true;
-        }
-      });
-
-      if (isCovered) {
-        coveredSet.add(cKey);
-      } else if (isMissed) {
-        missedSet.add(cKey);
-      }
-    });
-  } else {
-    // If the entire section status is NOT_MENTIONED, concepts are NOT covered and marked as missed
-    conceptMasterList.forEach((cKey) => missedSet.add(cKey));
-  }
-
-  // 5. Technologies Mentioned
+  // 4. Technologies Mentioned
   const techSet = new Set<string>();
   matchedSecs.forEach((sec) => {
     if (Array.isArray(sec.technologies_mentioned)) {
@@ -673,6 +662,64 @@ function resolveSectionData(
       list.forEach((t: string) => t && t.trim() && techSet.add(t.trim()));
     }
   });
+  // Also check if any item anywhere in technology_inventory matches any concept in conceptMasterList
+  if (technology_inventory && typeof technology_inventory === "object") {
+    Object.values(technology_inventory).forEach((list) => {
+      if (Array.isArray(list)) {
+        list.forEach((t) => {
+          if (typeof t === "string" && t.trim()) {
+            const trimmed = t.trim();
+            if (conceptMasterList.some((cKey) => matchesConceptOrTech(trimmed, cKey))) {
+              techSet.add(trimmed);
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // 5. Concepts Covered vs Missed
+  const coveredSet = new Set<string>();
+  const missedSet = new Set<string>();
+
+  conceptMasterList.forEach((cKey) => {
+    let isCovered = false;
+
+    // Check matched section concepts
+    matchedSecs.forEach((sec) => {
+      if (sec.concepts) {
+        for (const [k, v] of Object.entries(sec.concepts)) {
+          if (matchesConceptOrTech(k, cKey)) {
+            const st = (v || "").toUpperCase().trim();
+            if (["COVERED", "STRONG", "GOOD", "EXCELLENT", "PARTIAL"].includes(st)) {
+              isCovered = true;
+            }
+          }
+        }
+      }
+      if (sec.technologies_mentioned && Array.isArray(sec.technologies_mentioned)) {
+        if (sec.technologies_mentioned.some((t) => matchesConceptOrTech(t, cKey))) {
+          isCovered = true;
+        }
+      }
+    });
+
+    // Check techSet
+    if (Array.from(techSet).some((t) => matchesConceptOrTech(t, cKey))) {
+      isCovered = true;
+    }
+
+    if (isCovered) {
+      coveredSet.add(cKey);
+    } else {
+      missedSet.add(cKey);
+    }
+  });
+
+  // If any concepts or technologies were covered, ensure status is not NOT_MENTIONED
+  if (coveredSet.size > 0 && status === "NOT_MENTIONED") {
+    status = coveredSet.size >= 3 ? "STRONG" : "PARTIAL";
+  }
 
   // 6. Recommendations / Missed tools to include
   const recommendations: { topic: string; guidance?: string }[] = [];
@@ -795,11 +842,32 @@ export function EvaluationContent({
     critical_gaps,
   } = report;
 
-  const canShowRecording = Boolean(consent?.save_recording ?? true);
+  const authToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
+      : "";
+
+  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
+  const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
+
+  const mediaPath = isAudioOnly ? "audio" : "video";
+  const canShowRecording = Boolean(
+    consent?.save_recording ??
+    (report.assessment as any)?.consent?.save_recording ??
+    true
+  );
+  const localPreviewUrl =
+    typeof window !== "undefined"
+      ? (window as any).__aiprep_local_preview?.[assessmentId] ||
+        sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`) ||
+        undefined
+      : undefined;
+
   const effectivePlaybackUrl = canShowRecording
     ? (youtube_url ||
+        localPreviewUrl ||
         (assessmentId
-          ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/playback`
+          ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
           : undefined))
     : undefined;
 
@@ -808,76 +876,114 @@ export function EvaluationContent({
     (report as any).audio_telemetry?.duration ||
     0;
 
-  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
-  const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
+
   const candidateSpoke = hasRealSpeech(report);
 
   if (!candidateSpoke || insufficient_content) {
-    return (
-      <div className="space-y-3 sm:space-y-3.5">
-        <EmptyEvaluationCard />
-        {canShowRecording && effectivePlaybackUrl && (
-          <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
-            <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
-              {isAudioOnly ? (
-                <AudioWaveform size={15} className="text-blue-600" />
-              ) : (
-                <Video size={15} className="text-blue-600" />
-              )}
-              <h2 className="text-xs sm:text-sm font-bold">
-                {isAudioOnly ? "Audio Recording Playback" : "Recording Playback"}
-              </h2>
-            </div>
-            <div className="w-full max-w-3xl mx-auto">
-              <VideoPlayer
-                youtubeUrl={effectivePlaybackUrl}
-                videoRef={videoRef}
-                isAudioOnly={isAudioOnly}
-                candidateName={report.candidate_name}
-                durationSeconds={durationSeconds}
-              />
-            </div>
-          </section>
-        )}
-      </div>
-    );
+    return <EmptyEvaluationCard />;
   }
 
-  // Dynamic values strictly from API payload
-  const readiness = overall_readiness || scores.overall_band || "GOOD";
-  const summaryText = overall_summary || "Dynamic candidate assessment based on spoken content and evaluation metrics.";
+  // Pure dynamic data resolution per section category matching Details tab
+  const introData = resolveSectionData(
+    report,
+    ["career_story", "current_role", "current_project", "ai_engineering_evolution", "introduction_quality"],
+    [],
+    ["career"]
+  );
+
+
+  const aiData = resolveSectionData(
+    report,
+    ["agentic_ai", "rag_and_retrieval", "models_and_ai_platforms"],
+    [...AGENTIC_AI_CONCEPTS, ...RAG_CONCEPTS],
+    ["ai_engineering", "agent_frameworks", "agent_protocols_and_patterns", "retrieval_and_rag", "vector_databases", "models", "model_platforms"]
+  );
+
+  const seData = resolveSectionData(
+    report,
+    ["software_engineering"],
+    SE_CONCEPTS,
+    ["software_engineering", "backend_and_api", "frontend", "databases"]
+  );
+
+  const devopsCloudData = resolveSectionData(
+    report,
+    ["cicd_and_delivery", "cloud_and_infrastructure", "devops", "cloud", "infrastructure", "cicd", "containers_and_orchestration", "infrastructure_as_code"],
+    [...DEVOPS_CONCEPTS, ...CLOUD_CONCEPTS],
+    ["devops", "cloud", "cicd", "containers_and_orchestration", "infrastructure_as_code", "cloud_and_infrastructure", "cicd_and_delivery", "containers", "infrastructure"]
+  );
+
+  const allSectionsNotMentioned =
+    introData.status === "NOT_MENTIONED" &&
+    aiData.status === "NOT_MENTIONED" &&
+    seData.status === "NOT_MENTIONED" &&
+    devopsCloudData.status === "NOT_MENTIONED";
+
+  // Dynamic overall readiness strictly from API or dynamic status
+  const readiness =
+    overall_readiness ||
+    scores.overall_band ||
+    (allSectionsNotMentioned ? "NOT_MENTIONED" : "GOOD");
+
+  const summaryText =
+    overall_summary ||
+    (allSectionsNotMentioned
+      ? "No substantive technical details or concepts were mentioned during this assessment session."
+      : "Dynamic candidate assessment based on spoken content and evaluation metrics.");
 
   const strongestSignalText =
     report.overall_strongest_signal ||
-    (strongest_points && strongest_points.length > 0 ? strongest_points[0] : "Strong understanding of core technical principles.");
+    (strongest_points && strongest_points.length > 0
+      ? strongest_points[0]
+      : allSectionsNotMentioned
+      ? "No specific technical strengths demonstrated during this brief response."
+      : "Strong understanding of core technical principles.");
 
   const biggestGapText =
     report.overall_biggest_gap ||
     (critical_gaps && critical_gaps.length > 0
-      ? (critical_gaps[0].what_is_missing || critical_gaps[0].topic || "Further elaboration on system implementation suggested.")
+      ? critical_gaps[0].what_is_missing || critical_gaps[0].topic || critical_gaps[0].why_it_matters
+      : allSectionsNotMentioned
+      ? "The candidate did not elaborate on technical, engineering, or career concepts."
       : "Further elaboration on technical depth suggested.");
 
-  // Category ratings & summaries derived strictly from API
-  const getSec = (key: string) => intro_sections.find((s) => s.key === key);
+  const introStatus = introData.status;
+  const introSummary = introData.subtitle;
 
-  const introSec = getSec("career_story") || getSec("current_role") || getSec("introduction_quality");
-  const introStatus = introSec?.status || report.intro_quality?.clarity || "GOOD";
-  const introSummary = introSec?.observation || report.intro_quality?.observation || final_assessment?.career_story || "Overview of professional background, role responsibilities, and experience.";
+  const aiStatus = aiData.status;
+  const aiSummary = aiData.subtitle;
 
-  const agenticSec = getSec("agentic_ai");
-  const ragSec = getSec("rag_and_retrieval");
-  const aiStatus = agenticSec?.status || ragSec?.status || scores.ai_engineering?.band || "GOOD";
-  const aiSummary = agenticSec?.observation || ragSec?.observation || final_assessment?.ai_engineering_depth || "Coverage of AI engineering, retrieval models, vector search, and agent framework concepts.";
+  const seStatus = seData.status;
+  const seSummary = seData.subtitle;
 
-  const seSec = getSec("software_engineering");
-  const seStatus = seSec?.status || scores.core_engineering?.band || "GOOD";
-  const seSummary = seSec?.observation || final_assessment?.production_engineering_depth || "Demonstrates knowledge of backend service design, APIs, and software development practices.";
+  const cicdStatus = devopsCloudData.status;
+  const cicdSummary = devopsCloudData.subtitle;
 
-  const cicdSec = getSec("cicd_and_delivery");
-  const cloudSec = getSec("cloud_and_infrastructure");
-  const cicdStatus = cicdSec?.status || cloudSec?.status || "PARTIAL";
-  const cicdSummary = cicdSec?.observation || cloudSec?.observation || "Covers automated deployment pipelines, CI/CD practices, containerization, and cloud infrastructure.";
+  // If spoken content was insufficient (< 15 words / < 20s), render strictly the "Evaluation Unavailable" layout and nothing else
+  if (insufficient_content) {
+    return (
+      <div className="space-y-3 sm:space-y-3.5">
+        <section className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs">
+          <div className="flex items-center gap-1.5 text-amber-500 font-bold text-sm mb-4">
+            <span>✦</span>
+            <span className="text-slate-900 font-bold">Overall Assessment</span>
+          </div>
 
+          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/40 py-12 px-6 flex flex-col items-center justify-center text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100/90 border border-amber-200/90 flex items-center justify-center text-amber-600 mb-4 shadow-2xs">
+              <MicOff size={22} />
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              Evaluation Unavailable
+            </h2>
+            <p className="mt-2 text-xs sm:text-sm text-slate-600 max-w-md leading-relaxed">
+              We don't have enough information to provide an evaluation for this assessment. Please ensure you speak clearly and provide a complete introduction during your next attempt.
+            </p>
+          </div>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className="space-y-3 sm:space-y-3.5">
       {/* ── 1. OVERALL SUMMARY CARD ── */}
@@ -928,11 +1034,8 @@ export function EvaluationContent({
         </div>
       </section>
 
-      {/* ── 2. EVALUATION OVERVIEW (2x2 GRID) ── */}
-      <section className="space-y-2.5">
-        <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">Evaluation Overview</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
+      {/* ── 2. EVALUATION CATEGORY CARDS (2x2 GRID) ── */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
           <OverviewCategoryCard
             icon={<User size={16} className="text-indigo-600" />}
             title="Intro Evaluation"
@@ -968,11 +1071,10 @@ export function EvaluationContent({
             subTabId="devops_cicd"
             onSelectTab={onSelectTab}
           />
-        </div>
       </section>
 
       {/* ── 3. RECORDING PLAYBACK ── */}
-      {!insufficient_content && canShowRecording && effectivePlaybackUrl && (
+      {canShowRecording && effectivePlaybackUrl && (
         <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
           <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
             {isAudioOnly ? (
@@ -1015,6 +1117,7 @@ function DetailSectionCard({
   recommendations,
   isExpanded,
   onToggle,
+  showConcepts = true,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -1027,23 +1130,55 @@ function DetailSectionCard({
   recommendations: { topic: string; guidance?: string }[];
   isExpanded: boolean;
   onToggle: () => void;
+  showConcepts?: boolean;
 }) {
+  // Deduplicated topics covered: merge conceptsCovered with technologies
+  const coveredTopicsMap = new Map<string, string>();
+  conceptsCovered.forEach((cKey) => {
+    const label = getConceptLabel(cKey);
+    const norm = label.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!coveredTopicsMap.has(norm)) {
+      coveredTopicsMap.set(norm, label);
+    }
+  });
+  technologies.forEach((tech) => {
+    if (tech && tech.trim()) {
+      const trimmed = tech.trim();
+      const norm = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!coveredTopicsMap.has(norm)) {
+        coveredTopicsMap.set(norm, trimmed);
+      }
+    }
+  });
+  const allCoveredTopics = Array.from(coveredTopicsMap.values());
+
+  // Deduplicated topics missed: conceptsMissed excluding anything that's covered
+  const missedTopicsMap = new Map<string, string>();
+  conceptsMissed.forEach((cKey) => {
+    const label = getConceptLabel(cKey);
+    const norm = label.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!coveredTopicsMap.has(norm) && !missedTopicsMap.has(norm)) {
+      missedTopicsMap.set(norm, label);
+    }
+  });
+  const allMissedTopics = Array.from(missedTopicsMap.values());
+
   return (
     <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-3.5 py-2.5 sm:px-4 sm:py-3 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
+        className="w-full flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2.5 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-md bg-slate-50 border border-slate-100 text-slate-700">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-slate-50 border border-slate-100 text-slate-700">
             {icon}
           </div>
           <h3 className="text-xs sm:text-sm font-bold text-slate-900">{title}</h3>
           <QualitativeBadge status={status} size="sm" />
         </div>
         <ChevronDown
-          size={16}
+          size={15}
           className={`text-slate-400 transition-transform duration-200 ${
             isExpanded ? "rotate-180" : ""
           }`}
@@ -1051,116 +1186,117 @@ function DetailSectionCard({
       </button>
 
       {isExpanded && (
-        <div className="p-3.5 sm:p-4 border-t border-slate-100 space-y-3 sm:space-y-3.5">
+        <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-2 sm:space-y-2.5">
           {subtitle && (
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-snug">
               {subtitle}
             </p>
           )}
 
-          {/* Key Observations Container */}
-          {observations.length > 0 && (
-            <div className="rounded-xl border border-blue-100 bg-[#f4f8ff] p-3.5 sm:p-4 space-y-1.5">
-              <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
-              <ul className="space-y-1 text-xs text-slate-700">
-                {observations.map((obs, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5">
-                    <span className="text-blue-500 font-bold shrink-0 mt-0.5">•</span>
-                    <span className="leading-relaxed">{obs}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* CONCEPTS COVERED */}
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              CONCEPTS COVERED:
-            </span>
-            {conceptsCovered.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {conceptsCovered.map((cKey) => (
-                  <span
-                    key={cKey}
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/80 shadow-2xs"
-                  >
-                    <Check size={11} className="text-emerald-600 stroke-[3]" />
-                    {getConceptLabel(cKey)}
-                  </span>
-                ))}
+          {showConcepts ? (
+            <>
+              {/* 1. TOPICS COVERED */}
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  TOPICS COVERED:
+                </span>
+                {allCoveredTopics.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {allCoveredTopics.map((topic, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/80 shadow-2xs"
+                      >
+                        <Check size={11} className="text-emerald-600 stroke-[3]" />
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">None mentioned in response</p>
+                )}
               </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">None mentioned in response</p>
-            )}
-          </div>
 
-          {/* TECHNOLOGIES MENTIONED */}
-          <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              TECHNOLOGIES MENTIONED:
-            </span>
-            {technologies.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {technologies.map((tech, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-mono font-medium text-sky-700 border border-sky-200/80 shadow-2xs"
-                  >
-                    {tech}
-                  </span>
-                ))}
+              {/* 2. TOPICS MISSED */}
+              <div className="space-y-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  TOPICS MISSED:
+                </span>
+                {allMissedTopics.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {allMissedTopics.map((topic, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200/80 shadow-2xs"
+                      >
+                        <AlertTriangle size={11} className="text-rose-500 stroke-[2]" />
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">All core topics covered</p>
+                )}
               </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">None mentioned in response</p>
-            )}
-          </div>
 
-          {/* CONCEPTS MISSED / NOT COVERED */}
-          {conceptsMissed.length > 0 && (
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                CONCEPTS MISSED / NOT COVERED:
-              </span>
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {conceptsMissed.map((cKey) => (
-                  <span
-                    key={cKey}
-                    className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200/80 shadow-2xs"
-                  >
-                    <AlertTriangle size={11} className="text-rose-500 stroke-[2]" />
-                    {getConceptLabel(cKey)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+              {/* 3. KEY OBSERVATIONS */}
+              {observations.length > 0 && (
+                <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
+                  <ul className="space-y-0.5 text-xs text-slate-700">
+                    {observations.map((obs, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-blue-500 font-bold shrink-0 mt-0.5">•</span>
+                        <span className="leading-snug">{obs}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Introduction Evaluation: Key Observations & Recommended Improvements */}
+              {observations.length > 0 && (
+                <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
+                  <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
+                  <ul className="space-y-0.5 text-xs text-slate-700">
+                    {observations.map((obs, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-blue-500 font-bold shrink-0 mt-0.5">•</span>
+                        <span className="leading-snug">{obs}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-          {/* RECOMMENDED CONCEPTS & TOOLS TO INCLUDE NEXT TIME */}
-          {recommendations.length > 0 && (
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-3.5 sm:p-4 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-amber-800">
-                <Lightbulb size={15} className="text-amber-600 shrink-0" />
-                <h4 className="text-xs font-bold text-amber-900">
-                  Recommended Concepts & Tools to Include Next Time
-                </h4>
-              </div>
-              <ul className="space-y-1.5 text-xs text-amber-950">
-                {recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex items-start gap-1.5 bg-white/80 p-2 rounded-lg border border-amber-200/60 shadow-2xs">
-                    <Sparkles size={13} className="text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold text-slate-900">{rec.topic}</span>
-                      {rec.guidance && (
-                        <p className="text-slate-700 text-xs mt-0.5 leading-relaxed">
-                          {rec.guidance}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+              {recommendations.length > 0 && (
+                <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-2.5 sm:p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-amber-800">
+                    <Lightbulb size={14} className="text-amber-600 shrink-0" />
+                    <h4 className="text-xs font-bold text-amber-900">
+                      Recommended Improvements for Next Time
+                    </h4>
+                  </div>
+                  <ul className="space-y-1 text-xs text-amber-950">
+                    {recommendations.map((rec, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5 bg-white/80 p-1.5 rounded-md border border-amber-200/60 shadow-2xs">
+                        <Sparkles size={12} className="text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold text-slate-900 text-xs">{rec.topic}</span>
+                          {rec.guidance && (
+                            <p className="text-slate-700 text-xs mt-0.5 leading-snug">
+                              {rec.guidance}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1187,7 +1323,6 @@ export function DetailsContent({
     critical_gaps = [],
     priority_improvements = [],
     strongest_points = [],
-    technology_inventory,
   } = report;
 
   const candidateSpoke = hasRealSpeech(report);
@@ -1235,7 +1370,7 @@ export function DetailsContent({
     });
   };
 
-  if (!candidateSpoke) {
+  if (!candidateSpoke || report.insufficient_content) {
     return <EmptyEvaluationCard />;
   }
 
@@ -1249,40 +1384,40 @@ export function DetailsContent({
 
   const aiData = resolveSectionData(
     report,
-    ["agentic_ai", "rag_and_retrieval"],
+    ["agentic_ai", "rag_and_retrieval", "models_and_ai_platforms"],
     [...AGENTIC_AI_CONCEPTS, ...RAG_CONCEPTS],
-    ["ai_engineering"]
+    ["ai_engineering", "agent_frameworks", "agent_protocols_and_patterns", "retrieval_and_rag", "vector_databases", "models", "model_platforms"]
   );
 
   const seData = resolveSectionData(
     report,
     ["software_engineering"],
     SE_CONCEPTS,
-    ["software_engineering"]
+    ["software_engineering", "backend_and_api", "frontend", "databases"]
   );
 
   const devopsCloudData = resolveSectionData(
     report,
-    ["cicd_and_delivery", "cloud_and_infrastructure"],
+    ["cicd_and_delivery", "cloud_and_infrastructure", "devops", "cloud", "infrastructure", "cicd", "containers_and_orchestration", "infrastructure_as_code"],
     [...DEVOPS_CONCEPTS, ...CLOUD_CONCEPTS],
-    ["devops", "cloud"]
+    ["devops", "cloud", "cicd", "containers_and_orchestration", "infrastructure_as_code", "cloud_and_infrastructure", "cicd_and_delivery", "containers", "infrastructure"]
   );
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-2 sm:space-y-2.5">
       {/* Top Toolbar: Expand All / Collapse All */}
       <div className="flex items-center justify-end gap-2 pb-0.5">
         <button
           type="button"
           onClick={handleExpandAll}
-          className="px-3 py-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 rounded-md border border-blue-200/80 bg-white transition-colors cursor-pointer shadow-2xs"
+          className="px-2.5 py-0.5 text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50/80 rounded-md border border-blue-200/80 bg-white transition-colors cursor-pointer shadow-2xs"
         >
           Expand All
         </button>
         <button
           type="button"
           onClick={handleCollapseAll}
-          className="px-3 py-1 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-50 rounded-md border border-slate-200 bg-white transition-colors cursor-pointer shadow-2xs"
+          className="px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-50 rounded-md border border-slate-200 bg-white transition-colors cursor-pointer shadow-2xs"
         >
           Collapse All
         </button>
@@ -1301,6 +1436,7 @@ export function DetailsContent({
         recommendations={introData.recommendations}
         isExpanded={Boolean(expandedSections.intro)}
         onToggle={() => toggleSection("intro")}
+        showConcepts={false}
       />
 
       {/* ── ACCORDION 2: AI ENGINEERING CONCEPTS ── */}
@@ -1349,69 +1485,69 @@ export function DetailsContent({
       />
 
       {/* ── BOTTOM CARDS: STRONGEST POINTS & CRITICAL GAPS ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 pt-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-2.5 pt-0.5">
         {/* Strongest Points */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-2.5">
-          <div className="flex items-center gap-2 text-emerald-600 border-b border-slate-100 pb-2.5">
-            <Star size={18} className="fill-emerald-500/20" />
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">Strongest Points</h3>
+        <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs space-y-1.5">
+          <div className="flex items-center gap-2 text-emerald-600 border-b border-slate-100 pb-1.5">
+            <Star size={15} className="fill-emerald-500/20 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">Strongest Points</h3>
           </div>
           {strongest_points.length > 0 ? (
-            <ul className="space-y-2 text-xs sm:text-sm text-slate-700">
+            <ul className="space-y-1 text-xs text-slate-700">
               {strongest_points.map((pt, idx) => (
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-emerald-500 font-bold shrink-0 mt-0.5">•</span>
-                  <span className="leading-relaxed">{pt}</span>
+                  <span className="leading-snug">{pt}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs sm:text-sm text-slate-500 italic">No specific strengths listed.</p>
+            <p className="text-xs text-slate-500 italic">No specific strengths listed.</p>
           )}
         </div>
 
         {/* Critical Gaps */}
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-2.5">
-          <div className="flex items-center gap-2 text-amber-600 border-b border-slate-100 pb-2.5">
-            <AlertTriangle size={18} className="fill-amber-500/20" />
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">Critical Gaps</h3>
+        <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs space-y-1.5">
+          <div className="flex items-center gap-2 text-amber-600 border-b border-slate-100 pb-1.5">
+            <AlertTriangle size={15} className="fill-amber-500/20 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">Critical Gaps</h3>
           </div>
           {critical_gaps.length > 0 ? (
-            <ul className="space-y-2 text-xs sm:text-sm text-slate-700">
+            <ul className="space-y-1 text-xs text-slate-700">
               {critical_gaps.map((gap, idx) => (
                 <li key={idx} className="flex items-start gap-2">
                   <span className="text-amber-500 font-bold shrink-0 mt-0.5">•</span>
-                  <span className="leading-relaxed">
+                  <span className="leading-snug">
                     {gap.what_is_missing || gap.topic || gap.why_it_matters}
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs sm:text-sm text-slate-500 italic">No critical gaps identified.</p>
+            <p className="text-xs text-slate-500 italic">No critical gaps identified.</p>
           )}
         </div>
       </div>
 
       {/* Priority Improvements */}
       {priority_improvements.length > 0 && (
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-3">
-          <div className="flex items-center gap-2 text-indigo-600 border-b border-slate-100 pb-2.5">
-            <Target size={18} />
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">Priority Improvements</h3>
+        <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs space-y-2">
+          <div className="flex items-center gap-2 text-indigo-600 border-b border-slate-100 pb-1.5">
+            <Target size={15} className="shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">Priority Improvements</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-2.5">
             {priority_improvements.map((imp, idx) => (
-              <div key={idx} className="rounded-lg border border-slate-100 bg-slate-50/50 p-3 space-y-1">
+              <div key={idx} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 sm:p-2.5 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="flex size-5 items-center justify-center rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-bold text-indigo-600 shrink-0">
                     {imp.priority || idx + 1}
                   </span>
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-1">
+                  <h4 className="text-xs font-bold text-slate-800 line-clamp-1">
                     {imp.topic || `Improvement #${idx + 1}`}
                   </h4>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-snug">
                   {imp.guidance || imp.example}
                 </p>
               </div>
@@ -1420,27 +1556,6 @@ export function DetailsContent({
         </div>
       )}
 
-      {/* Technology Inventory */}
-      {technology_inventory && Object.keys(technology_inventory).length > 0 && (
-        <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-2.5">
-          <div className="flex items-center gap-2 text-blue-600 border-b border-slate-100 pb-2.5">
-            <Wrench size={18} />
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">Technology Inventory</h3>
-          </div>
-          <div className="flex flex-wrap gap-2 pt-0.5">
-            {Object.entries(technology_inventory).flatMap(([cat, techList]) =>
-              (Array.isArray(techList) ? techList : []).map((t, idx) => (
-                <span
-                  key={`${cat}-${idx}`}
-                  className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-xs font-mono font-medium"
-                >
-                  {t}
-                </span>
-              ))
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1701,13 +1816,13 @@ export function ReportHeader({
         : "Introductory";
 
   return (
-    <header className="rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs mb-3 sm:mb-4">
+    <header className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs mb-2.5 sm:mb-3">
       {/* Top Row: Back link + View Transcript button */}
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => navigateToAssessmentsList(router)}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-blue-700 active:bg-blue-800 transition-colors cursor-pointer"
         >
           <ArrowLeft size={14} />
           Back to Assessments
@@ -1726,12 +1841,12 @@ export function ReportHeader({
       </div>
 
       {/* Title */}
-      <h1 className="mt-2 text-lg sm:text-xl font-bold tracking-tight text-[#071d49]">
+      <h1 className="mt-1.5 text-lg sm:text-xl font-bold tracking-tight text-[#071d49]">
         {typeName}
       </h1>
 
       {/* Metadata Row */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
         {candidateName && (
           <>
             <span className="flex items-center gap-1 font-medium text-slate-700">
@@ -1750,7 +1865,7 @@ export function ReportHeader({
 
       {/* Navigation Tabs: Overview & Details */}
       <nav
-        className="mt-3 flex gap-6 border-b border-slate-200"
+        className="mt-2.5 flex gap-5 border-b border-slate-200"
         aria-label="Report sections"
       >
         {REPORT_TABS.map((tab) => {
@@ -1916,6 +2031,27 @@ export default function AiPrepReport({
   // The session page owns the submission SSE connection and navigates here only after COMPLETED.
   // This page intentionally performs no polling or secondary stream requests.
 
+  // ── Auto-Swap to YouTube when background upload completes ─────────────────
+  useEffect(() => {
+    if (!report || report.youtube_url || isProcessing || !assessmentId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        if (isMounted && fresh?.youtube_url) {
+          clearInterval(interval);
+          loadReport();
+        }
+      } catch (_) {}
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [report, isProcessing, assessmentId, loadReport]);
+
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
     document.documentElement.style.removeProperty("height");
@@ -2037,8 +2173,8 @@ export default function AiPrepReport({
   const isOverviewTab = activeTab === "Overview" || activeTab === "Evaluation";
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 w-full space-y-3 sm:space-y-4">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 w-full space-y-2.5 sm:space-y-3">
         <ReportHeader
           assessment={assessment}
           report={report}

@@ -517,6 +517,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     pendingChunksRef.current = pendingChunks;
   }, [pendingChunks]);
 
+  // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
+  const localChunksRef = useRef<Blob[]>([]);
+
   // ── Media Recorder Hook (30s slicing) ──────────────────────────────────────
   const {
     status: recordingStatus,
@@ -530,6 +533,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     chunkDurationMs: 30000,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
+      if (blob && blob.size > 0) {
+        localChunksRef.current.push(blob);
+      }
       enqueueChunk(blob, chunkIdx, isFinal);
     },
     onError: (err) => {
@@ -1163,6 +1169,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
       // 1. Stop recording and flush final slice
       await stopRecording();
+
+      // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
+      if (localChunksRef.current.length > 0 && assessmentId) {
+        try {
+          const mimeType = isAudioOnly ? 'audio/webm' : 'video/webm';
+          const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
+          const previewUrl = URL.createObjectURL(combinedBlob);
+          if (typeof window !== 'undefined') {
+            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+            (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
+          }
+        } catch (blobErr) {
+          console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+        }
+      }
 
       // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
       await waitForAllChunks(8000);
