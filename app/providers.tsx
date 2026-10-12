@@ -111,7 +111,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return () => {
       isSubscribed = false;
     };
-  }, []);
+  }, [
+    process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    setIsPostHogInitialized,
+  ]);
 
   const content = (
     <>

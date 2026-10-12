@@ -224,7 +224,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
     } catch { }
     AIPrepTelemetry.trackWizardStep(step, assessmentType);
-  }, [step, assessmentType]);
+  }, [
+    step,
+    assessmentType,
+    typeof window !== 'undefined' ? sessionStorage : undefined,
+    jdText,
+    STEP_TO_SLUG,
+    isPopStateRef,
+  ]);
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
     if (step === 'CONFIGURATION' && initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
