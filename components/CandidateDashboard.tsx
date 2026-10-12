@@ -1382,7 +1382,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, []);
 
 
-    const loadSetupStatus = async () => {
+    const loadSetupStatus = useCallback(async () => {
         let hasValidDefaultKey = false;
         let hasAnyKeyInBackend = false;
         try {
@@ -1441,7 +1441,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } catch {
             return null;
         }
-    };
+    }, [candidateId, prefetchedSession?.summaryData]);
 
     const isAiPrepTab = Boolean(
         activeTab.startsWith('ai-prep') ||
@@ -1459,7 +1459,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (!isAiPrepTab && !setupStatus) {
             loadSetupStatus().then(setSetupStatus);
         }
-    }, [isAiPrepTab, setupStatus]);
+    }, [isAiPrepTab, setupStatus, loadSetupStatus, setSetupStatus]);
 
     useEffect(() => {
         if (setupStatus?.has_binary_resume) {
@@ -2419,7 +2419,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         loadDashboard();
         void loadTodayClickSummary();
         void loadTotalClickSummary();
-    }, [activeTab, candidateId, getCandidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
+    }, [activeTab, candidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
     const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
 

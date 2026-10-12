@@ -2093,8 +2093,10 @@ export default function AiPrepReport({
     const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
     const fromParam = searchParams.get("from");
     const fromQuery = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
+    const cidParam = searchParams.get("candidateId");
+    const cidQuery = cidParam ? `&candidateId=${encodeURIComponent(cidParam)}` : "";
 
-    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}${fromQuery}`;
+    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}${fromQuery}${cidQuery}`;
     router.push(targetUrl, { scroll: false });
   };
 
