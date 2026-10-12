@@ -126,7 +126,8 @@ export default function CandidateAssessmentsPage() {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("aiprep_return_url", "/avatar/assessments");
     }
-    router.push(`/aiprep/reports/${reportTarget}?from=avatar`);
+    const candidateQuery = assessment.candidate_id ? `&candidateId=${assessment.candidate_id}` : "";
+    router.push(`/aiprep/reports/${reportTarget}?from=avatar${candidateQuery}`);
   };
 
   const handleOpenModal = (assessment: AssessmentGridItem) => {

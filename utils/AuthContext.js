@@ -34,6 +34,15 @@ export const AuthProvider = ({ children }) => {
         if (typeof logoutRef.current === "function") logoutRef.current();
         return;
       }
+      if (isAssessmentPage()) {
+        const cachedRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null;
+        if (cachedRole && !isTokenExpired(token)) {
+          setUserRole(cachedRole);
+          setIsAuthenticated(true);
+          setAuthToken(token);
+          return;
+        }
+      }
       // Validate the role with the backend on a fresh page load so the request is visible in DevTools.
       _checkToken(token, true);
     } else {

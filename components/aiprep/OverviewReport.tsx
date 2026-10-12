@@ -1943,7 +1943,10 @@ export default function AiPrepReport({
 
   const lastLoadedIdRef = useRef<string | null>(null);
   const reportRequestIdRef = useRef(0);
-  const [candidateId, setCandidateId] = useState<string | number | null>(() => initialCandidateId ?? null);
+  const candidateIdFromQuery = searchParams.get("candidateId");
+  const [candidateId, setCandidateId] = useState<string | number | null>(
+    () => initialCandidateId ?? candidateIdFromQuery ?? null
+  );
 
   const loadReport = useCallback(async (forceRefresh = false) => {
     if (!assessmentId) return;
@@ -1963,7 +1966,8 @@ export default function AiPrepReport({
     setStatusMsg("");
 
     try {
-      const assessment = await aiPrepApi.getAssessment(assessmentId);
+      const effectiveCid = candidateId ?? initialCandidateId ?? candidateIdFromQuery ?? undefined;
+      const assessment = await aiPrepApi.getAssessment(assessmentId, effectiveCid);
       if (!isCurrentRequest()) return;
 
       if (assessment?.candidate_id) {
@@ -2043,7 +2047,8 @@ export default function AiPrepReport({
     let isMounted = true;
     const interval = setInterval(async () => {
       try {
-        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        const effectiveCid = candidateId ?? initialCandidateId ?? candidateIdFromQuery ?? undefined;
+        const fresh = await aiPrepApi.getAssessment(assessmentId, effectiveCid);
         if (isMounted && fresh?.youtube_url) {
           clearInterval(interval);
           loadReport();
