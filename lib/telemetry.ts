@@ -546,8 +546,52 @@ export class AIPrepTelemetry {
   }
 
   /**
+   * Validates and sanitizes a property value against a strict allowlist of allowed types:
+   * string, finite number, boolean, or 1-dimensional array of primitives.
+   * Strictly rejects nested object structures and nested array depth > 1.
+   */
+  private static sanitizePropertyValue(
+    val: any,
+    depth: number = 0
+  ): string | number | boolean | (string | number | boolean)[] | undefined {
+    if (val === null || val === undefined) return undefined;
+    if (depth > 0 && typeof val === 'object') return undefined; // Reject nested objects/arrays beyond 1 level
+
+    const valType = typeof val;
+
+    if (valType === 'string') {
+      const stripped = String(val).replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+      const bounded = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
+      return this.escapeHtml(bounded);
+    }
+
+    if (valType === 'number') {
+      return Number.isFinite(val) ? val : undefined;
+    }
+
+    if (valType === 'boolean') {
+      return val;
+    }
+
+    // Allow 1-dimensional array of primitives up to 25 items
+    if (Array.isArray(val) && depth === 0) {
+      const sanitizedArr: (string | number | boolean)[] = [];
+      for (const item of val.slice(0, 25)) {
+        const sanitizedItem = this.sanitizePropertyValue(item, depth + 1);
+        if (sanitizedItem !== undefined && !Array.isArray(sanitizedItem)) {
+          sanitizedArr.push(sanitizedItem);
+        }
+      }
+      return sanitizedArr.length > 0 ? sanitizedArr : undefined;
+    }
+
+    // Strictly reject any unexpected objects, functions, or complex structures
+    return undefined;
+  }
+
+  /**
    * Sanitizes metadata to prevent XSS injection, long string pollution, and exclude sensitive PII.
-   * Validates key format, strips HTML tags/control characters, and enforces length bounds.
+   * Validates against an allowlist of expected types and lengths, and strictly rejects unexpected object structures/array depth.
    */
   private static sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> | undefined {
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
@@ -563,16 +607,9 @@ export class AIPrepTelemetry {
       if (!/^[a-zA-Z0-9_-]+$/.test(cleanKey)) continue;
       if (SENSITIVE_KEYS.has(cleanKey.toLowerCase())) continue;
 
-      if (typeof rawValue === 'string') {
-        // Strip HTML tags and control characters to prevent XSS
-        const stripped = rawValue.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
-        sanitized[cleanKey] = stripped.length > 150 ? stripped.substring(0, 147) + '...' : stripped;
-        count++;
-      } else if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
-        sanitized[cleanKey] = rawValue;
-        count++;
-      } else if (typeof rawValue === 'boolean') {
-        sanitized[cleanKey] = rawValue;
+      const sanitizedVal = this.sanitizePropertyValue(rawValue, 0);
+      if (sanitizedVal !== undefined) {
+        sanitized[cleanKey] = sanitizedVal;
         count++;
       }
     }
@@ -676,7 +713,7 @@ export class AIPrepTelemetry {
 
   /**
    * Dispatches a PostHog telemetry event using an explicit HTTP GET call with Base64 payload,
-   * with strict HTML entity encoding for string properties to prevent XSS.
+   * validating all properties against an allowlist of expected types, lengths, and depth.
    */
   static sendPostHogGetEvent(eventName: string, properties: Record<string, any> = {}) {
     if (typeof window === 'undefined') return;
@@ -686,11 +723,19 @@ export class AIPrepTelemetry {
       if (!apiKey) return;
 
       const sanitizedProperties: Record<string, any> = {};
-      for (const [key, val] of Object.entries(properties)) {
-        if (typeof val === 'string') {
-          sanitizedProperties[key] = this.escapeHtml(val);
-        } else {
-          sanitizedProperties[key] = val;
+      const MAX_KEYS = 50;
+      let keyCount = 0;
+
+      for (const [rawKey, val] of Object.entries(properties)) {
+        if (keyCount >= MAX_KEYS) break;
+        if (typeof rawKey !== 'string') continue;
+        const cleanKey = rawKey.trim().slice(0, 64);
+        if (!/^[a-zA-Z0-9_$-]+$/.test(cleanKey)) continue;
+
+        const sanitizedVal = this.sanitizePropertyValue(val, 0);
+        if (sanitizedVal !== undefined) {
+          sanitizedProperties[cleanKey] = sanitizedVal;
+          keyCount++;
         }
       }
 
