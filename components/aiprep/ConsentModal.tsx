@@ -95,8 +95,9 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
   };
 
   const handleSelectVideoAudio = () => {
-    // Video assessment is disabled as of now
-    return;
+    if (typeof window !== 'undefined') {
+      alert("Video mode is currently disabled. Please proceed with Audio-only mode.");
+    }
   };
 
   const handleNextClick = () => {

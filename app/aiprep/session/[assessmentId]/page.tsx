@@ -54,68 +54,104 @@ import {
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
  */
 const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stream: MediaStream | null; isMuted: boolean; isLight?: boolean }) => {
-  const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(3));
+  const [audioLevels, setAudioLevels] = useState<number[]>(Array(30).fill(3));
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastDrawTime = useRef<number>(0);
 
   useEffect(() => {
+    let cancelled = false;
+    let frameId: number | null = null;
+    let audioCtx: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+
     if (!stream || isMuted) {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (_) { }
-        audioContextRef.current = null;
-      }
-      setAudioLevels(Array(20).fill(3));
-      return;
+      setAudioLevels(Array(30).fill(3));
+      return () => {
+        cancelled = true;
+      };
     }
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
+      if (!AudioCtx) {
+        setAudioLevels(Array(30).fill(3));
+        return () => {
+          cancelled = true;
+        };
+      }
 
-      const audioCtx = new AudioCtx();
-      const analyser = audioCtx.createAnalyser();
+      audioCtx = new AudioCtx();
+      analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
-      const source = audioCtx.createMediaStreamSource(stream);
+      source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
       audioContextRef.current = audioCtx;
       analyserRef.current = analyser;
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let previousDrawTime = 0;
 
       const renderWave = (time: number) => {
-        if (time - lastDrawTime.current >= 40) {
+        if (cancelled || !analyser) return;
+
+        if (time - previousDrawTime >= 40) {
+          previousDrawTime = time;
           lastDrawTime.current = time;
           analyser.getByteFrequencyData(dataArray);
+
           const bars: number[] = [];
-          for (let i = 0; i < 20; i++) {
-            const val = dataArray[i % dataArray.length] || 0;
-            const barHeight = Math.max(3, Math.round((val / 255) * 14) + 3);
-            bars.push(barHeight);
+          for (let i = 0; i < 30; i++) {
+            // Shape the live levels into a centered, tapered waveform like the design reference.
+            const centerDistance = Math.abs(i - 14.5) / 14.5;
+            const envelope = 0.12 + (1 - centerDistance) * 0.88;
+            const liveLevel = (dataArray[i % dataArray.length] || 0) / 255;
+            bars.push(Math.max(2, Math.round((4 + liveLevel * 34) * envelope)));
           }
-          setAudioLevels(bars);
+
+          if (!cancelled) setAudioLevels(bars);
         }
-        animFrameRef.current = requestAnimationFrame(renderWave);
+
+        if (!cancelled) {
+          frameId = requestAnimationFrame(renderWave);
+          animFrameRef.current = frameId;
+        }
       };
 
-      animFrameRef.current = requestAnimationFrame(renderWave);
-    } catch (e) {
-      console.warn('Audio visualizer error:', e);
+      frameId = requestAnimationFrame(renderWave);
+      animFrameRef.current = frameId;
+    } catch (error) {
+      console.warn('Audio visualizer error:', error);
+      cancelled = true;
+      if (source) {
+        try { source.disconnect(); } catch (_) {}
+      }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        void audioCtx.close().catch(() => undefined);
+      }
+      if (audioContextRef.current === audioCtx) audioContextRef.current = null;
+      if (analyserRef.current === analyser) analyserRef.current = null;
+      setAudioLevels(Array(30).fill(3));
     }
 
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (_) { }
-        audioContextRef.current = null;
+      cancelled = true;
+
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      if (animFrameRef.current === frameId) animFrameRef.current = null;
+
+      if (source) {
+        try { source.disconnect(); } catch (_) {}
       }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        void audioCtx.close().catch(() => undefined);
+      }
+
+      if (audioContextRef.current === audioCtx) audioContextRef.current = null;
+      if (analyserRef.current === analyser) analyserRef.current = null;
     };
   }, [stream, isMuted]);
 
@@ -123,12 +159,12 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
   if (isLight) {
     return (
-      <div className="flex items-center gap-[3px] h-5 overflow-hidden">
-        {audioLevels.slice(0, 12).map((height, i) => (
+      <div className="flex items-center justify-center gap-[4px] h-12 overflow-hidden">
+        {audioLevels.map((height, i) => (
           <div
             key={i}
             style={{ height: isMuted ? '3px' : `${height}px` }}
-            className={`w-[3px] rounded-full shrink-0 transition-all duration-75 ${
+            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${
               isMuted
                 ? 'bg-slate-300 dark:bg-slate-600'
                 : 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
@@ -200,7 +236,51 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Status & loading
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isEnding, setIsEnding] = useState<boolean>(false);
+  const [submissionProgress, setSubmissionProgress] = useState<number>(0);
+  const [submissionStep, setSubmissionStep] = useState<string>("Preparing submission…");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Multi-Tab Session Ownership & Duplicate Tab Tracking
+  const [currentTabId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      let id = window.sessionStorage.getItem('aiprep_tab_instance_id');
+      if (!id) {
+        id = `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        window.sessionStorage.setItem('aiprep_tab_instance_id', id);
+      }
+      return id;
+    } catch (_) {
+      return `tab_${Date.now()}`;
+    }
+  });
+
+  const [hasSessionInit] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return true;
+    try {
+      const activeId = window.sessionStorage.getItem('aiprep_active_id');
+      return Boolean(activeId && String(activeId) === String(assessmentId));
+    } catch (_) {
+      return true;
+    }
+  });
+
+  const [isSessionActiveInOtherTab, setIsSessionActiveInOtherTab] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    try {
+      const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        let tabId = window.sessionStorage.getItem('aiprep_tab_instance_id');
+        if (parsed?.tabId && parsed.tabId !== tabId && (Date.now() - (parsed.heartbeat || 0) < 25000)) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  });
+
+  const [closeTabNotice, setCloseTabNotice] = useState<boolean>(false);
 
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
@@ -233,8 +313,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [targetCompany, setTargetCompany] = useState<string>('');
   const [showJdModal, setShowJdModal] = useState<boolean>(false);
 
-  // Exit Modal
+  // Exit Modal & Session Exited Guard
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const isExitingRef = useRef<boolean>(false);
+
+  const [isSessionAlreadyEnded, setIsSessionAlreadyEnded] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    try {
+      return Boolean(
+        localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+        sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+        localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+      );
+    } catch (_) {
+      return false;
+    }
+  });
 
   // Speech Synthesis (AI Voice Reading)
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
@@ -260,6 +354,100 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       window.speechSynthesis.removeEventListener('voiceschanged', populateVoices);
     };
   }, []);
+
+  // ── Multi-Tab Coordination & Active Session Heartbeat ────────────────────
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+
+    // 1. Initial check of active session owner in localStorage
+    try {
+      const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.tabId && parsed.tabId !== currentTabId && (Date.now() - (parsed.heartbeat || 0) < 25000)) {
+          setIsSessionActiveInOtherTab(true);
+        }
+      }
+    } catch (_) {}
+
+    // 2. BroadcastChannel coordination
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(`aiprep_session_${assessmentId}`);
+      channel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+        if (data.type === 'PING_ACTIVE_SESSION' && data.tabId !== currentTabId) {
+          if (!isSessionActiveInOtherTab && questions.length > 0) {
+            channel?.postMessage({
+              type: 'PONG_ACTIVE_SESSION',
+              tabId: currentTabId,
+              assessmentId,
+            });
+          }
+        } else if (data.type === 'PONG_ACTIVE_SESSION' && data.tabId !== currentTabId) {
+          setIsSessionActiveInOtherTab(true);
+          setIsLoading(false);
+        }
+      };
+      channel.postMessage({ type: 'PING_ACTIVE_SESSION', tabId: currentTabId, assessmentId });
+    } catch (_) {}
+
+    // 3. Heartbeat if this tab owns the active session
+    const heartbeatTimer = setInterval(() => {
+      if (!isSessionActiveInOtherTab && questions.length > 0) {
+        try {
+          localStorage.setItem(`aiprep_active_session_${assessmentId}`, JSON.stringify({
+            tabId: currentTabId,
+            heartbeat: Date.now(),
+            assessmentId,
+          }));
+        } catch (_) {}
+      }
+    }, 4000);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      try {
+        channel?.close();
+      } catch (_) {}
+      try {
+        const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.tabId === currentTabId) {
+            localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+          }
+        }
+      } catch (_) {}
+    };
+  }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading, setIsSessionActiveInOtherTab]);
+
+  const handleCloseTab = () => {
+    try {
+      window.close();
+      setTimeout(() => {
+        setCloseTabNotice(true);
+      }, 300);
+    } catch (_) {
+      setCloseTabNotice(true);
+    }
+  };
+
+  // Speech Recognition Safety Cleanup on Unmount
+  useEffect(() => {
+    return () => {
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) { }
+      }
+    };
+  }, [restartTimeoutRef, recognitionRef]);
 
   const getBestVoice = useCallback((voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined => {
     if (!voices || voices.length === 0) return undefined;
@@ -365,6 +553,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     pendingChunksRef.current = pendingChunks;
   }, [pendingChunks]);
 
+  // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
+  const localChunksRef = useRef<Blob[]>([]);
+
   // ── Media Recorder Hook (30s slicing) ──────────────────────────────────────
   const {
     status: recordingStatus,
@@ -378,6 +569,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     chunkDurationMs: 30000,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
+      if (blob && blob.size > 0) {
+        localChunksRef.current.push(blob);
+      }
       enqueueChunk(blob, chunkIdx, isFinal);
     },
     onError: (err) => {
@@ -465,6 +659,101 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   };
 
+  // ── Clean Exit Session Handler ──────────────────────────────────────────────
+  const handleExitSession = useCallback(async () => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
+    setIsSessionAlreadyEnded(true);
+    setShowExitModal(false);
+
+    if (countdownIntervalRef.current && typeof window !== 'undefined') {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    stopAiSpeech();
+    cleanupRecorder();
+    clearQueue();
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (assessmentId) {
+          localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+          sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+          localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+        }
+        sessionStorage.removeItem('aiprep_active_id');
+        sessionStorage.removeItem('aiprep_active_questions');
+        sessionStorage.removeItem('aiprep_active_type');
+        sessionStorage.removeItem('aiprep_active_mode');
+        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.removeItem('aiprep_hardware_check');
+        window.dispatchEvent(
+          new CustomEvent('aiprep-layout-mode', {
+            detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
+          })
+        );
+      } catch (_) {}
+    }
+
+    try {
+      if (assessmentId) {
+        await aiprepApi.cancelAssessment(assessmentId);
+      }
+    } catch (e) {
+      console.warn('Failed to cancel assessment on server:', e);
+    }
+
+    const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+    try {
+      if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
+        History.prototype.replaceState.call(window.history, {}, '', targetUrl);
+      }
+    } catch (_) {}
+    router.replace(targetUrl);
+  }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
+
+  // Immediate redirect & history check if this session was already exited or finished
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+    const isEnded = Boolean(
+      localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+      sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+      localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+    );
+    if (isEnded) {
+      setIsSessionAlreadyEnded(true);
+      const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+      try {
+        if (window.history && History?.prototype?.replaceState) {
+          History.prototype.replaceState.call(window.history, {}, '', targetUrl);
+        }
+      } catch (_) {}
+      router.replace(targetUrl);
+    }
+  }, [assessmentId, isEmbedded, router]);
+
+  // Intercept browser Back button while inside active assessment room
+  useEffect(() => {
+    if (typeof window === 'undefined' || !assessmentId || isSessionAlreadyEnded || finishedAssessmentId) return;
+
+    try {
+      window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
+    } catch (_) {}
+
+    const handlePopState = () => {
+      if (isExitingRef.current) return;
+      setShowExitModal(true);
+      try {
+        window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
+      } catch (_) {}
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [assessmentId, isSessionAlreadyEnded, finishedAssessmentId]);
+
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
     if (!assessmentId) {
@@ -472,14 +761,44 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsLoading(false);
       return;
     }
-    if (sessionInitializedRef.current) return;
+    if (sessionInitializedRef.current || isSessionAlreadyEnded) return;
     sessionInitializedRef.current = true;
 
     async function initSession() {
       try {
+        // Guard against previously exited or completed session
+        if (typeof window !== 'undefined') {
+          const wasExited = Boolean(
+            localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+            sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
+            localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+          );
+          if (wasExited) {
+            setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            router.replace(targetUrl);
+            return;
+          }
+        }
+
+        // Failsafe: check server assessment status
+        try {
+          const detail = await aiprepApi.getAssessment(assessmentId);
+          const status = (detail?.status || '').toUpperCase();
+          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED') {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            }
+            setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            router.replace(targetUrl);
+            return;
+          }
+        } catch (_) {}
+
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode directly from sessionStorage (no backend GET call)
+        // 1. Recover stored session track & mode directly from sessionStorage
         const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
         const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
         let loadedQuestions: QuestionBankItem[] = [];
@@ -887,6 +1206,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 1. Stop recording and flush final slice
       await stopRecording();
 
+      // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
+      if (localChunksRef.current.length > 0 && assessmentId) {
+        try {
+          const mimeType = isAudioOnly ? 'audio/webm' : 'video/webm';
+          const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
+          const previewUrl = URL.createObjectURL(combinedBlob);
+          if (typeof window !== 'undefined') {
+            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+            (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
+          }
+        } catch (blobErr) {
+          console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+        }
+      }
+
       // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
       await waitForAllChunks(8000);
 
@@ -936,34 +1271,66 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             },
           ];
 
-      // 3. Submit assessment via PUT /candidates/{id}/assessments/{id}
-      const submitRes = await aiprepApi.submitAssessment(assessmentId, {
-        total_chunks_uploaded: totalChunks || 1,
-        is_final: true,
-        client_duration_seconds: elapsedTimeRef.current,
-        video_telemetry: isAudioOnly
-          ? {}
-          : {
-              eye_contact_percentage: 85.0,
-              face_visibility_percentage: 95.0,
-            },
-        status: null,
-      });
-
-      // Store PUT response body in sessionStorage so Evaluation page can render it directly
-      if (submitRes) {
-        try {
-          sessionStorage.setItem(`aiprep_submission_${assessmentId}`, JSON.stringify(submitRes));
-        } catch (_) {}
-      }
+      // 3. Submit assessment and keep this PUT connection open for SSE progress.
+      // The API resolves only after the backend sends a terminal COMPLETED event.
+      setSubmissionProgress(0);
+      setSubmissionStep("Submitting assessment…");
+      await aiprepApi.submitAssessmentStream(
+        assessmentId,
+        {
+          total_chunks_uploaded: totalChunks || 1,
+          is_final: true,
+          client_duration_seconds: elapsedTimeRef.current,
+          video_telemetry: isAudioOnly
+            ? {}
+            : {
+                eye_contact_percentage: 85.0,
+                face_visibility_percentage: 95.0,
+              },
+          status: null,
+        },
+        (event) => {
+          // Progress UI must never interrupt consumption of the assessment SSE stream.
+          try {
+            if (typeof event.progress === "number") {
+              setSubmissionProgress(Math.max(0, Math.min(100, event.progress)));
+            }
+            if (typeof event.step === "string" && event.step.trim()) {
+              setSubmissionStep(event.step);
+            } else if (event.status === "PROCESSING") {
+              setSubmissionStep("Processing recording and audio…");
+            } else if (event.status === "EVALUATING") {
+              setSubmissionStep("Evaluating your assessment with AI…");
+            } else if (event.status === "COMPLETED") {
+              setSubmissionStep("Evaluation complete. Opening report…");
+            }
+          } catch (progressError) {
+            console.warn("Could not update assessment submission progress UI:", progressError);
+          }
+        }
+      );
+      setSubmissionProgress(100);
+      setSubmissionStep("Evaluation complete. Opening report…");
 
       // 5. Clean up browser storage flags & queue
       clearQueue();
-      sessionStorage.removeItem('aiprep_active_id');
-      sessionStorage.removeItem('aiprep_wizard_step');
-      try {
-        localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
-      } catch (_) {}
+      if (typeof window !== 'undefined') {
+        try {
+          if (assessmentId) {
+            localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
+            localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+            localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+          }
+          sessionStorage.removeItem('aiprep_active_id');
+          sessionStorage.removeItem('aiprep_active_questions');
+          sessionStorage.removeItem('aiprep_active_type');
+          sessionStorage.removeItem('aiprep_active_mode');
+          sessionStorage.removeItem('aiprep_wizard_step');
+          sessionStorage.removeItem('aiprep_hardware_check');
+          localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
+        } catch (_) {}
+      }
 
       // 6. Transition directly to Evaluation page once response arrives
       const reportUrl = isEmbedded
@@ -977,6 +1344,36 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
+
+      // The server may finish evaluation after the browser's SSE connection drops.
+      // Verify once before showing an error; never resubmit the PUT automatically.
+      if (assessmentId) {
+        try {
+          const latestAssessment = await aiprepApi.getAssessment(assessmentId);
+          const latestStatus = String(latestAssessment?.status || "").toUpperCase();
+          if (latestStatus === "COMPLETED") {
+            setSubmissionProgress(100);
+            setSubmissionStep("Evaluation complete. Opening report…");
+            setFinishedAssessmentId(assessmentId);
+            return;
+          }
+          if (latestStatus === "FAILED" || latestStatus === "CANCELLED") {
+            setErrorMsg(latestStatus === "FAILED"
+              ? "Assessment evaluation failed. Please contact support if this continues."
+              : "This assessment was cancelled before evaluation completed.");
+            setIsEnding(false);
+            return;
+          }
+          if (["EVALUATING", "IN_PROGRESS", "SUBMITTED", "PENDING"].includes(latestStatus)) {
+            setErrorMsg("The progress connection ended, but your assessment may still be processing. Please check the report status before trying again.");
+            setIsEnding(false);
+            return;
+          }
+        } catch (statusCheckError) {
+          console.warn("Could not verify assessment status after submission interruption:", statusCheckError);
+        }
+      }
+
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
       setIsEnding(false);
     }
@@ -1003,6 +1400,33 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return <AiPrepReport assessmentId={String(finishedAssessmentId)} />;
   }
 
+  // ── Session Ended / Exited View ────────────────────────────────────────────
+  if (isSessionAlreadyEnded) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col items-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+            <IconAlertTriangle size={28} />
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Assessment Session Closed</h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            This assessment session (#{assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+              router.replace(targetUrl);
+            }}
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            Return to AI Prep Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading & Error Displays ───────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -1012,6 +1436,101 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Connecting to Assessment Room</h2>
         <p className="text-slate-500 dark:text-slate-400 text-xs">Calibrating media slicing and dynamic questions…</p>
+      </div>
+    );
+  }
+
+  // ── Duplicate Tab / Assessment Already Active in Another Tab ───────────────
+  if (isSessionActiveInOtherTab || (!hasSessionInit && (errorMsg || questions.length === 0))) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
+        <div className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xl p-6 sm:p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+          
+          {/* Top Pill Status Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-4">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Assessment Session #{assessmentId} Active</span>
+          </div>
+
+          {/* Hero Warning Icon */}
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-amber-500/15 via-orange-500/10 to-purple-500/15 border-2 border-amber-300/80 dark:border-amber-700/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 ring-8 ring-amber-500/10 dark:ring-amber-400/10 shadow-lg shadow-amber-500/5">
+            <IconAlertTriangle size={36} className="stroke-[2.2]" />
+          </div>
+
+          {/* Main Title & Subtitle */}
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-snug">
+            Assessment Already in Progress
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+            This interview session is already active in another browser tab. Please do not switch or open multiple session tabs.
+          </p>
+
+          {/* Structured Guidance Cards */}
+          <div className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 sm:p-4.5 mt-5 text-left space-y-3.5">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Active Recording in Old Tab</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Your live interview questions, microphone, camera feed, and timer are currently running in your original tab.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <IconLock size={15} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Do Not Open Here or Switch Tabs</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  To protect assessment security and prevent hardware recording conflicts, duplicate session windows are blocked.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                <IconArrowRight size={15} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Return to Your Original Tab</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Look for the tab marked with the <span className="font-bold text-rose-600 dark:text-rose-400">🔴 recording dot</span> in your browser toolbar above and switch back to it to continue.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 w-full mt-6">
+            <button
+              onClick={handleCloseTab}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] active:bg-[#5B21B6] text-white font-bold text-xs shadow-md shadow-purple-500/20 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <IconX size={15} className="stroke-[2.5]" />
+              <span>Close This Tab</span>
+            </button>
+            <button
+              onClick={() => {
+                const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+                router.replace(targetUrl);
+              }}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <span>Return to Dashboard</span>
+            </button>
+          </div>
+
+          {/* Notice if browser blocks script-closing tab */}
+          {closeTabNotice && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-3 font-semibold animate-in fade-in duration-200">
+              ⚠️ Browser prevented auto-closing. Please manually close this tab (Ctrl+W) and click on the original tab!
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -1037,7 +1556,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             Retry
           </button>
           <button
-            onClick={() => router.push(isEmbedded ? '/aiprep?embed=true' : '/aiprep')}
+            onClick={() => {
+              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+              router.replace(targetUrl);
+            }}
             className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs shadow-sm cursor-pointer transition-colors"
           >
             Return to Portal
@@ -1178,29 +1700,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 }`}
             />
 
-            {/* Audio-Only Placeholder: Large bare mic + compact waveform, dead centre */}
+            {/* Audio-only stage styled to match the centered microphone and tapered waveform reference */}
             {isAudioOnly && (
-              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4">
-                {/* Soft ambient glow behind mic */}
-                <div className="absolute w-64 h-64 rounded-full bg-gradient-to-tr from-indigo-200/40 to-purple-200/40 blur-3xl pointer-events-none" />
-
-                {/* Large bare mic icon — no circle, just the icon */}
-                <IconMicrophone
-                  size={80}
-                  stroke={1.5}
-                  className={`relative z-10 transition-all duration-300 ${isRecording ? 'text-indigo-600 animate-pulse' : 'text-slate-400'}`}
-                />
-
-                {/* Compact waveform + status text */}
-                <div className="relative z-10 flex flex-col items-center gap-1">
-                  <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
-                  <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
-                    {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
-                  </span>
+              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4 px-4">
+                <div className="absolute h-64 w-64 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
+                <div className="relative flex flex-col items-center gap-5">
+                  <div className="relative flex h-36 w-36 items-center justify-center">
+                    <div className={`absolute inset-0 rounded-full border-[3px] border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
+                    <div className="absolute inset-3 rounded-full bg-violet-100/60" />
+                    <div className={`relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
+                      <IconMicrophone size={40} stroke={2.2} className="text-white" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-12 w-[290px] max-w-full items-center justify-center gap-[4px]">
+                      <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
+                    </div>
+                    <span className="text-xs sm:text-sm font-semibold tracking-wide text-slate-500 whitespace-nowrap">
+                      {isRecording ? "Microphone active — recording…" : "Microphone ready"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
-
 
             {/* Top-Left Live REC Badge */}
             <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
@@ -1603,24 +2125,27 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
-                  cleanupRecorder();
-                  clearQueue();
-                  try {
-                    if (assessmentId) {
-                      await aiprepApi.cancelAssessment(assessmentId);
-                    }
-                  } catch (e) {
-                    console.warn('Failed to cancel assessment on server:', e);
-                  }
-                  router.push(isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep');
-                }}
+                onClick={handleExitSession}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition-colors cursor-pointer"
               >
                 Exit Session
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {errorMsg && questions.length > 0 && !isEnding && (
+        <div className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 shadow-xl dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+          <div className="flex items-start justify-between gap-3">
+            <p>{errorMsg}</p>
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900"
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
@@ -1635,12 +2160,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
               Submitting Assessment
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
-              Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+              {submissionStep} Please do not close or refresh this page while evaluation is running.
             </p>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-2">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 transition-all duration-300"
+                style={{ width: `${submissionProgress}%` }}
+              />
             </div>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{submissionProgress}% complete</p>
           </div>
         </div>
       )}

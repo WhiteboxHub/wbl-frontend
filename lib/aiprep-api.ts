@@ -47,9 +47,21 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
       localStorage.getItem("auth_token");
     if (token && token.includes(".")) {
       try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        if (payload?.candidate_id) return String(payload.candidate_id);
-        if (payload?.id) return String(payload.id);
+        const base64Url = token.split(".")[1];
+        if (base64Url) {
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+          const pad = base64.length % 4;
+          const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
+          const jsonPayload = decodeURIComponent(
+            atob(paddedBase64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join("")
+          );
+          const payload = JSON.parse(jsonPayload);
+          if (payload?.candidate_id) return String(payload.candidate_id);
+          if (payload?.id) return String(payload.id);
+        }
       } catch {}
     }
   } catch {}
@@ -148,6 +160,7 @@ export const aiPrepApi = {
   getAssessment: async (assessmentId: string | number, candidateId?: string | number): Promise<AssessmentDetail> => {
     const cid = resolveCandidateId(candidateId);
     const res: any = await apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`));
+    // Legacy wrapped format: { data: { assessment: ..., report: ..., assessment_data: ... } }
     if (res?.data?.assessment) {
       const rawReport = res.data.report || {};
       const llmEval = rawReport.llm_evaluation || {};
@@ -162,6 +175,19 @@ export const aiPrepApi = {
         questions: res.data.questions || [],
       } as AssessmentDetail;
     }
+
+    // Unified format: { id, status, candidate_id, data: { transcript, assessment_eval, ... } }
+    if (res && (res.id !== undefined || res.status !== undefined)) {
+      const rawData = res.data || {};
+      const assessmentEval = rawData.assessment_eval || res.report || null;
+      return {
+        ...res,
+        data: rawData,
+        report: assessmentEval,
+        questions: res.questions || [],
+      } as AssessmentDetail;
+    }
+
     return (res?.data || res) as AssessmentDetail;
   },
 
@@ -205,8 +231,12 @@ export const aiPrepApi = {
 
     if (typeof payload === "string") {
       cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "me");
+      const candidateId =
+        (cid === "me" || isNaN(Number(cid)))
+          ? undefined
+          : Number(cid);
       body = {
-        candidate_id: cid === "me" ? undefined : Number(cid),
+        candidate_id: candidateId,
         assessment_type: payload,
         media_type: mediaTypeArg,
         job_description: jobDescriptionArg ?? null,
@@ -220,8 +250,13 @@ export const aiPrepApi = {
         payload.assessment_mode === "AUDIO_ONLY" ||
         (typeof payload.media_type === "string" && payload.media_type.toUpperCase() === "AUDIO");
 
+      const candidateId =
+        (cid === "me" || isNaN(Number(cid)))
+          ? undefined
+          : Number(cid);
+
       body = {
-        candidate_id: cid === "me" ? undefined : Number(cid),
+        candidate_id: candidateId,
         assessment_type: payload.assessment_type || "INTRO",
         media_type: isAudioOnly ? "AUDIO" : "VIDEO",
       };
@@ -231,6 +266,13 @@ export const aiPrepApi = {
         body.job_description = jobDescription;
       }
 
+      const saveRec = payload.consent_save_recording ?? payload.consent?.save_recording ?? true;
+      const saveTx = payload.consent_save_transcript ?? payload.consent?.save_transcript ?? true;
+      body.consent = {
+        save_recording: saveRec,
+        save_transcript: saveTx,
+        video_analytics: !isAudioOnly,
+      };
       if (payload.consent_save_recording !== undefined) {
         body.consent_save_recording = payload.consent_save_recording;
       }
@@ -330,6 +372,115 @@ export const aiPrepApi = {
   },
 
   // Cancel assessment via PUT (New: /api/aiprep/candidates/{id}/assessments/{assessment_id}?status=cancelled)
+  // Submit assessment via PUT and consume server-sent events until a terminal event.
+  // Unlike apiFetch, this keeps the response body open and does not parse it as JSON.
+  submitAssessmentStream: async (
+    assessmentId: string | number,
+    payload: CandidateSubmitAssessmentRequest = {},
+    onProgress?: (event: Record<string, any>) => void,
+    candidateId?: string | number
+  ): Promise<Record<string, any>> => {
+    const cid = resolveCandidateId(candidateId);
+    const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+    // Match the API prefix used by the other assessment requests and chunk uploads.
+    // NEXT_PUBLIC_API_URL may be either the host root or already end in "/api".
+    const apiPrefix = baseUrl.endsWith("/api")
+      ? baseUrl
+      : baseUrl
+        ? `${baseUrl}/api`
+        : "/api";
+    const url = `${apiPrefix}/${path}`;
+    const token =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("access_token") ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("bearer_token"));
+
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Accept: "text/event-stream",
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      const error: any = new Error(body || `Assessment streaming submission failed (HTTP ${response.status})`);
+      error.status = response.status;
+      throw error;
+    }
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("text/event-stream")) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `Expected an assessment progress stream but received ${contentType || "an unknown content type"}.${body ? ` Response: ${body.slice(0, 240)}` : ""}`
+      );
+    }
+    if (!response.body) {
+      throw new Error("The server did not provide an SSE response body.");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    const handleEvent = (rawEvent: string): Record<string, any> | null => {
+      const data = rawEvent
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim())
+        .join("\n");
+      if (!data) return null;
+
+      let event: Record<string, any>;
+      try {
+        event = JSON.parse(data);
+      } catch {
+        return null;
+      }
+
+      onProgress?.(event);
+      const status = String(event.status || "").toUpperCase();
+      if (status === "COMPLETED") return event;
+      if (status === "FAILED" || status === "CANCELLED") {
+        throw new Error(
+          status === "FAILED"
+            ? (event.error || "Assessment evaluation could not be completed.")
+            : "Assessment was cancelled before evaluation completed."
+        );
+      }
+      return null;
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() || "";
+      for (const rawEvent of events) {
+        const terminalEvent = handleEvent(rawEvent);
+        if (terminalEvent) {
+          await reader.cancel().catch(() => undefined);
+          return terminalEvent;
+        }
+      }
+    }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      const terminalEvent = handleEvent(buffer);
+      if (terminalEvent) return terminalEvent;
+    }
+    throw new Error("The assessment progress stream ended before a COMPLETED event arrived. The report was not opened because successful completion was not confirmed.");
+  },
+
+  // Cancel assessment via PUT (New: /api/aiprep/candidates/{id}/assessments/{id}?status=cancelled)
   cancelAssessment: (
     assessmentId: string | number,
     candidateId?: string | number

@@ -34,7 +34,8 @@ export const AuthProvider = ({ children }) => {
         if (typeof logoutRef.current === "function") logoutRef.current();
         return;
       }
-      _checkToken(token);
+      // Validate the role with the backend on a fresh page load so the request is visible in DevTools.
+      _checkToken(token, true);
     } else {
       setIsAuthenticated(false);
       setAuthToken(null);
@@ -126,13 +127,13 @@ export const AuthProvider = ({ children }) => {
     };
   }, [router]);
 
-  const _checkToken = async (token) => {
+  const _checkToken = async (token, forceRefresh = false) => {
     if (isTokenExpired(token)) {
       handleTokenExpiration();
       return;
     }
 
-    const { role, status } = await fetchUserRole(token);
+    const { role, status } = await fetchUserRole(token, forceRefresh);
 
     // Block inactive accounts at UI
     if (!status || status.toString().toLowerCase() !== "active") {

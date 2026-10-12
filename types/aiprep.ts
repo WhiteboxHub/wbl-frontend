@@ -50,6 +50,7 @@ export interface CreateAssessmentRequest {
   assessment_mode?: string;
   job_description?: string | null;
   job_description_text?: string | null;
+  consent?: { save_recording?: boolean; save_transcript?: boolean; video_analytics?: boolean };
   consent_save_recording?: boolean;
   consent_save_transcript?: boolean;
 }

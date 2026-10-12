@@ -230,65 +230,59 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col flex-1 min-h-0 overflow-hidden">
-      <div className="flex-1 min-h-0 flex flex-col justify-between h-full overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-2 sm:py-2.5 flex flex-col justify-between">
-          <div>
-            {/* Header matching screenshot */}
-            <div className="mb-2 sm:mb-2.5">
-              <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
-                Choose Your Assessment Type
-              </h2>
-              <p className="text-[10.5px] sm:text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 font-normal">
-                Each assessment type is designed for a specific purpose. Select an assessment to continue, or click <span className="font-semibold text-[#7C3AED] dark:text-purple-400">Info</span> to understand what to expect.
-              </p>
-            </div>
+    <div className="w-full flex flex-col px-4 sm:px-6 lg:px-7 py-3 sm:py-4">
+      {/* Header matching screenshot */}
+      <div className="mb-2.5 sm:mb-3 shrink-0">
+        <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
+          Choose Your Assessment Type
+        </h2>
+        <p className="text-[10.5px] sm:text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 font-normal">
+          Each assessment type is designed for a specific purpose. Select an assessment to continue, or click <span className="font-semibold text-[#7C3AED] dark:text-purple-400">Info</span> to understand what to expect.
+        </p>
+      </div>
 
-            {/* 6 Cards Grid (2 rows x 3 columns on lg, 2 cols on sm, 1 col on mobile) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-              {DISPLAY_CARDS.map((card) => {
-                const isSelected = assessmentType === card.type;
-                const isClickable = !card.isLocked;
+      {/* 6 Cards Grid (2 rows x 3 columns on lg, 2 cols on sm, 1 col on mobile) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+        {DISPLAY_CARDS.map((card) => {
+          const isSelected = assessmentType === card.type;
+          const isClickable = !card.isLocked;
 
-                return (
-                  <AssessmentCard
-                    key={card.type}
-                    card={card}
-                    isSelected={isSelected}
-                    isClickable={isClickable}
-                    onClick={() => handleTypeSelect(card.type, card.isLocked)}
-                    onInfoClick={!card.isLocked ? () => setInfoModalType(card.type) : undefined}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
+          return (
+            <AssessmentCard
+              key={card.type}
+              card={card}
+              isSelected={isSelected}
+              isClickable={isClickable}
+              onClick={() => handleTypeSelect(card.type, card.isLocked)}
+              onInfoClick={!card.isLocked ? () => setInfoModalType(card.type) : undefined}
+            />
+          );
+        })}
+      </div>
 
-        {/* Bottom Action Bar */}
-        <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 mt-auto">
-          {onCancel ? (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-1.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back</span>
-            </button>
-          ) : <div />}
+      {/* Bottom Action Bar */}
+      <div className="mt-4 sm:mt-5 flex items-center justify-between gap-3">
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-5 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+        ) : <div />}
 
-          {onNext && (
-            <button
-              type="button"
-              onClick={handleNextClick}
-              className="px-6 sm:px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5"
-            >
-              <span>Next</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        {onNext && (
+          <button
+            type="button"
+            onClick={handleNextClick}
+            className="px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5"
+          >
+            <span>Next</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* ── Assessment Info Modal ── */}
