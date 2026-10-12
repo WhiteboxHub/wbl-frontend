@@ -23,7 +23,7 @@ const endpoint = (path: string) => `api/aiprep/${path.replace(/^\//, "")}`;
 export const getStoredCandidateId = (fallback: string | number = "me"): string | number => {
   if (typeof window === "undefined") return fallback;
   try {
-    // 1. Cached candidate_id (SSO / token-less flows)
+    // 1. Direct candidate ID storage keys (highest priority for legacy compatibility)
     const directCandidateId =
       localStorage.getItem("candidate_id") ||
       sessionStorage.getItem("aiprep_candidate_id") ||
