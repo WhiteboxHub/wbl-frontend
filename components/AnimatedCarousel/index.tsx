@@ -22,12 +22,6 @@ type CarouselItem = {
 
 const carouselData: CarouselItem[] = [
   {
-    quote: "Transform data into actionable insights with comprehensive data science training. Learn Python, R, SQL, and advanced analytics.",
-    name: "Data Science Career Path",
-    designation: "Analytics & Business Intelligence",
-    src: ds2,
-  },
-  {
     quote: "Dive deep into neural networks, computer vision, and natural language processing. Learn cutting-edge deep learning techniques.",
     name: "Deep Learning Bootcamp",
     designation: "Neural Networks & AI Systems",
@@ -117,8 +111,8 @@ export const AnimatedCarousel = ({
 
   if (!isMounted) {
     return (
-      <div className="mx-auto max-w-sm px-4 py-8 font-sans antialiased md:max-w-4xl md:px-8 lg:px-12">
-        <div className="relative grid grid-cols-1 gap-12 md:grid-cols-2">
+      <div className="mx-auto max-w-sm px-4 py-3 sm:py-4 font-sans antialiased md:max-w-4xl md:px-8 lg:px-12">
+        <div className="relative grid grid-cols-1 items-center gap-12 md:grid-cols-2">
           <div>
             <div className="relative h-80 w-full">
               <div className="absolute inset-0 origin-bottom">
@@ -133,8 +127,8 @@ export const AnimatedCarousel = ({
               </div>
             </div>
           </div>
-          <div className="flex flex-col py-4 text-center">
-            <div className="h-48 flex flex-col justify-start">
+          <div className="flex flex-col pt-4 pb-2 text-center">
+            <div className="flex h-44 flex-col justify-start">
               <div>
                 <h3 className="text-2xl font-bold text-black dark:text-white">
                   {carouselData[0].name}
@@ -142,13 +136,13 @@ export const AnimatedCarousel = ({
                 <p className="text-sm text-gray-500 dark:text-neutral-500">
                   {carouselData[0].designation}
                 </p>
-                <p className="mt-8 text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+                <p className="mt-5 text-base sm:text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
                   {carouselData[0].quote}
                 </p>
               </div>
             </div>
             
-            <div className="mt-8 flex flex-col items-center">
+            <div className="mt-6 flex flex-col items-center">
               <button
                 onClick={onWatchDemo}
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-blue-700 px-8 py-4 text-base font-bold text-white shadow-lg transition duration-300 ease-in-out hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
@@ -168,7 +162,7 @@ export const AnimatedCarousel = ({
                 </svg>
               </button>
               
-              <div className="flex justify-center gap-4 pt-4">
+              <div className="flex justify-center gap-4 pt-3">
                 <button
                   onClick={handlePrev}
                   className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
@@ -190,8 +184,8 @@ export const AnimatedCarousel = ({
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-8 font-sans antialiased md:max-w-4xl md:px-8 lg:px-12">
-      <div className="relative grid grid-cols-1 gap-12 md:grid-cols-2">
+    <div className="mx-auto max-w-sm px-4 py-3 sm:py-4 font-sans antialiased md:max-w-4xl md:px-8 lg:px-12">
+      <div className="relative grid grid-cols-1 items-center gap-12 md:grid-cols-2">
         <div>
           <div className="relative h-80 w-full">
             <AnimatePresence>
@@ -239,9 +233,9 @@ export const AnimatedCarousel = ({
             </AnimatePresence>
           </div>
         </div>
-        <div className="flex flex-col py-4 text-center">
+        <div className="flex flex-col pt-4 pb-2 text-center">
           {/* Fixed height container for text content */}
-          <div className="h-48 flex flex-col justify-start">
+          <div className="h-44 flex flex-col justify-start">
             <motion.div
               key={active}
               initial={{
@@ -267,7 +261,7 @@ export const AnimatedCarousel = ({
               <p className="text-sm text-gray-500 dark:text-neutral-500">
                 {carouselData[active].designation}
               </p>
-              <motion.p className="mt-8 text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+              <motion.p className="mt-5 text-base sm:text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
                 {carouselData[active].quote.split(" ").map((word, index) => (
                   <motion.span
                     key={index}
@@ -296,7 +290,7 @@ export const AnimatedCarousel = ({
           </div>
           
           {/* Fixed Watch Demo Class Button and Navigation Arrows */}
-          <div className="mt-8 flex flex-col items-center">
+          <div className="mt-6 flex flex-col items-center">
             <button
               onClick={onWatchDemo}
               className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-blue-700 px-8 py-4 text-base font-bold text-white shadow-lg transition duration-300 ease-in-out hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
@@ -317,7 +311,7 @@ export const AnimatedCarousel = ({
             </button>
             
             {/* Navigation arrows directly below button */}
-            <div className="flex justify-center gap-4 pt-4">
+            <div className="flex justify-center gap-4 pt-3">
               <button
                 onClick={handlePrev}
                 className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"

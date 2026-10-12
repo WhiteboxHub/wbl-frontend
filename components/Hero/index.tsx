@@ -28,16 +28,23 @@ const Hero = () => {
 
   return (
     <>
-      <section id="home" className="relative z-10 overflow-hidden pt-24 pb-16">
-        <div className="container sm:my-5">
+      <section id="home" className="relative z-10 overflow-hidden pt-20 pb-8 sm:pt-24 sm:pb-10">
+        <div className="container">
           <div className="-mx-4 flex flex-wrap">
             <div className="w-full px-4 sm:px-0">
               <div className="wow fadeInUp text-center" data-wow-delay=".2s">
-                <h1 className="mb-6 text-2xl font-bold leading-tight text-black dark:text-white sm:text-3xl sm:leading-tight md:text-4xl md:leading-tight">
+                <h1 className="mb-4 text-2xl font-bold leading-tight text-black dark:text-white sm:text-3xl sm:leading-tight md:text-4xl md:leading-tight">
                   Whitebox Learning
                 </h1>
                 
                 <AnimatedCarousel onWatchDemo={() => setIsVideoModalOpen(true)} />
+
+                {/* Bottom Tagline (Matches Picture Exactly) */}
+                <div className="max-w-7xl mx-auto px-4 text-center mt-8 sm:mt-10">
+                  <p className="text-sm sm:text-base md:text-lg font-medium leading-relaxed text-body-color dark:text-gray-400">
+                    A comprehensive learning ecosystem tailored for Engineers and Machine Learning enthusiasts.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

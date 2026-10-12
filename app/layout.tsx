@@ -14,7 +14,6 @@ import { Poppins } from "next/font/google";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
-import ReferralNotificationButton from "@/components/ReferralNotificationButton";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import GlobalServiceWorker from "@/components/GlobalServiceWorker";
 
@@ -154,7 +153,6 @@ export default function RootLayout({
                   <main className={isAssessment ? "w-full flex-1 min-h-0 overflow-hidden flex flex-col" : "w-full overflow-x-hidden"}>{children}</main>
                   {!isAssessment && <Footer />}
                   {!isAssessment && <ScrollToTop />}
-                  {!isAssessment && <ReferralNotificationButton />}
                 </>
               )}
             </Providers>

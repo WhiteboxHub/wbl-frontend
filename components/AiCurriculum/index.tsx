@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowRight,
   Bot,
@@ -42,19 +43,19 @@ const modules: CurriculumModule[] = [
     category: 'foundation',
     duration: '2 Weeks · 8 Hands-on Labs',
     topics: [
-      'Foundations of LLM application architecture & mental models',
-      'Prompt engineering patterns, few-shot conditioning, and chain-of-thought',
-      'Structured outputs with JSON schemas, Pydantic, and type validation',
-      'Function calling and deterministic tool integrations',
-      'Handling rate limits, token budgets, and fallback orchestration',
+      'Foundation model mechanics, tokenomics, and context window dynamics (lost-in-the-middle)',
+      'The 6 parts of a production prompt & high-leverage few-shot in-context learning',
+      'Reasoning models vs standard LLMs (DeepSeek-R1, Claude Extended Thinking, OpenAI o-series)',
+      'Structured outputs with JSON schemas, Pydantic, and deterministic validation',
+      'Function calling & tool integration patterns (read-only first, error handling, permissioning)',
     ],
     handsOnProject:
-      'Multi-modal Copilot with structured data extraction and real-time schema validation.',
-    techStack: ['OpenAI API', 'Anthropic Claude', 'LangChain', 'Pydantic', 'TypeScript/Python'],
+      'Production AI Application with 4-Layer Problem-First Design, Pydantic Schema Validation, and Multi-Provider Failover.',
+    techStack: ['OpenAI API', 'Anthropic Claude', 'Amazon Bedrock', 'Pydantic', 'FastAPI', 'Python'],
     learningOutcomes: [
-      'Master prompt calibration & automated testing for prompt regressions',
-      'Build deterministic function-calling pipelines with type safety',
-      'Implement multi-provider failover and latency budgets',
+      'Master the 4-layer problem-first design framework to scope viable AI products',
+      'Build deterministic function-calling pipelines with type safety and schema validation',
+      'Implement multi-provider failover, token budgeting, and latency-aware orchestration',
     ],
   },
   {
@@ -66,19 +67,19 @@ const modules: CurriculumModule[] = [
     category: 'foundation',
     duration: '2 Weeks · 7 Hands-on Labs',
     topics: [
-      'Advanced chunking strategies (semantic, recursive, hierarchical, sliding-window)',
-      'Vector embeddings, dense representations, and distance metrics',
-      'Hybrid search pipelines (dense semantic + BM25 sparse keyword matching)',
-      'Cross-encoder reranking algorithms and query transformation',
-      'Long-context window optimization and prompt caching architectures',
+      'Document ingestion & parsing pipelines with Docling and Amazon S3 storage',
+      'Semantic chunking & strategic overlap to preserve document context boundaries',
+      'Dense vector representations (Sentence Transformers) and Milvus HNSW graph indexing',
+      'Hybrid retrieval fusion: combining BM25 keyword matching with dense vector search',
+      'BGE Cross-Encoder reranking for precision scoring, metadata filtering, and zero hallucination',
     ],
     handsOnProject:
-      'Self-correcting Enterprise Knowledge Retrieval System (Self-RAG) with query decomposition.',
-    techStack: ['LlamaIndex', 'Pinecone', 'Weaviate', 'Cohere Rerank', 'pgvector'],
+      'TalentScreen Enterprise RAG System: Production recruitment knowledge assistant with Docling parsing, Milvus hybrid search, BGE reranking, and Claude Sonnet on AWS Bedrock.',
+    techStack: ['Milvus', 'Docling', 'Sentence Transformers', 'BM25', 'BGE Cross-Encoder', 'Amazon S3'],
     learningOutcomes: [
-      'Eliminate hallucination through contextual grounding and verification',
-      'Deploy production hybrid search with sub-50ms latency',
-      'Optimize token costs using prompt cache strategies',
+      'Eliminate hallucinations through multi-stage retrieval grounding and verification',
+      'Deploy low-latency hybrid search pipelines combining keyword and semantic recall',
+      'Implement semantic chunking, metadata filtering, and cross-encoder reranking in production',
     ],
   },
   {
@@ -90,44 +91,44 @@ const modules: CurriculumModule[] = [
     category: 'agents',
     duration: '2.5 Weeks · 9 Hands-on Labs',
     topics: [
-      'Deterministic DAGs vs non-deterministic autonomous agents',
-      'Multi-agent patterns: hierarchical delegation, consensus, and swarm collaboration',
-      'State machines, cycle detection, and infinite-loop breakers',
-      'Human-in-the-loop (HITL) approval checkpoints and review queues',
-      'Dynamic task decomposition, reflection, and self-correction loops',
+      'Workflow vs Agent spectrum: prompt chaining, routing, parallelization, and orchestrator-workers',
+      'Stateful graph orchestration with LangGraph (StateGraph, checkpointing, conditional branching)',
+      'Domain agent design: Triage & Routing, Candidate Intelligence, and Decision Support agents',
+      'ReAct reasoning loops with reflection and self-correction (Think → Validate → Act → Reflect)',
+      'Human-in-the-loop (HITL) approval checkpoints and escalation triggers for high-stakes actions',
     ],
     handsOnProject:
-      'Multi-Agent Market Intelligence Team that autonomously plans research, crawls data, verifies sources, and drafts analyst reports.',
-    techStack: ['LangGraph', 'CrewAI', 'AutoGen', 'Temporal', 'Python StateGraph'],
+      'XYZ Recruiting Agentic Platform: Multi-agent hiring orchestration system built on LangGraph with state persistence, reflection loops, and automated triage.',
+    techStack: ['LangGraph', 'LangChain', 'Claude Sonnet', 'PostgreSQL State Store', 'Python'],
     learningOutcomes: [
-      'Architect robust multi-agent swarms with bounded autonomy',
-      'Implement persistent checkpoints and resume-from-state capabilities',
-      'Enforce human verification gates for critical real-world actions',
+      'Architect fault-tolerant multi-agent systems with checkpointing and resumability',
+      'Build self-correcting reflection loops that verify action outcomes before persisting',
+      'Implement human-in-the-loop approval workflows for sensitive enterprise operations',
     ],
   },
   {
     id: 'agent-harness-engineering',
     number: '04',
-    title: 'Agent Harness Engineering',
+    title: 'Harness Engineering',
     description:
       'Provide the runtime, tools, state, and execution controls your agents need.',
     category: 'agents',
     duration: '2 Weeks · 8 Hands-on Labs',
     highlight: true,
     topics: [
-      'Sandboxed code execution environments (Docker, E2B microVMs, WebAssembly)',
-      'Agent memory architectures: working memory, episodic recall, and semantic memory',
-      'Standardized tool protocols, authorization scopes, and credential isolation',
-      'State persistence, audit logs, and transaction rollback mechanics',
-      'Execution timeouts, rate limiters, and circuit-breaker patterns',
+      'Model Context Protocol (MCP) architecture: client-server specifications and tool discovery',
+      'Governed tool design: Pydantic typed schemas, strict contracts, and legible errors',
+      'Safe execution boundaries: read-only tools first, runtime permission scoping, and idempotency',
+      'Multi-scope memory management: session cache, workflow state, and long-term history (Redis & Postgres)',
+      'Active context engineering: context pruning, conflict detection, and memory poisoning mitigation',
     ],
     handsOnProject:
-      'Secure Agent Runtime Harness with isolated code execution sandbox and rollback-capable state manager.',
-    techStack: ['E2B Code Sandbox', 'Docker', 'Redis', 'PostgreSQL', 'LangGraph'],
+      'Enterprise MCP Tool & Memory Gateway: Governed MCP server exposing ATS, calendar scheduling, and persistent candidate memory with policy validation.',
+    techStack: ['Model Context Protocol (MCP)', 'FastMCP', 'Redis', 'PostgreSQL', 'Pydantic'],
     learningOutcomes: [
-      'Run untrusted agent-generated code safely in hardened sandboxes',
-      'Design modular memory layers that persist across sessions',
-      'Prevent catastrophic runaway loops with hardware and token quotas',
+      'Develop enterprise MCP servers to standardize agent-to-tool integrations',
+      'Enforce user-scoped permissioning and prevent agent credential and data leakage',
+      'Design persistent agent memory layers with automatic decay and eviction policies',
     ],
   },
   {
@@ -139,19 +140,19 @@ const modules: CurriculumModule[] = [
     category: 'production',
     duration: '2 Weeks · 7 Hands-on Labs',
     topics: [
-      'Evals vs Unit Tests: non-deterministic testing methodologies',
-      'Core RAG evaluation metrics: context precision, recall, faithfulness, answer relevance',
-      'Synthetic test dataset generation using frontier LLM judges',
-      'Red-teaming, prompt injection defenses, and safety benchmarking',
-      'Continuous evaluation CI/CD pipelines and regression threshold gates',
+      'The 80/20 Flip: Code-based evals (schema, format, exact match, containment, length checks)',
+      'LLM-as-a-judge: rubric engineering, label taxonomies, and the 50-case human calibration workflow',
+      'RAG evaluation metrics: Grounding score, Faithfulness, Context relevance, Precision@K, and Recall@K',
+      'Agent & workflow evaluation with DeepEval: tool selection accuracy, parameter correctness, and completion',
+      'Input & output guardrails: PII redaction (Presidio), prompt injection defense, and action boundary shields',
     ],
     handsOnProject:
-      'Automated LLM Evaluation CI/CD Pipeline that tests quality, tool accuracy, and safety gates before merging code.',
-    techStack: ['Ragas', 'TruLens', 'DeepEval', 'NeMo Guardrails', 'GitHub Actions'],
+      'Continuous Calibration & Evaluation CI/CD Pipeline (CC/CD) with DeepEval test suites, calibrated LLM judges, and Bedrock Guardrails.',
+    techStack: ['DeepEval', 'Ragas', 'Bedrock Guardrails', 'Microsoft Presidio', 'Pytest', 'GitHub Actions'],
     learningOutcomes: [
-      'Quantify and prevent model regressions before deploying updates',
-      'Implement automated LLM-as-a-judge scoring with statistical confidence',
-      'Harden applications against prompt injections and jailbreaks',
+      'Establish durable eval infrastructure that detects silent quality drift and regressions',
+      'Calibrate LLM judges against human expert consensus with >85% agreement',
+      'Deploy real-time input/output guardrails that block prompt injections and PII leaks',
     ],
   },
   {
@@ -163,19 +164,19 @@ const modules: CurriculumModule[] = [
     category: 'production',
     duration: '1.5 Weeks · 6 Hands-on Labs',
     topics: [
-      'Distributed OpenTelemetry tracing across nested agent chains and tool calls',
-      'Granular cost tracking and token attribution per user, session, and feature',
-      'Latency profiling: Time-to-First-Token (TTFT), tokens-per-second, and queue delays',
-      'Data governance: automated PII redaction, data leakage prevention, and audit trails',
-      'Real-time anomaly detection, quality degradation alerts, and feedback capture',
+      'Distributed LLM tracing with Langfuse: visualizing multi-step agent trajectories and tool calls',
+      'Operational infrastructure monitoring with AWS CloudWatch, Prometheus, and Grafana',
+      'Production telemetry metrics: P50/P90/P99 latency, token consumption, error rates, and cache hit ratios',
+      'Continuous Calibration & Development (CC/CD): converting production failure traces into eval regression tests',
+      'Role-Based Access Control (RBAC), audit logging, and regulatory compliance (EU AI Act, NIST AI RMF)',
     ],
     handsOnProject:
-      'Enterprise LLM Telemetry Dashboard with real-time token spend alerts, distributed tracing, and compliance reporting.',
-    techStack: ['LangSmith', 'Arize Phoenix', 'OpenLLMetry', 'Prometheus', 'Grafana'],
+      'Enterprise AI Observability & Audit Hub: Real-time Langfuse tracing dashboard integrated with CloudWatch alerts and automated failure case harvesting.',
+    techStack: ['Langfuse', 'AWS CloudWatch', 'Prometheus', 'Grafana', 'OpenTelemetry'],
     learningOutcomes: [
-      'Pinpoint latency bottlenecks and failing tool calls across distributed agents',
-      'Monitor and control team-wide AI infrastructure budgets in real time',
-      'Comply with enterprise SOC2 and HIPAA AI governance requirements',
+      'Trace every prompt, retrieval chunk, and tool execution in production environments',
+      'Diagnose multi-turn agent bottlenecks, cost spikes, and tool failure points in minutes',
+      'Enforce auditable data governance and compliance ready for enterprise standards',
     ],
   },
   {
@@ -187,19 +188,19 @@ const modules: CurriculumModule[] = [
     category: 'production',
     duration: '2 Weeks · 8 Hands-on Labs',
     topics: [
-      'Open-source model serving frameworks (vLLM, Ollama, TGI)',
-      'Model quantization techniques: AWQ, GPTQ, GGUF, and 4-bit/8-bit precision trade-offs',
-      'KV cache optimization, continuous batching, and speculative decoding',
-      'Intelligent model routers: dynamic cascading from lightweight SLMs to frontier LLMs',
-      'Self-hosted GPU deployment vs cloud serverless endpoints cost analysis',
+      'High-performance async API service architecture using FastAPI, Uvicorn, and API Gateway',
+      'Containerizing multi-service AI platforms with Docker and production deployment on AWS EKS',
+      'Multi-tier caching with Redis/ElastiCache: query cache, retrieval cache, and response deduplication',
+      'Intelligent model routing: cascading between cost-effective models (Flash/Haiku) and frontier reasoning models',
+      'The 18-point Production Readiness Checklist: pre-launch verification and post-launch review cadences',
     ],
     handsOnProject:
-      'High-Throughput Inference Cluster with an intelligent semantic query router that cuts API spend by over 70%.',
-    techStack: ['vLLM', 'Ollama', 'LiteLLM', 'Hugging Face', 'Ray Serve'],
+      'AWS EKS Production AI Deployment: Containerized FastAPI platform with Milvus cluster, Redis caching, Kubernetes auto-scaling, and cost optimization.',
+    techStack: ['FastAPI', 'Docker', 'Amazon EKS', 'Redis / ElastiCache', 'Amazon Bedrock', 'Kubernetes'],
     learningOutcomes: [
-      'Deploy open-weight models with production-grade throughput & continuous batching',
-      'Slash operational costs by routing queries to the most cost-effective model',
-      'Optimize GPU memory and VRAM utilization for high-concurrency loads',
+      'Deploy and manage resilient AI workloads on AWS EKS with auto-scaling and zero-downtime rollouts',
+      'Slash operational and token spend by 25–45% using multi-tier Redis caching and model routing',
+      'Execute the 18-point Production Readiness Checklist to validate reliability before client launch',
     ],
   },
 ]
@@ -207,6 +208,11 @@ const modules: CurriculumModule[] = [
 export function AiCurriculum() {
   const [activeCardId, setActiveCardId] = useState<string>('agent-harness-engineering')
   const [selectedModule, setSelectedModule] = useState<CurriculumModule | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Close modal on Escape
   useEffect(() => {
@@ -288,12 +294,12 @@ export function AiCurriculum() {
       </div>
 
       {/* ── Detailed Curriculum Modal ── */}
-      {selectedModule && (
+      {mounted && selectedModule && typeof document !== 'undefined' && createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6"
         >
           {/* Backdrop */}
           <div
@@ -394,31 +400,15 @@ export function AiCurriculum() {
               </div>
             </div>
 
-            {/* Footer Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-body-color/10 bg-gray-50 p-4 sm:px-6 dark:border-white/10 dark:bg-[#161a3d]">
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-body-color/10 bg-gray-50 p-4 sm:px-6 dark:border-white/10 dark:bg-[#161a3d]">
               <span className="text-xs text-body-color">
                 Included with Whitebox Learning AI track
               </span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedModule(null)}
-                  className="rounded-lg border border-body-color/20 bg-white px-4 py-2 text-xs font-semibold text-body-color hover:bg-gray-50 dark:border-white/10 dark:bg-dark dark:text-white"
-                >
-                  Close
-                </button>
-                <a
-                  href="#contact"
-                  onClick={() => setSelectedModule(null)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-opacity-90"
-                >
-                  <span>Apply for this track</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </a>
-              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   )

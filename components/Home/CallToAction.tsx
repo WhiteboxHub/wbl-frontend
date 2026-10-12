@@ -13,12 +13,12 @@ export function CallToAction() {
       <div className="container">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div>
-            <p className="mb-2.5 text-xs sm:text-sm font-bold uppercase tracking-wider text-primary">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">
               READY WHEN YOU ARE
             </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight text-black dark:text-white">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight text-black dark:text-white">
               Make your next move <br className="hidden sm:inline" />
-              <span className="text-primary">the meaningful one.</span>
+              <span className="text-black dark:text-white">the meaningful one.</span>
             </h2>
           </div>
 
