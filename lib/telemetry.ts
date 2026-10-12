@@ -515,19 +515,65 @@ export class AIPrepTelemetry {
 
 
   /**
-   * Sanitizes metadata to prevent long string pollution and exclude sensitive PII.
+   * Strictly sanitizes candidate email using regex to prevent script injection/XSS payloads.
+   * Limits max length and ensures conformance to standard email pattern.
+   */
+  private static sanitizeCandidateEmail(email?: string | null): string | undefined {
+    if (!email || typeof email !== 'string') return undefined;
+    const trimmed = email.trim().toLowerCase();
+    if (trimmed.length > 100) return undefined;
+    // Disallow HTML tags, control characters, quotes, or script injection vectors
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(trimmed)) return undefined;
+    return trimmed;
+  }
+
+  /**
+   * Strictly sanitizes candidate name using regex to prevent script injection/XSS payloads.
+   * Strips HTML tags, control characters, and disallows any characters outside standard name characters.
+   */
+  private static sanitizeCandidateName(name?: string | null): string {
+    if (!name || typeof name !== 'string') return 'Candidate';
+    // Strip HTML tags and control characters
+    let cleaned = name.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+    // Allow only Unicode letters, numbers, spaces, dots, hyphens, apostrophes
+    cleaned = cleaned.replace(/[^\p{L}\p{N}\s\.\-']/gu, '');
+    cleaned = cleaned.trim().slice(0, 60);
+    if (!cleaned || cleaned.toLowerCase() === 'candidate' || cleaned.length < 2) {
+      return 'Candidate';
+    }
+    return cleaned;
+  }
+
+  /**
+   * Sanitizes metadata to prevent XSS injection, long string pollution, and exclude sensitive PII.
+   * Validates key format, strips HTML tags/control characters, and enforces length bounds.
    */
   private static sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> | undefined {
-    if (!metadata || typeof metadata !== 'object') return undefined;
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
     const SENSITIVE_KEYS = new Set(['transcript', 'answer', 'candidate_answer', 'jd_text', 'resume_text', 'audio', 'video', 'token', 'password', 'authorization', 'bearer', 'component_stack']);
     const sanitized: Record<string, any> = {};
+    let count = 0;
 
-    for (const [key, value] of Object.entries(metadata)) {
-      if (SENSITIVE_KEYS.has(key.toLowerCase())) continue;
-      if (typeof value === 'string') {
-        sanitized[key] = value.length > 150 ? value.substring(0, 147) + '...' : value;
-      } else {
-        sanitized[key] = value;
+    for (const [rawKey, rawValue] of Object.entries(metadata)) {
+      if (count >= 50) break; // Limit total keys to prevent payload inflation
+      if (typeof rawKey !== 'string') continue;
+      // Key must be safe identifier: alphanumeric, underscore, hyphen
+      const cleanKey = rawKey.trim().slice(0, 64);
+      if (!/^[a-zA-Z0-9_-]+$/.test(cleanKey)) continue;
+      if (SENSITIVE_KEYS.has(cleanKey.toLowerCase())) continue;
+
+      if (typeof rawValue === 'string') {
+        // Strip HTML tags and control characters to prevent XSS
+        const stripped = rawValue.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+        sanitized[cleanKey] = stripped.length > 150 ? stripped.substring(0, 147) + '...' : stripped;
+        count++;
+      } else if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+        sanitized[cleanKey] = rawValue;
+        count++;
+      } else if (typeof rawValue === 'boolean') {
+        sanitized[cleanKey] = rawValue;
+        count++;
       }
     }
     return Object.keys(sanitized).length > 0 ? sanitized : undefined;
@@ -545,14 +591,16 @@ export class AIPrepTelemetry {
       return;
     }
 
-    const effectiveCandidateEmail = payload.candidate_email ?? this.getResolvedCandidateEmail();
+    const rawCandidateEmail = payload.candidate_email ?? this.getResolvedCandidateEmail();
+    const effectiveCandidateEmail = this.sanitizeCandidateEmail(rawCandidateEmail);
 
     let candidateNameParam = payload.candidate_name;
     if (candidateNameParam && (!isNaN(Number(candidateNameParam)) || String(candidateNameParam).includes('@') || String(candidateNameParam).toLowerCase() === 'candidate')) {
       candidateNameParam = undefined;
     }
 
-    const effectiveCandidateName = candidateNameParam ?? this.getResolvedCandidateName();
+    const rawCandidateName = candidateNameParam ?? this.getResolvedCandidateName();
+    const effectiveCandidateName = this.sanitizeCandidateName(rawCandidateName);
     const distinctId = (effectiveCandidateName !== 'Candidate' ? effectiveCandidateName : undefined) || effectiveCandidateEmail || 'anonymous';
 
     // Move identify/reset to the TOP before firing events
@@ -575,7 +623,8 @@ export class AIPrepTelemetry {
     payload.events.forEach((evt) => {
       this.eventSequence++;
       const cleanMeta = this.sanitizeMetadata(evt.metadata);
-      const cleanMsg = evt.message && evt.message.length > 150 ? evt.message.substring(0, 147) + '...' : evt.message;
+      const safeRawMsg = evt.message ? String(evt.message).replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim() : '';
+      const cleanMsg = safeRawMsg && safeRawMsg.length > 150 ? safeRawMsg.substring(0, 147) + '...' : (safeRawMsg || undefined);
 
       const preparedEvent = {
         ...evt,
