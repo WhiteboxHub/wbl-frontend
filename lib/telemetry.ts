@@ -546,99 +546,199 @@ export class AIPrepTelemetry {
   }
 
   /**
-   * Validates and sanitizes a property value against a strict allowlist of allowed types:
-   * string, finite number, boolean, or 1-dimensional array of primitives.
-   * Strictly rejects nested object structures and nested array depth > 1.
+   * Schema allowlist defining permitted telemetry property keys and their expected scalar types.
    */
-  private static sanitizePropertyValue(
+  private static readonly ALLOWED_METADATA_SCHEMA: Record<string, 'string' | 'number' | 'boolean' | 'string_array' | 'string | number'> = {
+    // Errors & Exceptions
+    error_message: 'string',
+    filename: 'string',
+    line_number: 'number',
+    column_number: 'number',
+    error_name: 'string',
+    stack: 'string',
+    component_stack: 'string',
+    error_code: 'string',
+
+    // Network & WebRTC APM
+    ping_ms: 'number',
+    bandwidth_kbps: 'number',
+    packet_loss_pct: 'number',
+    audio_silence_sec: 'number',
+    metric_name: 'string',
+    value_ms: 'number',
+    rating: 'string',
+
+    // UX Friction Tracking
+    friction_type: 'string',
+    element_id: 'string',
+    element_text: 'string',
+
+    // Assessment Selection & Catalog
+    catalog_categories: 'string_array',
+    assessment_type: 'string',
+    is_locked: 'boolean',
+    lock_badge: 'string',
+    duration: 'number',
+    source_page: 'string',
+    jd_character_length: 'number',
+
+    // Consent & Modes
+    mode: 'string',
+    video_analytics_enabled: 'boolean',
+    consent_save_recording: 'boolean',
+    consent_save_transcript: 'boolean',
+    action: 'string',
+    reason: 'string',
+    source_step: 'string',
+    modal_type: 'string',
+
+    // Device Verification
+    audio_devices_count: 'number',
+    video_devices_count: 'number',
+    browser: 'string',
+    os: 'string',
+    screen_resolution: 'string',
+    is_embedded: 'boolean',
+    device_category: 'string',
+    status: 'string',
+    failure_reason: 'string',
+    is_retry: 'boolean',
+    passed_count: 'number',
+    total_retries: 'number',
+    permission_state: 'string',
+    device_id: 'string',
+    device_label: 'string',
+
+    // Practice Sandbox
+    practice_question_type: 'string',
+    attempt_number: 'number',
+
+    // Assessment Session & Questions
+    assessment_id: 'number',
+    assessment_uuid: 'string',
+    media_type: 'string',
+    total_questions: 'number',
+    question_count: 'number',
+    url: 'string',
+    question_id: 'string | number',
+    question_number: 'number',
+    duration_seconds: 'number',
+    is_skipped: 'boolean',
+
+    // Chunks & Media Upload
+    chunks_uploaded: 'number',
+    chunk_index: 'number',
+    chunk_size_bytes: 'number',
+    is_final: 'boolean',
+    uploaded_chunks_count: 'number',
+    retry_count: 'number',
+
+    // Proctoring & Completion
+    violation_type: 'string',
+    violation_count: 'number',
+    time_away_seconds: 'number',
+    assessment_status: 'string',
+    answered_questions: 'number',
+    skipped_questions: 'number',
+    total_duration_seconds: 'number',
+    last_active_question: 'number',
+    step: 'string',
+  };
+
+  private static readonly ALLOWED_EVENT_PROPERTY_SCHEMA: Record<string, 'string' | 'number' | 'boolean' | 'string_array' | 'string | number'> = {
+    distinct_id: 'string',
+    $current_url: 'string',
+    stage: 'string',
+    status: 'string',
+    message: 'string',
+    candidate_name: 'string',
+    candidate_email: 'string',
+    email: 'string',
+    assessment_id: 'number',
+    assessment_uuid: 'string',
+    event_id: 'string',
+    seq: 'number',
+    session_id: 'string',
+    ...AIPrepTelemetry.ALLOWED_METADATA_SCHEMA,
+  };
+
+  /**
+   * Validates and sanitizes a property value strictly against its declared schema type.
+   * Strictly rejects nested object structures, arbitrary array structures, and prototype pollution.
+   */
+  private static validateAndSanitizeValue(
     val: any,
-    depth: number = 0
-  ): string | number | boolean | (string | number | boolean)[] | undefined {
+    expectedType: 'string' | 'number' | 'boolean' | 'string_array' | 'string | number'
+  ): string | number | boolean | string[] | undefined {
     if (val === null || val === undefined) return undefined;
-    if (depth > 0 && typeof val === 'object') return undefined; // Reject nested objects/arrays beyond 1 level
 
-    const valType = typeof val;
-
-    if (valType === 'string') {
-      const stripped = String(val).replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+    if (expectedType === 'string') {
+      if (typeof val !== 'string') return undefined;
+      const stripped = val.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
       const bounded = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
       return this.escapeHtml(bounded);
     }
 
-    if (valType === 'number') {
-      return Number.isFinite(val) ? val : undefined;
-    }
-
-    if (valType === 'boolean') {
+    if (expectedType === 'number') {
+      if (typeof val !== 'number' || !Number.isFinite(val)) return undefined;
       return val;
     }
 
-    // Allow 1-dimensional array of primitives up to 25 items
-    if (Array.isArray(val) && depth === 0) {
-      const sanitizedArr: (string | number | boolean)[] = [];
-      for (const item of val.slice(0, 25)) {
-        const sanitizedItem = this.sanitizePropertyValue(item, depth + 1);
-        if (sanitizedItem !== undefined && !Array.isArray(sanitizedItem)) {
-          sanitizedArr.push(sanitizedItem);
+    if (expectedType === 'boolean') {
+      return typeof val === 'boolean' ? val : undefined;
+    }
+
+    if (expectedType === 'string | number') {
+      if (typeof val === 'number' && Number.isFinite(val)) return val;
+      if (typeof val === 'string') {
+        const stripped = val.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+        const bounded = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
+        return this.escapeHtml(bounded);
+      }
+      return undefined;
+    }
+
+    if (expectedType === 'string_array') {
+      if (!Array.isArray(val)) return undefined;
+      const sanitizedArr: string[] = [];
+      for (const item of val.slice(0, 20)) {
+        if (typeof item === 'string') {
+          const stripped = item.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim().slice(0, 50);
+          if (stripped) {
+            sanitizedArr.push(this.escapeHtml(stripped));
+          }
         }
       }
       return sanitizedArr.length > 0 ? sanitizedArr : undefined;
     }
 
-    // Strictly reject any unexpected objects, functions, or complex structures
     return undefined;
   }
 
   /**
-   * Sanitizes metadata to prevent XSS injection, long string pollution, and exclude sensitive PII.
-   * Deep-clones input and validates against an allowlist of expected types and lengths, strictly rejecting prototype pollution.
+   * Sanitizes metadata against the strict allowlist schema to prevent XSS injection,
+   * prototype pollution, and arbitrary object/array serialization.
    */
   private static sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> | undefined {
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
 
-    // Deep-clone metadata before sanitization to isolate from external modifications
-    let cloned: Record<string, any>;
-    try {
-      cloned = JSON.parse(JSON.stringify(metadata));
-    } catch {
-      return undefined;
-    }
-
-    const FORBIDDEN_KEYS = new Set([
-      '__proto__',
-      'constructor',
-      'prototype',
-      'transcript',
-      'answer',
-      'candidate_answer',
-      'jd_text',
-      'resume_text',
-      'audio',
-      'video',
-      'token',
-      'password',
-      'authorization',
-      'bearer',
-      'component_stack',
-    ]);
-
     const sanitized: Record<string, any> = Object.create(null);
     let count = 0;
 
-    for (const rawKey of Object.keys(cloned)) {
-      if (count >= 50) break; // Limit total keys to prevent payload inflation
-      if (typeof rawKey !== 'string') continue;
-      const cleanKey = rawKey.trim().slice(0, 64);
-      if (!/^[a-zA-Z0-9_-]+$/.test(cleanKey)) continue;
-      if (FORBIDDEN_KEYS.has(cleanKey.toLowerCase())) continue;
+    for (const [key, expectedType] of Object.entries(AIPrepTelemetry.ALLOWED_METADATA_SCHEMA)) {
+      if (count >= 50) break;
+      if (!Object.prototype.hasOwnProperty.call(metadata, key)) continue;
 
-      const rawValue = cloned[rawKey];
-      const sanitizedVal = this.sanitizePropertyValue(rawValue, 0);
-      if (sanitizedVal !== undefined) {
-        sanitized[cleanKey] = sanitizedVal;
+      const rawVal = metadata[key];
+      if (rawVal === undefined || rawVal === null) continue;
+
+      const validatedVal = this.validateAndSanitizeValue(rawVal, expectedType);
+      if (validatedVal !== undefined) {
+        sanitized[key] = validatedVal;
         count++;
       }
     }
+
     return count > 0 ? { ...sanitized } : undefined;
   }
 
@@ -739,7 +839,7 @@ export class AIPrepTelemetry {
 
   /**
    * Dispatches a PostHog telemetry event using an explicit HTTP GET call with Base64 payload,
-   * validating all properties against an allowlist of expected types, lengths, and depth.
+   * strictly validating all property keys and scalar types against the allowlist schema.
    */
   static sendPostHogGetEvent(eventName: string, properties: Record<string, any> = {}) {
     if (typeof window === 'undefined') return;
@@ -748,52 +848,52 @@ export class AIPrepTelemetry {
       const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/$/, '');
       if (!apiKey) return;
 
-      // Deep-clone properties before sanitization to guard against prototype poisoning
-      let clonedProps: Record<string, any>;
-      try {
-        clonedProps = JSON.parse(JSON.stringify(properties));
-      } catch {
-        clonedProps = {};
+      // Validate eventName format
+      if (typeof eventName !== 'string' || !/^[A-Za-z0-9_]{1,64}$/.test(eventName.trim())) {
+        return;
       }
+      const safeEventName = eventName.trim();
 
-      const FORBIDDEN_PROPERTY_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-      const sanitizedProperties: Record<string, any> = Object.create(null);
-      const MAX_KEYS = 50;
+      // Enforce strict allowlist schema for all event properties
+      const safeProperties: Record<string, any> = Object.create(null);
       let keyCount = 0;
+      const MAX_KEYS = 50;
 
-      for (const rawKey of Object.keys(clonedProps)) {
+      for (const [key, expectedType] of Object.entries(AIPrepTelemetry.ALLOWED_EVENT_PROPERTY_SCHEMA)) {
         if (keyCount >= MAX_KEYS) break;
-        if (typeof rawKey !== 'string') continue;
-        const cleanKey = rawKey.trim().slice(0, 64);
-        if (!/^[a-zA-Z0-9_$-]+$/.test(cleanKey)) continue;
-        if (FORBIDDEN_PROPERTY_KEYS.has(cleanKey.toLowerCase())) continue;
+        if (!Object.prototype.hasOwnProperty.call(properties, key)) continue;
 
-        const val = clonedProps[rawKey];
-        const sanitizedVal = this.sanitizePropertyValue(val, 0);
-        if (sanitizedVal !== undefined) {
-          sanitizedProperties[cleanKey] = sanitizedVal;
+        const val = properties[key];
+        if (val === undefined || val === null) continue;
+
+        const validatedVal = this.validateAndSanitizeValue(val, expectedType);
+        if (validatedVal !== undefined) {
+          safeProperties[key] = validatedVal;
           keyCount++;
         }
       }
 
-      const distinctId = this.escapeHtml(
-        String(
-          (properties.candidate_name && properties.candidate_name !== 'Candidate'
-            ? properties.candidate_name
-            : undefined) ||
-            properties.candidate_email ||
-            properties.distinct_id ||
-            'anonymous'
-        )
-      );
+      const rawDistinctId =
+        (safeProperties.candidate_name && safeProperties.candidate_name !== 'Candidate'
+          ? safeProperties.candidate_name
+          : undefined) ||
+        safeProperties.candidate_email ||
+        properties.distinct_id ||
+        'anonymous';
+
+      const distinctId = typeof rawDistinctId === 'string'
+        ? rawDistinctId.replace(/[^\w.@-]/g, '').trim().slice(0, 100) || 'anonymous'
+        : 'anonymous';
+
+      const safeUrl = typeof window !== 'undefined' && window.location ? window.location.href.slice(0, 500) : '';
 
       const payload = {
-        api_key: apiKey,
-        event: eventName,
+        api_key: apiKey.trim(),
+        event: safeEventName,
         properties: {
           distinct_id: distinctId,
-          $current_url: window.location.href,
-          ...sanitizedProperties,
+          $current_url: safeUrl,
+          ...safeProperties,
         },
         timestamp: new Date().toISOString(),
       };
