@@ -486,7 +486,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     setBandwidthKbps(trueKbps);
     setNetworkPingMs(trueLatency);
     return { online: true, kbps: trueKbps, latencyMs: trueLatency };
-  }, []);
+  }, [setIsRealInternetOnline, setBandwidthKbps, setNetworkPingMs]);
 
   const [videoDevices, setVideoDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Integrated Webcam' }]);
   const [audioDevices, setAudioDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Default Microphone' }]);
@@ -688,12 +688,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setMicLevel(0);
       setSpeakerTestState('idle');
     }
-  }, []);
+  }, [
+    setCameraStream,
+    setIsFaceLive,
+    setMicLevel,
+    setSpeakerTestState,
+    cameraStreamRef,
+    lastTelemetryUpdateRef,
+    micStreamRef,
+    animFrameRef,
+    audioContextRef,
+    micTestingRef,
+  ]);
 
   useEffect(() => {
     cleanupRef.current = cleanup;
     return () => cleanup();
-  }, [cleanup]);
+  }, [cleanup, cleanupRef]);
 
   const selectedVideoDeviceRef = useRef(selectedVideoDevice);
   selectedVideoDeviceRef.current = selectedVideoDevice;
@@ -725,7 +736,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         handleEnded();
       };
     });
-  }, [cleanup]);
+  }, [
+    cleanup,
+    setMicOk,
+    setMicTested,
+    setMicLevel,
+    micStreamRef,
+    micTestingRef,
+  ]);
 
   // Bind and attach disconnection listeners to Camera stream
   const bindCameraStream = useCallback((stream: MediaStream) => {
@@ -751,7 +769,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         handleEnded();
       };
     });
-  }, [cleanup]);
+  }, [
+    cleanup,
+    setCameraStream,
+    setCameraOk,
+    setCameraTested,
+    cameraStreamRef,
+  ]);
 
   // Diagnostics Runner
   const runDiagnostics = useCallback(async () => {
@@ -920,7 +944,38 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       }
     }
-  }, [cleanup, videoEnabled, bindCameraStream, bindMicStream, checkRealInternet]);
+  }, [
+    cleanup,
+    videoEnabled,
+    bindCameraStream,
+    bindMicStream,
+    checkRealInternet,
+    setShowPermissionGuide,
+    setBrowserResult,
+    setBandwidthChecking,
+    setSpeakerDevices,
+    setVideoDevices,
+    setSelectedVideoDevice,
+    setAudioDevices,
+    setSelectedAudioDevice,
+    propCandidateId,
+    setCameraOk,
+    setCameraTested,
+    setCameraStream,
+    setMicOk,
+    setMicTested,
+    setSpeakerOk,
+    setSpeakerTested,
+    setMicLevel,
+    knownAudioDeviceCountRef,
+    selectedVideoDeviceRef,
+    selectedAudioDeviceRef,
+    audioContextRef,
+    analyserRef,
+    micTestingRef,
+    animFrameRef,
+    maxLevelSeenRef,
+  ]);
 
   // Listen for audio / video hardware changes (e.g. plug in / unplug headset/mic/webcam)
   useEffect(() => {
@@ -975,10 +1030,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     return () => {
       navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [cleanup, videoEnabled, selectedAudioDevice, selectedVideoDevice]);
+  }, [
+    cleanup,
+    videoEnabled,
+    selectedAudioDevice,
+    selectedVideoDevice,
+    setVideoDevices,
+    setAudioDevices,
+    setMicOk,
+    setMicTested,
+    setSelectedAudioDevice,
+    setCameraOk,
+    setCameraTested,
+    setCameraStream,
+    setSelectedVideoDevice,
+    micStreamRef,
+    knownAudioDeviceCountRef,
+    cameraStreamRef,
+  ]);
 
   // Test Camera & AI Video Analytics
-  const testCamera = async () => {
+  const testCamera = useCallback(async () => {
     if (testingCamera || !videoEnabled) return;
     setTestingCamera(true);
     const startTime = Date.now();
@@ -1051,10 +1123,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
       setTestingCamera(false);
     }
-  };
+  }, [
+    testingCamera,
+    videoEnabled,
+    selectedVideoDevice,
+    cleanup,
+    bindCameraStream,
+    isVisionReady,
+    detectVideoFrame,
+    setCameraOk,
+    setCameraTested,
+    setShowPermissionGuide,
+    setCameraStream,
+    setAnalyticsOk,
+    setAnalyticsTested,
+    setTestingCamera,
+    propCandidateId,
+    videoRef,
+  ]);
 
   // Test AI Video Analytics (validates MediaPipe face tracking & frame processing on live camera stream)
-  const testAnalytics = async () => {
+  const testAnalytics = useCallback(async () => {
     if (analyticsTesting || !videoEnabled) return;
     setAnalyticsTesting(true);
     try {
@@ -1129,10 +1218,29 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } finally {
       setAnalyticsTesting(false);
     }
-  };
+  }, [
+    analyticsTesting,
+    videoEnabled,
+    cameraOk,
+    cleanup,
+    selectedVideoDevice,
+    bindCameraStream,
+    setCameraOk,
+    setCameraTested,
+    setShowPermissionGuide,
+    setCameraStream,
+    setAnalyticsOk,
+    setAnalyticsTested,
+    isVisionReady,
+    detectVideoFrame,
+    realtimeTelemetry,
+    setAnalyticsTesting,
+    cameraStreamRef,
+    videoRef,
+  ]);
 
   // Test Microphone
-  const testMicrophone = async () => {
+  const testMicrophone = useCallback(async () => {
     if (micTesting) return;
     micTestingRef.current = true;
     maxLevelSeenRef.current = 0;
@@ -1299,10 +1407,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setMicLevel(0);
       setMicTesting(false);
     }
-  };
+  }, [
+    micTesting,
+    selectedAudioDevice,
+    bindMicStream,
+    setMicTesting,
+    setMicOk,
+    setMicTested,
+    setShowPermissionGuide,
+    setMicLevel,
+    propCandidateId,
+    micTestingRef,
+    maxLevelSeenRef,
+    micStreamRef,
+    audioContextRef,
+    analyserRef,
+    animFrameRef,
+    knownAudioDeviceCountRef,
+  ]);
 
   // Test Speaker Chime
-  const playChimeTone = async () => {
+  const playChimeTone = useCallback(async () => {
     if (speakerTestState === 'playing') return;
     setSpeakerTestState('playing');
     try {
@@ -1328,7 +1453,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } catch {
       setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false);
     }
-  };
+  }, [speakerTestState, setSpeakerTestState, setSpeakerTested, setSpeakerOk]);
 
   // Step Change & Mount Run
   useEffect(() => {
