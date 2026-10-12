@@ -70,13 +70,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </>
   );
 
-  if (!mounted) {
-    return <>{content}</>;
-  }
-
   return (
     <ThemeProvider attribute="class" enableSystem={false} defaultTheme="light">
-      {hasPostHog ? (
+      {mounted && hasPostHog ? (
         <PostHogProvider client={posthog}>{content}</PostHogProvider>
       ) : (
         content
