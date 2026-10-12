@@ -171,11 +171,12 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
     return '';
   });
+  const sessionStorage = typeof window !== 'undefined' ? window.sessionStorage : undefined;
   const isPopStateRef = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    sessionStorage.setItem('aiprep_wizard_step', step);
-    sessionStorage.setItem('aiprep_active_type', assessmentType);
+    sessionStorage?.setItem('aiprep_wizard_step', step);
+    sessionStorage?.setItem('aiprep_active_type', assessmentType);
     syncConsentToSessionStorage({
       videoEnabled,
       consentMic,
@@ -184,7 +185,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       consentSaveRecording,
       consentSaveTranscript,
     });
-    if (jdText) sessionStorage.setItem('aiprep_jd_text', jdText);
+    if (jdText) sessionStorage?.setItem('aiprep_jd_text', jdText);
     const slug = STEP_TO_SLUG[step] || 'assessment-type';
     const isPop = isPopStateRef.current;
     isPopStateRef.current = false;
@@ -197,9 +198,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
       if (currentPath !== newPath) {
         if (isPop) win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`); else {
-          const isInitial = !sessionStorage.getItem('aiprep_history_initialized');
+          const isInitial = !sessionStorage?.getItem('aiprep_history_initialized');
           if (isInitial) {
-            sessionStorage.setItem('aiprep_history_initialized', 'true');
+            sessionStorage?.setItem('aiprep_history_initialized', 'true');
             win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
           } else {
             win.history.pushState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
@@ -227,7 +228,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   }, [
     step,
     assessmentType,
-    typeof window !== 'undefined' ? sessionStorage : undefined,
+    sessionStorage,
     jdText,
     STEP_TO_SLUG,
     isPopStateRef,

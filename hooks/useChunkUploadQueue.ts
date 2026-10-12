@@ -187,6 +187,7 @@ export function useChunkUploadQueue({
     isMountedRef,
     setQueue,
     setIsUploading,
+    performance,
   ]);
 
   // Enqueue a chunk

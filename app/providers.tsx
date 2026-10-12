@@ -127,6 +127,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_POSTHOG_KEY,
     process.env.NEXT_PUBLIC_POSTHOG_HOST,
     setIsPostHogInitialized,
+    setMounted,
   ]);
 
   const content = (

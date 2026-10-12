@@ -60,7 +60,7 @@ export function useAssessmentTelemetry({
       blurStartTime: null,
       violationCount: 0,
     };
-  }, [assessmentId]);
+  }, [assessmentId, sessionStateRef]);
 
   // Tab switch / Blur detection (Proctoring alerts)
   useEffect(() => {
