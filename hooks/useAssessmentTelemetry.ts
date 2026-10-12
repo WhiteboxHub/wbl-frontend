@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useReducer } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { AIPrepTelemetry } from '@/lib/telemetry';
 import {
   AIAssessmentType,
@@ -27,54 +27,6 @@ interface TelemetrySessionState {
   violationCount: number;
 }
 
-type TelemetrySessionAction =
-  | { type: 'RESET_SESSION'; assessmentId: number; startTime: number }
-  | { type: 'TAB_BLUR'; timestamp: number }
-  | { type: 'TAB_FOCUS' }
-  | { type: 'RECORD_QUESTION_ACTION'; questionNumber: number; isAnswered: boolean; isSkipped: boolean };
-
-function telemetryReducer(
-  state: TelemetrySessionState,
-  action: TelemetrySessionAction
-): TelemetrySessionState {
-  switch (action.type) {
-    case 'RESET_SESSION':
-      return {
-        assessmentId: action.assessmentId,
-        startTime: action.startTime,
-        currentQuestion: 0,
-        answeredQuestionsCount: 0,
-        skippedQuestionsCount: 0,
-        blurStartTime: null,
-        violationCount: 0,
-      };
-    case 'TAB_BLUR':
-      return {
-        ...state,
-        blurStartTime: action.timestamp,
-        violationCount: state.violationCount + 1,
-      };
-    case 'TAB_FOCUS':
-      return {
-        ...state,
-        blurStartTime: null,
-      };
-    case 'RECORD_QUESTION_ACTION':
-      return {
-        ...state,
-        currentQuestion: action.questionNumber,
-        answeredQuestionsCount: action.isAnswered
-          ? state.answeredQuestionsCount + 1
-          : state.answeredQuestionsCount,
-        skippedQuestionsCount: action.isSkipped
-          ? state.skippedQuestionsCount + 1
-          : state.skippedQuestionsCount,
-      };
-    default:
-      return state;
-  }
-}
-
 export function useAssessmentTelemetry({
   assessmentId,
   assessmentUuid,
@@ -85,7 +37,9 @@ export function useAssessmentTelemetry({
 }: UseAssessmentTelemetryProps) {
   const effectiveUuid = assessmentUuid || sessionId || `assessment_${assessmentId}`;
 
-  const [state, dispatch] = useReducer(telemetryReducer, {
+  // Atomic mutable session state ref - updated synchronously on every event
+  // without relying on asynchronous useReducer schedules or post-paint useEffect synchronization.
+  const sessionStateRef = useRef<TelemetrySessionState>({
     assessmentId,
     startTime: Date.now(),
     currentQuestion: 0,
@@ -95,39 +49,38 @@ export function useAssessmentTelemetry({
     violationCount: 0,
   });
 
-  // Synchronized state reference for atomic callback reads
-  const stateRef = useRef<TelemetrySessionState>(state);
+  // Reset session metrics synchronously whenever assessmentId changes
   useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  // Initialize or reset session start time atomically on assessmentId change
-  useEffect(() => {
-    dispatch({
-      type: 'RESET_SESSION',
+    sessionStateRef.current = {
       assessmentId,
       startTime: Date.now(),
-    });
+      currentQuestion: 0,
+      answeredQuestionsCount: 0,
+      skippedQuestionsCount: 0,
+      blurStartTime: null,
+      violationCount: 0,
+    };
   }, [assessmentId]);
 
-  // 2. Tab switch / Blur detection (Proctoring alerts)
+  // Tab switch / Blur detection (Proctoring alerts)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        dispatch({ type: 'TAB_BLUR', timestamp: Date.now() });
+        sessionStateRef.current.blurStartTime = Date.now();
+        sessionStateRef.current.violationCount += 1;
       } else {
-        const currentState = stateRef.current;
-        const awaySec = currentState.blurStartTime
-          ? Math.round((Date.now() - currentState.blurStartTime) / 1000)
+        const blurStart = sessionStateRef.current.blurStartTime;
+        const awaySec = blurStart
+          ? Math.round((Date.now() - blurStart) / 1000)
           : 1;
-        dispatch({ type: 'TAB_FOCUS' });
+        sessionStateRef.current.blurStartTime = null;
 
         AIPrepTelemetry.trackProctoringViolation({
           assessment_id: assessmentId,
           assessment_uuid: effectiveUuid,
           candidate_id: candidateId,
           violation_type: 'TAB_SWITCH',
-          violation_count: currentState.violationCount,
+          violation_count: sessionStateRef.current.violationCount,
           time_away_seconds: Math.max(1, awaySec),
         });
       }
@@ -139,7 +92,7 @@ export function useAssessmentTelemetry({
     };
   }, [assessmentId, effectiveUuid, candidateId]);
 
-  // 3. Question transition callback
+  // Question transition callback
   const recordQuestionAction = useCallback(
     (
       questionId: number | string,
@@ -157,12 +110,14 @@ export function useAssessmentTelemetry({
         action === QuestionAction.QUESTION_SKIPPED ||
         action === 'QUESTION_SKIPPED';
 
-      dispatch({
-        type: 'RECORD_QUESTION_ACTION',
-        questionNumber,
-        isAnswered,
-        isSkipped,
-      });
+      // Synchronously and atomically update telemetry metrics immediately
+      sessionStateRef.current.currentQuestion = questionNumber;
+      if (isAnswered) {
+        sessionStateRef.current.answeredQuestionsCount += 1;
+      }
+      if (isSkipped) {
+        sessionStateRef.current.skippedQuestionsCount += 1;
+      }
 
       AIPrepTelemetry.trackQuestionAction({
         assessment_id: assessmentId,
@@ -192,7 +147,7 @@ export function useAssessmentTelemetry({
     [assessmentId, effectiveUuid, assessmentType, candidateId, totalQuestions]
   );
 
-  // 4. Audio Chunk Upload Telemetry
+  // Audio Chunk Upload Telemetry
   const recordAudioChunkUpload = useCallback(
     (
       questionId: number | string,
@@ -221,15 +176,21 @@ export function useAssessmentTelemetry({
     [assessmentId, effectiveUuid, candidateId]
   );
 
-  // 5. Final completion or abandonment
+  // Final completion or abandonment
   const recordCompletion = useCallback(
     (
       status: 'COMPLETED' | 'ABANDONED' | SessionLifecycleStatus | string = 'COMPLETED',
-      reason?: string
+      reason?: string,
+      options?: {
+        answeredQuestions?: number;
+        skippedQuestions?: number;
+        lastActiveQuestion?: number;
+        durationSeconds?: number;
+      }
     ) => {
-      const currentState = stateRef.current;
-      const totalSec = Math.round(
-        (Date.now() - (currentState.startTime || Date.now())) / 1000
+      const state = sessionStateRef.current;
+      const totalSec = options?.durationSeconds ?? Math.round(
+        (Date.now() - (state.startTime || Date.now())) / 1000
       );
       const isCompleted =
         status === 'COMPLETED' ||
@@ -246,10 +207,10 @@ export function useAssessmentTelemetry({
         assessment_type: String(assessmentType),
         assessment_status: assessmentStatus,
         total_questions: totalQuestions,
-        answered_questions: currentState.answeredQuestionsCount,
-        skipped_questions: currentState.skippedQuestionsCount,
+        answered_questions: options?.answeredQuestions ?? state.answeredQuestionsCount,
+        skipped_questions: options?.skippedQuestions ?? state.skippedQuestionsCount,
         total_duration_seconds: totalSec,
-        last_active_question: currentState.currentQuestion || 1,
+        last_active_question: options?.lastActiveQuestion ?? (state.currentQuestion || 1),
         reason,
       });
     },
