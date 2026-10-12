@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, Suspense } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import posthog from "posthog-js";
@@ -51,15 +51,37 @@ function PostHogPageView() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const hasPostHog = Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
+
+  const content = (
+    <>
+      {hasPostHog && (
+        <Suspense fallback={null}>
+          <PostHogPageView />
+        </Suspense>
+      )}
+      {children}
+    </>
+  );
+
+  if (!mounted) {
+    return <>{content}</>;
+  }
+
   return (
-    <PostHogProvider client={posthog}>
-      <Suspense fallback={null}>
-        <PostHogPageView />
-      </Suspense>
-      <ThemeProvider attribute="class" enableSystem={false} defaultTheme="light">
-        {children}
-      </ThemeProvider>
-    </PostHogProvider>
+    <ThemeProvider attribute="class" enableSystem={false} defaultTheme="light">
+      {hasPostHog ? (
+        <PostHogProvider client={posthog}>{content}</PostHogProvider>
+      ) : (
+        content
+      )}
+    </ThemeProvider>
   );
 }
 
