@@ -2031,7 +2031,7 @@ export default function AiPrepReport({
     } finally {
       if (isCurrentRequest()) setLoading(false);
     }
-  }, [assessmentId]);
+  }, [assessmentId, candidateId, initialCandidateId, candidateIdFromQuery]);
 
   useEffect(() => {
     loadReport();
@@ -2060,7 +2060,7 @@ export default function AiPrepReport({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [report, isProcessing, assessmentId, loadReport]);
+  }, [report, isProcessing, assessmentId, candidateId, initialCandidateId, candidateIdFromQuery, loadReport]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
