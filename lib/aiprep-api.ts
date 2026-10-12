@@ -49,32 +49,57 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
     if (token && typeof token === "string" && token.includes(".")) {
       try {
         const parts = token.split(".");
-        if (parts.length >= 2) {
-          const base64Url = parts[1];
-          if (base64Url && /^[A-Za-z0-9_-]+$/.test(base64Url)) {
-            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-            const pad = base64.length % 4;
-            const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
-            let jsonPayload = "";
-            try {
-              jsonPayload = decodeURIComponent(
-                atob(paddedBase64)
-                  .split("")
-                  .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-                  .join("")
-              );
-            } catch {
-              jsonPayload = atob(paddedBase64);
+        // A valid JWT must consist of three non-empty segments: header, payload, and signature
+        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+          const [headerB64, payloadB64, sigB64] = parts;
+          const base64UrlPattern = /^[A-Za-z0-9_-]+$/;
+
+          if (
+            base64UrlPattern.test(headerB64) &&
+            base64UrlPattern.test(payloadB64) &&
+            base64UrlPattern.test(sigB64)
+          ) {
+            // 1. Verify header algorithm to reject unsigned/insecure tokens (e.g., alg: 'none')
+            const padHeader = (4 - (headerB64.length % 4)) % 4;
+            const paddedHeader = headerB64.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(padHeader);
+            const headerStr = decodeURIComponent(
+              atob(paddedHeader)
+                .split("")
+                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                .join("")
+            );
+            const header = JSON.parse(headerStr);
+            if (!header || typeof header !== "object" || !header.alg || String(header.alg).toLowerCase() === "none") {
+              return fallback;
             }
+
+            // 2. Decode payload strictly with UTF-8 character conversion (no raw atob fallback)
+            const padPayload = (4 - (payloadB64.length % 4)) % 4;
+            const paddedPayload = payloadB64.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(padPayload);
+            const jsonPayload = decodeURIComponent(
+              atob(paddedPayload)
+                .split("")
+                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                .join("")
+            );
             const payload = JSON.parse(jsonPayload);
-            const isExpired =
-              typeof payload?.exp === "number" &&
-              payload.exp * 1000 < Date.now();
-            if (!isExpired) {
-              if (payload?.candidate_id) return String(payload.candidate_id);
-              if (payload?.id) return String(payload.id);
-              if (payload?.user_id) return String(payload.user_id);
+            if (!payload || typeof payload !== "object") {
+              return fallback;
             }
+
+            // 3. Strict expiration check with 60s clock skew tolerance; require valid positive exp claim
+            const CLOCK_SKEW_SECONDS = 60;
+            const currentEpochSeconds = Math.floor(Date.now() / 1000);
+            if (typeof payload.exp !== "number" || payload.exp <= 0) {
+              return fallback;
+            }
+            if (payload.exp + CLOCK_SKEW_SECONDS < currentEpochSeconds) {
+              return fallback;
+            }
+
+            if (payload?.candidate_id) return String(payload.candidate_id);
+            if (payload?.id) return String(payload.id);
+            if (payload?.user_id) return String(payload.user_id);
           }
         }
       } catch {

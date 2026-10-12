@@ -663,7 +663,20 @@ export class AIPrepTelemetry {
   }
 
   /**
-   * Dispatches a PostHog telemetry event using an explicit HTTP GET call with Base64 payload.
+   * Encodes HTML entities in strings to mitigate any potential stored XSS in observability dashboards.
+   */
+  static escapeHtml(str: string): string {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /**
+   * Dispatches a PostHog telemetry event using an explicit HTTP GET call with Base64 payload,
+   * with strict HTML entity encoding for string properties to prevent XSS.
    */
   static sendPostHogGetEvent(eventName: string, properties: Record<string, any> = {}) {
     if (typeof window === 'undefined') return;
@@ -672,13 +685,33 @@ export class AIPrepTelemetry {
       const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/$/, '');
       if (!apiKey) return;
 
+      const sanitizedProperties: Record<string, any> = {};
+      for (const [key, val] of Object.entries(properties)) {
+        if (typeof val === 'string') {
+          sanitizedProperties[key] = this.escapeHtml(val);
+        } else {
+          sanitizedProperties[key] = val;
+        }
+      }
+
+      const distinctId = this.escapeHtml(
+        String(
+          (properties.candidate_name && properties.candidate_name !== 'Candidate'
+            ? properties.candidate_name
+            : undefined) ||
+            properties.candidate_email ||
+            properties.distinct_id ||
+            'anonymous'
+        )
+      );
+
       const payload = {
         api_key: apiKey,
         event: eventName,
         properties: {
-          distinct_id: String((properties.candidate_name && properties.candidate_name !== 'Candidate' ? properties.candidate_name : undefined) || properties.candidate_email || properties.distinct_id || 'anonymous'),
+          distinct_id: distinctId,
           $current_url: window.location.href,
-          ...properties,
+          ...sanitizedProperties,
         },
         timestamp: new Date().toISOString(),
       };
