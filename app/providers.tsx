@@ -55,7 +55,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+  }, [setMounted]);
 
   const hasPostHog = Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
 

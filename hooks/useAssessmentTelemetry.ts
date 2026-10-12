@@ -40,7 +40,15 @@ export function useAssessmentTelemetry({
     violationCountRef.current = 0;
     answeredQuestionsCount.current = 0;
     skippedQuestionsCount.current = 0;
-  }, [assessmentId, effectiveUuid]);
+  }, [
+    assessmentId,
+    effectiveUuid,
+    startTimeRef,
+    blurStartRef,
+    violationCountRef,
+    answeredQuestionsCount,
+    skippedQuestionsCount,
+  ]);
 
   // 2. Tab switch / Blur detection (Proctoring alerts)
   useEffect(() => {
