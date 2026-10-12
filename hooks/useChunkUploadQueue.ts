@@ -90,7 +90,7 @@ export function useChunkUploadQueue({
     setQueue([...queueRef.current]);
 
     try {
-      const startTime = Date.now();
+      const uploadStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       await aiprepApi.uploadChunk(
         assessmentId,
         currentItem.chunkIndex,
@@ -98,9 +98,13 @@ export function useChunkUploadQueue({
         mediaType,
         currentItem.isFinal
       );
-      const durationMs = Date.now() - startTime;
-      const sizeBytes = currentItem.blob.size;
-      const bandwidthKbps = Math.max(1, Math.round(((sizeBytes * 8) / (durationMs / 1000)) / 1000));
+      const uploadEndTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const durationMs = Math.max(1, Math.round(uploadEndTime - uploadStartTime));
+      const sizeBytes = currentItem.blob?.size || 0;
+      const durationSec = durationMs / 1000;
+      const bandwidthKbps = durationSec > 0 && sizeBytes > 0
+        ? Math.max(1, Math.round(((sizeBytes * 8) / durationSec) / 1000))
+        : 1;
 
       try {
         AIPrepTelemetry.trackWebRtcHealth({

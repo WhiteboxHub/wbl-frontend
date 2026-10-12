@@ -48,21 +48,29 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
       localStorage.getItem("auth_token");
     if (token && token.includes(".")) {
       try {
-        const base64Url = token.split(".")[1];
-        if (base64Url) {
-          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-          const pad = base64.length % 4;
-          const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
-          const jsonPayload = decodeURIComponent(
-            atob(paddedBase64)
-              .split("")
-              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-              .join("")
-          );
-          const payload = JSON.parse(jsonPayload);
-          if (payload?.candidate_id) return String(payload.candidate_id);
-          if (payload?.id) return String(payload.id);
-          if (payload?.user_id) return String(payload.user_id);
+        const parts = token.split(".");
+        if (parts.length >= 2) {
+          const base64Url = parts[1];
+          if (base64Url) {
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const pad = base64.length % 4;
+            const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
+            const jsonPayload = decodeURIComponent(
+              atob(paddedBase64)
+                .split("")
+                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                .join("")
+            );
+            const payload = JSON.parse(jsonPayload);
+            const isExpired =
+              typeof payload?.exp === "number" &&
+              payload.exp * 1000 < Date.now();
+            if (!isExpired) {
+              if (payload?.candidate_id) return String(payload.candidate_id);
+              if (payload?.id) return String(payload.id);
+              if (payload?.user_id) return String(payload.user_id);
+            }
+          }
         }
       } catch {}
     }
