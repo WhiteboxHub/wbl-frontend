@@ -1459,7 +1459,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (!isAiPrepTab && !setupStatus) {
             loadSetupStatus().then(setSetupStatus);
         }
-    }, [isAiPrepTab, setupStatus, loadSetupStatus, setSetupStatus]);
+    }, [isAiPrepTab, setupStatus, loadSetupStatus]);
 
     useEffect(() => {
         if (setupStatus?.has_binary_resume) {
@@ -1514,7 +1514,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         };
         void run();
-    }, [candidateId, prefetchDone, isAiPrepTab, setPrefetchedSession, setPrefetchDone, setSetupStatus]);
+    }, [candidateId, prefetchDone, isAiPrepTab]);
 
     useEffect(() => {
         if (!setupWizardOpen) {
