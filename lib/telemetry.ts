@@ -127,8 +127,23 @@ export class AIPrepTelemetry {
     let lastTarget: HTMLElement | null = null;
 
     window.addEventListener('click', (e) => {
+      // Scope click tracking strictly to AI Prep routes (HIGH 3)
+      if (typeof window === 'undefined') return;
+      const pathname = window.location.pathname;
+      if (!pathname.includes('/aiprep') && !pathname.includes('/user_dashboard/ai-prep')) return;
+
       const target = e.target as HTMLElement | null;
       if (!target) return;
+
+      // Never track clicks on sensitive input fields or password inputs to prevent capturing PII
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.getAttribute('type') === 'password' ||
+        target.closest('input, textarea, [data-sensitive="true"]')
+      ) {
+        return;
+      }
 
       const now = Date.now();
       const isSameTarget = target === lastTarget || target.contains(lastTarget) || (lastTarget ? lastTarget.contains(target) : false);
@@ -141,11 +156,15 @@ export class AIPrepTelemetry {
       }
       lastClickTime = now;
 
+      // Only capture safe element labels (buttons, links, or action pills)
+      const elementId = target.id || target.getAttribute('name') || target.tagName.toLowerCase();
+      const safeElementText = target.tagName.match(/BUTTON|A|SPAN/i)
+        ? (target.textContent || '').replace(/[^\w\s-]/g, '').trim().slice(0, 20)
+        : '';
+
       // 1. Detect Rage Click (3+ rapid clicks in <900ms)
       if (clickCount === 3) {
-        const elementId = target.id || target.getAttribute('name') || target.tagName.toLowerCase();
-        const elementText = (target.textContent || '').trim().slice(0, 30);
-        this.trackUxFriction('RAGE_CLICK', elementId, elementText);
+        this.trackUxFriction('RAGE_CLICK', elementId, safeElementText);
       }
 
       // 2. Detect Dead Click on disabled elements
@@ -157,15 +176,13 @@ export class AIPrepTelemetry {
         target.closest('[data-locked="true"]') !== null;
 
       if (isOptionDisabled) {
-        const elementId = target.id || target.tagName.toLowerCase();
-        const elementText = (target.textContent || '').trim().slice(0, 30);
-        this.trackUxFriction('DEAD_CLICK', elementId, elementText);
+        this.trackUxFriction('DEAD_CLICK', elementId, safeElementText);
       }
     }, true);
   }
 
   /**
-   * Tracks Web Vitals performance metrics (LCP, INP, CLS).
+   * Tracks Web Vitals performance metrics (LCP, INP, CLS) scoped to AI Prep routes.
    */
   static initCoreWebVitalsTracker() {
     if (typeof window === 'undefined' || this.isCwvInitialized) return;
@@ -173,6 +190,9 @@ export class AIPrepTelemetry {
 
     try {
       const handleMetric = (metric: any) => {
+        if (typeof window === 'undefined') return;
+        const pathname = window.location.pathname;
+        if (!pathname.includes('/aiprep') && !pathname.includes('/user_dashboard/ai-prep')) return;
         const value = Math.round(metric.value);
         this.trackCoreWebVitals(metric.name, value, metric.rating);
       };
@@ -652,8 +672,6 @@ export class AIPrepTelemetry {
     status: 'string',
     message: 'string',
     candidate_name: 'string',
-    candidate_email: 'string',
-    email: 'string',
     assessment_id: 'number',
     assessment_uuid: 'string',
     event_id: 'string',
@@ -743,8 +761,9 @@ export class AIPrepTelemetry {
   }
 
   /**
-   * Dispatches an observability event directly to PostHog Cloud (via GET request).
-   * Backend database telemetry has been removed.
+   * Dispatches an observability event directly to PostHog Cloud.
+   * Prefers PostHog SDK capture (HIGH 2), falling back to custom GET transport if SDK is unavailable.
+   * Sends sanitized candidate_name to PostHog identity and event properties.
    */
   static sendToPostHog(payload: ObservabilityPostHogPayload) {
     if (typeof window === 'undefined') return;
@@ -754,9 +773,6 @@ export class AIPrepTelemetry {
       return;
     }
 
-    const rawCandidateEmail = payload.candidate_email ?? this.getResolvedCandidateEmail();
-    const effectiveCandidateEmail = this.sanitizeCandidateEmail(rawCandidateEmail);
-
     let candidateNameParam = payload.candidate_name;
     if (candidateNameParam && (!isNaN(Number(candidateNameParam)) || String(candidateNameParam).includes('@') || String(candidateNameParam).toLowerCase() === 'candidate')) {
       candidateNameParam = undefined;
@@ -764,7 +780,7 @@ export class AIPrepTelemetry {
 
     const rawCandidateName = candidateNameParam ?? this.getResolvedCandidateName();
     const effectiveCandidateName = this.sanitizeCandidateName(rawCandidateName);
-    const distinctId = (effectiveCandidateName !== 'Candidate' ? effectiveCandidateName : undefined) || effectiveCandidateEmail || 'anonymous';
+    const distinctId = (effectiveCandidateName && effectiveCandidateName !== 'Candidate' ? effectiveCandidateName : undefined) || (this.sessionId ? `session_${this.sessionId}` : 'anonymous');
 
     // Move identify/reset to the TOP before firing events
     if (distinctId && distinctId !== 'anonymous') {
@@ -775,8 +791,6 @@ export class AIPrepTelemetry {
         this.lastIdentifiedCandidateId = distinctId;
         posthog.identify(distinctId, {
           candidate_name: effectiveCandidateName,
-          candidate_email: effectiveCandidateEmail ?? null,
-          email: effectiveCandidateEmail ?? null,
         });
       } catch (_) { }
     }
@@ -798,21 +812,18 @@ export class AIPrepTelemetry {
         seq: this.eventSequence,
         session_id: this.sessionId,
         candidate_name: effectiveCandidateName,
-        candidate_email: effectiveCandidateEmail,
         assessment_id: payload.assessment_id,
         assessment_uuid: payload.assessment_uuid,
       };
 
-      // Send events directly via HTTP GET request with Base64 payload
       try {
-        const eventProperties = {
+        const eventProperties: Record<string, any> = {
           ...(cleanMeta || {}),
+          distinct_id: distinctId,
           stage: evt.stage,
           status: evt.status,
           message: cleanMsg,
           candidate_name: effectiveCandidateName,
-          candidate_email: effectiveCandidateEmail ?? null,
-          email: effectiveCandidateEmail ?? null,
           assessment_id: payload.assessment_id,
           assessment_uuid: payload.assessment_uuid,
           event_id: preparedEvent.event_id,
@@ -820,7 +831,19 @@ export class AIPrepTelemetry {
           session_id: preparedEvent.session_id,
         };
 
-        this.sendPostHogGetEvent(evt.event_type, eventProperties);
+        // Prefer official PostHog SDK capture (HIGH 2)
+        let capturedViaSdk = false;
+        try {
+          if (typeof posthog !== 'undefined' && (posthog as any).__loaded) {
+            posthog.capture(evt.event_type, eventProperties);
+            capturedViaSdk = true;
+          }
+        } catch (_) { }
+
+        // Fallback to custom GET sender only if SDK is unavailable or unloaded
+        if (!capturedViaSdk) {
+          this.sendPostHogGetEvent(evt.event_type, eventProperties);
+        }
       } catch (_) { }
     });
   }
@@ -877,12 +900,12 @@ export class AIPrepTelemetry {
         (safeProperties.candidate_name && safeProperties.candidate_name !== 'Candidate'
           ? safeProperties.candidate_name
           : undefined) ||
-        safeProperties.candidate_email ||
         properties.distinct_id ||
+        (properties.session_id ? `session_${properties.session_id}` : undefined) ||
         'anonymous';
 
       const distinctId = typeof rawDistinctId === 'string'
-        ? rawDistinctId.replace(/[^\w.@-]/g, '').trim().slice(0, 100) || 'anonymous'
+        ? rawDistinctId.replace(/[^\w.-]/g, '').trim().slice(0, 100) || 'anonymous'
         : 'anonymous';
 
       const safeUrl = typeof window !== 'undefined' && window.location ? window.location.href.slice(0, 500) : '';

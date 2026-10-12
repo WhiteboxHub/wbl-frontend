@@ -228,10 +228,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
+  // Unique session ID per assessment attempt to avoid cross-attempt collisions in analytics (MEDIUM 2)
+  const attemptSessionId = React.useMemo(() => {
+    if (typeof window === 'undefined' || !assessmentId) return `session_${assessmentId || 'init'}_${Date.now()}`;
+    const storageKey = `aiprep_attempt_session_${assessmentId}`;
+    try {
+      let existing = window.sessionStorage.getItem(storageKey);
+      if (!existing) {
+        existing = `attempt_${assessmentId}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        window.sessionStorage.setItem(storageKey, existing);
+      }
+      return existing;
+    } catch (_) {
+      return `attempt_${assessmentId}_${Date.now()}`;
+    }
+  }, [assessmentId]);
+
   // Observability & Telemetry Hook
   const { recordQuestionAction, recordCompletion } = useAssessmentTelemetry({
     assessmentId,
-    sessionId: `session_${assessmentId}`,
+    sessionId: attemptSessionId,
     assessmentType,
     totalQuestions: questions.length > 0 ? questions.length : undefined,
   });
@@ -1155,15 +1171,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsTransitioningQuestion(true);
       stopAiSpeech();
 
+      // 1. Snapshot current question's live transcript
+      const currentText = cleanTechnicalSpeech(liveTranscript).trim();
+
       const activeQ = questions[currentQuestionIndex];
       recordQuestionAction(
         activeQ?.id || currentQuestionIndex,
         currentQuestionIndex + 1,
-        QuestionAction.QUESTION_ANSWERED
+        currentText.length > 0 ? QuestionAction.QUESTION_ANSWERED : QuestionAction.QUESTION_SKIPPED
       );
 
-      // 1. Snapshot current question's live transcript
-      const currentText = cleanTechnicalSpeech(liveTranscript).trim();
       setQuestionAnswers((prev) => ({
         ...prev,
         [currentQuestionIndex]: currentText || prev[currentQuestionIndex] || '',
@@ -1212,15 +1229,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   };
 
-  // Track question viewed
+  const lastViewedQuestionIdRef = useRef<string | number | null>(null);
+
+  // Track question viewed (deduplicated by question ID to prevent duplicate view events on re-renders - MEDIUM 1)
   useEffect(() => {
     if (questions.length > 0) {
       const activeQ = questions[currentQuestionIndex];
-      recordQuestionAction(
-        activeQ?.id || currentQuestionIndex,
-        currentQuestionIndex + 1,
-        QuestionAction.QUESTION_VIEWED
-      );
+      const qId = activeQ?.id ?? currentQuestionIndex;
+      if (lastViewedQuestionIdRef.current !== qId) {
+        lastViewedQuestionIdRef.current = qId;
+        recordQuestionAction(
+          qId,
+          currentQuestionIndex + 1,
+          QuestionAction.QUESTION_VIEWED
+        );
+      }
     }
   }, [currentQuestionIndex, questions, recordQuestionAction]);
 

@@ -103,18 +103,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Init global telemetry once safely
+    // Route-scoped telemetry: only attach listeners on AI Prep routes
     if (typeof window !== "undefined" && !(window as any).__aiprep_telemetry_init) {
-      try {
-        AIPrepTelemetry.initGlobalErrorListeners();
-        AIPrepTelemetry.initUxFrictionTracker();
-        AIPrepTelemetry.initCoreWebVitalsTracker();
-        (window as any).__aiprep_telemetry_init = true;
-      } catch (err) {
-        console.warn("[Providers] Telemetry listeners initialization failed:", err);
+      const currentPath = window.location.pathname;
+      const isAiPrepRoute = currentPath.includes('/aiprep') || currentPath.includes('/user_dashboard/ai-prep');
+      if (isAiPrepRoute) {
+        try {
+          AIPrepTelemetry.initGlobalErrorListeners();
+          AIPrepTelemetry.initUxFrictionTracker();
+          AIPrepTelemetry.initCoreWebVitalsTracker();
+          (window as any).__aiprep_telemetry_init = true;
+        } catch (err) {
+          console.warn("[Providers] Telemetry listeners initialization failed:", err);
       }
     }
-
+  }
     if (isSubscribed) {
       setMounted(true);
     }
@@ -130,24 +133,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
     setMounted,
   ]);
 
-  const content = (
-    <>
-      {isPostHogInitialized && (
-        <Suspense fallback={null}>
-          <PostHogPageView />
-        </Suspense>
-      )}
-      {children}
-    </>
-  );
-
   return (
     <ThemeProvider attribute="class" enableSystem={false} defaultTheme="light">
-      {mounted && isPostHogInitialized ? (
-        <PostHogProvider client={posthog}>{content}</PostHogProvider>
-      ) : (
-        content
-      )}
+      <PostHogProvider client={posthog}>
+        {isPostHogInitialized && (
+          <Suspense fallback={null}>
+            <PostHogPageView />
+          </Suspense>
+        )}
+        {children}
+      </PostHogProvider>
     </ThemeProvider>
   );
 }
