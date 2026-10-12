@@ -2031,7 +2031,20 @@ export default function AiPrepReport({
     } finally {
       if (isCurrentRequest()) setLoading(false);
     }
-  }, [assessmentId, candidateId, initialCandidateId, candidateIdFromQuery]);
+  }, [
+    assessmentId,
+    candidateId,
+    initialCandidateId,
+    candidateIdFromQuery,
+    lastLoadedIdRef,
+    reportRequestIdRef,
+    setLoading,
+    setError,
+    setIsProcessing,
+    setIsCancelled,
+    setStatusMsg,
+    setReport,
+  ]);
 
   useEffect(() => {
     loadReport();

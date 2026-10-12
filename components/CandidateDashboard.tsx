@@ -1441,7 +1441,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } catch {
             return null;
         }
-    }, [candidateId, prefetchedSession?.summaryData]);
+    }, [candidateId, prefetchedSession]);
 
     const isAiPrepTab = Boolean(
         activeTab.startsWith('ai-prep') ||
@@ -1514,7 +1514,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         };
         void run();
-    }, [candidateId, prefetchDone, isAiPrepTab]);
+    }, [candidateId, prefetchDone, isAiPrepTab, setPrefetchedSession, setPrefetchDone, setSetupStatus]);
 
     useEffect(() => {
         if (!setupWizardOpen) {
