@@ -34,8 +34,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isSubscribed = true;
 
-    const rawKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    const rawHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+    // Safely derive process from global scope or window fallback for non-Node environments
+    const safeProcess =
+      typeof process !== "undefined"
+        ? process
+        : typeof window !== "undefined" && (window as any).process
+        ? (window as any).process
+        : { env: {} };
+
+    const rawKey = safeProcess?.env?.NEXT_PUBLIC_POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    const rawHost = safeProcess?.env?.NEXT_PUBLIC_POSTHOG_HOST || process.env.NEXT_PUBLIC_POSTHOG_HOST;
     const posthogHost =
       typeof rawHost === "string" && rawHost.trim().length > 0
         ? rawHost.trim()
@@ -51,18 +59,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
       rawKey.trim().length > 0 &&
       /^phc_[A-Za-z0-9_-]+$/.test(rawKey.trim());
 
+    const isNonProd =
+      (safeProcess?.env?.NODE_ENV || process.env.NODE_ENV) !== "production";
+
     if (!hasPostHogLib) {
-      if (process.env.NODE_ENV !== "production") {
+      if (isNonProd) {
         console.warn("[Providers] PostHog library is not available; analytics disabled.");
       }
       if (isSubscribed) setIsPostHogInitialized(false);
     } else if (!rawKey) {
-      if (process.env.NODE_ENV !== "production") {
+      if (isNonProd) {
         console.warn("[Providers] NEXT_PUBLIC_POSTHOG_KEY environment variable is missing; analytics disabled.");
       }
       if (isSubscribed) setIsPostHogInitialized(false);
     } else if (!isValidKey) {
-      if (process.env.NODE_ENV !== "production") {
+      if (isNonProd) {
         console.warn("[Providers] NEXT_PUBLIC_POSTHOG_KEY is malformed; PostHog analytics disabled.");
       }
       if (isSubscribed) setIsPostHogInitialized(false);
@@ -112,6 +123,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       isSubscribed = false;
     };
   }, [
+    process,
     process.env.NEXT_PUBLIC_POSTHOG_KEY,
     process.env.NEXT_PUBLIC_POSTHOG_HOST,
     setIsPostHogInitialized,
