@@ -861,6 +861,26 @@ export class AIPrepTelemetry {
   }
 
   /**
+   * Safely serializes a UTF-8 string to Base64 using modern TextEncoder without deprecated unescape().
+   */
+  private static utf8ToBase64(str: string): string {
+    try {
+      if (typeof TextEncoder !== 'undefined') {
+        const bytes = new TextEncoder().encode(str);
+        let binary = '';
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /**
    * Dispatches a PostHog telemetry event using an explicit HTTP GET call with Base64 payload,
    * strictly validating all property keys and scalar types against the allowlist schema.
    */
@@ -922,7 +942,8 @@ export class AIPrepTelemetry {
       };
 
       const jsonString = JSON.stringify(payload);
-      const base64Data = btoa(unescape(encodeURIComponent(jsonString)));
+      const base64Data = this.utf8ToBase64(jsonString);
+      if (!base64Data) return;
       const getUrl = `${posthogHost}/e/?data=${encodeURIComponent(base64Data)}`;
 
       fetch(getUrl, {
