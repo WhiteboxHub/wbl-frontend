@@ -1245,7 +1245,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         );
       }
     }
-  }, [currentQuestionIndex, questions, recordQuestionAction]);
+  }, [currentQuestionIndex, questions, recordQuestionAction, lastViewedQuestionIdRef]);
 
   // ── Complete Session & Submit Telemetry to Pure Engines ─────────────────────
   const handleEndSession = async () => {
