@@ -359,7 +359,7 @@ export class AIPrepTelemetry {
         : undefined;
 
       const token =
-        (typeof localStorage !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('prep_token') || localStorage.getItem('token')) : null) ||
+        (typeof localStorage !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null) ||
         cookieToken;
 
       if (token && token.includes('.')) {
@@ -443,7 +443,7 @@ export class AIPrepTelemetry {
         : undefined;
 
       const token =
-        (typeof localStorage !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('prep_token') || localStorage.getItem('token')) : null) ||
+        (typeof localStorage !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null) ||
         cookieToken;
 
       if (token && token.includes('.')) {
