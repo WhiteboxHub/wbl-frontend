@@ -1655,7 +1655,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
         const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
-        const qList = assessment?.questions || assessment?.data?.questions;
+        const rawQuestions = assessment?.questions || assessment?.data?.questions;
+        const qList = Array.isArray(rawQuestions) ? rawQuestions : [];
         AIPrepTelemetry.trackAssessmentCreation({
           candidate_id: typeof cid === 'number' ? cid : Number(cid) || undefined,
           assessment_id: targetId,
@@ -1663,14 +1664,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           assessment_type: targetType,
           media_type: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
           success: true,
-          question_count: Array.isArray(qList) ? qList.length : 5,
+          question_count: qList.length,
         });
 
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
-          if (qList && Array.isArray(qList) && qList.length > 0) {
+          if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
           }
         }

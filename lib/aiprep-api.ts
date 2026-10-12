@@ -46,21 +46,26 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
       localStorage.getItem("token") ||
       localStorage.getItem("prep_token") ||
       localStorage.getItem("auth_token");
-    if (token && token.includes(".")) {
+    if (token && typeof token === "string" && token.includes(".")) {
       try {
         const parts = token.split(".");
         if (parts.length >= 2) {
           const base64Url = parts[1];
-          if (base64Url) {
+          if (base64Url && /^[A-Za-z0-9_-]+$/.test(base64Url)) {
             const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
             const pad = base64.length % 4;
             const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
-            const jsonPayload = decodeURIComponent(
-              atob(paddedBase64)
-                .split("")
-                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-                .join("")
-            );
+            let jsonPayload = "";
+            try {
+              jsonPayload = decodeURIComponent(
+                atob(paddedBase64)
+                  .split("")
+                  .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join("")
+              );
+            } catch {
+              jsonPayload = atob(paddedBase64);
+            }
             const payload = JSON.parse(jsonPayload);
             const isExpired =
               typeof payload?.exp === "number" &&
@@ -72,7 +77,9 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
             }
           }
         }
-      } catch {}
+      } catch {
+        return fallback;
+      }
     }
   } catch {}
   return fallback;
