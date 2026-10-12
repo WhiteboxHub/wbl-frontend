@@ -591,29 +591,55 @@ export class AIPrepTelemetry {
 
   /**
    * Sanitizes metadata to prevent XSS injection, long string pollution, and exclude sensitive PII.
-   * Validates against an allowlist of expected types and lengths, and strictly rejects unexpected object structures/array depth.
+   * Deep-clones input and validates against an allowlist of expected types and lengths, strictly rejecting prototype pollution.
    */
   private static sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> | undefined {
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return undefined;
-    const SENSITIVE_KEYS = new Set(['transcript', 'answer', 'candidate_answer', 'jd_text', 'resume_text', 'audio', 'video', 'token', 'password', 'authorization', 'bearer', 'component_stack']);
-    const sanitized: Record<string, any> = {};
+
+    // Deep-clone metadata before sanitization to isolate from external modifications
+    let cloned: Record<string, any>;
+    try {
+      cloned = JSON.parse(JSON.stringify(metadata));
+    } catch {
+      return undefined;
+    }
+
+    const FORBIDDEN_KEYS = new Set([
+      '__proto__',
+      'constructor',
+      'prototype',
+      'transcript',
+      'answer',
+      'candidate_answer',
+      'jd_text',
+      'resume_text',
+      'audio',
+      'video',
+      'token',
+      'password',
+      'authorization',
+      'bearer',
+      'component_stack',
+    ]);
+
+    const sanitized: Record<string, any> = Object.create(null);
     let count = 0;
 
-    for (const [rawKey, rawValue] of Object.entries(metadata)) {
+    for (const rawKey of Object.keys(cloned)) {
       if (count >= 50) break; // Limit total keys to prevent payload inflation
       if (typeof rawKey !== 'string') continue;
-      // Key must be safe identifier: alphanumeric, underscore, hyphen
       const cleanKey = rawKey.trim().slice(0, 64);
       if (!/^[a-zA-Z0-9_-]+$/.test(cleanKey)) continue;
-      if (SENSITIVE_KEYS.has(cleanKey.toLowerCase())) continue;
+      if (FORBIDDEN_KEYS.has(cleanKey.toLowerCase())) continue;
 
+      const rawValue = cloned[rawKey];
       const sanitizedVal = this.sanitizePropertyValue(rawValue, 0);
       if (sanitizedVal !== undefined) {
         sanitized[cleanKey] = sanitizedVal;
         count++;
       }
     }
-    return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+    return count > 0 ? { ...sanitized } : undefined;
   }
 
   /**
@@ -722,16 +748,27 @@ export class AIPrepTelemetry {
       const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/$/, '');
       if (!apiKey) return;
 
-      const sanitizedProperties: Record<string, any> = {};
+      // Deep-clone properties before sanitization to guard against prototype poisoning
+      let clonedProps: Record<string, any>;
+      try {
+        clonedProps = JSON.parse(JSON.stringify(properties));
+      } catch {
+        clonedProps = {};
+      }
+
+      const FORBIDDEN_PROPERTY_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+      const sanitizedProperties: Record<string, any> = Object.create(null);
       const MAX_KEYS = 50;
       let keyCount = 0;
 
-      for (const [rawKey, val] of Object.entries(properties)) {
+      for (const rawKey of Object.keys(clonedProps)) {
         if (keyCount >= MAX_KEYS) break;
         if (typeof rawKey !== 'string') continue;
         const cleanKey = rawKey.trim().slice(0, 64);
         if (!/^[a-zA-Z0-9_$-]+$/.test(cleanKey)) continue;
+        if (FORBIDDEN_PROPERTY_KEYS.has(cleanKey.toLowerCase())) continue;
 
+        const val = clonedProps[rawKey];
         const sanitizedVal = this.sanitizePropertyValue(val, 0);
         if (sanitizedVal !== undefined) {
           sanitizedProperties[cleanKey] = sanitizedVal;
