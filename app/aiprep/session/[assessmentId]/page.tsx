@@ -54,68 +54,104 @@ import {
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
  */
 const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stream: MediaStream | null; isMuted: boolean; isLight?: boolean }) => {
-  const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(3));
+  const [audioLevels, setAudioLevels] = useState<number[]>(Array(30).fill(3));
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastDrawTime = useRef<number>(0);
 
   useEffect(() => {
+    let cancelled = false;
+    let frameId: number | null = null;
+    let audioCtx: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+
     if (!stream || isMuted) {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (_) { }
-        audioContextRef.current = null;
-      }
-      setAudioLevels(Array(20).fill(3));
-      return;
+      setAudioLevels(Array(30).fill(3));
+      return () => {
+        cancelled = true;
+      };
     }
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
+      if (!AudioCtx) {
+        setAudioLevels(Array(30).fill(3));
+        return () => {
+          cancelled = true;
+        };
+      }
 
-      const audioCtx = new AudioCtx();
-      const analyser = audioCtx.createAnalyser();
+      audioCtx = new AudioCtx();
+      analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
-      const source = audioCtx.createMediaStreamSource(stream);
+      source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
       audioContextRef.current = audioCtx;
       analyserRef.current = analyser;
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let previousDrawTime = 0;
 
       const renderWave = (time: number) => {
-        if (time - lastDrawTime.current >= 40) {
+        if (cancelled || !analyser) return;
+
+        if (time - previousDrawTime >= 40) {
+          previousDrawTime = time;
           lastDrawTime.current = time;
           analyser.getByteFrequencyData(dataArray);
+
           const bars: number[] = [];
-          for (let i = 0; i < 20; i++) {
-            const val = dataArray[i % dataArray.length] || 0;
-            const barHeight = Math.max(3, Math.round((val / 255) * 14) + 3);
-            bars.push(barHeight);
+          for (let i = 0; i < 30; i++) {
+            // Shape the live levels into a centered, tapered waveform like the design reference.
+            const centerDistance = Math.abs(i - 14.5) / 14.5;
+            const envelope = 0.12 + (1 - centerDistance) * 0.88;
+            const liveLevel = (dataArray[i % dataArray.length] || 0) / 255;
+            bars.push(Math.max(2, Math.round((4 + liveLevel * 34) * envelope)));
           }
-          setAudioLevels(bars);
+
+          if (!cancelled) setAudioLevels(bars);
         }
-        animFrameRef.current = requestAnimationFrame(renderWave);
+
+        if (!cancelled) {
+          frameId = requestAnimationFrame(renderWave);
+          animFrameRef.current = frameId;
+        }
       };
 
-      animFrameRef.current = requestAnimationFrame(renderWave);
-    } catch (e) {
-      console.warn('Audio visualizer error:', e);
+      frameId = requestAnimationFrame(renderWave);
+      animFrameRef.current = frameId;
+    } catch (error) {
+      console.warn('Audio visualizer error:', error);
+      cancelled = true;
+      if (source) {
+        try { source.disconnect(); } catch (_) {}
+      }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        void audioCtx.close().catch(() => undefined);
+      }
+      if (audioContextRef.current === audioCtx) audioContextRef.current = null;
+      if (analyserRef.current === analyser) analyserRef.current = null;
+      setAudioLevels(Array(30).fill(3));
     }
 
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch (_) { }
-        audioContextRef.current = null;
+      cancelled = true;
+
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      if (animFrameRef.current === frameId) animFrameRef.current = null;
+
+      if (source) {
+        try { source.disconnect(); } catch (_) {}
       }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        void audioCtx.close().catch(() => undefined);
+      }
+
+      if (audioContextRef.current === audioCtx) audioContextRef.current = null;
+      if (analyserRef.current === analyser) analyserRef.current = null;
     };
   }, [stream, isMuted]);
 
@@ -123,12 +159,12 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
   if (isLight) {
     return (
-      <div className="flex items-center gap-[3px] h-5 overflow-hidden">
-        {audioLevels.slice(0, 12).map((height, i) => (
+      <div className="flex items-center justify-center gap-[4px] h-12 overflow-hidden">
+        {audioLevels.map((height, i) => (
           <div
             key={i}
             style={{ height: isMuted ? '3px' : `${height}px` }}
-            className={`w-[3px] rounded-full shrink-0 transition-all duration-75 ${
+            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${
               isMuted
                 ? 'bg-slate-300 dark:bg-slate-600'
                 : 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
@@ -200,6 +236,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Status & loading
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isEnding, setIsEnding] = useState<boolean>(false);
+  const [submissionProgress, setSubmissionProgress] = useState<number>(0);
+  const [submissionStep, setSubmissionStep] = useState<string>("Preparing submission…");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Multi-Tab Session Ownership & Duplicate Tab Tracking
@@ -515,6 +553,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     pendingChunksRef.current = pendingChunks;
   }, [pendingChunks]);
 
+  // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
+  const localChunksRef = useRef<Blob[]>([]);
+
   // ── Media Recorder Hook (30s slicing) ──────────────────────────────────────
   const {
     status: recordingStatus,
@@ -528,6 +569,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     chunkDurationMs: 30000,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
+      if (blob && blob.size > 0) {
+        localChunksRef.current.push(blob);
+      }
       enqueueChunk(blob, chunkIdx, isFinal);
     },
     onError: (err) => {
@@ -1162,6 +1206,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 1. Stop recording and flush final slice
       await stopRecording();
 
+      // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
+      if (localChunksRef.current.length > 0 && assessmentId) {
+        try {
+          const mimeType = isAudioOnly ? 'audio/webm' : 'video/webm';
+          const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
+          const previewUrl = URL.createObjectURL(combinedBlob);
+          if (typeof window !== 'undefined') {
+            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+            (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
+          }
+        } catch (blobErr) {
+          console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+        }
+      }
+
       // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
       await waitForAllChunks(8000);
 
@@ -1211,10 +1271,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             },
           ];
 
-      // 3. Submit assessment via PUT /candidates/{id}/assessments/{id}
-      let submitRes: any = null;
-      try {
-        submitRes = await aiprepApi.submitAssessment(assessmentId, {
+      // 3. Submit assessment and keep this PUT connection open for SSE progress.
+      // The API resolves only after the backend sends a terminal COMPLETED event.
+      setSubmissionProgress(0);
+      setSubmissionStep("Submitting assessment…");
+      await aiprepApi.submitAssessmentStream(
+        assessmentId,
+        {
           total_chunks_uploaded: totalChunks || 1,
           is_final: true,
           client_duration_seconds: elapsedTimeRef.current,
@@ -1225,51 +1288,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 face_visibility_percentage: 95.0,
               },
           status: null,
-        });
-      } catch (submitErr: any) {
-        console.warn('PUT submitAssessment error, checking if status already transitioned:', submitErr);
-        // If 503 Service Unavailable, 504 Gateway Timeout, 409 Conflict, or proxy timeout occurs:
-        try {
-          const currentAssessment = await aiprepApi.getAssessment(assessmentId);
-          const currentStatus = String(currentAssessment?.status || '').toUpperCase();
-          if (
-            currentStatus === 'EVALUATING' ||
-            currentStatus === 'COMPLETED' ||
-            submitErr?.status === 409 ||
-            String(submitErr?.message || '').toLowerCase().includes('already') ||
-            String(submitErr?.message || '').includes('503') ||
-            String(submitErr?.message || '').includes('504')
-          ) {
-            console.log('Assessment status transitioned or in progress. Proceeding to evaluation report.');
-            submitRes = currentAssessment;
-          } else {
-            throw submitErr;
-          }
-        } catch (recoveryErr: any) {
-          const errMsg = String(submitErr?.message || '').toLowerCase();
-          const isTimeoutOrProxyError =
-            submitErr?.status === 503 ||
-            submitErr?.status === 504 ||
-            submitErr?.status === 409 ||
-            errMsg.includes('503') ||
-            errMsg.includes('504') ||
-            errMsg.includes('timeout') ||
-            errMsg.includes('already evaluating');
-
-          if (isTimeoutOrProxyError) {
-            console.warn('Background evaluation likely underway despite proxy timeout. Proceeding to report.');
-          } else {
-            throw submitErr;
+        },
+        (event) => {
+          // Progress UI must never interrupt consumption of the assessment SSE stream.
+          try {
+            if (typeof event.progress === "number") {
+              setSubmissionProgress(Math.max(0, Math.min(100, event.progress)));
+            }
+            if (typeof event.step === "string" && event.step.trim()) {
+              setSubmissionStep(event.step);
+            } else if (event.status === "PROCESSING") {
+              setSubmissionStep("Processing recording and audio…");
+            } else if (event.status === "EVALUATING") {
+              setSubmissionStep("Evaluating your assessment with AI…");
+            } else if (event.status === "COMPLETED") {
+              setSubmissionStep("Evaluation complete. Opening report…");
+            }
+          } catch (progressError) {
+            console.warn("Could not update assessment submission progress UI:", progressError);
           }
         }
-      }
-
-      // Store PUT response body in sessionStorage so Evaluation page can render it directly
-      if (submitRes) {
-        try {
-          sessionStorage.setItem(`aiprep_submission_${assessmentId}`, JSON.stringify(submitRes));
-        } catch (_) {}
-      }
+      );
+      setSubmissionProgress(100);
+      setSubmissionStep("Evaluation complete. Opening report…");
 
       // 5. Clean up browser storage flags & queue
       clearQueue();
@@ -1303,6 +1344,36 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
+
+      // The server may finish evaluation after the browser's SSE connection drops.
+      // Verify once before showing an error; never resubmit the PUT automatically.
+      if (assessmentId) {
+        try {
+          const latestAssessment = await aiprepApi.getAssessment(assessmentId);
+          const latestStatus = String(latestAssessment?.status || "").toUpperCase();
+          if (latestStatus === "COMPLETED") {
+            setSubmissionProgress(100);
+            setSubmissionStep("Evaluation complete. Opening report…");
+            setFinishedAssessmentId(assessmentId);
+            return;
+          }
+          if (latestStatus === "FAILED" || latestStatus === "CANCELLED") {
+            setErrorMsg(latestStatus === "FAILED"
+              ? "Assessment evaluation failed. Please contact support if this continues."
+              : "This assessment was cancelled before evaluation completed.");
+            setIsEnding(false);
+            return;
+          }
+          if (["EVALUATING", "IN_PROGRESS", "SUBMITTED", "PENDING"].includes(latestStatus)) {
+            setErrorMsg("The progress connection ended, but your assessment may still be processing. Please check the report status before trying again.");
+            setIsEnding(false);
+            return;
+          }
+        } catch (statusCheckError) {
+          console.warn("Could not verify assessment status after submission interruption:", statusCheckError);
+        }
+      }
+
       setErrorMsg(err?.message || 'Failed to submit assessment telemetry.');
       setIsEnding(false);
     }
@@ -1629,29 +1700,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 }`}
             />
 
-            {/* Audio-Only Placeholder: Large bare mic + compact waveform, dead centre */}
+            {/* Audio-only stage styled to match the centered microphone and tapered waveform reference */}
             {isAudioOnly && (
-              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4">
-                {/* Soft ambient glow behind mic */}
-                <div className="absolute w-64 h-64 rounded-full bg-gradient-to-tr from-indigo-200/40 to-purple-200/40 blur-3xl pointer-events-none" />
-
-                {/* Large bare mic icon — no circle, just the icon */}
-                <IconMicrophone
-                  size={80}
-                  stroke={1.5}
-                  className={`relative z-10 transition-all duration-300 ${isRecording ? 'text-indigo-600 animate-pulse' : 'text-slate-400'}`}
-                />
-
-                {/* Compact waveform + status text */}
-                <div className="relative z-10 flex flex-col items-center gap-1">
-                  <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
-                  <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
-                    {isRecording ? 'Microphone Active — Recording' : 'Audio Only Mode'}
-                  </span>
+              <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4 px-4">
+                <div className="absolute h-64 w-64 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
+                <div className="relative flex flex-col items-center gap-5">
+                  <div className="relative flex h-36 w-36 items-center justify-center">
+                    <div className={`absolute inset-0 rounded-full border-[3px] border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
+                    <div className="absolute inset-3 rounded-full bg-violet-100/60" />
+                    <div className={`relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
+                      <IconMicrophone size={40} stroke={2.2} className="text-white" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-12 w-[290px] max-w-full items-center justify-center gap-[4px]">
+                      <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} isLight={true} />
+                    </div>
+                    <span className="text-xs sm:text-sm font-semibold tracking-wide text-slate-500 whitespace-nowrap">
+                      {isRecording ? "Microphone active — recording…" : "Microphone ready"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
-
 
             {/* Top-Left Live REC Badge */}
             <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
@@ -2064,6 +2135,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
       )}
 
+      {errorMsg && questions.length > 0 && !isEnding && (
+        <div className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 shadow-xl dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+          <div className="flex items-start justify-between gap-3">
+            <p>{errorMsg}</p>
+            <button
+              type="button"
+              onClick={() => setErrorMsg(null)}
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4. SUBMITTING & FINALIZING MODAL SPINNER OVERLAY */}
       {isEnding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200 select-none">
@@ -2074,12 +2160,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
               Submitting Assessment
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
-              Uploading responses and awaiting evaluation from the backend. Please do not close or refresh this page…
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+              {submissionStep} Please do not close or refresh this page while evaluation is running.
             </p>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 rounded-full animate-pulse w-full" />
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-2">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 via-[#7C3AED] to-purple-400 transition-all duration-300"
+                style={{ width: `${submissionProgress}%` }}
+              />
             </div>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{submissionProgress}% complete</p>
           </div>
         </div>
       )}
