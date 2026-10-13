@@ -828,6 +828,15 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
     return questions;
   }, [questions]);
 
+  // Reset row heights after React commits updated question data, rather than
+  // from AG Grid's row-update lifecycle callback.
+  useEffect(() => {
+    const api = gridApiRef.current;
+    if (api && !api.isDestroyed?.()) {
+      api.resetRowHeights();
+    }
+  }, [displayedQuestions]);
+
   useEffect(() => {
     setPageInput(String(currentPage));
   }, [currentPage]);
@@ -1640,9 +1649,6 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           onGridReady={handleGridReady}
           onGridSizeChanged={handleGridSizeChanged}
 
-          onRowDataUpdated={(params) => {
-            if (params.api) params.api.resetRowHeights();
-          }}
         />
       </div>
 

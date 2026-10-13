@@ -41,9 +41,23 @@ export async function fetchQuestionBank(
   try {
     // Question Bank contains admin-only data (including ground_truth), so send
     // the logged-in user's bearer token and let the backend enforce staff access.
-    const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`);
-    const items: QuestionBankItem[] = res?.items || [];
-    const total: number = res?.total ?? items.length;
+    const res: unknown = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`);
+
+    // A successful HTTP status does not guarantee a valid JSON payload.
+    // Reject unexpected/empty responses here so the UI can show a useful error.
+    if (!res || typeof res !== 'object' || Array.isArray(res)) {
+      throw new Error('Invalid response from the Question Bank API. Expected an object containing items and total.');
+    }
+
+    const response = res as { items?: unknown; total?: unknown };
+    if (!Array.isArray(response.items)) {
+      throw new Error('Invalid response from the Question Bank API: the items field is missing or is not an array.');
+    }
+
+    const items = response.items as QuestionBankItem[];
+    const total = typeof response.total === 'number' && Number.isFinite(response.total)
+      ? response.total
+      : items.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
 
     return {
@@ -55,14 +69,29 @@ export async function fetchQuestionBank(
     };
   } catch (err: any) {
     const status = err?.status;
+    if (status === 401) {
+      throw new Error('You are not authenticated. Please sign in again.');
+    }
+    if (status === 403) {
+      throw new Error('You do not have permission to access the Question Bank.');
+    }
     if (status === 404) {
-      throw new Error('Question bank endpoint not found. Please check the backend configuration.');
+      throw new Error('Question Bank endpoint not found. Please check the backend configuration.');
     }
-    if (status >= 500) {
-      throw new Error('Backend server error. Please try again or contact support.');
+    if (typeof status === 'number' && status >= 500) {
+      throw new Error('Backend server error while loading the Question Bank. Please try again or contact support.');
     }
-    // Network / CORS / unknown error
-    throw new Error(err?.message || 'Failed to connect to the backend. Ensure the server is running at the configured API URL.');
+
+    // Preserve useful API messages (including plain-text/HTML gateway errors)
+    // while avoiding a misleading generic network error for response failures.
+    const body = err?.body;
+    const bodyMessage = typeof body === 'string'
+      ? body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240)
+      : body && typeof body === 'object'
+        ? (body.detail || body.message || body.error)
+        : undefined;
+    const message = bodyMessage || err?.message;
+    throw new Error(message || 'Failed to connect to the backend. Ensure the server is running at the configured API URL.');
   }
 }
 
