@@ -104,6 +104,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               enable_recording_console_log: false,
               disable_surveys: true,
               autocapture: false,
+              advanced_disable_feature_flags_on_first_load: true,
               loaded: () => {
                 if (isSubscribed) {
                   setIsPostHogInitialized(true);
