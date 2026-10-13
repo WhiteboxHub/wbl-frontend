@@ -126,7 +126,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       isSubscribed = false;
     };
   }, [
-    process,
     process.env.NEXT_PUBLIC_POSTHOG_KEY,
     process.env.NEXT_PUBLIC_POSTHOG_HOST,
     setIsPostHogInitialized,
