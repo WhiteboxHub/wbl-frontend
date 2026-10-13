@@ -49,7 +49,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       // If build-time key is not present, fetch runtime config from server (Cloud Run)
       if (!rawKey && typeof window !== "undefined") {
         try {
-          const res = await fetch("/api/config");
+          const res = await window.fetch("/api/config");
           if (res.ok) {
             const cfg = await res.json();
             if (cfg?.posthogKey) rawKey = cfg.posthogKey;
