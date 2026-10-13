@@ -831,19 +831,12 @@ export class AIPrepTelemetry {
           session_id: preparedEvent.session_id,
         };
 
-        // Prefer official PostHog SDK capture (HIGH 2)
-        let capturedViaSdk = false;
+        // Send telemetry event via official PostHog SDK (POST)
         try {
           if (typeof posthog !== 'undefined' && (posthog as any).__loaded) {
             posthog.capture(evt.event_type, eventProperties);
-            capturedViaSdk = true;
           }
         } catch (_) { }
-
-        // Fallback to custom GET sender only if SDK is unavailable or unloaded
-        if (!capturedViaSdk) {
-          this.sendPostHogGetEvent(evt.event_type, eventProperties);
-        }
       } catch (_) { }
     });
   }
@@ -858,100 +851,6 @@ export class AIPrepTelemetry {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-  }
-
-  /**
-   * Safely serializes a UTF-8 string to Base64 using modern TextEncoder without deprecated unescape().
-   */
-  private static utf8ToBase64(str: string): string {
-    try {
-      if (typeof TextEncoder !== 'undefined') {
-        const bytes = new TextEncoder().encode(str);
-        let binary = '';
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
-      }
-      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
-    } catch (_) {
-      return '';
-    }
-  }
-
-  /**
-   * Dispatches a PostHog telemetry event using an explicit HTTP GET call with Base64 payload,
-   * strictly validating all property keys and scalar types against the allowlist schema.
-   */
-  static sendPostHogGetEvent(eventName: string, properties: Record<string, any> = {}) {
-    if (typeof window === 'undefined') return;
-    try {
-      const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-      const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com').replace(/\/$/, '');
-      if (!apiKey) return;
-
-      // Validate eventName format
-      if (typeof eventName !== 'string' || !/^[A-Za-z0-9_]{1,64}$/.test(eventName.trim())) {
-        return;
-      }
-      const safeEventName = eventName.trim();
-
-      // Enforce strict allowlist schema for all event properties
-      const safeProperties: Record<string, any> = Object.create(null);
-      let keyCount = 0;
-      const MAX_KEYS = 50;
-
-      for (const [key, expectedType] of Object.entries(AIPrepTelemetry.ALLOWED_EVENT_PROPERTY_SCHEMA)) {
-        if (keyCount >= MAX_KEYS) break;
-        if (!Object.prototype.hasOwnProperty.call(properties, key)) continue;
-
-        const val = properties[key];
-        if (val === undefined || val === null) continue;
-
-        const validatedVal = this.validateAndSanitizeValue(val, expectedType);
-        if (validatedVal !== undefined) {
-          safeProperties[key] = validatedVal;
-          keyCount++;
-        }
-      }
-
-      const rawDistinctId =
-        (safeProperties.candidate_name && safeProperties.candidate_name !== 'Candidate'
-          ? safeProperties.candidate_name
-          : undefined) ||
-        properties.distinct_id ||
-        (properties.session_id ? `session_${properties.session_id}` : undefined) ||
-        'anonymous';
-
-      const distinctId = typeof rawDistinctId === 'string'
-        ? rawDistinctId.replace(/[^\w.-]/g, '').trim().slice(0, 100) || 'anonymous'
-        : 'anonymous';
-
-      const safeUrl = typeof window !== 'undefined' && window.location ? window.location.href.slice(0, 500) : '';
-
-      const payload = {
-        api_key: apiKey.trim(),
-        event: safeEventName,
-        properties: {
-          distinct_id: distinctId,
-          $current_url: safeUrl,
-          ...safeProperties,
-        },
-        timestamp: new Date().toISOString(),
-      };
-
-      const jsonString = JSON.stringify(payload);
-      const base64Data = this.utf8ToBase64(jsonString);
-      if (!base64Data) return;
-      const getUrl = `${posthogHost}/e/?data=${encodeURIComponent(base64Data)}`;
-
-      fetch(getUrl, {
-        method: 'GET',
-        keepalive: true,
-        cache: 'no-store',
-      }).catch(() => { });
-    } catch (_) { }
   }
 
   // ==========================================
