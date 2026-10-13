@@ -694,7 +694,7 @@ export class AIPrepTelemetry {
       if (typeof val !== 'string') return undefined;
       const stripped = val.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
       const bounded = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
-      return this.escapeHtml(bounded);
+      return bounded;
     }
 
     if (expectedType === 'number') {
@@ -711,7 +711,7 @@ export class AIPrepTelemetry {
       if (typeof val === 'string') {
         const stripped = val.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
         const bounded = stripped.length > 200 ? stripped.substring(0, 197) + '...' : stripped;
-        return this.escapeHtml(bounded);
+        return bounded;
       }
       return undefined;
     }
@@ -723,7 +723,7 @@ export class AIPrepTelemetry {
         if (typeof item === 'string') {
           const stripped = item.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim().slice(0, 50);
           if (stripped) {
-            sanitizedArr.push(this.escapeHtml(stripped));
+            sanitizedArr.push(stripped);
           }
         }
       }
