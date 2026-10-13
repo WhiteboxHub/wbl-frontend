@@ -39,9 +39,9 @@ export async function fetchQuestionBank(
   }
 
   try {
-    const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`, {
-      skipAuth: true,
-    } as any);
+    // Question Bank contains admin-only data (including ground_truth), so send
+    // the logged-in user's bearer token and let the backend enforce staff access.
+    const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`);
     const items: QuestionBankItem[] = res?.items || [];
     const total: number = res?.total ?? items.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
