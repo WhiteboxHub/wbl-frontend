@@ -4,37 +4,44 @@ import { QuestionBankItem, QuestionFiltersState, QuestionListResponse } from '@/
 // ---------------------------------------------------------------------------
 // 1. Fetch questions list from backend database
 // GET /api/aiprep/questions
-// Backend accepts: category, difficulty_level, is_active, limit, offset
 // ---------------------------------------------------------------------------
 export async function fetchQuestionBank(
   filters?: Partial<QuestionFiltersState>,
   page: number = 1,
   limit: number = 10
 ): Promise<QuestionListResponse> {
+  const offset = (page - 1) * limit;
+  const queryParams = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+
+  if (filters?.category && filters.category !== 'all') {
+    queryParams.set('category', filters.category);
+  }
+  if (filters?.subject && filters.subject !== 'all') {
+    queryParams.set('subject', filters.subject);
+  }
+  if (filters?.concept && filters.concept !== 'all') {
+    queryParams.set('concept', filters.concept);
+  }
+  if (filters?.difficulty && filters.difficulty !== 'all') {
+    queryParams.set('difficulty_level', filters.difficulty);
+  }
+  if (filters?.scope && filters.scope !== 'all') {
+    queryParams.set('scope', filters.scope);
+  }
+  if (filters?.status && filters.status !== 'all') {
+    queryParams.set('is_active', String(filters.status === 'active'));
+  }
+  if (filters?.search && filters.search.trim()) {
+    queryParams.set('search', filters.search.trim());
+  }
+
   try {
-    const offset = (page - 1) * limit;
-    const queryParams = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-    });
-
-    if (filters?.category && filters.category !== 'all') {
-      queryParams.set('category', filters.category);
-    }
-    if (filters?.sub_category && filters.sub_category !== 'all') {
-      queryParams.set('sub_category', filters.sub_category);
-    }
-    if (filters?.difficulty && filters.difficulty !== 'all') {
-      queryParams.set('difficulty_level', filters.difficulty);
-    }
-    if (filters?.status && filters.status !== 'all') {
-      queryParams.set('is_active', String(filters.status === 'active'));
-    }
-    if (filters?.search && filters.search.trim()) {
-      queryParams.set('search', filters.search.trim());
-    }
-
-    const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`);
+    const res = await apiFetch(`api/aiprep/questions?${queryParams.toString()}`, {
+      skipAuth: true,
+    } as any);
     const items: QuestionBankItem[] = res?.items || [];
     const total: number = res?.total ?? items.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -47,9 +54,15 @@ export async function fetchQuestionBank(
       totalPages,
     };
   } catch (err: any) {
-    console.error('Fetch Question Bank API Error:', err?.body?.detail || err.message);
-    const detail = err?.body?.detail;
-    throw new Error(typeof detail === 'string' ? detail : 'Failed to fetch questions from backend database.');
+    const status = err?.status;
+    if (status === 404) {
+      throw new Error('Question bank endpoint not found. Please check the backend configuration.');
+    }
+    if (status >= 500) {
+      throw new Error('Backend server error. Please try again or contact support.');
+    }
+    // Network / CORS / unknown error
+    throw new Error(err?.message || 'Failed to connect to the backend. Ensure the server is running at the configured API URL.');
   }
 }
 
@@ -60,26 +73,23 @@ export async function fetchQuestionBank(
 export async function createQuestion(
   data: Omit<QuestionBankItem, 'id' | 'created_at' | 'updated_at'>
 ): Promise<QuestionBankItem> {
-  const isTechnical = data.category === 'TECHNICAL';
   const payload = {
     category: data.category,
-    sub_category: isTechnical ? (data.sub_category || 'General Technical') : null,
+    subject: data.subject || null,
+    concept: data.concept || null,
     difficulty_level: data.difficulty_level || 'MEDIUM',
+    scope: data.scope || 'SPECIFIC',
+    time_limit_seconds: Number(data.time_limit_seconds) || 120,
     question_text: data.question_text,
+    ground_truth: data.ground_truth || null,
     is_active: Boolean(data.is_active ?? true),
   };
 
-  try {
-    const res = await apiFetch('api/aiprep/questions', {
-      method: 'POST',
-      body: payload,
-    });
-    return res;
-  } catch (err: any) {
-    console.error('Create Question API Error:', err?.body?.detail || err.message);
-    const detail = err?.body?.detail;
-    throw new Error(typeof detail === 'string' ? detail : 'Failed to create question in backend database.');
-  }
+  const res = await apiFetch('api/aiprep/questions', {
+    method: 'POST',
+    body: payload,
+  } as any);
+  return res;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,25 +102,21 @@ export async function updateQuestion(
 ): Promise<QuestionBankItem> {
   const payload: Record<string, any> = {};
 
-  if (data.sub_category !== undefined) {
-    const targetCategory = data.category || 'TECHNICAL';
-    payload.sub_category = targetCategory === 'TECHNICAL' ? (data.sub_category || 'General Technical') : null;
-  }
+  if (data.category !== undefined) payload.category = data.category;
+  if (data.subject !== undefined) payload.subject = data.subject;
+  if (data.concept !== undefined) payload.concept = data.concept;
   if (data.difficulty_level) payload.difficulty_level = data.difficulty_level;
+  if (data.scope !== undefined) payload.scope = data.scope;
+  if (data.time_limit_seconds !== undefined) payload.time_limit_seconds = Number(data.time_limit_seconds);
   if (data.question_text) payload.question_text = data.question_text;
+  if (data.ground_truth !== undefined) payload.ground_truth = data.ground_truth;
   if (data.is_active !== undefined) payload.is_active = Boolean(data.is_active);
 
-  try {
-    const res = await apiFetch(`api/aiprep/questions/${id}`, {
-      method: 'PATCH',
-      body: payload,
-    });
-    return res;
-  } catch (err: any) {
-    console.error('Update Question API Error:', err?.body?.detail || err.message);
-    const detail = err?.body?.detail;
-    throw new Error(typeof detail === 'string' ? detail : 'Failed to update question in backend database.');
-  }
+  const res = await apiFetch(`api/aiprep/questions/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  } as any);
+  return res;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,17 +127,11 @@ export async function toggleQuestionStatus(
   id: number,
   isActive: boolean
 ): Promise<boolean> {
-  try {
-    await apiFetch(`api/aiprep/questions/${id}`, {
-      method: 'PATCH',
-      body: { is_active: Boolean(isActive) },
-    });
-    return true;
-  } catch (err: any) {
-    console.error('Toggle Question Status API Error:', err?.body?.detail || err.message);
-    const detail = err?.body?.detail;
-    throw new Error(typeof detail === 'string' ? detail : 'Failed to update question status in backend database.');
-  }
+  await apiFetch(`api/aiprep/questions/${id}`, {
+    method: 'PATCH',
+    body: { is_active: Boolean(isActive) },
+  } as any);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,22 +139,8 @@ export async function toggleQuestionStatus(
 // DELETE /api/aiprep/questions/:id
 // ---------------------------------------------------------------------------
 export async function deleteQuestion(id: number): Promise<boolean> {
-  try {
-    await apiFetch(`api/aiprep/questions/${id}`, {
-      method: 'DELETE',
-    });
-    return true;
-  } catch (err: any) {
-    try {
-      await apiFetch(`api/aiprep/questions/${id}`, {
-        method: 'PATCH',
-        body: { is_active: false },
-      });
-      return true;
-    } catch {
-      console.error('Delete Question API Error:', err?.body?.detail || err.message);
-      const detail = err?.body?.detail;
-      throw new Error(typeof detail === 'string' ? detail : 'Failed to delete question from backend database.');
-    }
-  }
+  await apiFetch(`api/aiprep/questions/${id}`, {
+    method: 'DELETE',
+  } as any);
+  return true;
 }
