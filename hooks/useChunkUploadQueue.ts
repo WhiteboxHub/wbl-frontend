@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { aiprepApi } from '@/lib/aiprep-api';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 import type { ChunkStatus } from '@/types/aiprep';
 
 export interface ChunkQueueItem {
@@ -89,6 +90,7 @@ export function useChunkUploadQueue({
     setQueue([...queueRef.current]);
 
     try {
+      const uploadStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       await aiprepApi.uploadChunk(
         assessmentId,
         currentItem.chunkIndex,
@@ -96,6 +98,22 @@ export function useChunkUploadQueue({
         mediaType,
         currentItem.isFinal
       );
+      const uploadEndTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const durationMs = Math.max(1, Math.round(uploadEndTime - uploadStartTime));
+      const sizeBytes = currentItem.blob?.size || 0;
+      const durationSec = durationMs / 1000;
+      const bandwidthKbps = durationSec > 0 && sizeBytes > 0
+        ? Math.max(1, Math.round(((sizeBytes * 8) / durationSec) / 1000))
+        : 1;
+
+      try {
+        AIPrepTelemetry.trackWebRtcHealth({
+          assessment_id: assessmentId,
+          ping_ms: durationMs, // End-to-end proxy for latency
+          bandwidth_kbps: bandwidthKbps,
+        });
+      } catch (_) {}
+
 
       if (!isMountedRef.current) return;
 
@@ -157,7 +175,20 @@ export function useChunkUploadQueue({
       // Continue queue
       processQueue();
     }
-  }, [assessmentId, mediaType, maxRetries, onChunkUploaded, onQueueComplete, onUploadError]);
+  }, [
+    assessmentId,
+    mediaType,
+    maxRetries,
+    onChunkUploaded,
+    onQueueComplete,
+    onUploadError,
+    queueRef,
+    isProcessingRef,
+    isMountedRef,
+    setQueue,
+    setIsUploading,
+    performance,
+  ]);
 
   // Enqueue a chunk
   const enqueueChunk = useCallback(
@@ -187,7 +218,7 @@ export function useChunkUploadQueue({
       // Trigger queue processing
       processQueue();
     },
-    [processQueue]
+    [processQueue, queueRef, setQueue]
   );
 
   // Retry any failed chunks
@@ -205,7 +236,7 @@ export function useChunkUploadQueue({
       setQueue([...queueRef.current]);
       processQueue();
     }
-  }, [processQueue]);
+  }, [processQueue, queueRef, setQueue]);
 
   // Clear queue
   const clearQueue = useCallback(() => {
@@ -213,7 +244,7 @@ export function useChunkUploadQueue({
     setQueue([]);
     setIsUploading(false);
     isProcessingRef.current = false;
-  }, []);
+  }, [queueRef, isProcessingRef, setQueue, setIsUploading]);
 
   const totalChunks = queue.length;
   const uploadedChunks = queue.filter((i) => i.status === 'uploaded').length;
@@ -238,7 +269,7 @@ export function useChunkUploadQueue({
       }
       return false;
     },
-    []
+    [queueRef, isProcessingRef]
   );
 
   return {
