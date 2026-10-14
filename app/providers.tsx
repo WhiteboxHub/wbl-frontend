@@ -53,7 +53,7 @@ function PostHogPageView() {
     } catch (err) {
       console.warn("[PostHogPageView] Failed to capture pageview:", err);
     }
-  }, [pathname]);
+  }, [pathname, isAiPrepRoute]);
 
   return null;
 }
