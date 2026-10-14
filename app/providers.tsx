@@ -8,16 +8,47 @@ import { PostHogProvider } from "posthog-js/react";
 import { AIPrepTelemetry } from "@/lib/telemetry";
 
 
+export function isAiPrepRoute(pathname: string | null | undefined): boolean {
+  return AIPrepTelemetry.isAiPrepRoute(pathname);
+}
+
 function PostHogPageView() {
   const pathname = usePathname();
 
   useEffect(() => {
     if (!pathname || typeof window === "undefined") return;
-    if (typeof posthog === "undefined" || !(posthog as any)?.__loaded) return;
+
+    // Strict route gating: only proceed on AI Prep routes
+    if (!isAiPrepRoute(pathname)) return;
+
+    // Ensure AI Prep telemetry listeners are attached on client-side navigation to AI Prep routes
+    if (!(window as any).__aiprep_telemetry_init) {
+      try {
+        AIPrepTelemetry.initGlobalErrorListeners();
+        AIPrepTelemetry.initUxFrictionTracker();
+        AIPrepTelemetry.initCoreWebVitalsTracker();
+        (window as any).__aiprep_telemetry_init = true;
+      } catch (err) {
+        console.warn("[PostHogPageView] Telemetry listeners initialization failed:", err);
+      }
+    }
+
+    if (
+      typeof posthog === "undefined" ||
+      typeof posthog.capture !== "function" ||
+      !(posthog as any)?.__loaded
+    ) {
+      return;
+    }
 
     try {
+      const currentUrl =
+        typeof window !== "undefined"
+          ? window.location.href
+          : pathname;
       posthog.capture("$pageview", {
-        $current_url: `${window.location.origin}${pathname}`,
+        $current_url: currentUrl,
+        $pathname: pathname,
       });
     } catch (err) {
       console.warn("[PostHogPageView] Failed to capture pageview:", err);
@@ -119,11 +150,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Route-scoped telemetry: only attach listeners on AI Prep routes
+      // Route-scoped telemetry: only attach listeners on AI Prep routes (excluding reports)
       if (typeof window !== "undefined" && !(window as any).__aiprep_telemetry_init) {
         const currentPath = window.location.pathname;
-        const isAiPrepRoute = currentPath.includes('/aiprep') || currentPath.includes('/user_dashboard/ai-prep');
-        if (isAiPrepRoute) {
+        if (AIPrepTelemetry.isAiPrepRoute(currentPath)) {
           try {
             AIPrepTelemetry.initGlobalErrorListeners();
             AIPrepTelemetry.initUxFrictionTracker();
