@@ -13,6 +13,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
+import { AIPrepTelemetry } from '@/lib/telemetry';
+import { PracticeAction } from '@/types/telemetry';
 import {
   Mic,
   Video,
@@ -99,6 +101,17 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
   // Hardcoded sample prompt (no API fetch needed for practice)
   const sampleQuestion = 'Speak something — introduce yourself or describe a recent challenge you solved. This is just a practice run.';
+
+  // Track practice step entered
+  useEffect(() => {
+    AIPrepTelemetry.trackPracticePage({
+      action: PracticeAction.PRACTICE_ENTERED,
+      assessment_type: assessmentType,
+      mode: modeVariant,
+      video_enabled: videoEnabled,
+      video_analytics_enabled: videoAnalyticsEnabled,
+    });
+  }, [videoEnabled, videoAnalyticsEnabled, modeVariant, assessmentType]);
 
   // High-Speed Vision Tracking Loop (~25 FPS) for VIDEO_ANALYTICS mode
   useEffect(() => {
@@ -329,6 +342,12 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       setIsRecording(true);
       recordTimeRef.current = 0;
       setRecordTime(0);
+      AIPrepTelemetry.trackPracticePage({
+        action: PracticeAction.RECORDING_STARTED,
+        mode: modeVariant,
+        video_enabled: videoEnabled,
+        video_analytics_enabled: videoAnalyticsEnabled,
+      });
 
       const timer = setInterval(() => {
         setRecordTime((prev) => {
@@ -364,6 +383,13 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     setTotalDuration(finalSec);
     setPlaybackTime(0);
     setActiveView('PLAYBACK');
+    AIPrepTelemetry.trackPracticePage({
+      action: PracticeAction.RECORDING_FINISHED,
+      mode: modeVariant,
+      video_enabled: videoEnabled,
+      video_analytics_enabled: videoAnalyticsEnabled,
+      duration_seconds: finalSec,
+    });
   };
 
   // ── Playback Controls ──────────────────────────────────────────────────────
@@ -382,7 +408,15 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     const mediaEl = getActiveMediaEl();
     if (mediaEl) {
       mediaEl.volume = isMuted ? 0 : volume;
-      mediaEl.play().then(() => setIsPlaying(true)).catch((e) => console.warn('Play error:', e));
+      mediaEl.play().then(() => {
+        setIsPlaying(true);
+        AIPrepTelemetry.trackPracticePage({
+          action: PracticeAction.PLAYBACK_STARTED,
+          mode: modeVariant,
+          video_enabled: videoEnabled,
+          video_analytics_enabled: videoAnalyticsEnabled,
+        });
+      }).catch((e) => console.warn('Play error:', e));
     }
   };
 
@@ -447,10 +481,38 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // ── Skip Practice Helper ──────────────────────────────────────────────────
+  const handleSkipPractice = async () => {
+    if (isRecording || isLaunching) return;
+    setIsLaunching(true);
+    AIPrepTelemetry.trackPracticePage({
+      action: PracticeAction.PRACTICE_SKIPPED,
+      assessment_type: assessmentType,
+      mode: modeVariant,
+      reason: 'candidate_chose_skip',
+    });
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (audioPlaybackRef.current) audioPlaybackRef.current.pause();
+      if (videoPlaybackRef.current) videoPlaybackRef.current.pause();
+      await onStartAssessment();
+    } catch (err) {
+      console.error('[PracticeStep] Skip practice failed:', err);
+      setIsLaunching(false);
+    }
+  };
+
   // ── Launch Assessment / Teardown Helper ──────────────────────────────────
   const handleLaunchAssessment = async () => {
     if (isRecording || isLaunching) return;
     setIsLaunching(true);
+    AIPrepTelemetry.trackPracticePage({
+      action: PracticeAction.ASSESSMENT_LAUNCHED,
+      assessment_type: assessmentType,
+      mode: modeVariant,
+    });
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
@@ -1037,11 +1099,11 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         </button>
 
         <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Skip Practice — only visible before practice recording starts; once recording is completed/stopped, only Start Assessment is shown */}
+          {/* Skip Practice — only visible before practice recording starts */}
           {!isRecording && !testAudioUrl && (
             <button
               type="button"
-              onClick={handleLaunchAssessment}
+              onClick={handleSkipPractice}
               disabled={isLaunching}
               className={`px-5 sm:px-6 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 ${
                 isLaunching
