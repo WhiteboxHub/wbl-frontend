@@ -405,9 +405,26 @@ function getTranscriptDuration(report: NormalizedReport): string {
   const assessment = report.assessment;
   let totalSec: number | null = null;
 
-  const dataRec = assessment.data as any;
-  if (dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
+  const dataRec = (assessment?.data || (report as any)?.data || report) as any;
+  const audioTel =
+    report.audio_telemetry ||
+    dataRec?.audio_telemetry ||
+    (assessment as any)?.audio_telemetry;
+
+  if (audioTel?.speaking_duration_seconds != null) {
+    const sec = Number(audioTel.speaking_duration_seconds);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+  if (!totalSec && audioTel?.speaking_duration_sec != null) {
+    const sec = Number(audioTel.speaking_duration_sec);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+  if (!totalSec && audioTel?.total_audio_duration_seconds != null) {
+    const sec = Number(audioTel.total_audio_duration_seconds);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+  if (!totalSec && report.audio?.recording_environment?.speaking_duration_seconds != null) {
+    const sec = Number(report.audio.recording_environment.speaking_duration_seconds);
     if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
   }
   if (!totalSec && (assessment as any)?.duration_seconds != null) {
@@ -415,10 +432,13 @@ function getTranscriptDuration(report: NormalizedReport): string {
     if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
   }
   if (!totalSec && report.transcript?.segments && report.transcript.segments.length > 0) {
-    const segs = report.transcript.segments;
-    const lastSeg = segs[segs.length - 1];
-    if (lastSeg.timestamp_s != null && lastSeg.timestamp_s > 0) {
-      totalSec = Math.round(lastSeg.timestamp_s);
+    for (const seg of report.transcript.segments) {
+      const endVal = Number((seg as any)?.end_s ?? (seg as any)?.end ?? (seg as any)?.timestamp_s ?? (seg as any)?.start_s ?? (seg as any)?.start);
+      if (!isNaN(endVal) && endVal > 0) {
+        if (totalSec == null || endVal > totalSec) {
+          totalSec = Math.round(endVal);
+        }
+      }
     }
   }
   if (!totalSec && report.transcript?.full_text) {
@@ -1587,6 +1607,38 @@ function TranscriptModal({
 
   const transcriptDuration = getTranscriptDuration(report);
 
+  const wordCount = (() => {
+    if (typeof report.transcript?.word_count === "number" && report.transcript.word_count > 0) {
+      return report.transcript.word_count;
+    }
+    const tel = report.audio_telemetry || (report.assessment?.data as any)?.audio_telemetry;
+    if (typeof tel?.word_count === "number" && tel.word_count > 0) {
+      return tel.word_count;
+    }
+    if (fullParagraphText) {
+      return fullParagraphText.split(/\s+/).filter(Boolean).length;
+    }
+    return 0;
+  })();
+
+  const wpm = (() => {
+    const tel = report.audio_telemetry || (report.assessment?.data as any)?.audio_telemetry;
+    if (typeof tel?.words_per_minute === "number" && tel.words_per_minute > 0) {
+      return Math.round(tel.words_per_minute);
+    }
+    if (typeof tel?.wpm === "number" && tel.wpm > 0) {
+      return Math.round(tel.wpm);
+    }
+    if (typeof tel?.speaking_pace_wpm === "number" && tel.speaking_pace_wpm > 0) {
+      return Math.round(tel.speaking_pace_wpm);
+    }
+    const durationSec = Number(tel?.speaking_duration_seconds ?? tel?.speaking_duration_sec ?? 0);
+    if (wordCount > 0 && durationSec > 10) {
+      return Math.round((wordCount / durationSec) * 60);
+    }
+    return undefined;
+  })();
+
   const handleCopyTranscript = () => {
     if (fullParagraphText) {
       navigator.clipboard.writeText(fullParagraphText);
@@ -1605,9 +1657,21 @@ function TranscriptModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base">Full Assessment Transcript</h3>
-              {transcriptDuration && (
-                <p className="text-xs text-slate-500">Duration: {transcriptDuration}</p>
-              )}
+              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                {transcriptDuration && <span>Duration: {transcriptDuration}</span>}
+                {transcriptDuration && wordCount > 0 && <span>•</span>}
+                {wordCount > 0 && (
+                  <span className="font-semibold text-slate-700">
+                    {wordCount} words spoken
+                  </span>
+                )}
+                {wpm != null && wpm > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-slate-600">{wpm} WPM</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -1803,6 +1867,24 @@ export function ReportHeader({
 
   const durationStr = getTranscriptDuration(report) || undefined;
 
+  const totalWords = (() => {
+    if (typeof report.transcript?.word_count === "number" && report.transcript.word_count > 0) {
+      return report.transcript.word_count;
+    }
+    const tel = report.audio_telemetry || (report.assessment?.data as any)?.audio_telemetry;
+    if (typeof tel?.word_count === "number" && tel.word_count > 0) {
+      return tel.word_count;
+    }
+    const raw = report.transcript?.full_text?.trim() || "";
+    if (raw) {
+      return raw.split(/\s+/).filter(Boolean).length;
+    }
+    if (report.transcript?.segments && report.transcript.segments.length > 0) {
+      return report.transcript.segments.map((s) => s.text).join(" ").split(/\s+/).filter(Boolean).length;
+    }
+    return undefined;
+  })();
+
   const typeStr =
     assessment.assessment_type === "INTRO"
       ? "Introductory"
@@ -1848,13 +1930,19 @@ export function ReportHeader({
               <User size={12} className="text-slate-400" />
               Candidate: {candidateName}
             </span>
-            {(completedDateStr || durationStr || typeStr) && <span className="text-slate-300">|</span>}
+            {(completedDateStr || durationStr || totalWords || typeStr) && <span className="text-slate-300">|</span>}
           </>
         )}
         {completedDateStr && <span>Completed on: {completedDateStr}</span>}
-        {completedDateStr && (durationStr || typeStr) && <span className="text-slate-300">|</span>}
+        {completedDateStr && (durationStr || totalWords || typeStr) && <span className="text-slate-300">|</span>}
         {durationStr && <span>Duration: {durationStr}</span>}
-        {durationStr && typeStr && <span className="text-slate-300">|</span>}
+        {durationStr && (totalWords || typeStr) && <span className="text-slate-300">|</span>}
+        {totalWords && (
+          <span className="font-semibold text-slate-700">
+            Total Words: {totalWords}
+          </span>
+        )}
+        {totalWords && typeStr && <span className="text-slate-300">|</span>}
         {typeStr && <span>Type: {typeStr}</span>}
       </div>
 

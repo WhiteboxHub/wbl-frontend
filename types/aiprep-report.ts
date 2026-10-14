@@ -120,6 +120,7 @@ export interface TranscriptSegment {
   speaker?: string;
   timestamp?: string;     // display timestamp e.g. "00:48"
   timestamp_s?: number;   // numeric seconds for video seeking
+  end_s?: number;         // numeric seconds for segment end
   text: string;
 }
 
@@ -324,8 +325,12 @@ export interface NormalizedReport {
   // ── Transcript (from data.transcript) ──
   transcript: {
     full_text?: string;
+    word_count?: number;
     segments: TranscriptSegment[];
   };
+
+  // ── Audio Telemetry (speaking duration, words per minute, etc.) ──
+  audio_telemetry?: Record<string, any>;
 
   // ── Transcript evidence (from transcript_evidence_json) ──
   transcript_evidence: TranscriptEvidence[];
@@ -358,14 +363,24 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       const s = asRecord(item);
       const text = asStr(s.text) ?? asStr(s.content) ?? "";
       if (!text) return null;
-      const ts = asStr(s.timestamp) ?? asStr(s.start_time);
       const ts_s =
         typeof s.timestamp_s === "number" ? s.timestamp_s :
-        typeof s.start_s === "number" ? s.start_s : undefined;
+        typeof s.start_s === "number" ? s.start_s :
+        typeof s.start === "number" ? s.start : undefined;
+      const end_s =
+        typeof s.end_s === "number" ? s.end_s :
+        typeof s.end === "number" ? s.end : undefined;
+      let ts = asStr(s.timestamp) ?? asStr(s.start_time);
+      if (!ts && ts_s != null && !isNaN(ts_s)) {
+        const m = Math.floor(ts_s / 60);
+        const sec = Math.floor(ts_s % 60);
+        ts = `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+      }
       return {
         speaker: asStr(s.speaker) ?? asStr(s.role),
         timestamp: ts,
         timestamp_s: ts_s,
+        end_s: end_s,
         text,
       };
     })
@@ -385,7 +400,14 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       .trim();
   }
 
-  return { full_text, segments };
+  const word_count =
+    typeof rec.word_count === "number" && rec.word_count > 0
+      ? rec.word_count
+      : full_text
+        ? full_text.split(/\s+/).filter(Boolean).length
+        : 0;
+
+  return { full_text, word_count, segments };
 }
 
 function parseAudio(raw: unknown): NormalizedReport["audio"] | undefined {
@@ -957,6 +979,15 @@ export function normalizeReport(
         ? (assessment as any).save_transcript
         : true;
 
+  const rawAudioTelemetry = asRecord(
+    (data as any)?.audio_telemetry ??
+    asRecord(assessment.data).audio_telemetry ??
+    (assessment as any)?.audio_telemetry ??
+    (apiReport as any)?.audio_telemetry ??
+    nested(repData, "audio_telemetry") ??
+    {}
+  );
+
   const overallReadiness =
     asStr(scoresRaw.overall_band) ??
     asStr(overallAssessment.readiness);
@@ -1055,6 +1086,7 @@ export function normalizeReport(
     gaps_to_validate,
     transcript: consentSaveTranscript ? transcript : { full_text: "", segments: [] },
     transcript_evidence: consentSaveTranscript ? transcript_evidence : [],
+    audio_telemetry: Object.keys(rawAudioTelemetry).length > 0 ? rawAudioTelemetry : undefined,
     insufficient_content: insufficientContent,
     consent: {
       save_recording: consentSaveRecording,

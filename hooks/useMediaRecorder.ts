@@ -74,14 +74,16 @@ export function useMediaRecorder({
   const [error, setError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const elapsedTimerRef = useRef<NodeJS.Timeout | null>(null);    // 1-second elapsed time ticker
+  const chunkSliceTimerRef = useRef<NodeJS.Timeout | null>(null); // 30-second chunk-slice timer
   const chunkIndexRef = useRef<number>(0);
   const isFinalizingRef = useRef<boolean>(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const stopResolveRef = useRef<(() => void) | null>(null); // resolves stopRecording() promise
 
   const isVideoMode = mediaType !== 'AUDIO' && mediaType !== 'AUDIO_ONLY';
 
-  // Release stream tracks
+  // ─── Stream helpers ────────────────────────────────────────────────────────
   const cleanupStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -90,17 +92,24 @@ export function useMediaRecorder({
     }
   }, []);
 
-  // Clear timer
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+  const stopElapsedTimer = useCallback(() => {
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
     }
   }, []);
 
-  // Full cleanup
+  const clearChunkSliceTimer = useCallback(() => {
+    if (chunkSliceTimerRef.current) {
+      clearTimeout(chunkSliceTimerRef.current);
+      chunkSliceTimerRef.current = null;
+    }
+  }, []);
+
   const cleanup = useCallback(() => {
-    stopTimer();
+    stopElapsedTimer();
+    clearChunkSliceTimer();
+    isFinalizingRef.current = true; // Prevent onstop from restarting a new segment
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
         mediaRecorderRef.current.stop();
@@ -108,7 +117,7 @@ export function useMediaRecorder({
     }
     cleanupStream();
     setStatus('idle');
-  }, [cleanupStream, stopTimer]);
+  }, [cleanupStream, stopElapsedTimer, clearChunkSliceTimer]);
 
   useEffect(() => {
     return () => {
@@ -116,22 +125,126 @@ export function useMediaRecorder({
     };
   }, [cleanup]);
 
-  // Start timer interval
-  const startTimer = useCallback(() => {
-    stopTimer();
-    timerRef.current = setInterval(() => {
+  const startElapsedTimer = useCallback(() => {
+    stopElapsedTimer();
+    elapsedTimerRef.current = setInterval(() => {
       setElapsedTime((prev) => prev + 1);
     }, 1000);
-  }, [stopTimer]);
+  }, [stopElapsedTimer]);
 
-  // Start Recording with 30s chunks
+  // ─── Core: per-segment recorder ────────────────────────────────────────────
+  /**
+   * Creates and starts a single MediaRecorder segment on the given stream.
+   *
+   * IMPORTANT — WHY stop/restart instead of timeslice (recorder.start(30000)):
+   *
+   * Browser MediaRecorder timeslice mode:
+   *   chunk_0 → [EBML header] + [Tracks] + [Cluster @ 0s]    ← complete WebM
+   *   chunk_1 → [Cluster @ 30s]                               ← raw data, NO header
+   *   chunk_2 → [Cluster @ 60s]                               ← raw data, NO header
+   *
+   * When the backend runs  cat chunk_*.webm | ffmpeg -f webm -i pipe:0 audio.wav
+   * FFmpeg hits non-monotonic cluster timestamps at every 30s boundary and drops
+   * those frames — the root cause of 20-25s of missing speech per boundary.
+   *
+   * stop/restart mode:
+   *   chunk_0 → [EBML header] + [Tracks] + [Cluster 0-30s]   ← complete standalone WebM
+   *   chunk_1 → [EBML header] + [Tracks] + [Cluster 0-30s]   ← complete standalone WebM
+   *   chunk_2 → [EBML header] + [Tracks] + [Cluster 0-30s]   ← complete standalone WebM
+   *
+   * Each chunk is decoded independently by FFmpeg with zero boundary frame loss.
+   * The clean decoded audio (16kHz mono WAV) from each chunk is concatenated on
+   * the backend for a complete, gap-free transcript.
+   */
+  const startSegment = useCallback(
+    (activeStream: MediaStream) => {
+      if (!activeStream || !activeStream.active) return;
+
+      const mimeType = getSupportedMimeType(isVideoMode);
+      const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(activeStream, options);
+      } catch (err: any) {
+        const message = err?.message || 'Failed to create MediaRecorder';
+        setError(message);
+        setStatus('error');
+        if (onError) onError(err);
+        return;
+      }
+
+      mediaRecorderRef.current = recorder;
+
+      // ondataavailable fires once when recorder.stop() is called.
+      // event.data is the COMPLETE, self-contained WebM blob for this segment.
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          const currentIdx = chunkIndexRef.current;
+          chunkIndexRef.current += 1;
+          setChunkIndex(chunkIndexRef.current);
+
+          const isFinal = isFinalizingRef.current;
+          console.log(
+            `[MediaRecorder] Segment #${currentIdx} complete (${Math.round(event.data.size / 1024)} KB, isFinal: ${isFinal})`
+          );
+          if (onChunkReady) {
+            onChunkReady(event.data, currentIdx, isFinal);
+          }
+        }
+      };
+
+      // onstop fires after ondataavailable.
+      // If the user has not ended the session, immediately start the next segment.
+      recorder.onstop = () => {
+        clearChunkSliceTimer();
+        if (isFinalizingRef.current) {
+          // User clicked "End Session" — resolve the stopRecording() promise.
+          setStatus('stopped');
+          cleanupStream();
+          if (stopResolveRef.current) {
+            stopResolveRef.current();
+            stopResolveRef.current = null;
+          }
+        } else if (streamRef.current && streamRef.current.active) {
+          // Auto-slice: chain immediately into the next 30-second segment.
+          startSegment(streamRef.current);
+        }
+      };
+
+      recorder.onerror = () => {
+        const err = new Error('MediaRecorder execution error');
+        setError(err.message);
+        setStatus('error');
+        if (onError) onError(err);
+      };
+
+      // Start with NO timeslice — the recorder captures continuously until stop().
+      // stop() causes the browser to finalise the WebM container properly.
+      recorder.start();
+
+      // Schedule the auto-stop after chunkDurationMs to slice the next chunk.
+      chunkSliceTimerRef.current = setTimeout(() => {
+        if (
+          mediaRecorderRef.current &&
+          mediaRecorderRef.current.state === 'recording' &&
+          !isFinalizingRef.current
+        ) {
+          mediaRecorderRef.current.stop(); // triggers ondataavailable → onstop → startSegment
+        }
+      }, chunkDurationMs);
+    },
+    [isVideoMode, chunkDurationMs, onChunkReady, onError, cleanupStream, clearChunkSliceTimer]
+  );
+
+  // ─── Public API ────────────────────────────────────────────────────────────
+
   const startRecording = useCallback(
     async (customStream?: MediaStream) => {
       try {
         setError(null);
         let activeStream = customStream || streamRef.current;
 
-        // Obtain media stream if not provided
         if (!activeStream || !activeStream.active) {
           const constraints: MediaStreamConstraints = isVideoMode
             ? {
@@ -160,40 +273,16 @@ export function useMediaRecorder({
           setStream(activeStream);
         }
 
-        const mimeType = getSupportedMimeType(isVideoMode);
-        const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
-
-        const recorder = new MediaRecorder(activeStream, options);
-        mediaRecorderRef.current = recorder;
         chunkIndexRef.current = 0;
         isFinalizingRef.current = false;
+        stopResolveRef.current = null;
         setChunkIndex(0);
         setElapsedTime(0);
-
-        recorder.ondataavailable = (event: BlobEvent) => {
-          if (event.data && event.data.size > 0) {
-            const currentIdx = chunkIndexRef.current;
-            chunkIndexRef.current += 1;
-            setChunkIndex(chunkIndexRef.current);
-
-            const isFinal = isFinalizingRef.current;
-            if (onChunkReady) {
-              onChunkReady(event.data, currentIdx, isFinal);
-            }
-          }
-        };
-
-        recorder.onerror = (evt: Event) => {
-          const err = new Error('MediaRecorder execution error');
-          setError(err.message);
-          setStatus('error');
-          if (onError) onError(err);
-        };
-
-        // Start timeslice chunking every chunkDurationMs (30s)
-        recorder.start(chunkDurationMs);
         setStatus('recording');
-        startTimer();
+        startElapsedTimer();
+
+        // Kick off the first segment; subsequent segments self-chain via onstop.
+        startSegment(activeStream);
       } catch (err: any) {
         const message = err?.message || 'Failed to start media recorder';
         setError(message);
@@ -202,57 +291,60 @@ export function useMediaRecorder({
         cleanup();
       }
     },
-    [isVideoMode, chunkDurationMs, onChunkReady, onError, startTimer, cleanup]
+    [isVideoMode, onError, startElapsedTimer, startSegment, cleanup]
   );
 
-  // Pause Recording
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.pause();
-      stopTimer();
+      stopElapsedTimer();
+      clearChunkSliceTimer(); // Pause the slice timer too
       setStatus('paused');
     }
-  }, [stopTimer]);
+  }, [stopElapsedTimer, clearChunkSliceTimer]);
 
-  // Resume Recording
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
       mediaRecorderRef.current.resume();
-      startTimer();
+      startElapsedTimer();
+      // Give a fresh full chunkDurationMs window after resume
+      chunkSliceTimerRef.current = setTimeout(() => {
+        if (
+          mediaRecorderRef.current &&
+          mediaRecorderRef.current.state === 'recording' &&
+          !isFinalizingRef.current
+        ) {
+          mediaRecorderRef.current.stop();
+        }
+      }, chunkDurationMs);
       setStatus('recording');
     }
-  }, [startTimer]);
+  }, [startElapsedTimer, chunkDurationMs]);
 
-  // Stop Recording
+  /**
+   * Stops recording and waits for the final chunk to be delivered.
+   * Sets isFinalizingRef so that onstop does NOT restart a new segment.
+   * The promise resolves only after onstop fires and the final chunk is emitted.
+   */
   const stopRecording = useCallback(async (): Promise<void> => {
     return new Promise((resolve) => {
-      stopTimer();
+      stopElapsedTimer();
+      clearChunkSliceTimer();
       isFinalizingRef.current = true;
+      stopResolveRef.current = resolve;
 
       if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
         setStatus('stopped');
         cleanupStream();
         resolve();
+        stopResolveRef.current = null;
         return;
       }
 
-      mediaRecorderRef.current.onstop = () => {
-        setStatus('stopped');
-        cleanupStream();
-        resolve();
-      };
-
-      try {
-        // Requests any remaining buffer to fire in ondataavailable as final chunk
-        mediaRecorderRef.current.requestData();
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        setStatus('stopped');
-        cleanupStream();
-        resolve();
-      }
+      // stop() → ondataavailable (final blob, isFinal=true) → onstop → resolve()
+      mediaRecorderRef.current.stop();
     });
-  }, [stopTimer, cleanupStream]);
+  }, [cleanupStream, stopElapsedTimer, clearChunkSliceTimer]);
 
   return {
     status,
@@ -267,4 +359,5 @@ export function useMediaRecorder({
     cleanup,
   };
 }
+
 export default useMediaRecorder;

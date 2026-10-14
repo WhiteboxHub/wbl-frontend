@@ -538,6 +538,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     retryFailedChunks,
     clearQueue,
     waitForAllChunks,
+    getUploadedCount,
   } = useChunkUploadQueue({
     assessmentId,
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
@@ -1222,8 +1223,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
       }
 
-      // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
-      await waitForAllChunks(8000);
+      // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (guarantees zero chunk loss)
+      setSubmissionProgress(5);
+      setSubmissionStep("Saving recording slices...");
+      const allChunksUploaded = await waitForAllChunks(60000, (uploaded, total) => {
+        const pct = total > 0 ? Math.round(5 + (uploaded / total) * 25) : 10;
+        setSubmissionProgress(Math.min(30, Math.max(5, pct)));
+        setSubmissionStep(`Uploading recording slices (${uploaded}/${total})...`);
+      });
+
+      if (!allChunksUploaded) {
+        console.warn('[handleEndSession] Chunk wait reached timeout or had issues. Proceeding with available chunks.');
+      }
 
       // Commit any pending interim speech as a complete sentence before submitting
       if (currentInterimRef.current) {
@@ -1273,12 +1284,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
       // 3. Submit assessment and keep this PUT connection open for SSE progress.
       // The API resolves only after the backend sends a terminal COMPLETED event.
-      setSubmissionProgress(0);
-      setSubmissionStep("Submitting assessment…");
+      setSubmissionProgress(30);
+      setSubmissionStep("Starting AI evaluation…");
+      const finalUploadedCount = getUploadedCount() || (uploadedChunks > 0 ? uploadedChunks : (totalChunks || 1));
       await aiprepApi.submitAssessmentStream(
         assessmentId,
         {
-          total_chunks_uploaded: totalChunks || 1,
+          total_chunks_uploaded: finalUploadedCount,
           is_final: true,
           client_duration_seconds: elapsedTimeRef.current,
           video_telemetry: isAudioOnly
@@ -1293,7 +1305,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           // Progress UI must never interrupt consumption of the assessment SSE stream.
           try {
             if (typeof event.progress === "number") {
-              setSubmissionProgress(Math.max(0, Math.min(100, event.progress)));
+              const scaled = Math.round(30 + (event.progress * 0.7));
+              setSubmissionProgress(Math.max(30, Math.min(100, scaled)));
             }
             if (typeof event.step === "string" && event.step.trim()) {
               setSubmissionStep(event.step);

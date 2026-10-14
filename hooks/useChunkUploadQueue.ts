@@ -33,7 +33,11 @@ export interface UseChunkUploadQueueReturn {
   enqueueChunk: (blob: Blob, chunkIndex: number, isFinal?: boolean) => void;
   retryFailedChunks: () => void;
   clearQueue: () => void;
-  waitForAllChunks: (maxWaitMs?: number) => Promise<boolean>;
+  waitForAllChunks: (
+    maxWaitMs?: number,
+    onProgress?: (uploaded: number, total: number) => void
+  ) => Promise<boolean>;
+  getUploadedCount: () => number;
 }
 
 export function useChunkUploadQueue({
@@ -224,22 +228,64 @@ export function useChunkUploadQueue({
 
   // Wait for all queued and in-flight chunks to finish uploading
   const waitForAllChunks = useCallback(
-    async (maxWaitMs: number = 8000): Promise<boolean> => {
+    async (
+      maxWaitMs: number = 60000,
+      onProgress?: (uploaded: number, total: number) => void
+    ): Promise<boolean> => {
       const start = Date.now();
       while (Date.now() - start < maxWaitMs) {
+        const total = queueRef.current.length;
+        const uploaded = queueRef.current.filter((i) => i.status === 'uploaded').length;
+        if (onProgress && total > 0) {
+          onProgress(uploaded, total);
+        }
+
         const hasPending = queueRef.current.some(
           (i) => i.status === 'queued' || i.status === 'uploading'
         );
-        if (!hasPending && !isProcessingRef.current) {
+        const hasFinalUploaded = queueRef.current.some(
+          (i) => i.isFinal && i.status === 'uploaded'
+        );
+
+        if (!hasPending && !isProcessingRef.current && hasFinalUploaded) {
           const hasFailures = queueRef.current.some((i) => i.status === 'failed');
-          return !hasFailures;
+          if (hasFailures) {
+            // Auto-retry failed chunks once more during drain
+            retryFailedChunks();
+            await new Promise((r) => setTimeout(r, 500));
+            continue;
+          }
+          if (onProgress && total > 0) {
+            onProgress(uploaded, total);
+          }
+          return true;
         }
+
+        // Trigger queue processing if idle but items are queued
+        if (!isProcessingRef.current && queueRef.current.some((i) => i.status === 'queued')) {
+          processQueue();
+        }
+
         await new Promise((r) => setTimeout(r, 200));
       }
-      return false;
+
+      // Final status check after timeout
+      const finalTotal = queueRef.current.length;
+      const finalUploaded = queueRef.current.filter((i) => i.status === 'uploaded').length;
+      if (onProgress && finalTotal > 0) {
+        onProgress(finalUploaded, finalTotal);
+      }
+      const hasPending = queueRef.current.some(
+        (i) => i.status === 'queued' || i.status === 'uploading'
+      );
+      return !hasPending && !isProcessingRef.current && finalUploaded === finalTotal;
     },
-    []
+    [processQueue, retryFailedChunks]
   );
+
+  const getUploadedCount = useCallback(() => {
+    return queueRef.current.filter((i) => i.status === 'uploaded').length;
+  }, []);
 
   return {
     queue,
@@ -253,6 +299,7 @@ export function useChunkUploadQueue({
     retryFailedChunks,
     clearQueue,
     waitForAllChunks,
+    getUploadedCount,
   };
 }
 export default useChunkUploadQueue;
