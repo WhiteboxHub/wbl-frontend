@@ -127,7 +127,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={`${poppins.className} dark:bg-black overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
+      <body suppressHydrationWarning className={`${poppins.className} dark:bg-black overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>

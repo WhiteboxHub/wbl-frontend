@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   FileText,
@@ -16,6 +16,7 @@ import {
 import { AssessmentType } from '@/types/aiprep';
 import { ASSESSMENT_INFO_DETAILS } from './assessment-details';
 import { AssessmentInfoModal } from './AssessmentInfoModal';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 
 export const SUPPORTED_ASSESSMENT_TYPES: AssessmentType[] = [
   'INTRO',
@@ -212,13 +213,32 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   const [isJdModalOpen, setIsJdModalOpen] = useState(false);
   const [showJdError, setShowJdError] = useState(false);
 
+  // Track Catalog Mount
+  useEffect(() => {
+    AIPrepTelemetry.trackAssessmentSelectionPage(AIPrepTelemetry.getResolvedCandidateId(), SUPPORTED_ASSESSMENT_TYPES);
+  }, [SUPPORTED_ASSESSMENT_TYPES]);
+
   const handleTypeSelect = (type: AssessmentType, isLocked?: boolean) => {
+    const card = DISPLAY_CARDS.find((c) => c.type === type);
+    AIPrepTelemetry.trackAssessmentSelected({
+      assessment_type: type,
+      source_page: 'assessment-type-selection',
+      is_locked: Boolean(isLocked),
+      duration: card?.duration,
+      lock_badge: card?.lockBadge,
+    });
+
     if (!isLocked) {
       setAssessmentType(type);
       if (type === 'JD_INTRO' && !jdText.trim()) {
         setIsJdModalOpen(true);
       }
     }
+  };
+
+  const handleInfoOpen = (type: AssessmentType) => {
+    AIPrepTelemetry.trackAssessmentInfoViewed(AIPrepTelemetry.getResolvedCandidateId(), type);
+    setInfoModalType(type);
   };
 
   const handleNextClick = () => {
@@ -342,6 +362,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
                     setShowJdError(true);
                     return;
                   }
+                  AIPrepTelemetry.trackJdAttached(AIPrepTelemetry.getResolvedCandidateId(), jdText.trim().length);
                   setIsJdModalOpen(false);
                 }}
               >

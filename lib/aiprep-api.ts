@@ -39,31 +39,6 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
         if (parsed?.id) return String(parsed.id);
       } catch {}
     }
-
-    // 3. Fallback to JWT access token payload
-    const token =
-      localStorage.getItem("access_token") ||
-      localStorage.getItem("token") ||
-      localStorage.getItem("auth_token");
-    if (token && token.includes(".")) {
-      try {
-        const base64Url = token.split(".")[1];
-        if (base64Url) {
-          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-          const pad = base64.length % 4;
-          const paddedBase64 = pad ? base64 + "=".repeat(4 - pad) : base64;
-          const jsonPayload = decodeURIComponent(
-            atob(paddedBase64)
-              .split("")
-              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-              .join("")
-          );
-          const payload = JSON.parse(jsonPayload);
-          if (payload?.candidate_id) return String(payload.candidate_id);
-          if (payload?.id) return String(payload.id);
-        }
-      } catch {}
-    }
   } catch {}
   return fallback;
 };
@@ -91,7 +66,7 @@ export const fetchAndCacheCandidateId = async (): Promise<string | number | null
     } finally {
       _userDashboardPromise = null;
     }
-    return null;
+    return getStoredCandidateId("") || null;
   })();
 
   return _userDashboardPromise;

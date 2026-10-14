@@ -23,6 +23,8 @@ import { useTheme } from 'next-themes';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
 import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
 import { ChunkedUploader } from '@/components/aiprep/ChunkedUploader';
+import { useAssessmentTelemetry } from '@/hooks/useAssessmentTelemetry';
+import { QuestionAction, SessionLifecycleStatus } from '@/types/telemetry';
 import {
   IconMicrophone,
   IconPlayerPlay,
@@ -225,6 +227,30 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [mediaType, setMediaType] = useState<MediaType>('AUDIO_ONLY');
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+
+  // Unique session ID per assessment attempt to avoid cross-attempt collisions in analytics (MEDIUM 2)
+  const attemptSessionId = React.useMemo(() => {
+    if (typeof window === 'undefined' || !assessmentId) return `session_${assessmentId || 'init'}_${Date.now()}`;
+    const storageKey = `aiprep_attempt_session_${assessmentId}`;
+    try {
+      let existing = window.sessionStorage.getItem(storageKey);
+      if (!existing) {
+        existing = `attempt_${assessmentId}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        window.sessionStorage.setItem(storageKey, existing);
+      }
+      return existing;
+    } catch (_) {
+      return `attempt_${assessmentId}_${Date.now()}`;
+    }
+  }, [assessmentId]);
+
+  // Observability & Telemetry Hook
+  const { recordQuestionAction, recordCompletion } = useAssessmentTelemetry({
+    assessmentId,
+    sessionId: attemptSessionId,
+    assessmentType,
+    totalQuestions: questions.length > 0 ? questions.length : undefined,
+  });
 
   // Maximum recording duration — 5 min for INTRO/JD_INTRO, 30 min for all other types
   // Derived via useMemo so it updates once assessmentType is resolved from the backend
@@ -1147,6 +1173,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
       // 1. Snapshot current question's live transcript
       const currentText = cleanTechnicalSpeech(liveTranscript).trim();
+
+      const activeQ = questions[currentQuestionIndex];
+      recordQuestionAction(
+        activeQ?.id || currentQuestionIndex,
+        currentQuestionIndex + 1,
+        currentText.length > 0 ? QuestionAction.QUESTION_ANSWERED : QuestionAction.QUESTION_SKIPPED
+      );
+
       setQuestionAnswers((prev) => ({
         ...prev,
         [currentQuestionIndex]: currentText || prev[currentQuestionIndex] || '',
@@ -1194,6 +1228,24 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }, 300);
     }
   };
+
+  const lastViewedQuestionIdRef = useRef<string | number | null>(null);
+
+  // Track question viewed (deduplicated by question ID to prevent duplicate view events on re-renders - MEDIUM 1)
+  useEffect(() => {
+    if (questions.length > 0) {
+      const activeQ = questions[currentQuestionIndex];
+      const qId = activeQ?.id ?? currentQuestionIndex;
+      if (lastViewedQuestionIdRef.current !== qId) {
+        lastViewedQuestionIdRef.current = qId;
+        recordQuestionAction(
+          qId,
+          currentQuestionIndex + 1,
+          QuestionAction.QUESTION_VIEWED
+        );
+      }
+    }
+  }, [currentQuestionIndex, questions, recordQuestionAction, lastViewedQuestionIdRef]);
 
   // ── Complete Session & Submit Telemetry to Pure Engines ─────────────────────
   const handleEndSession = async () => {
@@ -1312,7 +1364,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setSubmissionProgress(100);
       setSubmissionStep("Evaluation complete. Opening report…");
 
-      // 5. Clean up browser storage flags & queue
+      // 5. Record final assessment telemetry completion
+      recordCompletion(SessionLifecycleStatus.COMPLETED);
+
+      // 6. Clean up browser storage flags & queue
       clearQueue();
       if (typeof window !== 'undefined') {
         try {
@@ -1332,7 +1387,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         } catch (_) {}
       }
 
-      // 6. Transition directly to Evaluation page once response arrives
+      // 7. Transition directly to Evaluation page once response arrives
       const reportUrl = isEmbedded
         ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
         : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
@@ -2125,7 +2180,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </button>
               <button
                 type="button"
-                onClick={handleExitSession}
+                onClick={async () => {
+                  recordCompletion(SessionLifecycleStatus.ABANDONED);
+                  if (countdownIntervalRef.current && typeof window !== 'undefined') window.clearInterval(countdownIntervalRef.current);
+                  cleanupRecorder();
+                  clearQueue();
+                  try {
+                    if (assessmentId) {
+                      await aiprepApi.cancelAssessment(assessmentId);
+                    }
+                  } catch (e) {
+                    console.warn('Failed to cancel assessment on server:', e);
+                  }
+                  router.push(isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep');
+                }}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition-colors cursor-pointer"
               >
                 Exit Session
