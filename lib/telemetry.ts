@@ -31,7 +31,7 @@ export class AIPrepTelemetry {
     if (!pathname && typeof window !== 'undefined') {
       pathname = window.location.pathname;
     }
-    if (!pathname) return false;
+    if (!pathname || typeof pathname !== 'string') return false;
     const cleaned = pathname
       .split('?')[0]
       .split('#')[0]
@@ -39,20 +39,17 @@ export class AIPrepTelemetry {
       .toLowerCase()
       .replace(/\/+/g, '/');
 
+    const segments = cleaned.split('/').filter(Boolean);
+    if (segments.length === 0) return false;
+
     // Strictly exclude all report views and standalone summary dashboards
-    if (
-      cleaned.includes('/report') ||
-      cleaned.includes('/reports') ||
-      cleaned === '/report' ||
-      cleaned === '/reports'
-    ) {
+    if (segments.some((s) => s === 'report' || s === 'reports')) {
       return false;
     }
 
     return (
-      cleaned.startsWith('/aiprep') ||
-      cleaned.includes('/user_dashboard/ai-prep') ||
-      cleaned.includes('/user_dashboard/aiprep')
+      segments[0] === 'aiprep' ||
+      (segments[0] === 'user_dashboard' && (segments[1] === 'ai-prep' || segments[1] === 'aiprep'))
     );
   }
 
@@ -800,7 +797,13 @@ export class AIPrepTelemetry {
     if (typeof window === 'undefined') return;
 
     const pathname = window.location.pathname;
-    if (!this.isAiPrepRoute(pathname)) {
+
+    // Safety: ensure assessment completion is never dropped even if navigation to /report occurs
+    const isCompletionEvent = payload.events.some(
+      (e) => e.stage === 'ASSESSMENT_COMPLETION' || e.event_type === 'ASSESSMENT_COMPLETED' || e.event_type === 'ASSESSMENT_ABANDONED'
+    );
+
+    if (!isCompletionEvent && !this.isAiPrepRoute(pathname)) {
       return;
     }
 
@@ -827,6 +830,9 @@ export class AIPrepTelemetry {
     }
 
     const nowIso = new Date().toISOString();
+    const safeCurrentUrl = typeof window !== 'undefined' && window.location.origin
+      ? `${window.location.origin}${pathname}`
+      : pathname;
 
     payload.events.forEach((evt) => {
       this.eventSequence++;
@@ -851,6 +857,7 @@ export class AIPrepTelemetry {
         const eventProperties: Record<string, any> = {
           ...(cleanMeta || {}),
           distinct_id: distinctId,
+          $current_url: safeCurrentUrl,
           stage: evt.stage,
           status: evt.status,
           message: cleanMsg,
@@ -1291,8 +1298,8 @@ export class AIPrepTelemetry {
   }
 
   static trackApiFailure(endpoint: string, statusCode: number, errorMessage: string, candidateId?: number) {
-    // Only track failures for AI Prep endpoints or when on active AI Prep pages (excluding reports)
-    if (typeof window !== 'undefined' && !this.isAiPrepRoute() && !endpoint.includes('aiprep')) return;
+    // Only track failures when on active AI Prep pages (strictly excluding reports)
+    if (typeof window !== 'undefined' && !this.isAiPrepRoute()) return;
 
     this.sendToPostHog({
       candidate_id: candidateId,

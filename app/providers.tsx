@@ -12,6 +12,21 @@ export function isAiPrepRoute(pathname: string | null | undefined): boolean {
   return AIPrepTelemetry.isAiPrepRoute(pathname);
 }
 
+/**
+ * Strips query parameters, search strings, and hash fragments from a URL
+ * to prevent leaking PII, session tokens, or auth credentials to PostHog.
+ */
+export function sanitizeUrl(rawUrl?: string | null): string {
+  if (!rawUrl || typeof rawUrl !== "string") return "";
+  try {
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const parsed = new URL(rawUrl, base);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch (_) {
+    return rawUrl.split("?")[0].split("#")[0];
+  }
+}
+
 function PostHogPageView() {
   const pathname = usePathname();
 
@@ -44,16 +59,22 @@ function PostHogPageView() {
     try {
       const currentUrl =
         typeof window !== "undefined"
-          ? window.location.href
+          ? `${window.location.origin}${pathname}`
           : pathname;
+      const referrerUrl =
+        typeof document !== "undefined" && document.referrer
+          ? sanitizeUrl(document.referrer)
+          : undefined;
+
       posthog.capture("$pageview", {
         $current_url: currentUrl,
         $pathname: pathname,
+        ...(referrerUrl ? { $referrer: referrerUrl } : {}),
       });
     } catch (err) {
       console.warn("[PostHogPageView] Failed to capture pageview:", err);
     }
-  }, [pathname, isAiPrepRoute]);
+  }, [pathname]);
 
   return null;
 }
@@ -137,6 +158,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
               autocapture: false,
               advanced_disable_feature_flags: true,
               advanced_disable_feature_flags_on_first_load: true,
+              before_send: (event: any) => {
+                if (event && event.properties) {
+                  if (typeof event.properties.$current_url === "string") {
+                    event.properties.$current_url = sanitizeUrl(event.properties.$current_url);
+                  }
+                  if (typeof event.properties.$referrer === "string") {
+                    event.properties.$referrer = sanitizeUrl(event.properties.$referrer);
+                  }
+                  if (typeof event.properties.$initial_referrer === "string") {
+                    event.properties.$initial_referrer = sanitizeUrl(event.properties.$initial_referrer);
+                  }
+                  if (typeof event.properties.$initial_current_url === "string") {
+                    event.properties.$initial_current_url = sanitizeUrl(event.properties.$initial_current_url);
+                  }
+                }
+                return event;
+              },
               loaded: () => {
                 if (isSubscribed) {
                   setIsPostHogInitialized(true);
