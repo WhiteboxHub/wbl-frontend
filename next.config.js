@@ -28,7 +28,14 @@ const nextConfig = {
 
     return config;
   },
-
+  async rewrites() {
+    return [
+      {
+        source: "/aiprep/reports/:candidateId(\\d+)/:assessmentId",
+        destination: "/aiprep/reports/:assessmentId",
+      },
+    ];
+  },
 };
 
 

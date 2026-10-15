@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ClipboardCheck, LoaderCircle } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import type { AssessmentDetail } from "@/types/aiprep";
+import { getUserTeamRole } from "@/utils/auth";
 
 export default function AssessmentCard({
   assessmentId,
@@ -77,9 +78,18 @@ export default function AssessmentCard({
     <section className="bg-slate-50 py-4">
       <div className="mx-auto max-w-3xl">
         <button
-          onClick={() =>
-            onBack ? onBack() : router.push("/user_dashboard/aiprep")
-          }
+          onClick={() => {
+            if (onBack) {
+              onBack();
+              return;
+            }
+            const role = getUserTeamRole();
+            if (role === "employee" || role === "admin") {
+              router.push("/avatar/assessments");
+            } else {
+              router.push("/user_dashboard/aiprep");
+            }
+          }}
           className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600"
         >
           <ArrowLeft size={16} />

@@ -3,13 +3,12 @@ import { useMemo, useState, useEffect } from "react";
 import { ColDef } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
-import { SearchIcon, RefreshCw, Eye, X, ClipboardType, Copy, Check } from "lucide-react";
+import { SearchIcon, RefreshCw, Eye, X, ClipboardType, Copy } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
-import api from "@/lib/api";
-import { Loader } from "@/components/admin_ui/loader";
-import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+import { apiFetch } from "@/lib/api";
+import { invalidateCache } from "@/lib/apiCache";
 
 type CandidateCredential = {
   id: number;
@@ -42,16 +41,23 @@ export default function CandidateCredentialsPage() {
   const [data, setData] = useState<CandidateCredential[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState<string | null>(null);
   const [selectedResume, setSelectedResume] = useState<any | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (bust = false) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get("/candidates/credentials");
-      setData(response.data.data);
+      if (bust) invalidateCache("/candidates/credentials?page=1&limit=500");
+      const res = await apiFetch("/candidates/credentials?page=1&limit=500");
+      const rows = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.results)
+          ? res.results
+          : Array.isArray(res)
+            ? res
+            : [];
+      setData(rows);
     } catch (err: any) {
       console.error("Error fetching credentials:", err);
       setError(err.response?.data?.detail || "Failed to fetch candidate credentials");
@@ -76,8 +82,8 @@ export default function CandidateCredentialsPage() {
     );
   }, [data, searchTerm]);
 
-  const columnDefs: ColDef<CandidateCredential>[] = useMemo(
-    () => [
+
+  const columnDefs: ColDef<CandidateCredential>[] = [
       {
         field: "id",
         headerName: "ID",
@@ -89,6 +95,7 @@ export default function CandidateCredentialsPage() {
         field: "full_name",
         headerName: "Candidate Name",
         width: 180,
+        flex: 1,
         sortable: true,
         filter: "agTextColumnFilter",
       },
@@ -96,6 +103,7 @@ export default function CandidateCredentialsPage() {
         field: "email",
         headerName: "Email",
         width: 200,
+        flex: 1,
         sortable: true,
         filter: "agTextColumnFilter",
       },
@@ -152,22 +160,20 @@ export default function CandidateCredentialsPage() {
         sortable: true,
         valueFormatter: (params) => formatDate(params.value),
       },
-    ],
-    []
-  );
+    ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidate Credentials
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Combined view of candidates with both resumes and LLM API keys.
+            Combined view of candidates with LLM API keys.
           </p>
         </div>
-        <Button onClick={() => fetchData()} variant="outline" size="sm" className="gap-2 h-10 px-4 border-gray-200">
+        <Button onClick={() => fetchData(true)} variant="outline" size="sm" className="gap-2 h-10 px-4 border-gray-200">
           <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4 text-blue-600"} />
           Refresh
         </Button>
@@ -184,7 +190,7 @@ export default function CandidateCredentialsPage() {
             id="search"
             type="text"
             placeholder="Search by name, email, or provider..."
-            className="pl-10 h-10 border-gray-200 focus:ring-blue-500"
+            className="pl-10 py-2"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -200,32 +206,25 @@ export default function CandidateCredentialsPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300">
-          {error}
-        </div>
-      ) : showLoader ? (
-        <div className="flex h-[400px] items-center justify-center rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-          <Loader />
-        </div>
+        <p className="text-center text-red-500">{error}</p>
+      ) : loading ? (
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex w-full justify-center">
           <AGGridTable
             rowData={filteredData}
             columnDefs={columnDefs}
-            title="Candidate Credentials"
-            domLayout="autoHeight"
+            title={`Candidate Credentials (${filteredData.length})`}
+            height="calc(80vh)"
+            showSearch={false}
             showAddButton={false}
             showEditButton={false}
-            onRowUpdated={() => fetchData()}
+            getRowNodeId={(data: any) =>
+              `${data.id}-${data.provider_name}-${data.api_key_created_at}`
+            }
+            onRowUpdated={() => fetchData(true)}
             onRowDeleted={async (id) => {
-              try {
-                // Since this is a combined view, we might not have a direct delete endpoint
-                // but we can provide the logic here if needed. 
-                // For now, let's keep it simple as the user mentioned generic behavior.
-                fetchData();
-              } catch (err) {
-                console.error("Delete failed:", err);
-              }
+              fetchData(true);
             }}
           />
         </div>

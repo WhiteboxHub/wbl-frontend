@@ -1,5 +1,5 @@
 "use client";
-import "node_modules/react-modal-video/css/modal-video.css";
+import "react-modal-video/css/modal-video.css";
 import "../styles/index.css";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -11,8 +11,6 @@ import { Providers } from "./providers";
 import { AuthProvider } from "@/utils/AuthContext";
 import { useState, useEffect } from "react";
 import { Poppins } from "next/font/google";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -51,7 +49,11 @@ export default function RootLayout({
         }
         if (typeof e.detail.isWizardActive === "boolean") {
           setIsAssessmentLayout(e.detail.isWizardActive);
-        } else if (e.detail.fullscreen || e.detail.step || e.detail.slug) {
+        } else if (typeof e.detail.fullscreen === "boolean") {
+          setIsAssessmentLayout(e.detail.fullscreen);
+        } else if (typeof e.detail.active === "boolean") {
+          setIsAssessmentLayout(e.detail.active);
+        } else if (e.detail.step || e.detail.slug) {
           setIsAssessmentLayout(true);
         }
         if (typeof e.detail.activeTab === "string") {
@@ -63,35 +65,42 @@ export default function RootLayout({
     return () => {
       window.removeEventListener("aiprep-layout-mode", handleLayoutMode);
     };
-  }, []);
+  }, [setHeaderCollapsed, setIsAssessmentLayout, setActiveTabFromEvent]);
 
   const isAiprepRoute =
-    (pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
-    pathname.startsWith("/user_dashboard/ai-prep") ||
-    pathname.startsWith("/user_dashboard/aiprep") ||
-    activeTabFromEvent.startsWith("ai-prep") ||
-    activeTabFromEvent.startsWith("aiprep") ||
-    activeTabFromEvent === "wbl-smartprep";
-  const isAssessment = isAssessmentLayout || isAiprepRoute;
+    !isAiPrepReport &&
+    ((pathname.startsWith("/aiprep") && !pathname.startsWith("/aiprep/reports")) ||
+      pathname.startsWith("/user_dashboard/ai-prep") ||
+      pathname.startsWith("/user_dashboard/aiprep") ||
+      (pathname.startsWith("/user_dashboard") &&
+        (activeTabFromEvent.startsWith("ai-prep") ||
+          activeTabFromEvent.startsWith("aiprep") ||
+          activeTabFromEvent === "wbl-smartprep")));
+  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepRoute);
 
+  // Single, unified scroll-lock effect — avoids multi-layer style + class mutations fighting React reconciliation.
   useEffect(() => {
-    if (isAssessment) {
+    const lock = () => {
       document.documentElement.style.overflow = "hidden";
       document.documentElement.style.height = "100%";
       document.body.style.overflow = "hidden";
       document.body.style.height = "100%";
-    } else {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-      document.body.style.overflow = "";
-      document.body.style.height = "";
-    }
-    return () => {
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.height = "";
-      document.body.style.overflow = "";
-      document.body.style.height = "";
     };
+    const unlock = () => {
+      document.documentElement.style.removeProperty("overflow");
+      document.documentElement.style.removeProperty("height");
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("height");
+      document.documentElement.classList.remove("overflow-hidden", "h-full");
+      document.body.classList.remove("overflow-hidden", "h-screen", "h-[100dvh]");
+    };
+
+    if (isAssessment) {
+      lock();
+    } else {
+      unlock();
+    }
+    return () => unlock();
   }, [isAssessment]);
 
   return (
@@ -118,7 +127,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={`${poppins.className} dark:bg-black overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
+      <body suppressHydrationWarning className={`${poppins.className} dark:bg-black overflow-x-hidden ${isAssessment ? "h-[100dvh] h-screen overflow-hidden flex flex-col" : ""}`}>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
@@ -129,11 +138,10 @@ export default function RootLayout({
               ) : (
                 <>
                   <div
-                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${
-                      headerCollapsed
+                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${headerCollapsed
                         ? "max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
                         : "max-h-[100px] translate-y-0 opacity-100"
-                    }`}
+                      }`}
                   >
                     <Header />
                   </div>

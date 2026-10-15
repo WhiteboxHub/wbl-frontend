@@ -69,7 +69,7 @@ export function formatBand(raw?: string | null, inverted: boolean = false): stri
     WEAK:                "Needs Improvement",
     POOR:                "Needs Improvement",
     COVERED:             "Good",
-    NOT_MENTIONED:       "Needs Improvement",
+    NOT_MENTIONED:       "Not Mentioned",
     NEGATIVE:            "Needs Improvement",
     NOT_APPLICABLE:      "N/A",
     INSUFFICIENT_DATA:   "Insufficient Data",
@@ -107,8 +107,8 @@ export function bandColor(band?: string, inverted: boolean = false): string {
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
     case "POOR":
-    case "NOT_MENTIONED":
     case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NOT_MENTIONED":
     case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
     default:              return "bg-slate-100 text-slate-500 border-slate-200";
   }
@@ -181,6 +181,7 @@ export interface IntroOverallAssessment {
 export interface NormalizedReport {
   // ── Assessment meta ──────────────────────────────────────────
   assessment: AssessmentDetail;
+  candidate_name?: string | null;
   /** YouTube or streaming URL for playback; null = unavailable */
   youtube_url: string | null;
 
@@ -328,6 +329,22 @@ export interface NormalizedReport {
 
   // ── Transcript evidence (from transcript_evidence_json) ──
   transcript_evidence: TranscriptEvidence[];
+
+  // ── Backend-determined content sufficiency ──────────────────────────────────
+  // TRUE when the backend says there wasn't enough spoken content to evaluate.
+  // The frontend MUST NOT calculate this — only consume it.
+  insufficient_content: boolean;
+
+  // ── Consent — what the candidate agreed to retain ────────────────────────────
+  // Controls visibility of recording and transcript sections on the eval page.
+  // Populated from the backend response when available; defaults to permissive
+  // so that existing reports without consent data still show everything.
+  consent: {
+    /** Whether the candidate consented to retain the recording for playback */
+    save_recording: boolean;
+    /** Whether the candidate consented to retain the transcript for display */
+    save_transcript: boolean;
+  };
 }
 
 // ─── Normalization ────────────────────────────────────────────────────────────
@@ -532,12 +549,14 @@ export function normalizeReport(
   const rawAudio = asRecord(
     apiReport?.audio_evaluation ??
     bundled.audio_evaluation ??
+    bundled.audio ??
     nested(repData, "audio_evaluation")
   );
 
   const rawVideo = asRecord(
     apiReport?.video_evaluation ??
     bundled.video_evaluation ??
+    bundled.video ??
     nested(repData, "video_evaluation")
   );
 
@@ -553,12 +572,21 @@ export function normalizeReport(
 
   const txEval = asRecord(rawTxEval);
 
-  // Resolve intro_evaluation — it may be directly in transcript_evaluation or report_data
+  // Resolve intro_evaluation — it may be directly in transcript_evaluation, report_data, or bundled.general
+  const genEval = asRecord(bundled.general);
   const introEval = Object.keys(nested(txEval, "intro_evaluation")).length
     ? nested(txEval, "intro_evaluation")
-    : txEval;
+    : Object.keys(genEval).length
+      ? genEval
+      : txEval;
 
-  const overallAssessment = asRecord(introEval.overall_assessment) as IntroOverallAssessment;
+  const rawOA = asRecord(introEval.overall_assessment);
+  const overallAssessment = {
+    readiness: asStr(bundled.readiness) ?? asStr(rawOA.readiness) ?? asStr(bundled.overall_readiness),
+    summary: asStr(bundled.summary) ?? asStr(rawOA.summary) ?? asStr(bundled.overall_summary),
+    strongest_signal: asStr(bundled.strongest_signal) ?? asStr(rawOA.strongest_signal) ?? asStr(bundled.overall_strongest_signal),
+    biggest_gap: asStr(bundled.biggest_gap) ?? asStr(rawOA.biggest_gap) ?? asStr(bundled.overall_biggest_gap),
+  } as IntroOverallAssessment;
 
   // ── Scores breakdown ─────────────────────────────────────────────────────
   const scoresRaw = asRecord(txEval.scores_breakdown_json ?? repData.scores_breakdown_json);
@@ -568,7 +596,15 @@ export function normalizeReport(
   };
 
   // ── Intro quality ────────────────────────────────────────────────────────
-  const iq = introEval.introduction_quality ? asRecord(introEval.introduction_quality) : null;
+  const bundledLangIQ = asRecord(asRecord(bundled.language).introduction_quality);
+  const iq = bundled.introduction_quality
+    ? asRecord(bundled.introduction_quality)
+    : Object.keys(bundledLangIQ).length > 0
+      ? bundledLangIQ
+      : introEval.introduction_quality
+        ? asRecord(introEval.introduction_quality)
+        : null;
+
   const intro_quality = iq && Object.keys(iq).length ? {
     clarity: asStr(iq.clarity),
     coherence: asStr(iq.coherence),
@@ -605,28 +641,46 @@ export function normalizeReport(
     .filter(([key]) => !SKIP_KEYS.has(key) && !key.startsWith("_") && key !== "checklist_verification")
     .flatMap(([key, value]): IntroSection[] => {
       const sec = asRecord(value);
-      const observation = asStr(sec.observation);
-      const status = asStr(sec.overall_status);
-      if (!observation && !status) return [];
-
-      const techList = Array.from(new Set([
-        ...asStrArray(sec.technologies_mentioned),
-        ...asStrArray(sec.frameworks_mentioned),
-        ...asStrArray(sec.models_mentioned),
-        ...asStrArray(sec.model_platforms_mentioned),
-        ...asStrArray(sec.patterns_mentioned),
-        ...asStrArray(sec.cloud_providers),
-        ...asStrArray(sec.compute_services),
-        ...asStrArray(sec.tools_mentioned),
-        ...asStrArray(sec.stages_mentioned),
-      ])).filter(Boolean);
-
+      const observation = asStr(sec.observation) ?? asStr(sec.summary);
+      const status = asStr(sec.overall_status) ?? asStr(sec.status) ?? asStr(sec.readiness);
       const rawConcepts = asRecord(sec.concepts);
       const concepts: Record<string, string> = {};
       for (const [ck, cv] of Object.entries(rawConcepts)) {
         const val = asStr(cv);
         if (val) concepts[ck] = val;
       }
+      // Also pick up top-level concept statuses (e.g. cicd_and_delivery fields)
+      for (const [ck, cv] of Object.entries(sec)) {
+        if (
+          typeof cv === "string" &&
+          ["COVERED", "PARTIAL", "NOT_MENTIONED", "NOT_APPLICABLE", "STRONG", "GOOD", "WEAK", "MISSING"].includes(cv.toUpperCase().trim())
+        ) {
+          if (ck !== "overall_status" && ck !== "status" && ck !== "readiness" && !concepts[ck]) {
+            concepts[ck] = cv;
+          }
+        }
+      }
+      const techList = Array.from(new Set([
+        ...asStrArray(sec.technologies_mentioned),
+        ...asStrArray(sec.technologies),
+        ...asStrArray(sec.tools_mentioned),
+        ...asStrArray(sec.tools),
+        ...asStrArray(sec.frameworks_mentioned),
+        ...asStrArray(sec.models_mentioned),
+        ...asStrArray(sec.model_platforms_mentioned),
+        ...asStrArray(sec.patterns_mentioned),
+        ...asStrArray(sec.cloud_providers),
+        ...asStrArray(sec.compute_services),
+        ...asStrArray(sec.container_platforms),
+        ...asStrArray(sec.storage_services),
+        ...asStrArray(sec.ai_cloud_services),
+        ...asStrArray(sec.infrastructure_tools),
+        ...asStrArray(sec.cicd_tools),
+        ...asStrArray(sec.cloud_services),
+        ...asStrArray(sec.stages_mentioned),
+      ])).filter(Boolean);
+
+      if (!observation && !status && Object.keys(concepts).length === 0 && techList.length === 0) return [];
 
       return [{
         key,
@@ -658,7 +712,7 @@ export function normalizeReport(
   }
 
   // ── Technology inventory ─────────────────────────────────────────────────
-  const tiRaw = asRecord(introEval.technology_inventory ?? repData.technology_inventory);
+  const tiRaw = asRecord(introEval.technology_inventory ?? bundled.technology_inventory ?? genEval.technology_inventory ?? repData.technology_inventory);
   const technology_inventory: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(tiRaw)) {
     const arr = asStrArray(v);
@@ -666,40 +720,53 @@ export function normalizeReport(
   }
 
   // ── Critical gaps & improvements ─────────────────────────────────────────
-  const critical_gaps = Array.isArray(introEval.critical_gaps)
-    ? introEval.critical_gaps.map((g: unknown) => {
-        const gap = asRecord(g);
-        return {
-          topic: asStr(gap.topic),
-          status: asStr(gap.status),
-          what_is_missing: asStr(gap.what_is_missing),
-          why_it_matters: asStr(gap.why_it_matters),
-          suggested_addition: asStr(gap.suggested_addition),
-        };
-      })
-    : [];
+  const cgRaw = Array.isArray(introEval.critical_gaps)
+    ? introEval.critical_gaps
+    : Array.isArray(bundled.critical_gaps)
+      ? bundled.critical_gaps
+      : Array.isArray(genEval.critical_gaps)
+        ? genEval.critical_gaps
+        : [];
 
-  const priority_improvements = Array.isArray(introEval.priority_improvements)
-    ? introEval.priority_improvements.map((p: unknown) => {
-        const imp = asRecord(p);
-        return {
-          priority: typeof imp.priority === "number" ? imp.priority : undefined,
-          topic: asStr(imp.topic),
-          guidance: asStr(imp.guidance),
-          example: asStr(imp.example),
-        };
-      })
-    : [];
+  const critical_gaps = cgRaw.map((g: unknown) => {
+    const gap = asRecord(g);
+    return {
+      topic: asStr(gap.topic),
+      status: asStr(gap.status),
+      what_is_missing: asStr(gap.what_is_missing),
+      why_it_matters: asStr(gap.why_it_matters),
+      suggested_addition: asStr(gap.suggested_addition),
+    };
+  });
 
-  const fa = asRecord(introEval.final_assessment);
+  const piRaw = Array.isArray(introEval.priority_improvements)
+    ? introEval.priority_improvements
+    : Array.isArray(bundled.priority_improvements)
+      ? bundled.priority_improvements
+      : Array.isArray(genEval.priority_improvements)
+        ? genEval.priority_improvements
+        : [];
+
+  const priority_improvements = piRaw.map((p: unknown) => {
+    const imp = asRecord(p);
+    return {
+      priority: typeof imp.priority === "number" ? imp.priority : undefined,
+      topic: asStr(imp.topic),
+      guidance: asStr(imp.guidance),
+      example: asStr(imp.example),
+    };
+  });
+
+  const fa = asRecord(introEval.final_assessment ?? bundled.final_assessment ?? genEval.final_assessment);
   const final_assessment = Object.keys(fa).length ? {
-    career_story: asStr(fa.career_story),
-    current_project_clarity: asStr(fa.current_project_clarity),
-    ai_engineering_depth: asStr(fa.ai_engineering_depth),
-    production_engineering_depth: asStr(fa.production_engineering_depth),
-    transition_quality: asStr(fa.transition_quality),
-    most_important_improvement: asStr(fa.most_important_improvement),
+    career_story: asStr(fa.career_story) ?? asStr(asRecord(genEval.career_story).observation),
+    current_project_clarity: asStr(fa.current_project_clarity) ?? asStr(asRecord(genEval.current_project_clarity).observation) ?? asStr(asRecord(genEval.current_project).observation),
+    ai_engineering_depth: asStr(fa.ai_engineering_depth) ?? asStr(genEval.ai_engineering_depth),
+    production_engineering_depth: asStr(fa.production_engineering_depth) ?? asStr(genEval.production_engineering_depth) ?? asStr(genEval.software_engineering_depth),
+    transition_quality: asStr(fa.transition_quality) ?? asStr(genEval.transition_quality),
+    most_important_improvement: asStr(fa.most_important_improvement) ?? asStr(genEval.most_important_improvement),
   } : undefined;
+
 
   // ── Technical analysis (with fallbacks for intro & task evaluations) ──────
   const ta = asRecord(txEval.technical_analysis_json ?? repData.technical_analysis_json);
@@ -852,6 +919,44 @@ export function normalizeReport(
   const rawTranscript = data?.transcript ?? asRecord(assessment.data).transcript;
   const transcript = parseTranscript(rawTranscript);
 
+  // ── insufficient_content ─────────────────────────────────────────────────
+  // Never calculated here — only read from backend.
+  // Sources: report.insufficient_content, data.insufficient_content, txEval.insufficient_content
+  const insufficientContent: boolean = Boolean(
+    (apiReport as any)?.insufficient_content ??
+    (apiReport as any)?.assessment_eval?.insufficient_content ??
+    (assessment as any)?.insufficient_content ??
+    (assessment as any)?.data?.insufficient_content ??
+    (assessment as any)?.data?.assessment_eval?.insufficient_content ??
+    (data as any)?.insufficient_content ??
+    (data as any)?.assessment_eval?.insufficient_content ??
+    txEval.insufficient_content ??
+    false
+  );
+
+  // ── Consent ──────────────────────────────────────────────────────────────
+  // Read from backend consent fields. Default to permissive (true) so that
+  // existing reports without consent metadata still display everything.
+  const rawConsent = asRecord(
+    (assessment as any)?.consent ??
+    asRecord(assessment.data).consent ??
+    (data as any)?.consent ??
+    (apiReport as any)?.consent ??
+    {}
+  );
+  const consentSaveRecording: boolean =
+    typeof rawConsent.save_recording === "boolean"
+      ? rawConsent.save_recording
+      : typeof (assessment as any).save_recording === "boolean"
+        ? (assessment as any).save_recording
+        : true;
+  const consentSaveTranscript: boolean =
+    typeof rawConsent.save_transcript === "boolean"
+      ? rawConsent.save_transcript
+      : typeof (assessment as any).save_transcript === "boolean"
+        ? (assessment as any).save_transcript
+        : true;
+
   const overallReadiness =
     asStr(scoresRaw.overall_band) ??
     asStr(overallAssessment.readiness);
@@ -897,14 +1002,30 @@ export function normalizeReport(
       ? "VIDEO"
       : "AUDIO";
 
+  const resolvedCandidateName =
+    assessment.candidate_name ||
+    (assessment as any)?.candidate_name ||
+    (assessment as any)?.candidate_full_name ||
+    (assessment as any)?.candidate?.full_name ||
+    (assessment as any)?.candidate?.name ||
+    (data as any)?.candidate_name ||
+    (data as any)?.candidate?.full_name ||
+    (data as any)?.assessment?.candidate_name ||
+    (data as any)?.assessment?.candidate?.full_name ||
+    (apiReport as any)?.candidate_name ||
+    (apiReport as any)?.candidate?.full_name ||
+    null;
+
   const normalizedAssessment = {
     ...assessment,
+    candidate_name: resolvedCandidateName,
     media_type: normalizedMediaType,
     youtube_url: resolvedMediaUrl,
   };
 
   return {
     assessment: normalizedAssessment,
+    candidate_name: resolvedCandidateName,
     youtube_url: resolvedMediaUrl,
     overall_readiness: overallReadiness,
     overall_summary: overallSummary,
@@ -932,8 +1053,13 @@ export function normalizeReport(
     coaching_suggestions,
     improvements,
     gaps_to_validate,
-    transcript,
-    transcript_evidence,
+    transcript: consentSaveTranscript ? transcript : { full_text: "", segments: [] },
+    transcript_evidence: consentSaveTranscript ? transcript_evidence : [],
+    insufficient_content: insufficientContent,
+    consent: {
+      save_recording: consentSaveRecording,
+      save_transcript: consentSaveTranscript,
+    },
   };
 }
 

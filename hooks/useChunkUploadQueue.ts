@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { aiprepApi } from '@/lib/aiprep-api';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 import type { ChunkStatus } from '@/types/aiprep';
 
 export interface ChunkQueueItem {
@@ -33,6 +34,7 @@ export interface UseChunkUploadQueueReturn {
   enqueueChunk: (blob: Blob, chunkIndex: number, isFinal?: boolean) => void;
   retryFailedChunks: () => void;
   clearQueue: () => void;
+  waitForAllChunks: (maxWaitMs?: number) => Promise<boolean>;
 }
 
 export function useChunkUploadQueue({
@@ -88,6 +90,7 @@ export function useChunkUploadQueue({
     setQueue([...queueRef.current]);
 
     try {
+      const uploadStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
       await aiprepApi.uploadChunk(
         assessmentId,
         currentItem.chunkIndex,
@@ -95,6 +98,22 @@ export function useChunkUploadQueue({
         mediaType,
         currentItem.isFinal
       );
+      const uploadEndTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const durationMs = Math.max(1, Math.round(uploadEndTime - uploadStartTime));
+      const sizeBytes = currentItem.blob?.size || 0;
+      const durationSec = durationMs / 1000;
+      const bandwidthKbps = durationSec > 0 && sizeBytes > 0
+        ? Math.max(1, Math.round(((sizeBytes * 8) / durationSec) / 1000))
+        : 1;
+
+      try {
+        AIPrepTelemetry.trackWebRtcHealth({
+          assessment_id: assessmentId,
+          ping_ms: durationMs, // End-to-end proxy for latency
+          bandwidth_kbps: bandwidthKbps,
+        });
+      } catch (_) {}
+
 
       if (!isMountedRef.current) return;
 
@@ -111,8 +130,14 @@ export function useChunkUploadQueue({
     } catch (err: any) {
       if (!isMountedRef.current) return;
 
+      const isConflict409 =
+        err?.status === 409 ||
+        err?.statusCode === 409 ||
+        String(err?.message || '').includes('409') ||
+        String(err?.message || '').toLowerCase().includes('already');
+
       const newRetryCount = currentItem.retryCount + 1;
-      const willRetry = newRetryCount <= maxRetries;
+      const willRetry = !isConflict409 && newRetryCount <= maxRetries;
 
       queueRef.current[nextIndex] = {
         ...queueRef.current[nextIndex],
@@ -126,6 +151,20 @@ export function useChunkUploadQueue({
         onUploadError(err, currentItem.chunkIndex);
       }
 
+      // If assessment is already finalized / closed on server (409), abort remaining queued chunks immediately
+      if (isConflict409) {
+        console.warn(`[ChunkUploadQueue] Assessment ${assessmentId} is already finalized/evaluating (409 Conflict). Halting chunk queue.`);
+        queueRef.current.forEach((item, idx) => {
+          if (item.status === 'queued' || item.status === 'uploading') {
+            queueRef.current[idx] = { ...item, status: 'failed', error: 'Assessment already finalized' };
+          }
+        });
+        setQueue([...queueRef.current]);
+        setIsUploading(false);
+        isProcessingRef.current = false;
+        return;
+      }
+
       // Exponential backoff before processing next
       if (willRetry) {
         const backoffMs = Math.min(1000 * Math.pow(2, newRetryCount - 1), 8000);
@@ -136,7 +175,20 @@ export function useChunkUploadQueue({
       // Continue queue
       processQueue();
     }
-  }, [assessmentId, mediaType, maxRetries, onChunkUploaded, onQueueComplete, onUploadError]);
+  }, [
+    assessmentId,
+    mediaType,
+    maxRetries,
+    onChunkUploaded,
+    onQueueComplete,
+    onUploadError,
+    queueRef,
+    isProcessingRef,
+    isMountedRef,
+    setQueue,
+    setIsUploading,
+    performance,
+  ]);
 
   // Enqueue a chunk
   const enqueueChunk = useCallback(
@@ -166,7 +218,7 @@ export function useChunkUploadQueue({
       // Trigger queue processing
       processQueue();
     },
-    [processQueue]
+    [processQueue, queueRef, setQueue]
   );
 
   // Retry any failed chunks
@@ -184,7 +236,7 @@ export function useChunkUploadQueue({
       setQueue([...queueRef.current]);
       processQueue();
     }
-  }, [processQueue]);
+  }, [processQueue, queueRef, setQueue]);
 
   // Clear queue
   const clearQueue = useCallback(() => {
@@ -192,7 +244,7 @@ export function useChunkUploadQueue({
     setQueue([]);
     setIsUploading(false);
     isProcessingRef.current = false;
-  }, []);
+  }, [queueRef, isProcessingRef, setQueue, setIsUploading]);
 
   const totalChunks = queue.length;
   const uploadedChunks = queue.filter((i) => i.status === 'uploaded').length;
@@ -200,6 +252,25 @@ export function useChunkUploadQueue({
   const pendingChunks = queue.filter((i) => i.status === 'queued' || i.status === 'uploading').length;
   const hasFinal = queue.some((i) => i.isFinal && i.status === 'uploaded');
   const isComplete = totalChunks > 0 && uploadedChunks === totalChunks && hasFinal;
+
+  // Wait for all queued and in-flight chunks to finish uploading
+  const waitForAllChunks = useCallback(
+    async (maxWaitMs: number = 8000): Promise<boolean> => {
+      const start = Date.now();
+      while (Date.now() - start < maxWaitMs) {
+        const hasPending = queueRef.current.some(
+          (i) => i.status === 'queued' || i.status === 'uploading'
+        );
+        if (!hasPending && !isProcessingRef.current) {
+          const hasFailures = queueRef.current.some((i) => i.status === 'failed');
+          return !hasFailures;
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return false;
+    },
+    [queueRef, isProcessingRef]
+  );
 
   return {
     queue,
@@ -212,6 +283,7 @@ export function useChunkUploadQueue({
     enqueueChunk,
     retryFailedChunks,
     clearQueue,
+    waitForAllChunks,
   };
 }
 export default useChunkUploadQueue;

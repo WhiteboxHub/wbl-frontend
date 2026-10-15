@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { isTokenExpired, fetchUserRole, getUserTeamRole, clearUserRoleCache } from "./auth";
+import { isTokenExpired, fetchUserRole, getUserTeamRole, clearUserRoleCache, isAssessmentPage } from "./auth";
 
 const AuthContext = createContext();
 
@@ -34,7 +34,8 @@ export const AuthProvider = ({ children }) => {
         if (typeof logoutRef.current === "function") logoutRef.current();
         return;
       }
-      _checkToken(token);
+      // Validate the role with the backend on a fresh page load so the request is visible in DevTools.
+      _checkToken(token, true);
     } else {
       setIsAuthenticated(false);
       setAuthToken(null);
@@ -52,7 +53,11 @@ export const AuthProvider = ({ children }) => {
           if (typeof logoutRef.current === "function") logoutRef.current();
           return;
         }
-        _checkToken(t);
+        if (!isAssessmentPage()) {
+          _checkToken(t);
+        } else if (isTokenExpired(t)) {
+          handleTokenExpiration();
+        }
       }
     }, 60 * 1000);
 
@@ -122,13 +127,13 @@ export const AuthProvider = ({ children }) => {
     };
   }, [router]);
 
-  const _checkToken = async (token) => {
+  const _checkToken = async (token, forceRefresh = false) => {
     if (isTokenExpired(token)) {
       handleTokenExpiration();
       return;
     }
 
-    const { role, status } = await fetchUserRole(token);
+    const { role, status } = await fetchUserRole(token, forceRefresh);
 
     // Block inactive accounts at UI
     if (!status || status.toString().toLowerCase() !== "active") {

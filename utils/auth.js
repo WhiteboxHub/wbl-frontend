@@ -23,17 +23,40 @@ export function getAuthHeaders(token = null) {
 }
 
 let userRoleCache = { token: null, data: null, timestamp: 0 };
-let inFlightUserRolePromise = null;
+let inFlightUserRolePromises = new Map();
 
 export const clearUserRoleCache = () => {
   userRoleCache = { token: null, data: null, timestamp: 0 };
-  inFlightUserRolePromise = null;
+  inFlightUserRolePromises.clear();
 };
 
 /**
  * Call backend /user_role to get role + status with in-memory caching and deduplication.
  * Backend response expected: { role: string, status: "active" | "inactive" | "registered", ... }
  */
+export const isAssessmentPage = () => {
+  if (typeof window === "undefined") return false;
+  const p = window.location.pathname.toLowerCase();
+  const isAssessmentFlowPage =
+    p.includes("/aiprep/session") ||
+    p.includes("/aiprep/reports") ||
+    p.includes("/session/") ||
+    p.includes("/reports/");
+
+  // The AI Prep wizard steps (assessment type, consent, device check, and practice)
+  // use the existing token/local role and must not call GET /user_role.
+  const wizardSteps = new Set([
+    "assessment-type", "assesment-type", "consent",
+    "device-check", "devicecheck", "practice",
+    "practice-start", "configuration",
+  ]);
+  const isAiPrepWizardPage =
+    p.includes("/user_dashboard/ai-prep/") &&
+    wizardSteps.has(p.split("/").filter(Boolean).at(-1));
+
+  return isAssessmentFlowPage || isAiPrepWizardPage;
+};
+
 export const fetchUserRole = async (token, forceRefresh = false) => {
   const t = token || (typeof window !== "undefined" ? localStorage.getItem("access_token") : null);
   if (!t) return { role: null, status: "inactive" };
@@ -43,12 +66,12 @@ export const fetchUserRole = async (token, forceRefresh = false) => {
     return userRoleCache.data;
   }
 
-  // Deduplicate concurrent in-flight requests
-  if (inFlightUserRolePromise) {
-    return inFlightUserRolePromise;
+  // Deduplicate concurrent requests per token; never reuse one user's request for another token.
+  if (inFlightUserRolePromises.has(t)) {
+    return inFlightUserRolePromises.get(t);
   }
 
-  inFlightUserRolePromise = (async () => {
+  const requestPromise = (async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
         method: "GET",
@@ -69,11 +92,14 @@ export const fetchUserRole = async (token, forceRefresh = false) => {
       const data = await response.json();
       const res = {
         role: data.role ?? null,
-        status: (data.status ?? "active").toString().toLowerCase(),
+        status: (data.status ?? "inactive").toString().toLowerCase(),
         raw: data,
       };
 
       userRoleCache = { token: t, data: res, timestamp: Date.now() };
+      if (typeof window !== "undefined" && res.role) {
+        try { localStorage.setItem("user_role", res.role); } catch (_) {}
+      }
       return res;
     } catch (error) {
       if (process.env.NODE_ENV === "development") {
@@ -81,11 +107,12 @@ export const fetchUserRole = async (token, forceRefresh = false) => {
       }
       return { role: null, status: "inactive" };
     } finally {
-      inFlightUserRolePromise = null;
+      inFlightUserRolePromises.delete(t);
     }
   })();
 
-  return inFlightUserRolePromise;
+  inFlightUserRolePromises.set(t, requestPromise);
+  return requestPromise;
 };
 
 /**
@@ -120,39 +147,17 @@ export const getUserTeamRole = (token = null) => {
 };
 
 /**
- * Validate token + remote status check
- * Returns { valid: boolean, message: string }
+ * Validate token and backend account status. fetchUserRole caches by token for 60 seconds and deduplicates concurrent requests.
+ * Returns { valid: boolean, message: string, role?: string }
  */
 export const isAuthenticated = async () => {
-  const token = localStorage.getItem("access_token");
-
-  if (!token) {
-    return { valid: false, message: "Please Login!" };
-  }
-
-  if (isTokenExpired(token)) {
-    return { valid: false, message: "Session expired, please login again." };
-  }
-
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  if (!token) return { valid: false, message: "Please Login!" };
+  if (isTokenExpired(token)) return { valid: false, message: "Session expired, please login again." };
   try {
-    const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      return { valid: false, message: err.detail || "Token validation failed" };
-    }
-
-    const data = await r.json();
-    if ((data.status ?? "active").toString().toLowerCase() !== "active") {
-      return { valid: false, message: "Your account is inactive." };
-    }
-
-    return { valid: true, message: "" };
+    const { role, status, detail } = await fetchUserRole(token);
+    if ((status ?? "inactive").toString().toLowerCase() !== "active") return { valid: false, message: detail || "Your account is inactive." };
+    return { valid: true, message: "", role: role || getUserTeamRole(token) || "candidate" };
   } catch (error) {
     console.error("Auth check error:", error);
     return { valid: false, message: "An error occurred while validating the token" };
