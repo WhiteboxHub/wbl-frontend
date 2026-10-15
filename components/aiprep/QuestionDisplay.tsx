@@ -28,10 +28,10 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question }) =>
           {question.category}
         </span>
 
-        {question.sub_category && (
+        {question.concept && (
           <span className="inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-400">
             <Tag className="h-3 w-3" />
-            {question.sub_category}
+            {question.concept}
           </span>
         )}
 

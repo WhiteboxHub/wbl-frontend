@@ -27,6 +27,18 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 import { QuestionBankItem, QuestionFiltersState } from "@/types/aiprep";
 import { Badge } from "@/components/admin_ui/badge";
 import { createPortal } from "react-dom";
+import {
+  SUBJECT_CONCEPTS_MAP,
+  ALL_CONCEPTS_LIST,
+  SUBJECT_OPTIONS,
+  DIFFICULTY_OPTIONS,
+  SCOPE_OPTIONS,
+  CONCEPT_OPTIONS,
+  formatDuration,
+  getSubjectStyle,
+  getScopeStyle,
+  type QuestionSubject,
+} from "@/lib/questionBankTaxonomy";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -41,7 +53,9 @@ interface QuestionBankTableProps {
   currentPage: number;
   totalPages: number;
   totalCount: number;
+  pageSize?: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
   title?: string;
   filters?: QuestionFiltersState;
   onFilterChange?: (filters: Partial<QuestionFiltersState>) => void;
@@ -176,24 +190,22 @@ const CATEGORY_OPTIONS = [
   { value: "TECHNICAL", label: "Technical" },
 ];
 
-const DIFFICULTY_OPTIONS = [
-  { value: "all", label: "All Difficulties" },
-  { value: "EASY", label: "Easy" },
-  { value: "MEDIUM", label: "Medium" },
-  { value: "HARD", label: "Hard" },
-  { value: "EXPERT", label: "Expert" },
-];
-
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "active", label: "Active Only" },
   { value: "inactive", label: "Inactive Only" },
 ];
 
+interface ColumnFilterOption {
+  value: string;
+  label: string;
+  group?: string;
+}
+
 interface ColumnFilterHeaderProps {
   title: string;
-  fieldKey: "category" | "difficulty" | "status";
-  options: { value: string; label: string }[];
+  fieldKey: "category" | "difficulty" | "status" | "subject" | "scope" | "concept";
+  options: ColumnFilterOption[];
   filters?: QuestionFiltersState;
   onFilterChange?: (filters: Partial<QuestionFiltersState>) => void;
 }
@@ -247,7 +259,7 @@ const StandardColumnHeader = (params: any) => {
     <div className="flex w-full items-center justify-between min-w-0">
       <span
         onClick={onSortClick}
-        className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate cursor-pointer select-none hover:text-[#2a5a6b] dark:hover:text-teal-400 transition-colors"
+        className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate cursor-pointer select-none hover:text-[#2a5a6b] dark:hover:text-teal-400 transition-colors"
       >
         {title}
       </span>
@@ -290,7 +302,11 @@ const StandardColumnHeader = (params: any) => {
   );
 };
 
-const renderFilterBadge = (fieldKey: "category" | "difficulty" | "status", value: string, label: string) => {
+const renderFilterBadge = (
+  fieldKey: "category" | "difficulty" | "status" | "subject" | "scope" | "concept",
+  value: string,
+  label: string
+) => {
   if (value === "all") {
     return <span className="font-bold text-xs text-gray-700 dark:text-gray-200">Select All</span>;
   }
@@ -304,6 +320,29 @@ const renderFilterBadge = (fieldKey: "category" | "difficulty" | "status", value
   }
   if (fieldKey === "difficulty") {
     const style = DIFFICULTY_STYLES[value] || "bg-gray-50 text-gray-700 border-gray-200";
+    return (
+      <span className={`inline-flex h-5 items-center rounded-md border px-2 text-[10px] font-extrabold uppercase tracking-wide ${style}`}>
+        {label}
+      </span>
+    );
+  }
+  if (fieldKey === "subject") {
+    const style = getSubjectStyle(value);
+    return (
+      <span className={`inline-flex h-5 items-center rounded-md border px-2 text-[10px] font-extrabold uppercase tracking-wide ${style}`}>
+        {label}
+      </span>
+    );
+  }
+  if (fieldKey === "concept") {
+    return (
+      <span className="inline-flex min-h-5 h-auto py-0.5 items-center rounded-md border border-teal-200/80 bg-teal-50 px-2 text-[10px] font-bold text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300 whitespace-normal text-left leading-tight">
+        {label}
+      </span>
+    );
+  }
+  if (fieldKey === "scope") {
+    const style = getScopeStyle(value);
     return (
       <span className={`inline-flex h-5 items-center rounded-md border px-2 text-[10px] font-extrabold uppercase tracking-wide ${style}`}>
         {label}
@@ -335,6 +374,7 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
     left: 0,
   });
   const [filterVisible, setFilterVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const currentValue = filters ? filters[fieldKey] : "all";
   const isFiltered = currentValue !== "all";
@@ -343,22 +383,34 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
     e.stopPropagation();
     if (filterButtonRef.current) {
       const rect = filterButtonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 6,
-        left: Math.max(10, rect.left - 40),
-      });
+      const dropdownWidth = fieldKey === "concept" ? 380 : 250;
+      const dropdownHeight = fieldKey === "concept" ? 440 : 320;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldFlipUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+      const top = shouldFlipUp
+        ? Math.max(10, rect.top - dropdownHeight - 6)
+        : Math.min(window.innerHeight - dropdownHeight - 10, rect.bottom + 6);
+      const left = Math.max(10, Math.min(window.innerWidth - dropdownWidth - 16, rect.left - 40));
+      setDropdownPos({ top, left });
     }
     setFilterVisible((v) => !v);
+    setSearchQuery("");
   };
 
   const handleSelect = (val: string) => {
     if (onFilterChange) {
       if (fieldKey === "category") {
-        onFilterChange({ category: val, sub_category: "all" });
+        onFilterChange({ category: val });
       } else if (fieldKey === "difficulty") {
         onFilterChange({ difficulty: val });
       } else if (fieldKey === "status") {
         onFilterChange({ status: val as QuestionFiltersState["status"] });
+      } else if (fieldKey === "subject") {
+        onFilterChange({ subject: val });
+      } else if (fieldKey === "scope") {
+        onFilterChange({ scope: val });
+      } else if (fieldKey === "concept") {
+        onFilterChange({ concept: val });
       }
     }
     setFilterVisible(false);
@@ -366,16 +418,26 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
       if (
         filterButtonRef.current &&
-        !filterButtonRef.current.contains(event.target as Node) &&
+        !filterButtonRef.current.contains(target) &&
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(target)
       ) {
         setFilterVisible(false);
       }
     };
-    const handleScroll = () => setFilterVisible(false);
+
+    const handleScroll = (event: Event) => {
+      const target = event.target as Node;
+      // Do not close when scrolling inside the dropdown or dragging its scrollbar!
+      if (dropdownRef.current && dropdownRef.current.contains(target)) {
+        return;
+      }
+      setFilterVisible(false);
+    };
+
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("scroll", handleScroll, true);
@@ -386,9 +448,36 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
     };
   }, [filterVisible]);
 
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const q = searchQuery.toLowerCase();
+    return options.filter((o) => o.value === "all" || o.label.toLowerCase().includes(q));
+  }, [options, searchQuery]);
+
+  const groupedOptions = useMemo(() => {
+    const nonAll = filteredOptions.filter((o) => o.value !== "all");
+    const hasGroups = nonAll.some((o) => Boolean(o.group));
+    if (!hasGroups) {
+      return [{ groupName: null, items: nonAll }];
+    }
+    const map = new Map<string, typeof nonAll>();
+    nonAll.forEach((o) => {
+      const g = o.group || "Other";
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(o);
+    });
+    return Array.from(map.entries()).map(([groupName, items]) => ({
+      groupName,
+      items,
+    }));
+  }, [filteredOptions]);
+
+  const totalNonAllCount = options.filter((o) => o.value !== "all").length;
+  const filteredNonAllCount = filteredOptions.filter((o) => o.value !== "all").length;
+
   return (
     <div className="relative flex w-full items-center justify-between min-w-0" ref={filterButtonRef}>
-      <span className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate">
+      <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
         {title}
       </span>
       <div
@@ -421,17 +510,56 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
         createPortal(
           <div
             ref={dropdownRef}
-            className="filter-dropdown pointer-events-auto fixed flex w-56 flex-col space-y-1.5 rounded-xl border border-gray-200 bg-white p-3 text-xs shadow-xl dark:border-gray-700 dark:bg-gray-800"
+            className={`filter-dropdown pointer-events-auto fixed flex ${
+              fieldKey === "concept" ? "w-[380px]" : "w-60"
+            } flex-col rounded-xl border border-gray-200 bg-white p-3 text-xs shadow-2xl dark:border-gray-700 dark:bg-gray-800`}
             style={{
               top: `${dropdownPos.top}px`,
               left: `${dropdownPos.left}px`,
               zIndex: 99999,
-              maxHeight: "320px",
-              overflowY: "auto",
+              maxHeight: "460px",
             }}
             onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="mb-1 border-b border-gray-100 pb-2 dark:border-gray-700">
+            {/* Header: Title and Item Count */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2 dark:border-gray-700">
+              <span className="font-bold text-xs text-gray-800 dark:text-gray-200">
+                Filter by {title}
+              </span>
+              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                {totalNonAllCount} {title.toLowerCase()}s
+              </span>
+            </div>
+
+            {/* Search Input */}
+            {options.length > 5 && (
+              <div className="pt-2 pb-1">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder={`Search ${totalNonAllCount} ${title.toLowerCase()}s...`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-md border border-gray-200 px-2.5 py-1 text-xs text-gray-800 placeholder:text-gray-400 focus:border-teal-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 pr-7"
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Select All */}
+            <div className="border-b border-gray-100 pb-1.5 pt-1 dark:border-gray-700">
               <label
                 className="flex cursor-pointer items-center font-bold text-xs text-gray-800 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
                 onClick={() => handleSelect("all")}
@@ -442,40 +570,78 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
                   readOnly
                   className="mr-2.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
                 />
-                Select All
+                <span>Select All</span>
+                <span className="ml-auto text-[10px] font-normal text-gray-400">
+                  ({totalNonAllCount})
+                </span>
               </label>
             </div>
 
-            {options.filter((o) => o.value !== "all").map(({ value, label }) => {
-              const isSelected = currentValue === value;
-              return (
-                <label
-                  key={value}
-                  onClick={() => handleSelect(value)}
-                  className="flex cursor-pointer items-center rounded px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    readOnly
-                    className="mr-2.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
-                  />
-                  {renderFilterBadge(fieldKey, value, label)}
-                </label>
-              );
-            })}
+            {/* Dedicated Scrollable Options List */}
+            <div
+              className="flex-1 overflow-y-auto max-h-[260px] pr-1 space-y-1 my-1"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "#94a3b8 #f1f5f9",
+              }}
+              onScroll={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {groupedOptions.length === 0 || (groupedOptions.length === 1 && groupedOptions[0].items.length === 0) ? (
+                <div className="py-4 text-center text-xs text-gray-400">
+                  No {title.toLowerCase()}s found matching &quot;{searchQuery}&quot;
+                </div>
+              ) : (
+                groupedOptions.map(({ groupName, items }) => (
+                  <div key={groupName || "default"} className="space-y-0.5">
+                    {groupName && (
+                      <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xs px-2 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center justify-between border-b border-gray-100/80 dark:border-gray-700/80">
+                        <span>{groupName}</span>
+                        <span className="text-[9px] font-semibold bg-gray-100 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 rounded px-1.5 py-0.2">
+                          {items.length}
+                        </span>
+                      </div>
+                    )}
+                    {items.map(({ value, label }) => {
+                      const isSelected = currentValue === value;
+                      return (
+                        <label
+                          key={value}
+                          onClick={() => handleSelect(value)}
+                          className="flex cursor-pointer items-center rounded-lg px-2 py-1.5 hover:bg-teal-50/70 dark:hover:bg-teal-950/40 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            readOnly
+                            className="mr-2.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none"
+                          />
+                          <div className="min-w-0 flex-1">
+                            {renderFilterBadge(fieldKey, value, label)}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
 
-            {isFiltered && (
-              <div className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-700">
+            {/* Footer */}
+            <div className="border-t border-gray-100 pt-2 dark:border-gray-700 flex items-center justify-between text-[10.5px]">
+              <span className="text-gray-400 dark:text-gray-500">
+                {searchQuery ? `Showing ${filteredNonAllCount} of ${totalNonAllCount}` : `${totalNonAllCount} concepts in database`}
+              </span>
+              {isFiltered && (
                 <button
                   type="button"
                   onClick={() => handleSelect("all")}
-                  className="w-full py-1 text-center font-bold text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 cursor-pointer"
+                  className="font-bold text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 cursor-pointer"
                 >
-                  Clear All
+                  Clear Selection
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>,
           document.body
         )}
@@ -486,7 +652,7 @@ const ColumnFilterHeader: React.FC<ColumnFilterHeaderProps> = ({
 const StatusRenderer = (params: any) => {
   const raw = params.value ?? params.data?.is_active;
   const statusStr = String(raw || "").toLowerCase();
-  const isActive = statusStr === "active" || statusStr === "true" || raw === true;
+  const isActive = statusStr === "active" || statusStr === "true" || statusStr === "1" || raw === true || raw === 1;
   const badgeClass = isActive
     ? "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300 border-transparent select-none cursor-pointer transition-colors rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide inline-flex items-center"
     : "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 border-transparent select-none cursor-pointer transition-colors rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide inline-flex items-center";
@@ -598,7 +764,9 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
   currentPage,
   totalPages,
   totalCount,
+  pageSize = 50,
   onPageChange,
+  onPageSizeChange,
   title = "AI Prep Question Bank",
   filters,
   onFilterChange,
@@ -611,9 +779,63 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const gridApiRef = useRef<any>(null);
 
+  const dynamicConceptOptions = useMemo<ColumnFilterOption[]>(() => {
+    const optionsList: ColumnFilterOption[] = [
+      { value: "all", label: "All Concepts" },
+    ];
+
+    const activeSubject = filters?.subject;
+
+    if (
+      activeSubject &&
+      activeSubject !== "all" &&
+      SUBJECT_CONCEPTS_MAP[activeSubject as QuestionSubject]
+    ) {
+      SUBJECT_CONCEPTS_MAP[activeSubject as QuestionSubject].forEach((c) => {
+        optionsList.push({ value: c.name, label: c.name, group: activeSubject });
+      });
+    } else {
+      (
+        Object.entries(SUBJECT_CONCEPTS_MAP) as [QuestionSubject, { name: string }[]][]
+      ).forEach(([subj, list]) => {
+        list.forEach((c) => {
+          optionsList.push({ value: c.name, label: c.name, group: subj });
+        });
+      });
+    }
+
+    const allStandardConcepts = new Set(ALL_CONCEPTS_LIST.map((c) => c.name));
+    const extraConcepts = new Set<string>();
+    (questions || []).forEach((q) => {
+      const c = (q.concept || (q as any).sub_category)?.trim();
+      if (c && c !== "—" && !allStandardConcepts.has(c)) {
+        extraConcepts.add(c);
+      }
+    });
+
+    if (extraConcepts.size > 0 && (!activeSubject || activeSubject === "all")) {
+      Array.from(extraConcepts)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach((c) => {
+          optionsList.push({ value: c, label: c, group: "Other DB Concepts" });
+        });
+    }
+
+    return optionsList;
+  }, [questions, filters?.subject]);
+
   const displayedQuestions = useMemo(() => {
     return questions;
   }, [questions]);
+
+  // Reset row heights after React commits updated question data, rather than
+  // from AG Grid's row-update lifecycle callback.
+  useEffect(() => {
+    const api = gridApiRef.current;
+    if (api && !api.isDestroyed?.()) {
+      api.resetRowHeights();
+    }
+  }, [displayedQuestions]);
 
   useEffect(() => {
     setPageInput(String(currentPage));
@@ -643,29 +865,15 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
     }
   };
 
-  // autoHeight on the question_text column handles row height automatically
-
+  // Keep configured column widths stable. Auto-fitting on grid resize and data
+  // changes makes the horizontal scroll range unstable and can misalign cells.
   const handleGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
-    params.api.sizeColumnsToFit();
   }, []);
 
-  const handleGridSizeChanged = useCallback((params: GridSizeChangedEvent) => {
-    if (params.api) {
-      params.api.sizeColumnsToFit();
-    }
+  const handleGridSizeChanged = useCallback((_params: GridSizeChangedEvent) => {
+    // Fixed column widths let the horizontal scrollbar stop at the grid boundary.
   }, []);
-
-  useEffect(() => {
-    if (gridApiRef.current) {
-      const timer = setTimeout(() => {
-        if (gridApiRef.current) {
-          gridApiRef.current.sizeColumnsToFit();
-        }
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [displayedQuestions, hiddenColumns, gridApiRef]);
 
   const toggleColumnVisibility = (field: string) => {
     setHiddenColumns((prev) => {
@@ -685,9 +893,12 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
       "ID",
       "Question",
       "Category",
-      "Sub Category",
       "Difficulty",
       "Created At",
+      "Subject",
+      "Concept",
+      "Duration (s)",
+      "Scope",
       "Status",
     ];
     const csvRows = [headers.join(",")];
@@ -696,9 +907,13 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
         q.id,
         `"${(q.question_text || "").replace(/"/g, '""')}"`,
         `"${q.category || ""}"`,
-        `"${q.sub_category || ""}"`,
         `"${q.difficulty_level || ""}"`,
         `"${formatDate(q.created_at)}"`,
+        `"${q.subject || ""}"`,
+        `"${q.concept || ""}"`,
+        q.time_limit_seconds || 120,
+        `"${q.scope || ""}"`,
+        q.ground_truth ? "Configured" : "None",
         q.is_active ? "Active" : "Inactive",
       ];
       csvRows.push(row.join(","));
@@ -723,9 +938,12 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
       { field: "id", label: "ID" },
       { field: "question_text", label: "Question" },
       { field: "category", label: "Category" },
-      { field: "sub_category", label: "Sub-Category" },
       { field: "difficulty_level", label: "Difficulty" },
       { field: "created_at", label: "Created" },
+      { field: "subject", label: "Subject" },
+      { field: "concept", label: "Concept" },
+      { field: "time_limit_seconds", label: "Duration" },
+      { field: "scope", label: "Scope" },
       { field: "is_active", label: "Status" },
     ],
     []
@@ -733,12 +951,14 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
 
   const columnDefs = useMemo<ColDef<QuestionBankItem>[]>(
     () => [
+      // 1. ID
       {
         headerName: "ID",
         field: "id",
         width: 75,
         minWidth: 60,
         maxWidth: 90,
+        pinned: "left",
         hide: hiddenColumns.has("id"),
         sortable: true,
         filter: "agNumberColumnFilter",
@@ -755,11 +975,13 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           </div>
         ),
       },
+      // 2. Question
       {
         headerName: "Question",
         field: "question_text",
-        flex: 3,
-        minWidth: 320,
+        width: 320,
+        minWidth: 280,
+        pinned: "left",
         wrapText: true,
         autoHeight: true,
         cellClass: "question-cell",
@@ -775,36 +997,45 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           <div
             style={{
               width: "100%",
-              padding: "8px 0",
-              fontSize: "13px",
-              fontWeight: 500,
-              color: "inherit",
-              lineHeight: "1.5",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              overflowWrap: "anywhere",
+              padding: "10px 0",
               minWidth: 0,
             }}
             title={params.value}
           >
-            {params.value}
+            <span
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                fontSize: "12.5px",
+                fontWeight: 600,
+                color: "#111827",
+                lineHeight: "1.55",
+                wordBreak: "break-word",
+              }}
+            >
+              {params.value}
+            </span>
           </div>
         ),
       },
+      // 3. Category
       {
         headerName: "Category",
         field: "category",
-        width: 160,
-        minWidth: 140,
+        width: 175,
+        minWidth: 155,
         hide: hiddenColumns.has("category"),
         sortable: true,
         cellRenderer: (params: any) => {
           const cat = params.value || "TECHNICAL";
           return (
-            <div className="flex h-full items-center shrink-0">
+            <div className="flex h-full w-full min-w-0 items-center overflow-hidden pr-1">
               <span
-                className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-extrabold uppercase tracking-wide ${CATEGORY_STYLES[cat] || CATEGORY_STYLES.TECHNICAL
-                  }`}
+                className={`inline-flex min-h-6 max-w-full items-center justify-center rounded-md border px-2 py-1 text-center text-[10px] leading-tight font-extrabold uppercase tracking-wide whitespace-normal break-words ${
+                  CATEGORY_STYLES[cat] || CATEGORY_STYLES.TECHNICAL
+                }`}
               >
                 {CATEGORY_LABELS[cat] || cat}
               </span>
@@ -821,35 +1052,12 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           />
         ),
       },
-      {
-        headerName: "Sub-Category",
-        field: "sub_category",
-        flex: 1,
-        minWidth: 140,
-        hide: hiddenColumns.has("sub_category"),
-        sortable: true,
-        filter: "agTextColumnFilter",
-        filterParams: {
-          debounceMs: 500,
-          suppressAndOrCondition: true,
-        },
-        headerComponent: StandardColumnHeader,
-        cellRenderer: (params: any) => (
-          <div className="flex h-full items-center min-w-0">
-            <span
-              className="truncate block w-full text-xs font-semibold text-gray-800 dark:text-gray-200"
-              title={params.value || ""}
-            >
-              {params.data?.category === "TECHNICAL" ? (params.value || "—") : "—"}
-            </span>
-          </div>
-        ),
-      },
+      // 4. Difficulty
       {
         headerName: "Difficulty",
         field: "difficulty_level",
-        width: 130,
-        minWidth: 115,
+        width: 120,
+        minWidth: 105,
         hide: hiddenColumns.has("difficulty_level"),
         sortable: true,
         cellRenderer: (params: any) => {
@@ -857,9 +1065,10 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           return (
             <div className="flex h-full items-center shrink-0">
               <span
-                className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-extrabold uppercase tracking-wide ${DIFFICULTY_STYLES[diff] ||
+                className={`inline-flex h-6 items-center rounded-md border px-2 text-[11px] font-extrabold uppercase tracking-wide ${
+                  DIFFICULTY_STYLES[diff] ||
                   "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300"
-                  }`}
+                }`}
               >
                 {diff}
               </span>
@@ -876,11 +1085,12 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           />
         ),
       },
+      // 5. Created
       {
         headerName: "Created",
         field: "created_at",
-        width: 120,
-        minWidth: 105,
+        width: 100,
+        minWidth: 90,
         hide: hiddenColumns.has("created_at"),
         sortable: true,
         filter: "agDateColumnFilter",
@@ -907,17 +1117,153 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
         },
         cellRenderer: (params: any) => (
           <div className="flex h-full items-center min-w-0">
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
               {formatDate(params.value)}
             </span>
           </div>
         ),
       },
+      // 6. Subject
+      {
+        headerName: "Subject",
+        field: "subject",
+        width: 175,
+        minWidth: 155,
+        hide: hiddenColumns.has("subject"),
+        sortable: true,
+        cellRenderer: (params: any) => {
+          const subj = params.value;
+          if (!subj) return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
+          return (
+            <div className="flex h-full items-center min-w-0 max-w-full overflow-hidden">
+              <span
+                className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-tight max-w-full ${
+                  getSubjectStyle(subj)
+                }`}
+                style={{
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  lineHeight: "1.25",
+                }}
+              >
+                {subj}
+              </span>
+            </div>
+          );
+        },
+        headerComponent: () => (
+          <ColumnFilterHeader
+            title="Subject"
+            fieldKey="subject"
+            options={SUBJECT_OPTIONS}
+            filters={filters}
+            onFilterChange={onFilterChange}
+          />
+        ),
+      },
+      // 7. Concept
+      {
+        headerName: "Concept",
+        field: "concept",
+        width: 230,
+        minWidth: 210,
+        wrapText: true,
+        autoHeight: true,
+        cellClass: "concept-cell",
+        hide: hiddenColumns.has("concept"),
+        sortable: true,
+        headerComponent: () => (
+          <ColumnFilterHeader
+            title="Concept"
+            fieldKey="concept"
+            options={dynamicConceptOptions}
+            filters={filters}
+            onFilterChange={onFilterChange}
+          />
+        ),
+        cellRenderer: (params: any) => {
+          const concept = params.value || params.data?.sub_category || "—";
+          if (!concept || concept === "—") {
+            return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
+          }
+          return (
+            <div
+              className="w-full py-2 text-xs font-semibold text-gray-800 dark:text-gray-200"
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                lineHeight: "1.35",
+              }}
+              title={concept}
+            >
+              {concept}
+            </div>
+          );
+        },
+      },
+      // 8. Duration
+      {
+        headerName: "Duration",
+        field: "time_limit_seconds",
+        width: 125,
+        minWidth: 120,
+        hide: hiddenColumns.has("time_limit_seconds"),
+        sortable: true,
+        headerComponent: StandardColumnHeader,
+        cellRenderer: (params: any) => {
+          const secs = params.value ?? params.data?.time_limit_seconds ?? 120;
+          return (
+            <div className="flex h-full items-center min-w-0">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                {formatDuration(secs)}
+              </span>
+            </div>
+          );
+        },
+      },
+      // 9. Scope
+      {
+        headerName: "Scope",
+        field: "scope",
+        width: 110,
+        minWidth: 95,
+        hide: hiddenColumns.has("scope"),
+        sortable: true,
+        cellRenderer: (params: any) => {
+          const sc = params.value;
+          if (!sc) return <span className="text-xs text-gray-400 dark:text-gray-500">—</span>;
+          return (
+            <div className="flex h-full items-center shrink-0">
+              <span
+                className={`inline-flex h-6 items-center rounded-md border px-2 text-[10px] font-extrabold uppercase tracking-wide ${
+                  getScopeStyle(sc)
+                }`}
+              >
+                {sc}
+              </span>
+            </div>
+          );
+        },
+        headerComponent: () => (
+          <ColumnFilterHeader
+            title="Scope"
+            fieldKey="scope"
+            options={SCOPE_OPTIONS}
+            filters={filters}
+            onFilterChange={onFilterChange}
+          />
+        ),
+      },
+      // 10. Status
       {
         headerName: "Status",
         field: "is_active",
-        width: 120,
-        minWidth: 105,
+        width: 115,
+        minWidth: 100,
         hide: hiddenColumns.has("is_active"),
         sortable: true,
         editable: true,
@@ -937,7 +1283,7 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
         ),
       },
     ],
-    [onEdit, onView, hiddenColumns, filters, onFilterChange]
+    [onEdit, onView, hiddenColumns, filters, onFilterChange, dynamicConceptOptions]
   );
 
   // Loading skeleton
@@ -1008,11 +1354,12 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
             <button
               type="button"
               onClick={onAddClick}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-green-600 shadow-xs transition-colors hover:bg-green-50 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700"
-              title="Add New Question"
-              aria-label="Add New Question"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-green-600 shadow-xs transition-colors hover:bg-green-50 dark:border-gray-700 dark:bg-gray-800 dark:text-green-400 dark:hover:bg-gray-700 cursor-pointer"
+              title="Add Questions"
+              aria-label="Add Questions"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 shrink-0" />
+              <span>Add Questions</span>
             </button>
           )}
 
@@ -1097,45 +1444,30 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
         .ag-theme-alpine .ag-row-selected .ag-cell {
           background-color: #e0f2fe !important;
         }
-        /* ── All cells: flex, clipped, vertically centred ── */
+        /* ── All cells: flex, clipped, vertically centred, no vertical column lines ── */
         .ag-theme-alpine .ag-cell {
-          border-right: 1px solid #e5e7eb !important;
-          overflow: hidden !important;
+          border-right: none !important;
           box-sizing: border-box !important;
-          display: flex !important;
-          align-items: center !important;
+          min-width: 0 !important;
         }
+        /* Let AG Grid own wrapper sizing/positioning so pinned and horizontally
+           scrolling columns stay aligned with their headers. */
         .ag-theme-alpine .ag-cell-wrapper,
         .ag-theme-alpine .ag-cell-value,
         .ag-theme-alpine .ag-react-container {
-          width: 100% !important;
-          max-width: 100% !important;
-          min-width: 0 !important;
-          height: 100% !important;
           box-sizing: border-box !important;
-          display: flex !important;
-          align-items: center !important;
-          overflow: hidden !important;
+          min-width: 0 !important;
         }
-        /* ── QUESTION column: block layout so autoHeight works ── */
+        /* ── QUESTION & CONCEPT columns: multiline text wrapping so content comes down cleanly ── */
         .ag-theme-alpine .ag-cell.question-cell {
-          display: block !important;
-          align-items: unset !important;
-          overflow: visible !important;
           white-space: normal !important;
-          height: auto !important;
           min-height: 52px !important;
         }
         .ag-theme-alpine .ag-cell.question-cell .ag-cell-wrapper,
         .ag-theme-alpine .ag-cell.question-cell .ag-cell-value,
         .ag-theme-alpine .ag-cell.question-cell .ag-react-container {
-          display: block !important;
-          width: 100% !important;
-          max-width: 100% !important;
           min-width: 0 !important;
-          height: auto !important;
           min-height: 52px !important;
-          overflow: visible !important;
         }
         .ag-theme-alpine .ag-paging-panel {
           display: none !important;
@@ -1160,7 +1492,7 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           background-color: rgba(30, 64, 175, 0.4) !important;
         }
         .dark .ag-theme-alpine .ag-cell {
-          border-right: 1px solid #1e293b !important;
+          border-right: none !important;
         }
         .ag-header-cell-label,
         .ag-header-cell-comp-wrapper {
@@ -1278,13 +1610,18 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
         }
       `}</style>
 
+      {/* Unified table + pagination panel */}
+      <div className="rounded-2xl shadow-xs overflow-hidden border border-gray-200 dark:border-gray-800">
       {/* AG Grid Table Container */}
       <div
         className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
-          } w-full rounded-2xl border border-gray-200 shadow-xs dark:border-gray-800 overflow-hidden min-w-0`}
-        style={{ height: height, minHeight: "420px" }}
+          } w-full max-w-full border-b border-gray-200 dark:border-gray-700 overflow-hidden min-w-0`}
+        style={{ height: height, minHeight: "420px", width: "100%", maxWidth: "100%" }}
       >
         <AgGridReact
+          // Stable row identity prevents AG Grid from reusing a stale row node
+          // when refreshed API data contains the same question IDs.
+          getRowId={(params) => String(params.data.id)}
           rowData={displayedQuestions}
           columnDefs={columnDefs}
           context={{ onToggleStatus }}
@@ -1305,47 +1642,66 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
           pagination={false}
           suppressPaginationPanel={true}
           loading={isLoading}
-          animateRows={true}
+          // Disable row animations because auto-height React renderers can leave a stale blank row during data refreshes.
+          animateRows={false}
           headerHeight={44}
           suppressCellFocus={true}
           onGridReady={handleGridReady}
           onGridSizeChanged={handleGridSizeChanged}
-          onFirstDataRendered={(params) => {
-            params.api.sizeColumnsToFit();
-          }}
-          onRowDataUpdated={(params) => {
-            params.api.sizeColumnsToFit();
-          }}
+
         />
       </div>
 
-      {/* Custom Server-Side Pagination Controls */}
-      <div className="flex flex-col items-center justify-between gap-3 px-2 text-xs text-gray-500 sm:flex-row dark:text-gray-400">
-        <div>
-          Showing{" "}
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
-            {questions.length}
-          </span>{" "}
-          of{" "}
-          <span className="font-semibold text-gray-900 dark:text-gray-100">
-            {totalCount}
-          </span>{" "}
-          questions
+      {/* AG Grid–style Pagination Footer */}
+      <div className="flex items-center justify-between border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-b-lg px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400" style={{ minHeight: '42px' }}>
+        {/* Left: Page Size */}
+        <div className="flex items-center gap-2">
+          <span className="font-medium">Page Size:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+            className="border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-xs text-gray-700 dark:text-gray-300 py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
+            aria-label="Page size"
+          >
+            {[10, 25, 50, 100].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Center: Record count */}
+        <div className="font-semibold text-gray-800 dark:text-gray-200">
+          {totalCount === 0 ? '0' : `${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, totalCount)}`} of {totalCount}
+        </div>
+
+        {/* Right: Navigation */}
+        <div className="flex items-center gap-0.5">
+          {/* First page */}
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => onPageChange(1)}
+            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="First page"
+            title="First Page"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" /><ChevronLeft className="h-3.5 w-3.5 -ml-2.5" />
+          </button>
+          {/* Prev page */}
           <button
             type="button"
             disabled={currentPage <= 1}
             onClick={() => onPageChange(currentPage - 1)}
-            className="inline-flex items-center gap-1 rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-xs transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Previous page"
+            title="Previous Page"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
-            Previous
           </button>
-          <div className="flex items-center gap-1 px-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
-            <span>Page</span>
+
+          {/* Page label */}
+          <span className="px-2 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            Page{" "}
             <input
               type="number"
               min={1}
@@ -1360,24 +1716,37 @@ export const QuestionBankTable: React.FC<QuestionBankTableProps> = ({
               }}
               onBlur={handlePageInputSubmit}
               onFocus={(e) => e.target.select()}
-              className="w-12 rounded-lg border border-gray-300 bg-white py-1 text-center text-xs font-semibold text-gray-900 shadow-xs transition-colors focus:border-[#2a5a6b] focus:outline-none focus:ring-1 focus:ring-[#2a5a6b] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-teal-400 dark:focus:ring-teal-400 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              aria-label="Target page number"
-              title="Click or type to edit page number"
+              className="inline-block w-10 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-center text-xs font-semibold text-gray-900 dark:text-gray-100 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 mx-1 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              aria-label="Page number"
             />
-            <span>of {totalPages}</span>
-          </div>
+            of {totalPages}
+          </span>
+
+          {/* Next page */}
           <button
             type="button"
             disabled={currentPage >= totalPages}
             onClick={() => onPageChange(currentPage + 1)}
-            className="inline-flex items-center gap-1 rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-xs transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Next page"
+            title="Next Page"
           >
-            Next
             <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          {/* Last page */}
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => onPageChange(totalPages)}
+            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            aria-label="Last page"
+            title="Last Page"
+          >
+            <ChevronRight className="h-3.5 w-3.5" /><ChevronRight className="h-3.5 w-3.5 -ml-2.5" />
           </button>
         </div>
       </div>
+      </div>{/* end unified panel */}
     </div>
   );
 };
