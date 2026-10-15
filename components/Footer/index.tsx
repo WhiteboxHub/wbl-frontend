@@ -101,6 +101,33 @@ const Footer = () => {
                 </div>
               </div>
             </div>
+            <div className="w-full text-center sm:w-1/2 sm:text-left md:flex md:justify-center lg:w-4/12">
+              <div className="mb-2">
+                <div className="mb-1">
+                  <h3 className="text-xl font-bold text-black dark:text-white sm:text-2xl">
+                    Terms and Privacy Policy
+                  </h3>
+                </div>
+                <ul>
+                  <li className="mb-1">
+                    <Link
+                      href="/terms-of-service"
+                      className="text-base text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                    >
+                      Terms of Service
+                    </Link>
+                  </li>
+                  <li className="mb-1">
+                    <Link
+                      href="/privacy-policy"
+                      className="text-base text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                    >
+                      Privacy Policy
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </div>
             <div className="hidden w-full text-center sm:w-1/2 sm:text-left md:flex md:justify-center lg:w-4/12">
               <div className="mb-2">
                 <div className="mb-1">
@@ -156,7 +183,7 @@ const Footer = () => {
 
         <div className="flex h-8 items-center bg-gray-300 py-6 dark:bg-primary/10">
           <div className="container flex">
-            <div className="sm:text-md text-bl ackdark:text-white text-center text-sm font-semibold sm:w-11/12 sm:text-right lg:text-xl">
+            <div className="sm:text-md text-black dark:text-white text-center text-sm font-semibold sm:w-11/12 sm:text-right lg:text-xl">
               &copy; {currentYear}{" "}
               <Link href="/" className="inline-block">
                 <div className="text-blue-600 dark:text-blue-500">
