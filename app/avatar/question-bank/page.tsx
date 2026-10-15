@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { CheckCircle, XCircle, AlertTriangle, RotateCcw, HelpCircle, Sparkles } from "lucide-react";
+import { SearchIcon, CheckCircle, XCircle, AlertTriangle, RotateCcw } from "lucide-react";
 import { QuestionBankItem, QuestionFiltersState } from "@/types/aiprep";
 import {
   fetchQuestionBank,
@@ -10,11 +10,16 @@ import {
   toggleQuestionStatus,
   deleteQuestion,
 } from "@/utils/aiprepQuestionApi";
-import { QuestionFilters } from "@/components/aiprep/QuestionFilters";
 import { QuestionBankTable } from "@/components/aiprep/QuestionBankTable";
 import { QuestionDrawer } from "@/components/aiprep/QuestionDrawer";
 import { QuestionDetailDrawer } from "@/components/aiprep/QuestionDetailDrawer";
 import type { QuestionFormData } from "@/components/aiprep/QuestionForm";
+import { ALL_CONCEPTS_LIST } from "@/lib/questionBankTaxonomy";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { Toaster, toast } from "sonner";
+import "@/styles/admin.css";
+import "@/styles/App.css";
 
 export default function QuestionBankPage() {
   // Data state
@@ -22,6 +27,7 @@ export default function QuestionBankPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
@@ -30,9 +36,11 @@ export default function QuestionBankPage() {
   // Filter state
   const [filters, setFilters] = useState<QuestionFiltersState>({
     search: "",
+    subject: "all",
+    concept: "all",
     category: "all",
-    sub_category: "all",
     difficulty: "all",
+    scope: "all",
     status: "all",
   });
 
@@ -44,17 +52,6 @@ export default function QuestionBankPage() {
   const [viewingQuestion, setViewingQuestion] = useState<QuestionBankItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Toast state
-  const [toast, setToast] = useState<{
-    text: string;
-    type: "success" | "error";
-  } | null>(null);
-
-  const showToast = (text: string, type: "success" | "error" = "success") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 4000);
-  };
-
   // ---------------------------------------------------------------------------
   // Data fetching
   // ---------------------------------------------------------------------------
@@ -62,7 +59,7 @@ export default function QuestionBankPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fetchQuestionBank(filters, currentPage, 10);
+      const res = await fetchQuestionBank(filters, currentPage, pageSize);
       setQuestions(res.items);
       setTotalCount(res.total);
       setTotalPages(res.totalPages);
@@ -72,7 +69,7 @@ export default function QuestionBankPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, currentPage]);
+  }, [filters, currentPage, pageSize]);
 
   useEffect(() => {
     loadQuestions();
@@ -82,16 +79,38 @@ export default function QuestionBankPage() {
   // Filter handlers
   // ---------------------------------------------------------------------------
   const handleFilterChange = (newFilters: Partial<QuestionFiltersState>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setFilters((prev) => {
+      const next = { ...prev, ...newFilters };
+      if (
+        newFilters.subject !== undefined &&
+        newFilters.subject !== "all" &&
+        next.concept !== "all"
+      ) {
+        const belongs = ALL_CONCEPTS_LIST.some(
+          (c) => c.subject === newFilters.subject && c.name === next.concept
+        );
+        if (!belongs) {
+          next.concept = "all";
+        }
+      }
+      return next;
+    });
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
     setCurrentPage(1);
   };
 
   const handleResetFilters = () => {
     setFilters({
       search: "",
+      subject: "all",
+      concept: "all",
       category: "all",
-      sub_category: "all",
       difficulty: "all",
+      scope: "all",
       status: "all",
     });
     setCurrentPage(1);
@@ -104,10 +123,10 @@ export default function QuestionBankPage() {
     try {
       if (data.id) {
         await updateQuestion(data.id, data);
-        showToast("Question updated successfully.");
+        toast.success("Question updated successfully.");
       } else {
         await createQuestion(data as Omit<QuestionBankItem, "id" | "created_at">);
-        showToast("Question created successfully.");
+        toast.success("Question created successfully.");
       }
       await loadQuestions();
     } catch (err: any) {
@@ -118,25 +137,25 @@ export default function QuestionBankPage() {
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
       await toggleQuestionStatus(id, !currentStatus);
-      showToast(
+      toast.success(
         `Question ${!currentStatus ? "activated" : "deactivated"} successfully.`
       );
       await loadQuestions();
     } catch {
-      showToast("Failed to update question status.", "error");
+      toast.error("Failed to update question status.");
     }
   };
 
   const handleDeleteQuestion = async (id: number) => {
-    if (!window.confirm(`Are you sure you want to permanently delete question #${id}? This action cannot be undone.`)) {
+    if (!window.confirm(`Deactivate question #${id}? It will be marked inactive and retained in the database for assessment history.`)) {
       return;
     }
     try {
       await deleteQuestion(id);
-      showToast(`Question #${id} deleted successfully.`);
+      toast.success(`Question #${id} deactivated successfully.`);
       await loadQuestions();
     } catch (err: any) {
-      showToast(err.message || "Failed to delete question.", "error");
+      toast.error(err.message || "Failed to deactivate question. No change was confirmed by the backend.");
     }
   };
 
@@ -159,43 +178,38 @@ export default function QuestionBankPage() {
   };
 
   return (
-    <div className="space-y-4 min-w-0">
-      {/* Toast notification */}
-      {toast && (
-        <div
-          role="alert"
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 shadow-xl backdrop-blur-md transition-all ${
-            toast.type === "success"
-              ? "border border-emerald-200 bg-emerald-50/95 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/90 dark:text-emerald-200"
-              : "border border-red-200 bg-red-50/95 text-red-900 dark:border-red-800 dark:bg-red-950/90 dark:text-red-200"
-          }`}
-        >
-          {toast.type === "success" ? (
-            <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          ) : (
-            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-          )}
-          <span className="text-sm font-semibold">{toast.text}</span>
-        </div>
-      )}
+    <div className="space-y-6">
+      <Toaster richColors position="top-center" />
 
-      {/* Page Header */}
-      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+      {/* Header Section */}
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             AI Prep Question Bank
           </h1>
         </div>
       </div>
 
-      {/* Filters Bar */}
-      <QuestionFilters
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onReset={handleResetFilters}
-        totalResults={totalCount}
-        onAddQuestion={openAddDrawer}
-      />
+      {/* Search Questions */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="question-search-input"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Questions
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+          <Input
+            id="question-search-input"
+            type="text"
+            placeholder="Search..."
+            value={filters.search || ""}
+            onChange={(e) => handleFilterChange({ search: e.target.value })}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
       {/* Error state */}
       {error && !isLoading && (
@@ -217,7 +231,7 @@ export default function QuestionBankPage() {
 
       {/* Table */}
       {!error && (
-        <div className="w-full min-w-0">
+        <div className="w-full">
           <QuestionBankTable
             questions={questions}
             isLoading={isLoading}
@@ -229,9 +243,12 @@ export default function QuestionBankPage() {
             currentPage={currentPage}
             totalPages={totalPages}
             totalCount={totalCount}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={handlePageSizeChange}
             filters={filters}
             onFilterChange={handleFilterChange}
+            title="AI Prep Question Bank"
           />
         </div>
       )}

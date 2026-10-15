@@ -1,16 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { QuestionBankItem } from "@/types/aiprep";
 import { QuestionForm, QuestionFormData } from "./QuestionForm";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/admin_ui/dialog";
 
 interface QuestionDrawerProps {
   isOpen: boolean;
@@ -29,6 +23,22 @@ export const QuestionDrawer: React.FC<QuestionDrawerProps> = ({
 }) => {
   const isEditMode = Boolean(initialData);
 
+  // Keep the page behind the editor stationary while scrolling the modal.
+  // Restore prior styles on close/unmount rather than resetting other layout state.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   const handleSubmit = async (data: QuestionFormData) => {
     await onSave(data);
     onClose();
@@ -41,28 +51,48 @@ export const QuestionDrawer: React.FC<QuestionDrawerProps> = ({
     }
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className="fixed left-[50%] top-[50%] z-50 flex max-h-[90vh] w-[95vw] max-w-3xl translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-0 shadow-2xl duration-200 dark:border-gray-800 dark:bg-gray-900 sm:rounded-2xl"
-        aria-label={isEditMode ? "Edit question dialog" : "Add question dialog"}
-      >
-        {/* Header with blue/purple title like the reference */}
-        <DialogHeader className="shrink-0 border-b border-gray-100 bg-gradient-to-r from-blue-50/40 via-white to-indigo-50/30 px-6 py-4 text-left dark:border-gray-800 dark:from-blue-950/20 dark:via-gray-900 dark:to-indigo-950/20">
-          <DialogTitle className="text-lg font-bold tracking-tight text-blue-600 dark:text-blue-400">
-            {isEditMode
-              ? `Edit Question #${initialData?.id || ""}`
-              : "Add New Question"}
-          </DialogTitle>
-          <DialogDescription className="text-xs text-gray-500 dark:text-gray-400">
-            {isEditMode
-              ? "Update question details, category classification, difficulty level, and active status."
-              : "Create a standardized question with difficulty rating and category classification."}
-          </DialogDescription>
-        </DialogHeader>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
+      {/* Backdrop: intentionally non-dismissable so horizontal scrolling or
+          clicks outside the form cannot accidentally close an in-progress edit. */}
+      <div
+        className="pointer-events-none fixed inset-0"
+        aria-hidden="true"
+      />
 
-        {/* Modal Form Body */}
-        <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+      {/* Centered Modal Card (Matching Candidate Marketing reference) */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+        className="pointer-events-auto relative z-10 w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden overscroll-contain border border-blue-200 dark:border-blue-900 dark:bg-gray-900 animate-in zoom-in-95 duration-200"
+      >
+        {/* Modal Top Header (Matching Candidate Marketing reference) */}
+        <div className="sticky top-0 shrink-0 flex items-center justify-between border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight px-4 py-3 sm:px-6 z-10">
+          <h2
+            id="modal-title"
+            className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm sm:text-base md:text-lg font-bold text-transparent"
+          >
+            {isEditMode
+              ? `Question Bank (${initialData?.id || ""}) - Edit Details`
+              : "Question Bank - Add New Question"}
+          </h2>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-slate-800 cursor-pointer"
+            title="Close"
+            aria-label="Close"
+          >
+            <X size={18} className="sm:h-5 sm:w-5" />
+          </button>
+        </div>
+
+        {/* Modal Body with Form */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white dark:bg-gray-900">
           <QuestionForm
             initialData={initialData}
             onSubmit={handleSubmit}
@@ -70,7 +100,8 @@ export const QuestionDrawer: React.FC<QuestionDrawerProps> = ({
             onDelete={onDelete ? handleDelete : undefined}
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body
   );
 };
