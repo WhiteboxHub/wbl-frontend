@@ -13,6 +13,8 @@ import PracticeStep from './PracticeStep';
 import { AssessmentType, aiPrepApi, HardwareCheckResults } from '@/lib/aiprep-api';
 import { apiFetch } from '@/lib/api';
 import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
+import { AIPrepTelemetry } from '@/lib/telemetry';
+import { DeviceCheckCategory, DeviceCheckStatus, DeviceFailureReason, AIWizardStep } from '@/types/telemetry';
 
 export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START';
 interface MediaDev { deviceId: string; label: string; }
@@ -129,7 +131,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         return urlStep;
       }
       // Check sessionStorage fallback
-      const savedStep = sessionStorage.getItem('aiprep_wizard_step') as WizardStep | null;
+      const savedStep = window.sessionStorage?.getItem('aiprep_wizard_step') as WizardStep | null;
       if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
         return savedStep;
       }
@@ -139,7 +141,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
     if (initialType) return initialType as AssessmentType;
     if (typeof window !== 'undefined') {
-      const savedType = sessionStorage.getItem('aiprep_active_type') as AssessmentType | null;
+      const savedType = window.sessionStorage?.getItem('aiprep_active_type') as AssessmentType | null;
       if (savedType) return savedType;
     }
     return 'INTRO';
@@ -166,14 +168,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     window.sessionStorage.setItem('aiprep_video_enabled', 'false');
   }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('aiprep_jd_text') || '';
+    if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_text') || '';
     return '';
   });
   const isPopStateRef = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    sessionStorage.setItem('aiprep_wizard_step', step);
-    sessionStorage.setItem('aiprep_active_type', assessmentType);
+    window.sessionStorage?.setItem('aiprep_wizard_step', step);
+    window.sessionStorage?.setItem('aiprep_active_type', assessmentType);
     syncConsentToSessionStorage({
       videoEnabled,
       consentMic,
@@ -182,7 +184,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       consentSaveRecording,
       consentSaveTranscript,
     });
-    if (jdText) sessionStorage.setItem('aiprep_jd_text', jdText);
+    if (jdText) window.sessionStorage?.setItem('aiprep_jd_text', jdText);
     const slug = STEP_TO_SLUG[step] || 'assessment-type';
     const isPop = isPopStateRef.current;
     isPopStateRef.current = false;
@@ -195,9 +197,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
       if (currentPath !== newPath) {
         if (isPop) win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`); else {
-          const isInitial = !sessionStorage.getItem('aiprep_history_initialized');
+          const isInitial = !window.sessionStorage?.getItem('aiprep_history_initialized');
           if (isInitial) {
-            sessionStorage.setItem('aiprep_history_initialized', 'true');
+            window.sessionStorage?.setItem('aiprep_history_initialized', 'true');
             win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
           } else {
             win.history.pushState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
@@ -221,7 +223,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         window.parent.postMessage({ type: 'AIPREP_STEP_CHANGE', step, slug }, targetOrigin);
       }
     } catch { }
-  }, [step, assessmentType, videoEnabled, consentMic, consentCamera, videoAnalyticsEnabled, consentSaveRecording, consentSaveTranscript, jdText]);
+    AIPrepTelemetry.trackWizardStep(step, assessmentType);
+  }, [
+    step,
+    assessmentType,
+    jdText,
+    STEP_TO_SLUG,
+    isPopStateRef,
+  ]);
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
     if (step === 'CONFIGURATION' && initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
@@ -483,7 +492,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     setBandwidthKbps(trueKbps);
     setNetworkPingMs(trueLatency);
     return { online: true, kbps: trueKbps, latencyMs: trueLatency };
-  }, []);
+  }, [setIsRealInternetOnline, setBandwidthKbps, setNetworkPingMs]);
 
   const [videoDevices, setVideoDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Integrated Webcam' }]);
   const [audioDevices, setAudioDevices] = useState<MediaDev[]>([{ deviceId: 'default', label: 'Default Microphone' }]);
@@ -685,12 +694,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setMicLevel(0);
       setSpeakerTestState('idle');
     }
-  }, []);
+  }, [
+    setCameraStream,
+    setIsFaceLive,
+    setMicLevel,
+    setSpeakerTestState,
+    cameraStreamRef,
+    lastTelemetryUpdateRef,
+    micStreamRef,
+    animFrameRef,
+    audioContextRef,
+    micTestingRef,
+  ]);
 
   useEffect(() => {
     cleanupRef.current = cleanup;
     return () => cleanup();
-  }, [cleanup]);
+  }, [cleanup, cleanupRef]);
 
   const selectedVideoDeviceRef = useRef(selectedVideoDevice);
   selectedVideoDeviceRef.current = selectedVideoDevice;
@@ -710,6 +730,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         micTestingRef.current = false;
         setMicLevel(0);
         cleanup('AUDIO_ONLY');
+        AIPrepTelemetry.trackDeviceCheck(
+          DeviceCheckCategory.MICROPHONE,
+          DeviceCheckStatus.FAILED,
+          DeviceFailureReason.DEVICE_NOT_FOUND
+        );
       };
       track.onended = handleEnded;
       track.onmute = () => {
@@ -717,7 +742,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         handleEnded();
       };
     });
-  }, [cleanup]);
+  }, [
+    cleanup,
+    setMicOk,
+    setMicTested,
+    setMicLevel,
+    micStreamRef,
+    micTestingRef,
+  ]);
 
   // Bind and attach disconnection listeners to Camera stream
   const bindCameraStream = useCallback((stream: MediaStream) => {
@@ -731,13 +763,25 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setCameraTested(true);
         setCameraStream(null);
         cleanup('VIDEO_ONLY');
+        AIPrepTelemetry.trackDeviceCheck(
+          DeviceCheckCategory.CAMERA,
+          DeviceCheckStatus.FAILED,
+          DeviceFailureReason.DEVICE_NOT_FOUND
+        );
       };
       track.onended = handleEnded;
       track.onmute = () => {
-        if (track.readyState === 'ended' || !track.enabled) handleEnded();
+        console.warn('[DeviceCheckWizard] Video track muted (camera detached or covered)');
+        handleEnded();
       };
     });
-  }, [cleanup]);
+  }, [
+    cleanup,
+    setCameraStream,
+    setCameraOk,
+    setCameraTested,
+    cameraStreamRef,
+  ]);
 
   // Diagnostics Runner
   const runDiagnostics = useCallback(async () => {
@@ -781,6 +825,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           setSelectedAudioDevice((prev) => (aDevs.some((d) => d.deviceId === prev) ? prev : aDevs[0].deviceId));
         }
         knownAudioDeviceCountRef.current = rawAudioCount;
+        AIPrepTelemetry.trackDeviceCheckStarted({
+          candidate_id: propCandidateId,
+          audio_devices_count: rawAudioCount || aDevs.length || 1,
+          video_devices_count: rawVideoCount || vDevs.length || (videoEnabled ? 1 : 0),
+          browser: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+          os: typeof navigator !== 'undefined' ? navigator.platform : undefined,
+          screen_resolution: typeof window !== 'undefined' ? `${window.screen.width}x${window.screen.height}` : undefined,
+        });
       } catch (e) {
         console.warn('[runDiagnostics] Device enumeration failed:', e);
       }
@@ -898,7 +950,38 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       }
     }
-  }, [cleanup, videoEnabled, bindCameraStream, bindMicStream, checkRealInternet]);
+  }, [
+    cleanup,
+    videoEnabled,
+    bindCameraStream,
+    bindMicStream,
+    checkRealInternet,
+    setShowPermissionGuide,
+    setBrowserResult,
+    setBandwidthChecking,
+    setSpeakerDevices,
+    setVideoDevices,
+    setSelectedVideoDevice,
+    setAudioDevices,
+    setSelectedAudioDevice,
+    propCandidateId,
+    setCameraOk,
+    setCameraTested,
+    setCameraStream,
+    setMicOk,
+    setMicTested,
+    setSpeakerOk,
+    setSpeakerTested,
+    setMicLevel,
+    knownAudioDeviceCountRef,
+    selectedVideoDeviceRef,
+    selectedAudioDeviceRef,
+    audioContextRef,
+    analyserRef,
+    micTestingRef,
+    animFrameRef,
+    maxLevelSeenRef,
+  ]);
 
   // Listen for audio / video hardware changes (e.g. plug in / unplug headset/mic/webcam)
   useEffect(() => {
@@ -953,10 +1036,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     return () => {
       navigator.mediaDevices?.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [cleanup, videoEnabled, selectedAudioDevice, selectedVideoDevice]);
+  }, [
+    cleanup,
+    videoEnabled,
+    selectedAudioDevice,
+    selectedVideoDevice,
+    setVideoDevices,
+    setAudioDevices,
+    setMicOk,
+    setMicTested,
+    setSelectedAudioDevice,
+    setCameraOk,
+    setCameraTested,
+    setCameraStream,
+    setSelectedVideoDevice,
+    micStreamRef,
+    knownAudioDeviceCountRef,
+    cameraStreamRef,
+  ]);
 
   // Test Camera & AI Video Analytics
-  const testCamera = async () => {
+  const testCamera = useCallback(async () => {
     if (testingCamera || !videoEnabled) return;
     setTestingCamera(true);
     const startTime = Date.now();
@@ -975,7 +1075,34 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setCameraOk(true);
       setCameraTested(true);
       setShowPermissionGuide(false);
-    } catch {
+
+      let resStr = '1280x720';
+      let fpsNum = 30;
+      try {
+        const vTrack = stream.getVideoTracks()[0];
+        const settings = vTrack?.getSettings();
+        if (settings?.width && settings?.height) {
+          resStr = `${settings.width}x${settings.height}`;
+        }
+        if (settings?.frameRate) {
+          fpsNum = Math.round(settings.frameRate);
+        }
+      } catch {}
+
+      AIPrepTelemetry.trackDeviceCheck(
+        DeviceCheckCategory.CAMERA,
+        DeviceCheckStatus.PASSED,
+        undefined,
+        {
+          video_resolution: resStr,
+          fps: fpsNum,
+          face_detected: true,
+          total_attempts: 1,
+          device_name: selectedVideoDevice || 'Default Camera',
+        },
+        propCandidateId
+      );
+    } catch (err: any) {
       const elapsed = Date.now() - startTime;
       if (elapsed < 700) {
         await new Promise((r) => setTimeout(r, 700 - elapsed));
@@ -986,6 +1113,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setAnalyticsOk(false);
       setAnalyticsTested(true);
       if (typeof window !== 'undefined') sessionStorage.setItem('aiprep_test_analytics_ok', 'false');
+      AIPrepTelemetry.trackDeviceCheck(
+        DeviceCheckCategory.CAMERA,
+        DeviceCheckStatus.FAILED,
+        DeviceFailureReason.PERMISSION_BLOCKED,
+        {
+          error_message: err?.message || 'Permission denied by user or camera in use',
+        },
+        propCandidateId
+      );
     } finally {
       const elapsed = Date.now() - startTime;
       if (elapsed < 700) {
@@ -993,10 +1129,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
       setTestingCamera(false);
     }
-  };
+  }, [
+    testingCamera,
+    videoEnabled,
+    selectedVideoDevice,
+    cleanup,
+    bindCameraStream,
+    isVisionReady,
+    detectVideoFrame,
+    setCameraOk,
+    setCameraTested,
+    setShowPermissionGuide,
+    setCameraStream,
+    setAnalyticsOk,
+    setAnalyticsTested,
+    setTestingCamera,
+    propCandidateId,
+    videoRef,
+  ]);
 
   // Test AI Video Analytics (validates MediaPipe face tracking & frame processing on live camera stream)
-  const testAnalytics = async () => {
+  const testAnalytics = useCallback(async () => {
     if (analyticsTesting || !videoEnabled) return;
     setAnalyticsTesting(true);
     try {
@@ -1071,10 +1224,29 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } finally {
       setAnalyticsTesting(false);
     }
-  };
+  }, [
+    analyticsTesting,
+    videoEnabled,
+    cameraOk,
+    cleanup,
+    selectedVideoDevice,
+    bindCameraStream,
+    setCameraOk,
+    setCameraTested,
+    setShowPermissionGuide,
+    setCameraStream,
+    setAnalyticsOk,
+    setAnalyticsTested,
+    isVisionReady,
+    detectVideoFrame,
+    realtimeTelemetry,
+    setAnalyticsTesting,
+    cameraStreamRef,
+    videoRef,
+  ]);
 
   // Test Microphone
-  const testMicrophone = async () => {
+  const testMicrophone = useCallback(async () => {
     if (micTesting) return;
     micTestingRef.current = true;
     maxLevelSeenRef.current = 0;
@@ -1182,16 +1354,40 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           knownAudioDeviceCountRef.current = currentDevs.filter((d) => d.kind === 'audioinput').length;
         } catch { }
       }
-      if (maxLevelSeenRef.current > 0 || stream?.active) {
+      const peakVolume = Math.round(maxLevelSeenRef.current) / 100;
+      if (maxLevelSeenRef.current > 10 || stream?.active) {
         setMicOk(true);
         setMicTested(true);
         setShowPermissionGuide(false);
+        AIPrepTelemetry.trackDeviceCheck(
+          DeviceCheckCategory.MICROPHONE,
+          DeviceCheckStatus.PASSED,
+          undefined,
+          {
+            audio_level: peakVolume,
+            total_attempts: 1,
+            device_name: selectedAudioDevice || 'Default Microphone',
+          },
+          propCandidateId
+        );
       } else {
         setMicOk(false);
         setMicTested(true);
         setShowPermissionGuide(false);
+        AIPrepTelemetry.trackDeviceCheck(
+          DeviceCheckCategory.MICROPHONE,
+          DeviceCheckStatus.FAILED,
+          DeviceFailureReason.LOW_MICROPHONE_VOLUME,
+          {
+            is_retry: true,
+            attempt_number: 1,
+            audio_level: peakVolume,
+            min_threshold: 0.20,
+          },
+          propCandidateId
+        );
       }
-    } catch {
+    } catch (err: any) {
       const elapsed = Date.now() - startTime;
       if (elapsed < 800) {
         await new Promise((r) => setTimeout(r, 800 - elapsed));
@@ -1199,6 +1395,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setMicOk(false);
       setMicTested(true);
       setShowPermissionGuide(false);
+      AIPrepTelemetry.trackDeviceCheck(
+        DeviceCheckCategory.MICROPHONE,
+        DeviceCheckStatus.FAILED,
+        DeviceFailureReason.PERMISSION_BLOCKED,
+        {
+          error_message: err?.message || 'Permission denied by user or microphone detached',
+        },
+        propCandidateId
+      );
     } finally {
       const elapsed = Date.now() - startTime;
       if (elapsed < 800) {
@@ -1208,10 +1413,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       setMicLevel(0);
       setMicTesting(false);
     }
-  };
+  }, [
+    micTesting,
+    selectedAudioDevice,
+    bindMicStream,
+    setMicTesting,
+    setMicOk,
+    setMicTested,
+    setShowPermissionGuide,
+    setMicLevel,
+    propCandidateId,
+    micTestingRef,
+    maxLevelSeenRef,
+    micStreamRef,
+    audioContextRef,
+    analyserRef,
+    animFrameRef,
+    knownAudioDeviceCountRef,
+  ]);
 
   // Test Speaker Chime
-  const playChimeTone = async () => {
+  const playChimeTone = useCallback(async () => {
     if (speakerTestState === 'playing') return;
     setSpeakerTestState('playing');
     try {
@@ -1237,7 +1459,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     } catch {
       setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false);
     }
-  };
+  }, [speakerTestState, setSpeakerTestState, setSpeakerTested, setSpeakerOk]);
 
   // Step Change & Mount Run
   useEffect(() => {
@@ -1415,12 +1637,14 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (onComplete) {
       await onComplete(results);
     } else {
+      let cid: string | number | undefined = undefined;
+      let targetType: string = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
       try {
-        const cid = await getCandidateId();
+        cid = await getCandidateId();
         if (cid && typeof window !== 'undefined') {
           sessionStorage.setItem('aiprep_candidate_id', String(cid));
         }
-        const targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+        targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
         const assessment = await aiPrepApi.createAssessment({
           assessment_type: targetType,
           assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
@@ -1437,12 +1661,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         const isEmbedded = typeof window !== 'undefined' && (window.self !== window.top || window.location.search.includes('embed=true'));
         const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
+        const rawQuestions = assessment?.questions || assessment?.data?.questions;
+        const qList = Array.isArray(rawQuestions) ? rawQuestions : [];
+        AIPrepTelemetry.trackAssessmentCreation({
+          candidate_id: typeof cid === 'number' ? cid : Number(cid) || undefined,
+          assessment_id: targetId,
+          assessment_uuid: assessment?.assessment_uuid || (assessment as any)?.uuid,
+          assessment_type: targetType,
+          media_type: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+          success: true,
+          question_count: qList.length,
+        });
+
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
-          const qList = assessment?.questions || assessment?.data?.questions;
-          if (qList && Array.isArray(qList) && qList.length > 0) {
+          if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
           }
         }
@@ -1450,6 +1685,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         router.replace(targetSessionUrl);
       } catch (err: any) {
         console.error('[DeviceCheckWizard] Failed to start assessment:', err);
+        AIPrepTelemetry.trackAssessmentCreation({
+          candidate_id: typeof cid === 'number' ? cid : Number(cid) || undefined,
+          assessment_type: targetType,
+          media_type: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+          success: false,
+          error_message: err?.message || 'Failed to start assessment',
+        });
         alert(err?.message || 'Failed to start assessment. Please try again.');
         throw err;
       }
@@ -2092,8 +2334,50 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   <div className="w-full max-w-[210px] h-8 px-2 text-xs rounded-lg inline-flex items-center justify-between bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 shadow-xs gap-1.5">
                                     <span className="font-bold text-[11px] text-slate-900 dark:text-white whitespace-nowrap">Hear sound?</span>
                                     <div className="flex items-center gap-1 shrink-0">
-                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer active:scale-95">Yes</button>
-                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer active:scale-95">No</button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSpeakerTestState('idle');
+                                          setSpeakerTested(true);
+                                          setSpeakerOk(true);
+                                          AIPrepTelemetry.trackDeviceCheck(
+                                            DeviceCheckCategory.SPEAKER,
+                                            DeviceCheckStatus.PASSED,
+                                            undefined,
+                                            {
+                                              tone_frequency_hz: 440,
+                                              total_attempts: 1,
+                                              device_name: speakerDevices[0]?.label || 'Default Speaker',
+                                            },
+                                            propCandidateId
+                                          );
+                                        }}
+                                        className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer active:scale-95"
+                                      >
+                                        Yes
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSpeakerTestState('idle');
+                                          setSpeakerTested(true);
+                                          setSpeakerOk(false);
+                                          AIPrepTelemetry.trackDeviceCheck(
+                                            DeviceCheckCategory.SPEAKER,
+                                            DeviceCheckStatus.FAILED,
+                                            DeviceFailureReason.NO_AUDIO_HEARD,
+                                            {
+                                              is_retry: true,
+                                              attempt_number: 1,
+                                              device_name: speakerDevices[0]?.label || 'Default Speaker',
+                                            },
+                                            propCandidateId
+                                          );
+                                        }}
+                                        className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer active:scale-95"
+                                      >
+                                        No
+                                      </button>
                                     </div>
                                   </div>
                                 ) : (
@@ -2299,8 +2583,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                   ) : speakerTestState === 'confirming' ? (
                                     <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                       <span className="text-[10.5px] font-semibold text-slate-500">Heard?</span>
-                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">Yes</button>
-                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2.5 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">No</button>
+                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); AIPrepTelemetry.trackDeviceCheck(DeviceCheckCategory.SPEAKER, DeviceCheckStatus.PASSED, undefined, { tone_hz: 440, device_name: speakerDevices[0]?.label || 'Default Speaker' }, propCandidateId); }} className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">Yes</button>
+                                      <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); AIPrepTelemetry.trackDeviceCheck(DeviceCheckCategory.SPEAKER, DeviceCheckStatus.FAILED, DeviceFailureReason.NO_AUDIO_HEARD, { is_retry: true, failure_reason: 'NO_AUDIO_HEARD', device_name: speakerDevices[0]?.label || 'Default Speaker' }, propCandidateId); }} className="px-2.5 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">No</button>
                                     </span>
                                   ) : speakerTested && speakerOk ? (
                                     <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Passed <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" /></>
@@ -2877,8 +3161,8 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                                     ) : speakerTestState === 'confirming' ? (
                                       <span className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                         <span className="text-[10.5px] font-semibold text-slate-500">Heard?</span>
-                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); }} className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">Yes</button>
-                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); }} className="px-2.5 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">No</button>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(true); AIPrepTelemetry.trackDeviceCheck(DeviceCheckCategory.SPEAKER, DeviceCheckStatus.PASSED, undefined, { tone_hz: 440, device_name: speakerDevices[0]?.label || 'Default Speaker' }, propCandidateId); }} className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">Yes</button>
+                                        <button type="button" onClick={() => { setSpeakerTestState('idle'); setSpeakerTested(true); setSpeakerOk(false); AIPrepTelemetry.trackDeviceCheck(DeviceCheckCategory.SPEAKER, DeviceCheckStatus.FAILED, DeviceFailureReason.NO_AUDIO_HEARD, { is_retry: true, failure_reason: 'NO_AUDIO_HEARD', device_name: speakerDevices[0]?.label || 'Default Speaker' }, propCandidateId); }} className="px-2.5 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-[10.5px] font-bold transition-colors cursor-pointer shadow-xs active:scale-95">No</button>
                                       </span>
                                     ) : speakerTested && speakerOk ? (
                                       <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Passed <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" /></>
