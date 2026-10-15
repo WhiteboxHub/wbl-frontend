@@ -101,8 +101,17 @@ export default function AIPrepPage() {
       }
 
       const targetId = assessment.id;
+      const returnedQuestions = Array.isArray(assessment.questions) ? assessment.questions : [];
+      if (returnedQuestions.length === 0) {
+        throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
+      }
+
+      // Preserve the exact question snapshot selected and persisted by the backend.
       sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
       sessionStorage.setItem('aiprep_active_id', String(targetId));
+      sessionStorage.setItem('aiprep_active_type', targetType);
+      sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+      sessionStorage.setItem('aiprep_active_questions', JSON.stringify(returnedQuestions));
       sessionStorage.removeItem('aiprep_wizard_step');
 
       const isEmbedded = window.self !== window.top || window.location.search.includes('embed=true');

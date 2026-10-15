@@ -652,6 +652,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         if (preferredVoice) utterance.voice = preferredVoice;
         utterance.rate = 0.95;
 
+        setIsAiSpeaking(true);
         utterance.onstart = () => setIsAiSpeaking(true);
         utterance.onend = () => {
           speechUtteranceRef.current = null;
@@ -861,8 +862,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           } catch (_) {}
         }
 
-        // Tier 3: Query Question Bank Catalog API
-        if (!loadedQuestions || loadedQuestions.length === 0) {
+        // Technical assessments must use the exact question snapshot returned by POST.
+        // Never silently substitute unrelated catalog questions for a Technical attempt.
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
           try {
             const qBankRes = await aiprepApi.getQuestions(finalType);
             if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
@@ -873,14 +875,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        // Check that questions were successfully loaded from backend API or session
         if (!loadedQuestions || loadedQuestions.length === 0) {
-          setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
+          setErrorMsg(finalType === 'TECHNICAL'
+            ? 'No technical questions were saved for this assessment. Please return to setup and start a new assessment.'
+            : 'No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
         }
 
         setQuestions(loadedQuestions);
+        setCurrentQuestionIndex(0);
 
         // If intro track, trigger 5-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
@@ -1113,9 +1117,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
-  // Immediately starts assessment recording and question timer as soon as countdown completes (no automatic AI voice)
+  // Read the first question aloud from the Start Answer gesture, then start recording.
+  // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = () => {
     stopAiSpeech();
+    const activeQ = questions[currentQuestionIndex];
+    if (activeQ?.question_text && !isSpeechMuted) {
+      speakAiText(activeQ.question_text);
+    }
     startRecorderCore();
   };
   startAnswerRef.current = handleStartAnswer;
@@ -1129,7 +1138,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     } else if (assessmentType === 'INTRO') {
       limit = 240; // 4:00 mins max for Intro
     } else {
-      limit = getDifficultySeconds(activeQ?.difficulty_level) || getDefaultTypeSeconds(assessmentType);
+      // The backend resolves duration from difficulty/scope and any custom override.
+      // Use its authoritative per-question duration rather than re-deriving it in the UI.
+      const serverLimit = Number(activeQ?.time_limit_seconds);
+      limit = Number.isFinite(serverLimit) && serverLimit > 0
+        ? Math.floor(serverLimit)
+        : (getDifficultySeconds(activeQ?.difficulty_level) || getDefaultTypeSeconds(assessmentType));
     }
     setQuestionTimeLimit(limit);
     setQuestionTimeElapsed(0);
@@ -1140,12 +1154,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const hasAutoEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isRecording || isEnding) return;
+    if (!isRecording || isEnding || isAiSpeaking) return;
     const timer = setInterval(() => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking) return;
       setQuestionTimeElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRecording, isEnding]);
+  }, [isRecording, isEnding, isAiSpeaking]);
 
   useEffect(() => {
     if (isRecording && questionTimeElapsed >= questionTimeLimit && !isTransitioningQuestion && !isEnding && !hasAutoEndedRef.current) {
@@ -1205,8 +1220,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   };
   handleNextQuestionRef.current = handleNextQuestion;
 
+  // Completed questions are one-way: candidates may revisit only the current
+  // unanswered question flow, never a question that has already been submitted.
   const handlePrevQuestion = () => {
-    if (currentQuestionIndex > 0 && !isTransitioningQuestion) {
+    if (currentQuestionIndex > 0 && !isTransitioningQuestion && !isRecording) {
       setIsTransitioningQuestion(true);
       stopAiSpeech();
 
@@ -1635,7 +1652,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const isQuestionBlurred = isInactive && !isIntroType;
 
   return (
-    <div className="w-full min-h-screen lg:h-screen overflow-y-auto lg:overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {/* 1. TOP UTILITY HEADER */}
       <header className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-30">
         {/* LEFT: Logo & Assessment Track Title */}
@@ -1720,11 +1737,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       </header>
 
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
-      <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3 max-w-[1600px] mx-auto w-full overflow-hidden">
+      <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto pb-28">
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
-        <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-2 h-full overflow-hidden">
+        <div className="lg:col-span-5 flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible">
           {/* CINEMA CAMERA STAGE */}
-          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${
+          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl overflow-hidden border flex items-center justify-center min-h-[220px] sm:min-h-[280px] transition-colors duration-300 ${
             isAudioOnly
               ? 'bg-white border-slate-200/90 shadow-sm'
               : 'bg-slate-950 border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl'
@@ -1758,13 +1775,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             {/* Audio-only stage styled to match the centered microphone and tapered waveform reference */}
             {isAudioOnly && (
               <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4 px-4">
-                <div className="absolute h-64 w-64 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
+                <div className="absolute h-48 w-48 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
                 <div className="relative flex flex-col items-center gap-5">
-                  <div className="relative flex h-36 w-36 items-center justify-center">
-                    <div className={`absolute inset-0 rounded-full border-[3px] border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
-                    <div className="absolute inset-3 rounded-full bg-violet-100/60" />
-                    <div className={`relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
-                      <IconMicrophone size={40} stroke={2.2} className="text-white" />
+                  <div className="relative flex h-28 w-28 items-center justify-center">
+                    <div className={`absolute inset-0 rounded-full border-2 border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
+                    <div className="absolute inset-2.5 rounded-full bg-violet-100/60" />
+                    <div className={`relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
+                      <IconMicrophone size={30} stroke={2.2} className="text-white" />
                     </div>
                   </div>
                   <div className="flex flex-col items-center gap-3">
@@ -1806,9 +1823,67 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             )}
           </div>
 
+          {/* LIVE TRANSCRIPT: kept with the response panel for a calmer interview layout */}
+          {/* CARD 2: Live Speech Transcript Card (Compact fixed height) */}
+          <div className="h-[150px] sm:h-[175px] shrink-0 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm dark:shadow-xl flex flex-col justify-between overflow-hidden">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <IconMessage2 size={15} />
+                </div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Live Speech Transcript</h3>
+              </div>
+
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
+                {sentenceCount} {sentenceCount === 1 ? 'sentence' : 'sentences'} • {wordCount} words
+              </span>
+            </div>
+
+            {/* Scrollable Viewport */}
+            <div
+              ref={transcriptScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto py-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300 select-text"
+            >
+              {liveTranscript ? (
+                <p className="whitespace-pre-wrap">{liveTranscript}</p>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 p-2">
+                  <IconMicrophone size={20} className="mb-1 opacity-50 text-indigo-500 dark:text-indigo-400" />
+                  <p className="text-[11px]">Speech will appear here in real-time as you speak…</p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px] text-slate-400 dark:text-slate-500 text-center shrink-0">
+              Transcribed live for coaching coherence & communication analytics
+            </div>
+          </div>
+
+          {/* Live recording and upload health */}
+          <div className="grid grid-cols-3 gap-2 shrink-0">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <IconMicrophone size={13} /> Microphone
+              </div>
+              <p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">{isRecording ? 'Recording' : isInactive ? 'Ready' : 'Stopped'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <IconWifi size={13} /> Network
+              </div>
+              <p className={`mt-1 text-xs font-bold ${networkQuality === 'good' ? 'text-emerald-600 dark:text-emerald-400' : networkQuality === 'average' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>{networkQuality === 'good' ? 'Good' : networkQuality === 'average' ? 'Moderate' : 'Weak'}</p>
+            </div>
+            <div className={`rounded-xl border px-3 py-2 ${failedChunks > 0 ? 'border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <IconCheck size={13} /> Chunks
+              </div>
+              <p className={`mt-1 text-xs font-bold ${failedChunks > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}`}>{isUploading ? 'Uploading…' : failedChunks > 0 ? `${failedChunks} failed` : totalChunks > 0 ? `${uploadedChunks}/${totalChunks} sent` : 'Waiting'}</p>
+            </div>
+          </div>
+
           {/* FLOATING GLASS MEETING DOCK */}
-          <div className="w-full flex items-center justify-center shrink-0 py-2">
-            <div className="flex items-center justify-between gap-3 w-full max-w-2xl h-14 sm:h-16 px-4 sm:px-6 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-xl">
+          <div className="fixed bottom-0 left-0 right-0 z-40 w-full flex items-center justify-center px-3 sm:px-5 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80">
+            <div className="flex items-center justify-between gap-3 w-full max-w-[1500px] h-14 sm:h-16 px-2 sm:px-4 rounded-2xl bg-transparent border-0 shadow-none">
               {/* Left Group: Exit Button + Previous Question Button */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -1822,8 +1897,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   <span>Exit Assessment</span>
                 </button>
 
-                {/* Previous Button (Only when recording and past Question 1) */}
-                {isRecording && currentQuestionIndex > 0 && !isEnding && (
+                {/* Completed questions are locked; do not offer backward navigation. */}
+                {false && currentQuestionIndex > 0 && !isEnding && (
                   <button
                     type="button"
                     onClick={handlePrevQuestion}
@@ -1882,7 +1957,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       onClick={handleNextQuestion}
                       disabled={isTransitioningQuestion}
                       className="h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 transition-all shrink-0"
-                      title="Submit answer and proceed to next question"
+                      title="Save this answer and continue to the next question"
                     >
                       {isTransitioningQuestion ? (
                         <>
@@ -1891,7 +1966,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         </>
                       ) : (
                         <>
-                          <span>Next Question</span>
+                          <span>Submit Answer</span>
                           <IconArrowRight size={16} stroke={2.5} />
                         </>
                       )}
@@ -1905,7 +1980,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                           ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
                           : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
                         }`}
-                      title="Finish Assessment"
+                      title="Submit your assessment"
                     >
                       {isEnding ? (
                         <>
@@ -1914,7 +1989,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         </>
                       ) : (
                         <>
-                          <span>Finish Assessment</span>
+                          <span>Submit Assessment</span>
                           <IconCheck size={16} stroke={2.5} />
                         </>
                       )}
@@ -1930,10 +2005,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
 
         {/* RIGHT COLUMN: Question Prompt Card & Live Speech Transcript Card */}
-        <div className="lg:col-span-5 flex flex-col gap-3 min-h-0 lg:h-full shrink-0 lg:shrink">
+        <div className="lg:col-span-7 flex flex-col gap-3 min-h-[480px] lg:min-h-0 lg:h-full shrink-0 lg:shrink">
           {/* CARD 1: Question Prompt Card (Expanded height & scrollable) */}
           {activeQuestion ? (
-            <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[220px] flex-1 space-y-3 overflow-hidden">
+            <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[420px] flex-1 space-y-4 overflow-hidden">
               {/* Overlay when question is hidden in standby mode */}
               {isQuestionBlurred && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl p-4 text-center transition-all duration-500">
@@ -1999,9 +2074,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 )}
               </div>
 
+              {/* Backend-provided metadata updates with the active question. */}
+              {(activeQuestion.subject || activeQuestion.concept || activeQuestion.scope) && (
+                <div className={"flex flex-wrap items-center gap-2 shrink-0 transition-all duration-500 " + (isQuestionBlurred ? 'blur-sm select-none opacity-40' : '')}>
+                  {activeQuestion.subject && (
+                    <span className="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-300">
+                      {activeQuestion.subject}
+                    </span>
+                  )}
+                  {activeQuestion.concept && (
+                    <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {activeQuestion.concept}
+                    </span>
+                  )}
+
+                </div>
+              )}
+
               {/* Question Text */}
               <div className={`flex-1 min-h-0 overflow-y-auto py-1 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-md select-none pointer-events-none opacity-30' : ''}`}>
-                <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed">
+                <h2 className="text-lg sm:text-xl xl:text-2xl font-semibold text-slate-900 dark:text-white leading-relaxed tracking-tight">
                   {activeQuestion.question_text}
                 </h2>
               </div>
@@ -2073,40 +2165,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             </div>
           )}
 
-          {/* CARD 2: Live Speech Transcript Card (Compact fixed height) */}
-          <div className="h-[140px] sm:h-[160px] shrink-0 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm dark:shadow-xl flex flex-col justify-between overflow-hidden">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <IconMessage2 size={15} />
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Live Speech Transcript</h3>
-              </div>
-
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                {sentenceCount} {sentenceCount === 1 ? 'sentence' : 'sentences'} • {wordCount} words
-              </span>
-            </div>
-
-            {/* Scrollable Viewport */}
-            <div
-              ref={transcriptScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto py-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300 select-text"
-            >
-              {liveTranscript ? (
-                <p className="whitespace-pre-wrap">{liveTranscript}</p>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 p-2">
-                  <IconMicrophone size={20} className="mb-1 opacity-50 text-indigo-500 dark:text-indigo-400" />
-                  <p className="text-[11px]">Speech will appear here in real-time as you speak…</p>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px] text-slate-400 dark:text-slate-500 text-center shrink-0">
-              Transcribed live for coaching coherence & communication analytics
-            </div>
-          </div>
         </div>
       </div>
 
