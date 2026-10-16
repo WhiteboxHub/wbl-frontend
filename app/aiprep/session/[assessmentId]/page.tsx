@@ -21,6 +21,7 @@ import { NO_PAUSE_ASSESSMENT_TYPES } from '@/types/aiprep';
 import { cleanTechnicalSpeech, formatAsSentence, appendDeduplicated } from '@/lib/aiprep-speech';
 import { useTheme } from 'next-themes';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
 import { ChunkedUploader } from '@/components/aiprep/ChunkedUploader';
 import { useAssessmentTelemetry } from '@/hooks/useAssessmentTelemetry';
@@ -585,18 +586,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
   const localChunksRef = useRef<Blob[]>([]);
 
-  // ── Media Recorder Hook (30s slicing) ──────────────────────────────────────
+  // ── Audio Recorder Hook (Continuous Single-Upload for Audio Assessments) ──
   const {
-    status: recordingStatus,
-    stream,
-    elapsedTime,
-    startRecording: startRecorderCore,
-    stopRecording,
-    cleanup: cleanupRecorder,
+    status: audioRecordingStatus,
+    stream: audioStream,
+    elapsedTime: audioElapsedTime,
+    startRecording: startAudioRecorder,
+    stopRecording: stopAudioRecorder,
+    cleanup: cleanupAudioRecorder,
+  } = useAudioRecorder({
+    onError: (err) => {
+      console.error('[AudioRecorder Error]:', err);
+      setErrorMsg(err.message || 'Audio recording failed.');
+    },
+  });
+
+  // ── Media Recorder Hook (30s slicing for Video Assessments) ────────────────
+  const {
+    status: videoRecordingStatus,
+    stream: videoStream,
+    elapsedTime: videoElapsedTime,
+    startRecording: startVideoRecorder,
+    stopRecording: stopVideoRecorder,
+    cleanup: cleanupVideoRecorder,
   } = useMediaRecorder({
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
     chunkDurationMs: 30000,
     onChunkReady: (blob, chunkIdx, isFinal) => {
+      if (isAudioOnly) return;
       console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
       if (blob && blob.size > 0) {
         localChunksRef.current.push(blob);
@@ -608,6 +625,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setErrorMsg(err.message || 'Media recording failed.');
     },
   });
+
+  const recordingStatus = isAudioOnly ? audioRecordingStatus : videoRecordingStatus;
+  const stream = isAudioOnly ? audioStream : videoStream;
+  const elapsedTime = isAudioOnly ? audioElapsedTime : videoElapsedTime;
+  const startRecorderCore = isAudioOnly ? startAudioRecorder : startVideoRecorder;
+  const stopRecording = isAudioOnly ? stopAudioRecorder : stopVideoRecorder;
+  const cleanupRecorder = isAudioOnly ? cleanupAudioRecorder : cleanupVideoRecorder;
 
   const isRecording = recordingStatus === 'recording';
   const isInactive = recordingStatus === 'idle';
@@ -825,12 +849,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         try {
           const detail = await aiprepApi.getAssessment(assessmentId);
           const status = (detail?.status || '').toUpperCase();
-          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED') {
+          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
             if (typeof window !== 'undefined') {
               localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+              localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
             }
             setIsSessionAlreadyEnded(true);
-            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
+            const targetUrl = isEmbedded
+              ? '/user_dashboard/ai-prep?embed=true'
+              : (status === 'COMPLETED' || status === 'EVALUATING' || status === 'SUBMITTED' || status === 'EVALUATED')
+                ? `/aiprep/reports/${assessmentId}`
+                : '/user_dashboard/ai-prep';
             router.replace(targetUrl);
             return;
           }
@@ -1301,27 +1330,38 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsEnding(true);
       stopAiSpeech();
 
-      // 1. Stop recording and flush final slice
-      await stopRecording();
-
-      // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
-      if (localChunksRef.current.length > 0 && assessmentId) {
-        try {
-          const mimeType = isAudioOnly ? 'audio/webm' : 'video/webm';
-          const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
-          const previewUrl = URL.createObjectURL(combinedBlob);
+      // 1. Stop recording and flush final slice / audio blob
+      let finalAudioBlob: Blob | null = null;
+      if (isAudioOnly) {
+        const audioRes = await stopAudioRecorder();
+        finalAudioBlob = audioRes?.blob || null;
+        if (audioRes?.url && assessmentId) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-            (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
-            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
+            (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, audioRes.url);
           }
-        } catch (blobErr) {
-          console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
         }
+      } else {
+        await stopVideoRecorder();
+        // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
+        if (localChunksRef.current.length > 0 && assessmentId) {
+          try {
+            const mimeType = 'video/webm';
+            const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
+            const previewUrl = URL.createObjectURL(combinedBlob);
+            if (typeof window !== 'undefined') {
+              (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+              (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
+              sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
+            }
+          } catch (blobErr) {
+            console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+          }
+        }
+        // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
+        await waitForAllChunks(8000);
       }
-
-      // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
-      await waitForAllChunks(8000);
 
       // Commit any pending interim speech as a complete sentence before submitting
       if (currentInterimRef.current) {
@@ -1376,7 +1416,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       await aiprepApi.submitAssessmentStream(
         assessmentId,
         {
-          total_chunks_uploaded: totalChunks || 1,
+          total_chunks_uploaded: isAudioOnly ? 0 : (totalChunks || 1),
           is_final: true,
           client_duration_seconds: elapsedTimeRef.current,
           video_telemetry: isAudioOnly
@@ -1405,7 +1445,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           } catch (progressError) {
             console.warn("Could not update assessment submission progress UI:", progressError);
           }
-        }
+        },
+        undefined,
+        finalAudioBlob
       );
       setSubmissionProgress(100);
       setSubmissionStep("Evaluation complete. Opening report…");

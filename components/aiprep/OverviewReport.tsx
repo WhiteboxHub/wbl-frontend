@@ -855,15 +855,46 @@ export function EvaluationContent({
   );
   const localPreviewUrl =
     typeof window !== "undefined"
-      ? (window as any).__aiprep_local_preview?.[assessmentId] || undefined
+      ? (window as any).__aiprep_local_preview?.[assessmentId] ||
+        (() => {
+          const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
+          // A blob: URL is only valid within the lifetime of the in-memory window context.
+          // If the page was reloaded, window.__aiprep_local_preview is wiped, meaning the blob is dead.
+          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[assessmentId]) {
+            try {
+              sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+            } catch (_) {}
+            return undefined;
+          }
+          return stored || undefined;
+        })()
       : undefined;
 
+  const serverUrl = assessmentId
+    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    : undefined;
+
+  // Auto-cleanup local instant playback blob once YouTube URL is available
+  useEffect(() => {
+    if (youtube_url && typeof window !== "undefined" && assessmentId) {
+      if ((window as any).__aiprep_local_preview?.[assessmentId]) {
+        try {
+          URL.revokeObjectURL((window as any).__aiprep_local_preview[assessmentId]);
+        } catch (_) {}
+        delete (window as any).__aiprep_local_preview[assessmentId];
+      }
+      try {
+        sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+      } catch (_) {}
+    }
+  }, [youtube_url, assessmentId]);
+
+  // Playback hierarchy:
+  // 1. YouTube (once upload is done)
+  // 2. Instant Local Playback (0ms zero-latency preview while YouTube is pending)
+  // 3. Persistent Server Stream (when reopening a closed assessment)
   const effectivePlaybackUrl = canShowRecording
-    ? (youtube_url ||
-        localPreviewUrl ||
-        (assessmentId
-          ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
-          : undefined))
+    ? (youtube_url || localPreviewUrl || serverUrl)
     : undefined;
 
   const durationSeconds =
@@ -1084,6 +1115,7 @@ export function EvaluationContent({
           <div className="w-full max-w-3xl mx-auto">
             <VideoPlayer
               youtubeUrl={effectivePlaybackUrl}
+              fallbackUrl={serverUrl}
               videoRef={videoRef}
               isAudioOnly={isAudioOnly}
               candidateName={report.candidate_name}
@@ -2035,6 +2067,28 @@ export default function AiPrepReport({
 
   // The session page owns the submission SSE connection and navigates here only after COMPLETED.
   // This page intentionally performs no polling or secondary stream requests.
+
+  // ── Auto-Poll when assessment is in EVALUATING / isProcessing state ───────
+  useEffect(() => {
+    if (!isProcessing || !assessmentId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        const status = (fresh?.status || "").toUpperCase();
+        if (isMounted && (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || fresh?.report)) {
+          clearInterval(interval);
+          loadReport(true);
+        }
+      } catch (_) {}
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isProcessing, assessmentId, loadReport]);
 
   // ── Auto-Swap to YouTube when background upload completes ─────────────────
   useEffect(() => {
