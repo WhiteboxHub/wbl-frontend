@@ -8,16 +8,68 @@ import { PostHogProvider } from "posthog-js/react";
 import { AIPrepTelemetry } from "@/lib/telemetry";
 
 
+export function isAiPrepRoute(pathname: string | null | undefined): boolean {
+  return AIPrepTelemetry.isAiPrepRoute(pathname);
+}
+
+/**
+ * Strips query parameters, search strings, and hash fragments from a URL
+ * to prevent leaking PII, session tokens, or auth credentials to PostHog.
+ */
+export function sanitizeUrl(rawUrl?: string | null): string {
+  if (!rawUrl || typeof rawUrl !== "string") return "";
+  try {
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const parsed = new URL(rawUrl, base);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch (_) {
+    return rawUrl.split("?")[0].split("#")[0];
+  }
+}
+
 function PostHogPageView() {
   const pathname = usePathname();
 
   useEffect(() => {
     if (!pathname || typeof window === "undefined") return;
-    if (typeof posthog === "undefined" || !(posthog as any)?.__loaded) return;
+
+    // Strict route gating: only proceed on AI Prep routes
+    if (!isAiPrepRoute(pathname)) return;
+
+    // Ensure AI Prep telemetry listeners are attached on client-side navigation to AI Prep routes
+    if (!(window as any).__aiprep_telemetry_init) {
+      try {
+        AIPrepTelemetry.initGlobalErrorListeners();
+        AIPrepTelemetry.initUxFrictionTracker();
+        AIPrepTelemetry.initCoreWebVitalsTracker();
+        (window as any).__aiprep_telemetry_init = true;
+      } catch (err) {
+        console.warn("[PostHogPageView] Telemetry listeners initialization failed:", err);
+      }
+    }
+
+    if (
+      typeof posthog === "undefined" ||
+      typeof posthog.capture !== "function" ||
+      !(posthog as any)?.__loaded
+    ) {
+      return;
+    }
 
     try {
+      const currentUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}${pathname}`
+          : pathname;
+      const referrerUrl =
+        typeof document !== "undefined" && document.referrer
+          ? sanitizeUrl(document.referrer)
+          : undefined;
+
       posthog.capture("$pageview", {
-        $current_url: `${window.location.origin}${pathname}`,
+        $current_url: currentUrl,
+        $pathname: pathname,
+        ...(referrerUrl ? { $referrer: referrerUrl } : {}),
       });
     } catch (err) {
       console.warn("[PostHogPageView] Failed to capture pageview:", err);
@@ -106,6 +158,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
               autocapture: false,
               advanced_disable_feature_flags: true,
               advanced_disable_feature_flags_on_first_load: true,
+              before_send: (event: any) => {
+                if (event && event.properties) {
+                  if (typeof event.properties.$current_url === "string") {
+                    event.properties.$current_url = sanitizeUrl(event.properties.$current_url);
+                  }
+                  if (typeof event.properties.$referrer === "string") {
+                    event.properties.$referrer = sanitizeUrl(event.properties.$referrer);
+                  }
+                  if (typeof event.properties.$initial_referrer === "string") {
+                    event.properties.$initial_referrer = sanitizeUrl(event.properties.$initial_referrer);
+                  }
+                  if (typeof event.properties.$initial_current_url === "string") {
+                    event.properties.$initial_current_url = sanitizeUrl(event.properties.$initial_current_url);
+                  }
+                }
+                return event;
+              },
               loaded: () => {
                 if (isSubscribed) {
                   setIsPostHogInitialized(true);
@@ -119,11 +188,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Route-scoped telemetry: only attach listeners on AI Prep routes
+      // Route-scoped telemetry: only attach listeners on AI Prep routes (excluding reports)
       if (typeof window !== "undefined" && !(window as any).__aiprep_telemetry_init) {
         const currentPath = window.location.pathname;
-        const isAiPrepRoute = currentPath.includes('/aiprep') || currentPath.includes('/user_dashboard/ai-prep');
-        if (isAiPrepRoute) {
+        if (AIPrepTelemetry.isAiPrepRoute(currentPath)) {
           try {
             AIPrepTelemetry.initGlobalErrorListeners();
             AIPrepTelemetry.initUxFrictionTracker();
