@@ -331,6 +331,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [questionTimeLimit, setQuestionTimeLimit] = useState<number>(180);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [isTransitioningQuestion, setIsTransitioningQuestion] = useState<boolean>(false);
+  const [isQuestionPrepPaused, setIsQuestionPrepPaused] = useState<boolean>(false);
+  const [hasStartedQuestion, setHasStartedQuestion] = useState<boolean>(false);
+  const [prepCountdown, setPrepCountdown] = useState<number | null>(null);
   const elapsedTimeRef = useRef<number>(0);
 
   // Target Job Description State (for JD_INTRO track)
@@ -636,39 +639,49 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, []);
 
   const speakAiText = useCallback(
-    (text: string) => {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeechMuted) return;
+    (text: string): Promise<void> => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeechMuted) {
+        return Promise.resolve();
+      }
 
       stopAiSpeech();
 
-      try {
-        const cleanText = text.replace(/^"|"$/g, '').trim();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        speechUtteranceRef.current = utterance;
-
-        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
-        const preferredVoice = getBestVoice(currentVoices);
-
-        if (preferredVoice) utterance.voice = preferredVoice;
-        utterance.rate = 0.95;
-
-        setIsAiSpeaking(true);
-        utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => {
+      return new Promise<void>((resolve) => {
+        let settled = false;
+        const finishSpeech = () => {
+          if (settled) return;
+          settled = true;
           speechUtteranceRef.current = null;
           setIsAiSpeaking(false);
-        };
-        utterance.onerror = () => {
-          speechUtteranceRef.current = null;
-          setIsAiSpeaking(false);
+          resolve();
         };
 
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('Speech synthesis error:', err);
-        speechUtteranceRef.current = null;
-        setIsAiSpeaking(false);
-      }
+        try {
+          const cleanText = text.replace(/^"|"$/g, '').trim();
+          if (!cleanText) {
+            finishSpeech();
+            return;
+          }
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          speechUtteranceRef.current = utterance;
+
+          const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+          const preferredVoice = getBestVoice(currentVoices);
+
+          if (preferredVoice) utterance.voice = preferredVoice;
+          utterance.rate = 0.95;
+
+          setIsAiSpeaking(true);
+          utterance.onstart = () => setIsAiSpeaking(true);
+          utterance.onend = finishSpeech;
+          utterance.onerror = finishSpeech;
+
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          console.warn('Speech synthesis error:', err);
+          finishSpeech();
+        }
+      });
     },
     [isSpeechMuted, stopAiSpeech, cachedVoices, getBestVoice]
   );
@@ -1119,12 +1132,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // ── Start Recording Control ────────────────────────────────────────────────
   // Read the first question aloud from the Start Answer gesture, then start recording.
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
-  const handleStartAnswer = () => {
+  const handleStartAnswer = async () => {
+    if (hasStartedQuestion) return;
+    setHasStartedQuestion(true); // Reveal the question page immediately on click.
     stopAiSpeech();
     const activeQ = questions[currentQuestionIndex];
+
+    // Narration and preparation happen while the question is visible, but
+    // before recording and the question timer start.
     if (activeQ?.question_text && !isSpeechMuted) {
-      speakAiText(activeQ.question_text);
+      await speakAiText(activeQ.question_text);
     }
+    for (let seconds = 5; seconds > 0; seconds -= 1) {
+      setPrepCountdown(seconds);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+    }
+    setPrepCountdown(null);
     startRecorderCore();
   };
   startAnswerRef.current = handleStartAnswer;
@@ -1154,13 +1177,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const hasAutoEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isRecording || isEnding || isAiSpeaking) return;
+    if (!isRecording || isEnding || isAiSpeaking || isQuestionPrepPaused) return;
     const timer = setInterval(() => {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking) return;
       setQuestionTimeElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRecording, isEnding, isAiSpeaking]);
+  }, [isRecording, isEnding, isAiSpeaking, isQuestionPrepPaused]);
 
   useEffect(() => {
     if (isRecording && questionTimeElapsed >= questionTimeLimit && !isTransitioningQuestion && !isEnding && !hasAutoEndedRef.current) {
@@ -1181,9 +1204,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const questionProgressPct = Math.min(100, Math.round((questionTimeElapsed / (questionTimeLimit || 1)) * 100));
 
   // ── Navigation Between Questions ───────────────────────────────────────────
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1 && !isTransitioningQuestion) {
       setIsTransitioningQuestion(true);
+      setIsQuestionPrepPaused(true);
       stopAiSpeech();
 
       // 1. Snapshot current question's live transcript
@@ -1205,17 +1229,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 2. Advance index and reset timer
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
+      setHasStartedQuestion(true);
       setQuestionTimeElapsed(0);
 
-      // 3. Read the new question aloud if not muted
+      // 3. Read the new question aloud, then give the candidate 5 seconds
+      // before resuming the question timer.
       const nextQ = questions[nextIndex];
       if (nextQ?.question_text && !isSpeechMuted) {
-        speakAiText(nextQ.question_text);
+        await speakAiText(nextQ.question_text);
       }
-
-      setTimeout(() => {
-        setIsTransitioningQuestion(false);
-      }, 350);
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        setPrepCountdown(seconds);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      }
+      setPrepCountdown(null);
+      setIsQuestionPrepPaused(false);
+      setIsTransitioningQuestion(false);
     }
   };
   handleNextQuestionRef.current = handleNextQuestion;
@@ -1649,97 +1678,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         .split(/[.!?]+/)
         .filter((s) => s.trim().length > 0).length
     : 0;
-  const isQuestionBlurred = isInactive && !isIntroType;
+  const isQuestionBlurred = isInactive && !isIntroType && !hasStartedQuestion;
 
   return (
     <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 1. TOP UTILITY HEADER */}
-      <header className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-30">
-        {/* LEFT: Logo & Assessment Track Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/30 shrink-0">
-            <IconSparkles size={18} />
-          </div>
-          <div>
-            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
-              {assessmentType} Assessment
-            </h1>
-          </div>
+      <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
+          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">TECHNICAL Assessment</span>
         </div>
-
-        {/* CENTER: Interview Question Countdown & Total Clock */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Active Question Countdown Badge */}
-          <div
-            className={`h-8 px-3 sm:px-3.5 rounded-full border shadow-xs inline-flex items-center gap-2 transition-colors duration-200 ${isQuestionTimeExpired
-                ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-600 dark:text-rose-400'
-                : isQuestionLowTime
-                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400'
-                  : 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
-              }`}
-            title={`Time allocated for Question ${currentQuestionIndex + 1}: ${formatTime(questionTimeLimit)}`}
-          >
-            <IconClock size={15} className={`shrink-0 ${isQuestionTimeExpired ? 'text-rose-500' : isQuestionLowTime ? 'text-amber-500' : 'text-indigo-600 dark:text-indigo-400'}`} />
-            <div className="flex items-center gap-1.5 leading-none">
-              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
-                Q{currentQuestionIndex + 1} Time:
-              </span>
-              <span className="font-mono text-xs sm:text-sm font-black whitespace-nowrap">
-                {formatTime(questionTimeRemaining)}
-              </span>
-            </div>
-            {isQuestionLowTime && (
-              <span className="hidden sm:inline-flex items-center justify-center text-[9px] font-extrabold uppercase bg-amber-200 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded leading-none">
-                30s Left
-              </span>
-            )}
-            {isQuestionTimeExpired && (
-              <span className="inline-flex items-center justify-center text-[9px] font-extrabold uppercase bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200 px-1.5 py-0.5 rounded leading-none">
-                Time Up
-              </span>
-            )}
-          </div>
-
-
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300">
+          <IconClock size={14} />
+          <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(Math.max(0, questionTimeLimit - questionTimeElapsed))}</span>
         </div>
-
-        {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
-        <div className="flex items-center gap-2">
-          {/* Connection Quality Icon Indicator (Green/Yellow/Red) */}
-          <div
-            className={`p-1.5 rounded-xl border transition-colors flex items-center justify-center ${networkQuality === 'good'
-              ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50'
-              : networkQuality === 'average'
-                ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50'
-                : 'text-rose-500 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50'
-              }`}
-            title={
-              networkQuality === 'good'
-                ? 'Network Connection: Good (High Speed)'
-                : networkQuality === 'average'
-                  ? 'Network Connection: Moderate'
-                  : 'Network Connection: Weak / Poor'
-            }
-          >
-            <IconWifi size={17} stroke={2.5} />
-          </div>
-
-          {/* Fullscreen Focus Toggle Button */}
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode'}
-          >
-            {isFullscreen ? <IconMinimize size={17} /> : <IconMaximize size={17} />}
-          </button>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400" title="Connection status"><IconWifi size={17} /></span>
+          <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen(); }} className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" aria-label="Toggle fullscreen" title="Toggle fullscreen"><IconMaximize size={16} /></button>
         </div>
       </header>
-
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
       <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto pb-28">
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
-        <div className="lg:col-span-5 flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible">
+        <div className={`${isQuestionBlurred ? 'hidden' : 'lg:col-span-5'} flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible`}>
           {/* CINEMA CAMERA STAGE */}
           <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl overflow-hidden border flex items-center justify-center min-h-[220px] sm:min-h-[280px] transition-colors duration-300 ${
             isAudioOnly
@@ -1778,8 +1738,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <div className="absolute h-48 w-48 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
                 <div className="relative flex flex-col items-center gap-5">
                   <div className="relative flex h-28 w-28 items-center justify-center">
-                    <div className={`absolute inset-0 rounded-full border-2 border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
-                    <div className="absolute inset-2.5 rounded-full bg-violet-100/60" />
                     <div className={`relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
                       <IconMicrophone size={30} stroke={2.2} className="text-white" />
                     </div>
@@ -1923,21 +1881,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   </div>
                 ) : isInactive ? (
                   !isIntroType ? (
-                    <button
-                      type="button"
-                      onClick={handleStartAnswer}
-                      className="h-10 px-6 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                      title="Reveal Question & Begin Answering"
-                    >
-                      <IconPlayerPlay size={16} fill="currentColor" />
-                      <span>Start Answer</span>
-                    </button>
+                    <div className="h-10 w-36 shrink-0" aria-hidden="true" />
                   ) : (
                     <div className="h-10 inline-flex items-center justify-center gap-1.5 px-4 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400">
                       <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
                       <span>Starting countdown{countdownValue !== null ? ` (${countdownValue}s)` : ''}…</span>
                     </div>
                   )
+                ) : prepCountdown !== null ? (
+                  <div className="h-10 w-36 shrink-0" aria-hidden="true" />
                 ) : (
                   <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
@@ -1950,7 +1902,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
               {/* Right Group: Forward Progression (Next Question / Finish Assessment) or Symmetrical Spacer */}
               <div className="flex items-center justify-end shrink-0">
-                {isRecording || isEnding ? (
+                {isQuestionBlurred && !isEnding ? (
+                  prepCountdown !== null ? (
+                    <div className="h-10 w-36 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStartAnswer}
+                      disabled={hasStartedQuestion}
+                      className="h-10 px-6 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-80 text-white shadow-md shadow-emerald-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      title="Reveal Question & Begin Answering"
+                    >
+                      {hasStartedQuestion ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlayerPlay size={16} fill="currentColor" />}
+                      <span>{hasStartedQuestion ? 'Reading question…' : 'Start Assessment'}</span>
+                    </button>
+                  )
+                ) : isRecording || isEnding ? (
                   !isEnding && currentQuestionIndex < questions.length - 1 ? (
                     <button
                       type="button"
@@ -2005,22 +1972,81 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
 
         {/* RIGHT COLUMN: Question Prompt Card & Live Speech Transcript Card */}
-        <div className="lg:col-span-7 flex flex-col gap-3 min-h-[480px] lg:min-h-0 lg:h-full shrink-0 lg:shrink">
+        <div className={`${isQuestionBlurred ? 'lg:col-span-12' : 'lg:col-span-7'} flex flex-col gap-3 min-h-[480px] lg:min-h-0 lg:h-full shrink-0 lg:shrink`}>
           {/* CARD 1: Question Prompt Card (Expanded height & scrollable) */}
           {activeQuestion ? (
             <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[420px] flex-1 space-y-4 overflow-hidden">
               {/* Overlay when question is hidden in standby mode */}
               {isQuestionBlurred && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl p-4 text-center transition-all duration-500">
-                  <div className="w-11 h-11 rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2 shadow-sm border border-indigo-200 dark:border-indigo-500/30">
-                    <IconLock size={22} stroke={2.2} />
+                <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
+                  <div className="flex h-full w-full max-w-5xl flex-col justify-center gap-2.5">
+                    <div className="flex shrink-0 items-center gap-2.5 border-b border-indigo-100 pb-2.5 dark:border-slate-800">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconFileText size={22} /></div>
+                      <div className="min-w-0">
+                        <p className="text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-xl">Before you begin</p>
+                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400 sm:text-sm">A quick guide to your technical assessment</p>
+                      </div>
+                    </div>
+                    <div className="min-h-0 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-3 dark:divide-slate-100 dark:border-slate-200 dark:bg-white">
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white"><IconVolume size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">1. Listen to the question</p><p className="mt-1 text-xs leading-relaxed text-slate-600">The AI will read each technical question aloud. Listen carefully to the complete question before preparing your response.</p></div>
+                      </div>
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white"><IconClock size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">2. Get 5 seconds to prepare</p><p className="mt-1 text-xs leading-relaxed text-slate-600">After the AI finishes reading, a 5-second countdown gives you time to organize your thoughts. Recording and the question timer begin when the countdown ends.</p></div>
+                      </div>
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white"><IconMicrophone size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">3. Explain your technical answer</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Answer clearly using your own words. Explain the concept, how it works, and a practical example when relevant. Keep an eye on the question timer.</p></div>
+                      </div>
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-600 text-white"><IconCheck size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">4. Submit to continue</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Select <span className="font-semibold">Submit Answer</span> when you finish. The assessment moves to the next question, and previously submitted questions cannot be revisited.</p></div>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 dark:border-rose-900/60 dark:bg-rose-950/25"><IconAlertTriangle size={15} className="shrink-0 text-rose-600 dark:text-rose-400" /><p className="text-[11px] leading-relaxed text-rose-800 dark:text-rose-200"><span className="font-bold">Important:</span> Submitted questions cannot be reopened. Keep this assessment page open.</p></div>
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => router.push('/aiprep')}
+                        className="h-11 shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                        title="Go back to assessment selection"
+                      >
+                        <IconChevronLeft size={17} />
+                        <span>Back</span>
+                      </button>
+                      <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your technical assessment.</p>
+                      <button
+                        type="button"
+                        onClick={handleStartAnswer}
+                        disabled={hasStartedQuestion || prepCountdown !== null}
+                        className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
+                        title="Start the technical assessment"
+                      >
+                        {hasStartedQuestion ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlayerPlay size={16} fill="currentColor" />}
+                        <span>{hasStartedQuestion ? 'Starting…' : 'Start Assessment'}</span>
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Question Hidden Until Start
-                  </p>
-                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
-                    Click <span className="font-bold text-emerald-600 dark:text-emerald-400">Start Answer ▶</span> in the dock below when you are ready to reveal the question and begin recording.
-                  </p>
+                </div>
+              )}
+
+              {/* Visible preparation countdown in the open question area, below the prompt. */}
+              {prepCountdown !== null && !isQuestionBlurred && (
+                <div className="pointer-events-none absolute left-1/2 top-[58%] z-10 w-[calc(100%-2rem)] max-w-[470px] -translate-x-1/2 -translate-y-1/2" role="status" aria-live="polite">
+                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-md shadow-slate-900/5 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 sm:gap-3.5 sm:p-3.5">
+                    <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/50 sm:h-[84px] sm:w-[84px]">
+                      <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full border-[3px] border-emerald-300 bg-white text-2xl font-bold tabular-nums text-emerald-600 dark:border-emerald-700 dark:bg-slate-900 dark:text-emerald-400 sm:h-[60px] sm:w-[60px]">
+                        {prepCountdown}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1 py-1">
+                      <div className="text-sm font-bold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">Get ready to answer</div>
+                      <div className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400 sm:text-sm">Your timer will start in {prepCountdown} {prepCountdown === 1 ? 'second' : 'seconds'}.</div>
+                      <div className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400 sm:text-xs">Take a breath and prepare your answer.</div>
+                    </div>
+                  </div>
                 </div>
               )}
 
