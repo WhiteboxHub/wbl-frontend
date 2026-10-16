@@ -104,10 +104,11 @@ export function AIPrepDashboard({
     }
   }, [controlledView]);
 
+  const hasFetchedReadinessRef = useRef(false);
+
   useEffect(() => {
-    // Viewing assessment list does not require pre-flight readiness checks,
-    // and skip if readiness was already loaded in this session.
-    if (view === "assessments" || readinessLoaded) return;
+    if (hasFetchedReadinessRef.current) return;
+    hasFetchedReadinessRef.current = true;
 
     let isCancelled = false;
     const fetchReadiness = async () => {
@@ -128,7 +129,7 @@ export function AIPrepDashboard({
     return () => {
       isCancelled = true;
     };
-  }, [view, readinessLoaded]);
+  }, [setReadiness]);
 
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [starting, setStarting] = useState(false);

@@ -1382,7 +1382,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, []);
 
 
-    const loadSetupStatus = useCallback(async () => {
+    const loadSetupStatus = async () => {
         let hasValidDefaultKey = false;
         let hasAnyKeyInBackend = false;
         try {
@@ -1441,25 +1441,18 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         } catch {
             return null;
         }
-    }, [candidateId, prefetchedSession]);
+    };
 
-    const isAiPrepTab = Boolean(
-        activeTab.startsWith('ai-prep') ||
-        activeTab.startsWith('aiprep') ||
-        activeTab === 'wbl-smartprep' ||
+    const isAssessmentsView = Boolean(
         currentSubPath?.includes('/assessments') ||
-        (typeof window !== 'undefined' && (
-            window.location.pathname.toLowerCase().includes('/ai-prep') ||
-            window.location.pathname.toLowerCase().includes('/aiprep') ||
-            window.location.pathname.toLowerCase().includes('/assessments')
-        ))
+        (typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('/assessments'))
     );
 
     useEffect(() => {
-        if (!isAiPrepTab && !setupStatus) {
+        if (!isAssessmentsView && !setupStatus) {
             loadSetupStatus().then(setSetupStatus);
         }
-    }, [isAiPrepTab, setupStatus, loadSetupStatus]);
+    }, [isAssessmentsView, setupStatus]);
 
     useEffect(() => {
         if (setupStatus?.has_binary_resume) {
@@ -1469,9 +1462,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     // Pre-fetch AI prep session as soon as candidateId is available so the
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
-    // Suppressed on AI Prep tab to prevent redundant setup/init-and-summary on initial page load.
     useEffect(() => {
-        if (!candidateId || prefetchDone || isAiPrepTab) return;
+        if (!candidateId || prefetchDone) return;
         const run = async () => {
             try {
                 const token = localStorage.getItem("access_token") || "";
@@ -1514,7 +1506,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             }
         };
         void run();
-    }, [candidateId, prefetchDone, isAiPrepTab]);
+    }, [candidateId, prefetchDone]);
 
     useEffect(() => {
         if (!setupWizardOpen) {
@@ -2033,10 +2025,6 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                     const num = Number(queryCid);
                     if (!isNaN(num) && num > 0) return num;
                 }
-                const storedCid = localStorage.getItem("candidate_id") || sessionStorage.getItem("aiprep_candidate_id");
-                if (storedCid && !isNaN(Number(storedCid)) && Number(storedCid) > 0) {
-                    return Number(storedCid);
-                }
             }
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             if (!token) throw new Error("No token found");
@@ -2407,10 +2395,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (isAiPrep) {
             setLoading(false);
             if (!candidateId) {
-                const stored = typeof window !== "undefined" ? (localStorage.getItem("candidate_id") || sessionStorage.getItem("aiprep_candidate_id")) : null;
-                if (stored && !isNaN(Number(stored)) && Number(stored) > 0) {
-                    setCandidateId(Number(stored));
-                }
+                getCandidateId().then((id) => {
+                    if (id) setCandidateId(id);
+                }).catch(() => {});
             }
             return;
         }
@@ -2419,7 +2406,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         loadDashboard();
         void loadTodayClickSummary();
         void loadTotalClickSummary();
-    }, [activeTab, candidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
+    }, [activeTab, candidateId, getCandidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
     const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
 

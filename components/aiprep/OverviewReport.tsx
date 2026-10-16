@@ -1943,10 +1943,7 @@ export default function AiPrepReport({
 
   const lastLoadedIdRef = useRef<string | null>(null);
   const reportRequestIdRef = useRef(0);
-  const candidateIdFromQuery = searchParams.get("candidateId");
-  const [candidateId, setCandidateId] = useState<string | number | null>(
-    () => initialCandidateId ?? candidateIdFromQuery ?? null
-  );
+  const [candidateId, setCandidateId] = useState<string | number | null>(() => initialCandidateId ?? null);
 
   const loadReport = useCallback(async (forceRefresh = false) => {
     if (!assessmentId) return;
@@ -1966,8 +1963,7 @@ export default function AiPrepReport({
     setStatusMsg("");
 
     try {
-      const effectiveCid = candidateId ?? initialCandidateId ?? candidateIdFromQuery ?? undefined;
-      const assessment = await aiPrepApi.getAssessment(assessmentId, effectiveCid);
+      const assessment = await aiPrepApi.getAssessment(assessmentId);
       if (!isCurrentRequest()) return;
 
       if (assessment?.candidate_id) {
@@ -2031,20 +2027,7 @@ export default function AiPrepReport({
     } finally {
       if (isCurrentRequest()) setLoading(false);
     }
-  }, [
-    assessmentId,
-    candidateId,
-    initialCandidateId,
-    candidateIdFromQuery,
-    lastLoadedIdRef,
-    reportRequestIdRef,
-    setLoading,
-    setError,
-    setIsProcessing,
-    setIsCancelled,
-    setStatusMsg,
-    setReport,
-  ]);
+  }, [assessmentId]);
 
   useEffect(() => {
     loadReport();
@@ -2060,8 +2043,7 @@ export default function AiPrepReport({
     let isMounted = true;
     const interval = setInterval(async () => {
       try {
-        const effectiveCid = candidateId ?? initialCandidateId ?? candidateIdFromQuery ?? undefined;
-        const fresh = await aiPrepApi.getAssessment(assessmentId, effectiveCid);
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
         if (isMounted && fresh?.youtube_url) {
           clearInterval(interval);
           loadReport();
@@ -2073,7 +2055,7 @@ export default function AiPrepReport({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [report, isProcessing, assessmentId, candidateId, initialCandidateId, candidateIdFromQuery, loadReport]);
+  }, [report, isProcessing, assessmentId, loadReport]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
@@ -2106,10 +2088,8 @@ export default function AiPrepReport({
     const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
     const fromParam = searchParams.get("from");
     const fromQuery = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
-    const cidParam = searchParams.get("candidateId");
-    const cidQuery = cidParam ? `&candidateId=${encodeURIComponent(cidParam)}` : "";
 
-    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}${fromQuery}${cidQuery}`;
+    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}${fromQuery}`;
     router.push(targetUrl, { scroll: false });
   };
 

@@ -92,8 +92,7 @@ export const aiPrepApi = {
   getReadiness: async (candidateId?: string | number): Promise<ReadinessCheck> => {
     let cid = candidateId;
     if (!cid || cid === "me") {
-      const stored = getStoredCandidateId("");
-      cid = (stored && stored !== "me") ? stored : "me";
+      cid = (await fetchAndCacheCandidateId()) || resolveCandidateId(undefined, "1");
     }
     const cacheKey = String(cid);
     const now = Date.now();
@@ -108,12 +107,6 @@ export const aiPrepApi = {
       try {
         const data = (await apiFetch(endpoint(`candidates/${cid}/assessment-readiness-precheck`))) as ReadinessCheck;
         _readinessCacheMap[cacheKey] = { data, timestamp: Date.now() };
-        if (data?.candidate_id) {
-          try {
-            localStorage.setItem("candidate_id", String(data.candidate_id));
-            sessionStorage.setItem("aiprep_candidate_id", String(data.candidate_id));
-          } catch (_) {}
-        }
         return data;
       } finally {
         delete _readinessPromiseMap[cacheKey];
