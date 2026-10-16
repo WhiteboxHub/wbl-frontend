@@ -198,7 +198,7 @@ const normalizeTab = (tab?: string): TabType => {
     return tab as TabType;
 };
 
-const WIZARD_SLUGS = ['assesment-type', 'assessment-type', 'device-check', 'devicecheck', 'consent', 'practice', 'practice-start', 'configuration'];
+const WIZARD_SLUGS = ['assesment-type', 'assessment-type', 'device-check', 'devicecheck', 'consent', 'practice', 'practice-start', 'configuration', 'job-description', 'jd-upload', 'jd'];
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;

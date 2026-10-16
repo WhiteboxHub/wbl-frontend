@@ -48,7 +48,8 @@ export const isAssessmentPage = () => {
   const wizardSteps = new Set([
     "assessment-type", "assesment-type", "consent",
     "device-check", "devicecheck", "practice",
-    "practice-start", "configuration",
+    "practice-start", "configuration", "job-description",
+    "jd-upload", "jd",
   ]);
   const isAiPrepWizardPage =
     p.includes("/user_dashboard/ai-prep/") &&
