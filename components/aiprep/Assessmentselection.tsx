@@ -65,7 +65,7 @@ const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
   SYSTEM_DESIGN: 'Architecture & Design',
 };
 
-export const UNLOCKED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO'];
+export const UNLOCKED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO', 'TECHNICAL'];
 
 export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
   const details = ASSESSMENT_INFO_DETAILS[type];

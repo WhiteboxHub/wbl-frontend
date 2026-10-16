@@ -332,6 +332,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [questionTimeLimit, setQuestionTimeLimit] = useState<number>(180);
   const [questionAnswers, setQuestionAnswers] = useState<Record<number, string>>({});
   const [isTransitioningQuestion, setIsTransitioningQuestion] = useState<boolean>(false);
+  const [isQuestionPrepPaused, setIsQuestionPrepPaused] = useState<boolean>(false);
+  const [hasStartedQuestion, setHasStartedQuestion] = useState<boolean>(false);
+  const [prepCountdown, setPrepCountdown] = useState<number | null>(null);
   const elapsedTimeRef = useRef<number>(0);
 
   // Target Job Description State (for JD_INTRO track)
@@ -660,38 +663,49 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, []);
 
   const speakAiText = useCallback(
-    (text: string) => {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeechMuted) return;
+    (text: string): Promise<void> => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window) || isSpeechMuted) {
+        return Promise.resolve();
+      }
 
       stopAiSpeech();
 
-      try {
-        const cleanText = text.replace(/^"|"$/g, '').trim();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        speechUtteranceRef.current = utterance;
-
-        const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
-        const preferredVoice = getBestVoice(currentVoices);
-
-        if (preferredVoice) utterance.voice = preferredVoice;
-        utterance.rate = 0.95;
-
-        utterance.onstart = () => setIsAiSpeaking(true);
-        utterance.onend = () => {
+      return new Promise<void>((resolve) => {
+        let settled = false;
+        const finishSpeech = () => {
+          if (settled) return;
+          settled = true;
           speechUtteranceRef.current = null;
           setIsAiSpeaking(false);
-        };
-        utterance.onerror = () => {
-          speechUtteranceRef.current = null;
-          setIsAiSpeaking(false);
+          resolve();
         };
 
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('Speech synthesis error:', err);
-        speechUtteranceRef.current = null;
-        setIsAiSpeaking(false);
-      }
+        try {
+          const cleanText = text.replace(/^"|"$/g, '').trim();
+          if (!cleanText) {
+            finishSpeech();
+            return;
+          }
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          speechUtteranceRef.current = utterance;
+
+          const currentVoices = cachedVoices.length > 0 ? cachedVoices : window.speechSynthesis.getVoices();
+          const preferredVoice = getBestVoice(currentVoices);
+
+          if (preferredVoice) utterance.voice = preferredVoice;
+          utterance.rate = 0.95;
+
+          setIsAiSpeaking(true);
+          utterance.onstart = () => setIsAiSpeaking(true);
+          utterance.onend = finishSpeech;
+          utterance.onerror = finishSpeech;
+
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          console.warn('Speech synthesis error:', err);
+          finishSpeech();
+        }
+      });
     },
     [isSpeechMuted, stopAiSpeech, cachedVoices, getBestVoice]
   );
@@ -890,8 +904,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           } catch (_) {}
         }
 
-        // Tier 3: Query Question Bank Catalog API
-        if (!loadedQuestions || loadedQuestions.length === 0) {
+        // Technical assessments must use the exact question snapshot returned by POST.
+        // Never silently substitute unrelated catalog questions for a Technical attempt.
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
           try {
             const qBankRes = await aiprepApi.getQuestions(finalType);
             if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
@@ -902,14 +917,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        // Check that questions were successfully loaded from backend API or session
         if (!loadedQuestions || loadedQuestions.length === 0) {
-          setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
+          setErrorMsg(finalType === 'TECHNICAL'
+            ? 'No technical questions were saved for this assessment. Please return to setup and start a new assessment.'
+            : 'No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
         }
 
         setQuestions(loadedQuestions);
+        setCurrentQuestionIndex(0);
 
         // If intro track, trigger 5-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
@@ -1142,9 +1159,24 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
-  // Immediately starts assessment recording and question timer as soon as countdown completes (no automatic AI voice)
-  const handleStartAnswer = () => {
+  // Read the first question aloud from the Start Answer gesture, then start recording.
+  // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
+  const handleStartAnswer = async () => {
+    if (hasStartedQuestion) return;
+    setHasStartedQuestion(true); // Reveal the question page immediately on click.
     stopAiSpeech();
+    const activeQ = questions[currentQuestionIndex];
+
+    // Narration and preparation happen while the question is visible, but
+    // before recording and the question timer start.
+    if (activeQ?.question_text && !isSpeechMuted) {
+      await speakAiText(activeQ.question_text);
+    }
+    for (let seconds = 5; seconds > 0; seconds -= 1) {
+      setPrepCountdown(seconds);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+    }
+    setPrepCountdown(null);
     startRecorderCore();
   };
   startAnswerRef.current = handleStartAnswer;
@@ -1158,7 +1190,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     } else if (assessmentType === 'INTRO') {
       limit = 240; // 4:00 mins max for Intro
     } else {
-      limit = getDifficultySeconds(activeQ?.difficulty_level) || getDefaultTypeSeconds(assessmentType);
+      // The backend resolves duration from difficulty/scope and any custom override.
+      // Use its authoritative per-question duration rather than re-deriving it in the UI.
+      const serverLimit = Number(activeQ?.time_limit_seconds);
+      limit = Number.isFinite(serverLimit) && serverLimit > 0
+        ? Math.floor(serverLimit)
+        : (getDifficultySeconds(activeQ?.difficulty_level) || getDefaultTypeSeconds(assessmentType));
     }
     setQuestionTimeLimit(limit);
     setQuestionTimeElapsed(0);
@@ -1169,12 +1206,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const hasAutoEndedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isRecording || isEnding) return;
+    if (!isRecording || isEnding || isAiSpeaking || isQuestionPrepPaused) return;
     const timer = setInterval(() => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking) return;
       setQuestionTimeElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isRecording, isEnding]);
+  }, [isRecording, isEnding, isAiSpeaking, isQuestionPrepPaused]);
 
   useEffect(() => {
     if (isRecording && questionTimeElapsed >= questionTimeLimit && !isTransitioningQuestion && !isEnding && !hasAutoEndedRef.current) {
@@ -1195,9 +1233,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const questionProgressPct = Math.min(100, Math.round((questionTimeElapsed / (questionTimeLimit || 1)) * 100));
 
   // ── Navigation Between Questions ───────────────────────────────────────────
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1 && !isTransitioningQuestion) {
       setIsTransitioningQuestion(true);
+      setIsQuestionPrepPaused(true);
       stopAiSpeech();
 
       // 1. Snapshot current question's live transcript
@@ -1219,23 +1258,30 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 2. Advance index and reset timer
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
+      setHasStartedQuestion(true);
       setQuestionTimeElapsed(0);
 
-      // 3. Read the new question aloud if not muted
+      // 3. Read the new question aloud, then give the candidate 5 seconds
+      // before resuming the question timer.
       const nextQ = questions[nextIndex];
       if (nextQ?.question_text && !isSpeechMuted) {
-        speakAiText(nextQ.question_text);
+        await speakAiText(nextQ.question_text);
       }
-
-      setTimeout(() => {
-        setIsTransitioningQuestion(false);
-      }, 350);
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        setPrepCountdown(seconds);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      }
+      setPrepCountdown(null);
+      setIsQuestionPrepPaused(false);
+      setIsTransitioningQuestion(false);
     }
   };
   handleNextQuestionRef.current = handleNextQuestion;
 
+  // Completed questions are one-way: candidates may revisit only the current
+  // unanswered question flow, never a question that has already been submitted.
   const handlePrevQuestion = () => {
-    if (currentQuestionIndex > 0 && !isTransitioningQuestion) {
+    if (currentQuestionIndex > 0 && !isTransitioningQuestion && !isRecording) {
       setIsTransitioningQuestion(true);
       stopAiSpeech();
 
@@ -1674,99 +1720,48 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         .split(/[.!?]+/)
         .filter((s) => s.trim().length > 0).length
     : 0;
-  const isQuestionBlurred = isInactive && !isIntroType;
+  const isQuestionBlurred = isInactive && !isIntroType && !hasStartedQuestion;
+  // Keep the Intro assessment's original timer styling unchanged; restore the
+  // elapsed-time color progression for Technical/JD assessment rooms only.
+  const technicalTimerColors = isIntroType
+    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300'
+    : questionTimeRemaining <= 30
+      ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+      : questionTimeElapsed >= 60
+        ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+        : questionTimeElapsed >= 30
+          ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+          : 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300';
 
   return (
-    <div className="w-full min-h-screen lg:h-screen overflow-y-auto lg:overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* 1. TOP UTILITY HEADER */}
-      <header className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-30">
-        {/* LEFT: Logo & Assessment Track Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-500/30 shrink-0">
-            <IconSparkles size={18} />
-          </div>
-          <div>
-            <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white">
-              {assessmentType} Assessment
-            </h1>
-          </div>
+    <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+      {(isIntroType || hasStartedQuestion) && (
+      <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
+          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{isIntroType ? 'INTRO Assessment' : 'TECHNICAL Assessment'}</span>
         </div>
-
-        {/* CENTER: Interview Question Countdown & Total Clock */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Active Question Countdown Badge */}
-          <div
-            className={`h-8 px-3 sm:px-3.5 rounded-full border shadow-xs inline-flex items-center gap-2 transition-colors duration-200 ${isQuestionTimeExpired
-                ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-600 dark:text-rose-400'
-                : isQuestionLowTime
-                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400'
-                  : 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
-              }`}
-            title={`Time allocated for Question ${currentQuestionIndex + 1}: ${formatTime(questionTimeLimit)}`}
-          >
-            <IconClock size={15} className={`shrink-0 ${isQuestionTimeExpired ? 'text-rose-500' : isQuestionLowTime ? 'text-amber-500' : 'text-indigo-600 dark:text-indigo-400'}`} />
-            <div className="flex items-center gap-1.5 leading-none">
-              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider whitespace-nowrap">
-                Q{currentQuestionIndex + 1} Time:
-              </span>
-              <span className="font-mono text-xs sm:text-sm font-black whitespace-nowrap">
-                {formatTime(questionTimeRemaining)}
-              </span>
-            </div>
-            {isQuestionLowTime && (
-              <span className="hidden sm:inline-flex items-center justify-center text-[9px] font-extrabold uppercase bg-amber-200 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 px-1.5 py-0.5 rounded leading-none">
-                30s Left
-              </span>
-            )}
-            {isQuestionTimeExpired && (
-              <span className="inline-flex items-center justify-center text-[9px] font-extrabold uppercase bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200 px-1.5 py-0.5 rounded leading-none">
-                Time Up
-              </span>
-            )}
-          </div>
-
-
+        <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${!isIntroType && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
+          <IconClock size={14} />
+          <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(questionTimeRemaining)}</span>
+          {!isIntroType && questionTimeRemaining <= 30 && questionTimeRemaining >= 29 && (
+            <span className="whitespace-nowrap border-l border-current/20 pl-2 text-[10px] font-black uppercase tracking-wide sm:text-[11px]" role="status" aria-live="polite">
+              30 seconds left
+            </span>
+          )}
         </div>
-
-        {/* RIGHT: Dynamic Connection Quality & Fullscreen Mode */}
-        <div className="flex items-center gap-2">
-          {/* Connection Quality Icon Indicator (Green/Yellow/Red) */}
-          <div
-            className={`p-1.5 rounded-xl border transition-colors flex items-center justify-center ${networkQuality === 'good'
-              ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50'
-              : networkQuality === 'average'
-                ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/50'
-                : 'text-rose-500 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/50'
-              }`}
-            title={
-              networkQuality === 'good'
-                ? 'Network Connection: Good (High Speed)'
-                : networkQuality === 'average'
-                  ? 'Network Connection: Moderate'
-                  : 'Network Connection: Weak / Poor'
-            }
-          >
-            <IconWifi size={17} stroke={2.5} />
-          </div>
-
-          {/* Fullscreen Focus Toggle Button */}
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Mode'}
-          >
-            {isFullscreen ? <IconMinimize size={17} /> : <IconMaximize size={17} />}
-          </button>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400" title="Connection status"><IconWifi size={17} /></span>
+          <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen(); }} className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" aria-label="Toggle fullscreen" title="Toggle fullscreen"><IconMaximize size={16} /></button>
         </div>
       </header>
-
+      )}
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
-      <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3 max-w-[1600px] mx-auto w-full overflow-hidden">
+      <div className={`flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto ${isIntroType ? 'pb-4' : 'pb-28'}`}>
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
-        <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-2 h-full overflow-hidden">
+        <div className={`${isQuestionBlurred ? 'hidden' : isIntroType ? 'lg:col-span-7' : 'lg:col-span-6'} flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible`}>
           {/* CINEMA CAMERA STAGE */}
-          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${
+          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl overflow-hidden border flex items-center justify-center min-h-[220px] sm:min-h-[280px] transition-colors duration-300 ${
             isAudioOnly
               ? 'bg-white border-slate-200/90 shadow-sm'
               : 'bg-slate-950 border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl'
@@ -1800,13 +1795,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             {/* Audio-only stage styled to match the centered microphone and tapered waveform reference */}
             {isAudioOnly && (
               <div className="absolute inset-0 z-10 pointer-events-none flex flex-col items-center justify-center gap-4 px-4">
-                <div className="absolute h-64 w-64 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
+                <div className="absolute h-48 w-48 rounded-full bg-gradient-to-br from-indigo-100/70 via-violet-100/60 to-purple-100/70 blur-3xl" />
                 <div className="relative flex flex-col items-center gap-5">
-                  <div className="relative flex h-36 w-36 items-center justify-center">
-                    <div className={`absolute inset-0 rounded-full border-[3px] border-violet-200/90 transition-transform duration-500 ${isRecording ? "scale-100 animate-pulse" : "scale-95"}`} />
-                    <div className="absolute inset-3 rounded-full bg-violet-100/60" />
-                    <div className={`relative z-10 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
-                      <IconMicrophone size={40} stroke={2.2} className="text-white" />
+                  <div className="relative flex h-28 w-28 items-center justify-center">
+                    <div className={`relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl shadow-violet-500/25 transition-all duration-300 ${isRecording ? "scale-100" : "scale-95 opacity-80"}`}>
+                      <IconMicrophone size={30} stroke={2.2} className="text-white" />
                     </div>
                   </div>
                   <div className="flex flex-col items-center gap-3">
@@ -1848,9 +1841,67 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             )}
           </div>
 
+          {/* LIVE TRANSCRIPT: kept with the response panel for a calmer interview layout */}
+          {/* CARD 2: Live Speech Transcript Card (Compact fixed height) */}
+          <div className="h-[150px] sm:h-[175px] shrink-0 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm dark:shadow-xl flex flex-col justify-between overflow-hidden">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <IconMessage2 size={15} />
+                </div>
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Live Speech Transcript</h3>
+              </div>
+
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
+                {sentenceCount} {sentenceCount === 1 ? 'sentence' : 'sentences'} • {wordCount} words
+              </span>
+            </div>
+
+            {/* Scrollable Viewport */}
+            <div
+              ref={transcriptScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto py-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300 select-text"
+            >
+              {liveTranscript ? (
+                <p className="whitespace-pre-wrap">{liveTranscript}</p>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 p-2">
+                  <IconMicrophone size={20} className="mb-1 opacity-50 text-indigo-500 dark:text-indigo-400" />
+                  <p className="text-[11px]">Speech will appear here in real-time as you speak…</p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px] text-slate-400 dark:text-slate-500 text-center shrink-0">
+              Transcribed live for coaching coherence & communication analytics
+            </div>
+          </div>
+
+          {/* Live recording and upload health */}
+          <div className="grid grid-cols-3 gap-2 shrink-0">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <IconMicrophone size={13} /> Microphone
+              </div>
+              <p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">{isRecording ? 'Recording' : isInactive ? 'Ready' : 'Stopped'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <IconWifi size={13} /> Network
+              </div>
+              <p className={`mt-1 text-xs font-bold ${networkQuality === 'good' ? 'text-emerald-600 dark:text-emerald-400' : networkQuality === 'average' ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>{networkQuality === 'good' ? 'Good' : networkQuality === 'average' ? 'Moderate' : 'Weak'}</p>
+            </div>
+            <div className={`rounded-xl border px-3 py-2 ${failedChunks > 0 ? 'border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <IconCheck size={13} /> Chunks
+              </div>
+              <p className={`mt-1 text-xs font-bold ${failedChunks > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}`}>{isUploading ? 'Uploading…' : failedChunks > 0 ? `${failedChunks} failed` : totalChunks > 0 ? `${uploadedChunks}/${totalChunks} sent` : 'Waiting'}</p>
+            </div>
+          </div>
+
           {/* FLOATING GLASS MEETING DOCK */}
-          <div className="w-full flex items-center justify-center shrink-0 py-2">
-            <div className="flex items-center justify-between gap-3 w-full max-w-2xl h-14 sm:h-16 px-4 sm:px-6 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-md dark:shadow-xl">
+          <div className="fixed bottom-0 left-0 right-0 z-40 w-full flex items-center justify-center px-3 sm:px-5 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 w-full max-w-[1500px] h-14 sm:h-16 px-2 sm:px-4 rounded-2xl bg-transparent border-0 shadow-none">
               {/* Left Group: Exit Button + Previous Question Button */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -1864,8 +1915,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   <span>Exit Assessment</span>
                 </button>
 
-                {/* Previous Button (Only when recording and past Question 1) */}
-                {isRecording && currentQuestionIndex > 0 && !isEnding && (
+                {/* Completed questions are locked; do not offer backward navigation. */}
+                {false && currentQuestionIndex > 0 && !isEnding && (
                   <button
                     type="button"
                     onClick={handlePrevQuestion}
@@ -1880,7 +1931,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               {/* Center Column: Perfectly Centered Primary CTA or Live Answering Indicator */}
-              <div className="flex items-center justify-center shrink-0">
+              <div className="flex min-w-0 items-center justify-center">
                 {isEnding ? (
                   <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 shrink-0 shadow-xs text-purple-700 dark:text-purple-300">
                     <IconLoader2 size={15} className="animate-spin text-purple-600 dark:text-purple-400" />
@@ -1890,55 +1941,67 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   </div>
                 ) : isInactive ? (
                   !isIntroType ? (
-                    <button
-                      type="button"
-                      onClick={handleStartAnswer}
-                      className="h-10 px-6 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
-                      title="Reveal Question & Begin Answering"
-                    >
-                      <IconPlayerPlay size={16} fill="currentColor" />
-                      <span>Start Answer</span>
-                    </button>
+                    <div className="h-10 w-36 shrink-0" aria-hidden="true" />
                   ) : (
                     <div className="h-10 inline-flex items-center justify-center gap-1.5 px-4 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400">
                       <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
                       <span>Starting countdown{countdownValue !== null ? ` (${countdownValue}s)` : ''}…</span>
                     </div>
                   )
+                ) : prepCountdown !== null ? (
+                  <div className="h-10 w-36 shrink-0" aria-hidden="true" />
                 ) : (
-                  <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Answering Q{currentQuestionIndex + 1} ({formatTime(questionTimeElapsed)})
-                    </span>
+                  <div className="flex items-center justify-center gap-5">
+                    <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        Answering Q{currentQuestionIndex + 1} ({formatTime(questionTimeElapsed)})
+                      </span>
+                    </div>
+                    {isRecording && !isIntroType && (
+                      <button
+                        type="button"
+                        onClick={handleNextQuestion}
+                        disabled={isEnding || isTransitioningQuestion || currentQuestionIndex >= questions.length - 1 || countdownValue !== null}
+                        className="h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={currentQuestionIndex >= questions.length - 1 ? 'You are on the last question' : 'Save this answer and continue to the next question'}
+                      >
+                        {isTransitioningQuestion ? (
+                          <>
+                            <IconLoader2 size={16} className="animate-spin" />
+                            <span>Saving…</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Next Question</span>
+                            <IconArrowRight size={16} stroke={2.5} />
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Right Group: Forward Progression (Next Question / Finish Assessment) or Symmetrical Spacer */}
-              <div className="flex items-center justify-end shrink-0">
-                {isRecording || isEnding ? (
-                  !isEnding && currentQuestionIndex < questions.length - 1 ? (
+              <div className="flex min-w-0 items-center justify-end">
+                {isQuestionBlurred && !isEnding ? (
+                  prepCountdown !== null ? (
+                    <div className="h-10 w-36 shrink-0" aria-hidden="true" />
+                  ) : (
                     <button
                       type="button"
-                      onClick={handleNextQuestion}
-                      disabled={isTransitioningQuestion}
-                      className="h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 transition-all shrink-0"
-                      title="Submit answer and proceed to next question"
+                      onClick={handleStartAnswer}
+                      disabled={hasStartedQuestion}
+                      className="h-10 px-6 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-80 text-white shadow-md shadow-emerald-600/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                      title="Reveal Question & Begin Answering"
                     >
-                      {isTransitioningQuestion ? (
-                        <>
-                          <IconLoader2 size={16} className="animate-spin" />
-                          <span>Saving…</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Next Question</span>
-                          <IconArrowRight size={16} stroke={2.5} />
-                        </>
-                      )}
+                      {hasStartedQuestion ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlayerPlay size={16} fill="currentColor" />}
+                      <span>{hasStartedQuestion ? 'Reading question…' : 'Start Assessment'}</span>
                     </button>
-                  ) : (
+                  )
+                ) : isRecording || isEnding ? (
+                  <div className="flex min-w-0 items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={handleEndSession}
@@ -1947,7 +2010,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                           ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
                           : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
                         }`}
-                      title="Finish Assessment"
+                      title="Submit your assessment and finish now"
                     >
                       {isEnding ? (
                         <>
@@ -1956,12 +2019,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         </>
                       ) : (
                         <>
-                          <span>Finish Assessment</span>
+                          <span>Submit Assessment</span>
                           <IconCheck size={16} stroke={2.5} />
                         </>
                       )}
                     </button>
-                  )
+                  </div>
                 ) : (
                   /* Symmetrical spacer matching Exit button width so Start Answer is dead-center */
                   <div className="w-[72px] shrink-0" />
@@ -1972,22 +2035,100 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
 
         {/* RIGHT COLUMN: Question Prompt Card & Live Speech Transcript Card */}
-        <div className="lg:col-span-5 flex flex-col gap-3 min-h-0 lg:h-full shrink-0 lg:shrink">
+        <div className={`${isQuestionBlurred ? 'lg:col-span-12' : isIntroType ? 'lg:col-span-5' : 'lg:col-span-6'} flex flex-col gap-3 min-h-[480px] lg:min-h-0 lg:h-full shrink-0 lg:shrink`}>
           {/* CARD 1: Question Prompt Card (Expanded height & scrollable) */}
           {activeQuestion ? (
-            <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[220px] flex-1 space-y-3 overflow-hidden">
+            <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[420px] flex-1 space-y-4 overflow-hidden">
               {/* Overlay when question is hidden in standby mode */}
               {isQuestionBlurred && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/85 backdrop-blur-md rounded-2xl p-4 text-center transition-all duration-500">
-                  <div className="w-11 h-11 rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-2 shadow-sm border border-indigo-200 dark:border-indigo-500/30">
-                    <IconLock size={22} stroke={2.2} />
+                <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
+                  <div className="flex h-full w-full max-w-5xl flex-col justify-center gap-2.5">
+                    <div className="flex shrink-0 items-center gap-2.5 border-b border-indigo-100 pb-2.5 dark:border-slate-800">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconFileText size={22} /></div>
+                      <div className="min-w-0">
+                        <p className="text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-xl">Before you begin</p>
+                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400 sm:text-sm">A quick guide to your technical assessment</p>
+                      </div>
+                    </div>
+                    <div className="min-h-0 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-3 dark:divide-slate-100 dark:border-slate-200 dark:bg-white">
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white"><IconVolume size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">1. Listen to the question</p><p className="mt-1 text-xs leading-relaxed text-slate-600">The AI will read each technical question aloud. Listen carefully to the complete question before preparing your response.</p></div>
+                      </div>
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white"><IconClock size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">2. Get 5 seconds to prepare</p><p className="mt-1 text-xs leading-relaxed text-slate-600">After the AI finishes reading, a 5-second countdown gives you time to organize your thoughts. Recording and the question timer begin when the countdown ends.</p></div>
+                      </div>
+                      <div className="flex items-start gap-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white"><IconMicrophone size={19} /></span>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">3. Explain your technical answer</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Answer clearly using your own words. Explain the concept, how it works, and a practical example when relevant. Keep an eye on the question timer.</p></div>
+                      </div>
+                    </div>
+                    {!isIntroType && (
+                      <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Assessment controls</p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="flex items-start gap-2.5">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">1</span>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><IconArrowRight size={17} /></span>
+                            <div className="min-w-0"><p className="text-xs font-semibold text-slate-900 dark:text-white">Next Question</p><p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">When you finish your current answer, click this button to save your response and move to the next question. Once you move forward, you cannot return to the previous question.</p></div>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">2</span>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"><IconCheck size={17} /></span>
+                            <div className="min-w-0"><p className="text-xs font-semibold text-slate-900 dark:text-white">Submit Assessment</p><p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">When you have finished all questions, submit the assessment for final evaluation. You cannot continue answering after submission.</p></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex shrink-0 items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 dark:border-rose-900/60 dark:bg-rose-950/25">
+                      <IconAlertTriangle size={14} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                      <div className="min-w-0 text-xs leading-relaxed text-rose-800 dark:text-rose-200">
+                        <p className="font-semibold">Important: Before submitting</p>
+                        <p className="mt-0.5">Once you click <strong>Submit Assessment</strong>, your assessment will be finalized and you will be redirected to the evaluation/report page. You cannot continue answering after submission. To try again, restart the assessment from the beginning.</p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => router.replace('/user_dashboard/ai-prep/practice')}
+                        className="h-11 shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                        title="Go back to assessment selection"
+                      >
+                        <IconChevronLeft size={17} />
+                        <span>Back</span>
+                      </button>
+                      <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your technical assessment.</p>
+                      <button
+                        type="button"
+                        onClick={handleStartAnswer}
+                        disabled={hasStartedQuestion || prepCountdown !== null}
+                        className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
+                        title="Start the technical assessment"
+                      >
+                        {hasStartedQuestion ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlayerPlay size={16} fill="currentColor" />}
+                        <span>{hasStartedQuestion ? 'Starting…' : 'Start Assessment'}</span>
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Question Hidden Until Start
-                  </p>
-                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
-                    Click <span className="font-bold text-emerald-600 dark:text-emerald-400">Start Answer ▶</span> in the dock below when you are ready to reveal the question and begin recording.
-                  </p>
+                </div>
+              )}
+
+              {/* Visible preparation countdown in the open question area, below the prompt. */}
+              {prepCountdown !== null && !isQuestionBlurred && (
+                <div className="pointer-events-none absolute left-1/2 top-[58%] z-10 w-[calc(100%-2rem)] max-w-[470px] -translate-x-1/2 -translate-y-1/2" role="status" aria-live="polite">
+                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-md shadow-slate-900/5 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95 sm:gap-3.5 sm:p-3.5">
+                    <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/50 sm:h-[84px] sm:w-[84px]">
+                      <div className="flex h-[54px] w-[54px] items-center justify-center rounded-full border-[3px] border-emerald-300 bg-white text-2xl font-bold tabular-nums text-emerald-600 dark:border-emerald-700 dark:bg-slate-900 dark:text-emerald-400 sm:h-[60px] sm:w-[60px]">
+                        {prepCountdown}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1 py-1">
+                      <div className="text-sm font-bold leading-snug text-slate-900 dark:text-slate-100 sm:text-base">Get ready to answer</div>
+                      <div className="mt-1 text-xs leading-snug text-slate-500 dark:text-slate-400 sm:text-sm">Your timer will start in {prepCountdown} {prepCountdown === 1 ? 'second' : 'seconds'}.</div>
+                      <div className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400 sm:text-xs">Take a breath and prepare your answer.</div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1995,9 +2136,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               <div className={`flex flex-col gap-2 shrink-0 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-sm select-none opacity-40' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
-                      {activeQuestion.category || assessmentType}
-                    </span>
+                    {isIntroType ? (
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
+                        {activeQuestion.category || assessmentType}
+                      </span>
+                    ) : questions.length > 1 ? (
+                      <div className="flex items-center gap-1.5 overflow-x-auto py-1" aria-label="Question progress">
+                        {questions.slice(0, currentQuestionIndex + 1).map((_, idx) => {
+                          const isCompleted = idx < currentQuestionIndex;
+                          const isCurrent = idx === currentQuestionIndex;
+                          return (
+                            <div key={idx} aria-current={isCurrent ? 'step' : undefined} className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${isCurrent ? 'bg-indigo-600 text-white shadow-xs' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'}`}>
+                              {isCompleted && <IconCheck size={12} stroke={3} className="text-emerald-500 shrink-0" />}
+                              <span>Q{idx + 1}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
+                        {activeQuestion.category || assessmentType}
+                      </span>
+                    )}
                     {assessmentType === 'JD_INTRO' && (
                       <button
                         type="button"
@@ -2016,34 +2176,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   </span>
                 </div>
 
-                {/* Multi-Question Stepper Dots/Pills */}
-                {questions.length > 1 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto py-1 border-b border-slate-100 dark:border-slate-800/80">
-                    {questions.map((_, idx) => {
-                      const isCompleted = idx < currentQuestionIndex || (!!questionAnswers[idx] && idx !== currentQuestionIndex);
-                      const isCurrent = idx === currentQuestionIndex;
-                      return (
-                        <div
-                          key={idx}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${isCurrent
-                              ? 'bg-indigo-600 text-white shadow-xs'
-                              : isCompleted
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
-                            }`}
-                        >
-                          {isCompleted && <IconCheck size={12} stroke={3} className="text-emerald-500 shrink-0" />}
-                          <span>Q{idx + 1}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+
               </div>
+
+              {/* Backend-provided metadata updates with the active question. */}
+              {(activeQuestion.subject || activeQuestion.concept || activeQuestion.scope) && (
+                <div className={"flex flex-wrap items-center gap-2 shrink-0 transition-all duration-500 " + (isQuestionBlurred ? 'blur-sm select-none opacity-40' : '')}>
+                  {activeQuestion.subject && (
+                    <span className="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-300">
+                      {activeQuestion.subject}
+                    </span>
+                  )}
+                  {activeQuestion.concept && (
+                    <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {activeQuestion.concept}
+                    </span>
+                  )}
+
+                </div>
+              )}
 
               {/* Question Text */}
               <div className={`flex-1 min-h-0 overflow-y-auto py-1 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-md select-none pointer-events-none opacity-30' : ''}`}>
-                <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white leading-relaxed">
+                <h2 className="text-lg sm:text-xl xl:text-2xl font-semibold text-slate-900 dark:text-white leading-relaxed tracking-tight">
                   {activeQuestion.question_text}
                 </h2>
               </div>
@@ -2115,40 +2270,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             </div>
           )}
 
-          {/* CARD 2: Live Speech Transcript Card (Compact fixed height) */}
-          <div className="h-[140px] sm:h-[160px] shrink-0 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm dark:shadow-xl flex flex-col justify-between overflow-hidden">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <IconMessage2 size={15} />
-                </div>
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Live Speech Transcript</h3>
-              </div>
-
-              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                {sentenceCount} {sentenceCount === 1 ? 'sentence' : 'sentences'} • {wordCount} words
-              </span>
-            </div>
-
-            {/* Scrollable Viewport */}
-            <div
-              ref={transcriptScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto py-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300 select-text"
-            >
-              {liveTranscript ? (
-                <p className="whitespace-pre-wrap">{liveTranscript}</p>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 dark:text-slate-500 p-2">
-                  <IconMicrophone size={20} className="mb-1 opacity-50 text-indigo-500 dark:text-indigo-400" />
-                  <p className="text-[11px]">Speech will appear here in real-time as you speak…</p>
-                </div>
-              )}
-            </div>
-
-            <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px] text-slate-400 dark:text-slate-500 text-center shrink-0">
-              Transcribed live for coaching coherence & communication analytics
-            </div>
-          </div>
         </div>
       </div>
 
