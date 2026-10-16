@@ -18,6 +18,7 @@ import {
 
 interface Props {
   youtubeUrl?: string | null | undefined;
+  fallbackUrl?: string | null | undefined;
   /** ref passed in from ReportShell for timestamp-seeking on <video> or <audio> elements */
   videoRef?: RefObject<HTMLVideoElement | null>;
   className?: string;
@@ -61,6 +62,7 @@ const WAVEFORM_BARS = [
 
 export default function VideoPlayer({
   youtubeUrl,
+  fallbackUrl,
   videoRef,
   className,
   isAudioOnly = false,
@@ -69,7 +71,8 @@ export default function VideoPlayer({
   waveformAmplitudes,
   onSeek,
 }: Props) {
-  const ytId = youtubeUrl ? extractYoutubeId(youtubeUrl) : null;
+  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || null);
+  const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -85,10 +88,21 @@ export default function VideoPlayer({
 
   // Reset playback and error states when media URL changes
   useEffect(() => {
+    setCurrentMediaUrl(youtubeUrl || null);
     setHasMediaError(false);
     setCurrentTime(0);
     setIsPlaying(false);
   }, [youtubeUrl]);
+
+  const handleMediaError = useCallback(() => {
+    if (currentMediaUrl && fallbackUrl && currentMediaUrl !== fallbackUrl) {
+      console.warn("[VideoPlayer] Primary media source failed, falling back to server URL:", fallbackUrl);
+      setCurrentMediaUrl(fallbackUrl);
+      setHasMediaError(false);
+    } else {
+      setHasMediaError(true);
+    }
+  }, [currentMediaUrl, fallbackUrl]);
 
   // Sync internal duration if durationSeconds prop updates
   // Fix #6: setDuration is a stable setter — not a valid dep, removing it avoids lint noise
@@ -128,24 +142,31 @@ export default function VideoPlayer({
       // condition where localMediaRef.current has already advanced to a new node.
       mediaEl.currentTime = 0;
     };
-    const handleError = () => {
-      setHasMediaError(true);
+    const handleLoaded = () => {
+      setHasMediaError(false);
+      if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration)) {
+        setDuration(mediaEl.duration);
+      }
     };
 
     mediaEl.addEventListener("timeupdate", handleTimeUpdate);
     mediaEl.addEventListener("play", handlePlay);
     mediaEl.addEventListener("pause", handlePause);
     mediaEl.addEventListener("ended", handleEnded);
-    mediaEl.addEventListener("error", handleError);
+    mediaEl.addEventListener("canplay", handleLoaded);
+    mediaEl.addEventListener("loadeddata", handleLoaded);
+    mediaEl.addEventListener("error", handleMediaError);
 
     return () => {
       mediaEl.removeEventListener("timeupdate", handleTimeUpdate);
       mediaEl.removeEventListener("play", handlePlay);
       mediaEl.removeEventListener("pause", handlePause);
       mediaEl.removeEventListener("ended", handleEnded);
-      mediaEl.removeEventListener("error", handleError);
+      mediaEl.removeEventListener("canplay", handleLoaded);
+      mediaEl.removeEventListener("loadeddata", handleLoaded);
+      mediaEl.removeEventListener("error", handleMediaError);
     };
-  }, [mediaEl]);
+  }, [mediaEl, handleMediaError]);
 
   // When media loading fails, ensure playing state is stopped
   useEffect(() => {
@@ -267,7 +288,7 @@ export default function VideoPlayer({
         );
       }
     })();
-  if (!isAudioOnly && youtubeUrl && isVideoFile) {
+  if (!isAudioOnly && currentMediaUrl && isVideoFile) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center border-2 border-slate-800 shadow-md ${className ?? ""}`}
@@ -285,11 +306,11 @@ export default function VideoPlayer({
         ) : (
           <video
             ref={setCombinedRef as any}
-            src={youtubeUrl}
+            src={currentMediaUrl}
             controls
             playsInline
             preload="metadata"
-            onError={() => setHasMediaError(true)}
+            onError={handleMediaError}
             className="w-full h-[320px] sm:h-[360px] rounded-2xl bg-black object-contain"
           >
             Your browser does not support video playback.
@@ -300,7 +321,7 @@ export default function VideoPlayer({
   }
 
   // ── 2b. Video Processing Mode (when media is Video but URL not yet ready) ───
-  if (!isAudioOnly && !youtubeUrl) {
+  if (!isAudioOnly && !currentMediaUrl) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
@@ -321,7 +342,7 @@ export default function VideoPlayer({
 
   // ── 3. Rich Audio Recording Playback Player ────────────────────────────────
   // Shown for AUDIO assessments or when video recording is audio-only
-  const isMediaAvailable = Boolean(youtubeUrl && !hasMediaError);
+  const isMediaAvailable = Boolean(currentMediaUrl && !hasMediaError);
   const effectiveDuration = !isMediaAvailable ? 0 : duration;
   const effectiveCurrentTime = !isMediaAvailable ? 0 : currentTime;
   const progressPercent = effectiveDuration > 0 ? Math.min(100, (effectiveCurrentTime / effectiveDuration) * 100) : 0;
@@ -336,12 +357,12 @@ export default function VideoPlayer({
       <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Hidden audio/media element for native audio playback */}
-      {youtubeUrl && (
+      {currentMediaUrl && (
         <audio
           ref={setCombinedRef as any}
-          src={youtubeUrl}
+          src={currentMediaUrl}
           preload="auto"
-          onError={() => setHasMediaError(true)}
+          onError={handleMediaError}
           className="hidden"
         />
       )}
