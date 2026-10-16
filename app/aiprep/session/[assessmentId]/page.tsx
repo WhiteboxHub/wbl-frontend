@@ -53,6 +53,13 @@ import {
   getDefaultTypeSeconds,
 } from '@/components/aiprep/assessment-details';
 
+const introQuestionReadPulseStyles = `
+@keyframes question-read-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08); }
+  50% { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.16); }
+}
+`;
+
 /**
  * Compact Floating Audio Waveform Equalizer (Embedded in Camera Overlay)
  */
@@ -179,7 +186,9 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg">
+    <>
+      <style>{introQuestionReadPulseStyles}</style>
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg">
       <IconMicrophone size={14} stroke={2} className="text-emerald-400 shrink-0" />
       <div className="flex items-center gap-[2.5px] h-4 overflow-hidden">
         {audioLevels.map((height, i) => (
@@ -190,7 +199,8 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
           />
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 });
 
@@ -1172,9 +1182,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     if (activeQ?.question_text && !isSpeechMuted) {
       await speakAiText(activeQ.question_text);
     }
-    for (let seconds = 5; seconds > 0; seconds -= 1) {
-      setPrepCountdown(seconds);
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+    // Intro assessments begin recording as soon as AI narration finishes.
+    // Keep the 5-second preparation countdown for all other assessment types.
+    if (assessmentType !== 'INTRO') {
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        setPrepCountdown(seconds);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      }
     }
     setPrepCountdown(null);
     startRecorderCore();
@@ -1267,9 +1281,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (nextQ?.question_text && !isSpeechMuted) {
         await speakAiText(nextQ.question_text);
       }
-      for (let seconds = 5; seconds > 0; seconds -= 1) {
-        setPrepCountdown(seconds);
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      // Intro should start recording immediately after narration; other types
+      // retain the existing 5-second preparation countdown.
+      if (assessmentType !== 'INTRO') {
+        for (let seconds = 5; seconds > 0; seconds -= 1) {
+          setPrepCountdown(seconds);
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+        }
       }
       setPrepCountdown(null);
       setIsQuestionPrepPaused(false);
@@ -1721,10 +1739,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         .filter((s) => s.trim().length > 0).length
     : 0;
   const isQuestionBlurred = isInactive && !isIntroType && !hasStartedQuestion;
-  // Keep the Intro assessment's original timer styling unchanged; restore the
-  // elapsed-time color progression for Technical/JD assessment rooms only.
-  const technicalTimerColors = isIntroType
-    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300'
+  // Use the same countdown urgency styling for Intro, Technical, and JD assessments.
+  const technicalTimerColors = questionTimeRemaining <= 5 && questionTimeRemaining > 0
+    ? 'border-rose-400 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200'
     : questionTimeRemaining <= 30
       ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
       : questionTimeElapsed >= 60
@@ -1741,7 +1758,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
           <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{isIntroType ? 'INTRO Assessment' : 'TECHNICAL Assessment'}</span>
         </div>
-        <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${!isIntroType && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
+        <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${isRecording && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
           <IconClock size={14} />
           <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(questionTimeRemaining)}</span>
           {!isIntroType && questionTimeRemaining <= 30 && questionTimeRemaining >= 29 && (
@@ -1774,10 +1791,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-5xl flex items-center justify-center animate-bounce shadow-2xl shadow-indigo-500/50">
                   {countdownValue}
                 </div>
-                <p className={`mt-4 text-sm font-bold uppercase tracking-widest animate-pulse ${
+                <p className={`mt-4 w-[200px] max-w-[70%] box-border px-2 py-1 text-[7px] leading-tight text-center font-bold uppercase tracking-[0.02em] break-words animate-pulse ${
                   isAudioOnly ? 'text-slate-700' : 'text-white'
                 }`}>
-                  Get ready! Recording starts automatically…
+                  Get ready! Recording starts automatically… After the countdown, the AI will read the question aloud.
                 </p>
               </div>
             )}
@@ -2196,11 +2213,31 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 </div>
               )}
 
-              {/* Question Text */}
+              {/* Highlight the active question while AI voice narration is playing (Intro and Technical). */}
               <div className={`flex-1 min-h-0 overflow-y-auto py-1 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-md select-none pointer-events-none opacity-30' : ''}`}>
-                <h2 className="text-lg sm:text-xl xl:text-2xl font-semibold text-slate-900 dark:text-white leading-relaxed tracking-tight">
-                  {activeQuestion.question_text}
-                </h2>
+                {isAiSpeaking && (
+                  <div
+                    className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700 shadow-sm dark:border-violet-700/60 dark:bg-violet-950/40 dark:text-violet-300"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span className="flex h-2 w-2 items-center justify-center">
+                      <span className="absolute h-2 w-2 animate-ping rounded-full bg-violet-500 opacity-60" />
+                      <span className="relative h-2 w-2 rounded-full bg-violet-600" />
+                    </span>
+                    AI is reading the question
+                  </div>
+                )}
+                <div
+                  className={`rounded-xl transition-all duration-300 ${isAiSpeaking
+                    ? 'border border-violet-400 bg-violet-50/80 px-4 py-3 shadow-[0_0_0_3px_rgba(139,92,246,0.10)] animate-[question-read-pulse_1.8s_ease-in-out_infinite] dark:border-violet-500/80 dark:bg-violet-950/30'
+                    : 'border border-transparent px-0 py-0'
+                  }`}
+                >
+                  <h2 className="text-lg sm:text-xl xl:text-2xl font-semibold text-slate-900 dark:text-white leading-relaxed tracking-tight">
+                    {activeQuestion.question_text}
+                  </h2>
+                </div>
               </div>
 
               {/* Per-Question Elapsed Progress Bar */}

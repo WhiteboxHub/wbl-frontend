@@ -526,9 +526,42 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     }
   };
 
+
+  const handleContinue = async () => {
+    if (testAudioUrl) {
+      await handleLaunchAssessment();
+    } else {
+      await handleSkipPractice();
+    }
+  };
+
   return (
-    <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between overflow-hidden animate-in fade-in duration-300">
-      {/* Hidden audio player for audio-only local playback */}
+    <div className="practice-step-root flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-50 text-slate-900 animate-in fade-in duration-300 dark:bg-slate-950 dark:text-white">
+      <style>{`
+        /* Keep Practice & Start usable when embedded inside the full dashboard shell. */
+        @media (max-height: 820px) and (min-width: 1024px) {
+          .practice-step-main { padding-top: 6px; padding-bottom: 6px; }
+          .practice-step-card { padding: 10px; }
+          .practice-step-notice { margin-bottom: 8px; padding: 6px 10px; }
+          .practice-step-heading { margin-bottom: 8px; }
+          .practice-step-heading h2 { font-size: 20px; line-height: 1.15; }
+          .practice-step-instructions { margin-bottom: 8px; gap: 6px; }
+          .practice-step-instructions > div { padding-top: 4px; padding-bottom: 4px; }
+          .practice-step-content { gap: 8px; }
+          .practice-step-aside { gap: 6px; }
+          .practice-step-aside > section { padding: 8px; }
+          .practice-step-aside > section .mt-1 { margin-top: 3px; }
+          .practice-step-aside > section .mt-2 { margin-top: 5px; }
+          .practice-step-card footer { margin-top: 8px; padding-top: 8px; }
+        }
+        @media (max-height: 700px) and (min-width: 1024px) {
+          .practice-step-notice p:last-child { font-size: 10px; }
+          .practice-step-heading h2 { font-size: 18px; }
+          .practice-step-content > div:first-child > div { padding: 8px; }
+          .practice-step-aside > section { padding: 6px 8px; }
+          .practice-step-aside > section p, .practice-step-aside > section li { font-size: 10px; line-height: 1.25; }
+        }
+      `}</style>
       {testAudioUrl && !videoEnabled && (
         <audio
           ref={audioPlaybackRef}
@@ -539,623 +572,157 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
         />
       )}
 
-      {/* ── Scrollable Practice Content ─────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-2 sm:py-2.5 flex flex-col space-y-2 sm:space-y-2.5">
-        {/* ── HEADER TITLE & SUBTITLE ────────────────────────────────────────── */}
-      <div className="shrink-0 space-y-0.5">
-        <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight">
-          {modeVariant === 'AUDIO_ONLY' && '4. Practice recording – Audio Only'}
-          {modeVariant === 'VIDEO_STANDARD' && '4. Practice recording – Video (Camera + Mic)'}
-          {modeVariant === 'VIDEO_ANALYTICS' && '4. Practice recording – Video with Analytics'}
-        </h2>
-        <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-          {modeVariant === 'AUDIO_ONLY' &&
-            'Record a short sample response to make sure your microphone and speakers are working properly.'}
-          {modeVariant === 'VIDEO_STANDARD' &&
-            'Record a short sample response to make sure your camera, microphone and speakers are working properly.'}
-          {modeVariant === 'VIDEO_ANALYTICS' &&
-            'Record a short sample response and get real-time feedback on your presence and engagement (optional).'}
-        </p>
-      </div>
-
-      {/* ── 3-COLUMN MAIN SANDBOX GRID ─────────────────────────────────────── */}
-      {modeVariant === 'AUDIO_ONLY' ? (
-        /* ── AUDIO ONLY: Single merged card ─────────────────────────────── */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-3 flex-1 min-h-0 items-stretch">
-          {/* Merged Card: Waveform + Prompt + Recording Controls */}
-          <div className="lg:col-span-9 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-2.5 justify-between shadow-xs">
-            {/* Top: Static practice prompt */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-                <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Practice Prompt
-                </span>
-              </div>
-              <p className="text-xs sm:text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-snug">
-                &ldquo;{sampleQuestion}&rdquo;
+      <main className="practice-step-main mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden px-3 py-3 sm:px-5 sm:py-3">
+        <section className="practice-step-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-4 lg:p-5">
+          <div className="practice-step-notice mb-3 flex shrink-0 items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900 dark:bg-violet-950/30">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" />
+            <div>
+              <p className="text-[11px] font-bold text-violet-800 dark:text-violet-200 sm:text-xs">FREE PRACTICE — THIS IS NOT YOUR REAL ASSESSMENT</p>
+              <p className="text-[10px] leading-snug text-violet-700 dark:text-violet-300 sm:text-xs">
+                Try your microphone, get comfortable, and continue whenever you’re ready. This sample will not be saved.
               </p>
             </div>
-
-            {/* Middle: Animated audio waveform with microphone icon */}
-            <div className="flex flex-col items-center justify-center py-1 sm:py-2 gap-1.5">
-              <style>{`
-                @keyframes waveformAnim {
-                  0%, 100% { height: 5px; }
-                  50% { height: 22px; }
-                }
-              `}</style>
-              {/* Audio Mic Badge matching Device Check */}
-              <div className="relative flex items-center justify-center my-1 sm:my-1.5">
-                {isRecording && (
-                  <>
-                    <div className="absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-blue-500/15 animate-ping pointer-events-none" />
-                    <div className="absolute w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-blue-500/20 animate-pulse pointer-events-none" />
-                  </>
-                )}
-
-                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center bg-blue-50/90 dark:bg-blue-950/40 border-2 sm:border-[3px] border-blue-200/90 dark:border-blue-800/70 shadow-sm transition-all duration-300">
-                  <div className={`w-14 h-14 sm:w-17 sm:h-17 rounded-full flex items-center justify-center bg-blue-600 text-white shadow-md shadow-blue-500/30 transition-transform duration-200 ${isRecording ? 'scale-105' : ''}`}>
-                    <Mic className="w-7 h-7 sm:w-8.5 sm:h-8.5 stroke-[2.2]" />
-                  </div>
-
-                  {/* Verified Status Badge */}
-                  <div className="absolute -bottom-1 -right-1 sm:-bottom-1 sm:-right-1 w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-emerald-500 border-2 sm:border-[2.5px] border-white dark:border-slate-900 flex items-center justify-center text-white shadow-md shadow-emerald-500/35">
-                    <Check className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[3]" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Animated waveform bars */}
-              <div className="flex items-center gap-[3px] h-7">
-                {Array.from({ length: 28 }).map((_, i) => {
-                  const delay = (i * 0.1) + (Math.sin(i) * 0.15);
-                  return (
-                    <div
-                      key={i}
-                      className={`w-1.5 rounded-full transition-all duration-300 ${
-                        isRecording
-                          ? 'bg-gradient-to-t from-indigo-500 to-purple-400'
-                          : 'bg-slate-200 dark:bg-slate-700'
-                      }`}
-                      style={{
-                        height: '5px',
-                        animationName: isRecording ? 'waveformAnim' : 'none',
-                        animationDuration: '0.75s',
-                        animationTimingFunction: 'ease-in-out',
-                        animationIterationCount: 'infinite',
-                        animationDelay: `${delay}s`,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-
-              {isRecording && (
-                <p className="text-[11px] font-semibold text-rose-500 animate-pulse">
-                  Recording… {30 - recordTime}s remaining
-                </p>
-              )}
-            </div>
-
-            {/* Bottom: Recording controls + playback bar */}
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              {/* Start / Stop Recording */}
-              <div className="flex items-center gap-2.5">
-                {!isRecording ? (
-                  <button
-                    type="button"
-                    onClick={startTestRecording}
-                    className="px-4 py-1.5 sm:py-2 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <Mic className="w-3.5 h-3.5" />
-                    <span>Start Recording</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={stopTestRecording}
-                    className="px-4 py-1.5 sm:py-2 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer animate-pulse"
-                  >
-                    <span className="w-2 h-2 rounded-sm bg-white" />
-                    <span>Stop Recording</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Playback bar */}
-              <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={togglePlayback}
-                  disabled={!testAudioUrl || isRecording}
-                  className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
-                  title={testAudioUrl ? 'Play recording' : 'Record a sample first'}
-                >
-                  {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
-                </button>
-                <span className="text-[10.5px] font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                  {formatSeconds(isPlaying ? playbackTime : isRecording ? recordTime : 0)} / {formatSeconds(totalDuration)}
-                </span>
-                <input
-                  type="range" min={0} max={totalDuration || 30} step={0.5} value={playbackTime}
-                  onChange={handleSeek} disabled={!testAudioUrl || isRecording}
-                  className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-40"
-                />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button type="button" onClick={toggleMute} className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white">
-                    {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 text-rose-500" /> : <Volume2 className="w-3.5 h-3.5" />}
-                  </button>
-                  <input type="range" min={0} max={1} step={0.05} value={isMuted ? 0 : volume} onChange={handleVolumeChange}
-                    className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px] px-1">
-                <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <span>This is just a test. Your recording will not be saved.</span>
-              </div>
-            </div>
           </div>
 
-          {/* Device Status Card */}
-          <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between shadow-xs">
-            <div className="space-y-3">
-              <h3 className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">Device status</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Mic className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Microphone</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedAudioLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-xs py-1">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Volume2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Speaker</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedSpeakerLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                  </div>
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-start gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[10.5px] text-emerald-800 dark:text-emerald-300 font-medium leading-snug">
-                  Audio devices verified and locked for this session.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* ── VIDEO / ANALYTICS: 3-column grid ───────────────────────────── */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-3 flex-1 min-h-0 items-stretch">
-          {/* ── COLUMN 1: Visual Stage / Audio Box (4 cols) ─────────────────── */}
-          <div className="lg:col-span-4 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3 flex flex-col items-center justify-center relative overflow-hidden shadow-xs min-h-[170px] sm:min-h-[190px]">
-            {/* Video Stream / Face Analytics Box */}
-            <div className="relative w-full h-full min-h-[170px] sm:min-h-[190px] rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
-              {/* Recorded Video Playback Element (active when viewing playback) */}
-              <video
-                ref={videoPlaybackRef}
-                src={testAudioUrl || undefined}
-                playsInline
-                className={`w-full h-full object-cover transform -scale-x-100 ${activeView === 'PLAYBACK' && testAudioUrl ? 'block' : 'hidden'
-                  }`}
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={handleLoadedMetadata}
-                onEnded={() => setIsPlaying(false)}
-              />
-
-              {/* Live Webcam Stream Element (active when in live preview) */}
-              <video
-                ref={liveVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full object-cover transform -scale-x-100 ${activeView === 'PLAYBACK' && testAudioUrl ? 'hidden' : 'block'
-                  }`}
-              />
-
-              {/* Top-Left Mode Pill */}
-              <div className="absolute top-2 left-2 sm:top-2.5 sm:left-2.5 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/80 backdrop-blur-md border border-slate-700/80 text-[10.5px] font-bold text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>
-                  {activeView === 'PLAYBACK' && testAudioUrl
-                    ? 'Recorded Test'
-                    : modeVariant === 'VIDEO_ANALYTICS'
-                      ? isVisionReady
-                        ? realtimeTelemetry.is_instant_face_present
-                          ? 'Analyzing (Face Locked)'
-                          : 'Analyzing (Searching Face)'
-                        : 'Initializing Vision…'
-                      : 'Preview'}
-                </span>
-              </div>
-
-              {/* Top-Right Toggle: Live Camera vs. Recorded Test (when test recording exists) */}
-              {testAudioUrl && !isRecording && (
-                <div className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 z-20 flex items-center bg-slate-900/90 border border-slate-700/80 rounded-lg p-0.5 backdrop-blur-md">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      pausePlayback();
-                      setActiveView('LIVE');
-                    }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${activeView === 'LIVE'
-                      ? 'bg-emerald-500 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                      }`}
-                  >
-                    Live
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveView('PLAYBACK');
-                    }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${activeView === 'PLAYBACK'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
-                      }`}
-                  >
-                    Playback
-                  </button>
-                </div>
-              )}
-
-              {/* Video with Analytics: Dynamic Facial Mesh Box from MediaPipe Vision Telemetry */}
-              {modeVariant === 'VIDEO_ANALYTICS' && activeView !== 'PLAYBACK' && (
-                <div className="absolute inset-0 z-10 pointer-events-none">
-                  {realtimeTelemetry.face_box && realtimeTelemetry.is_instant_face_present ? (() => {
-                    const rawW = realtimeTelemetry.face_box.width * 100;
-                    const rawH = realtimeTelemetry.face_box.height * 100;
-                    const boxW = Math.max(28, Math.min(75, rawW * 1.55));
-                    const boxH = Math.max(30, Math.min(85, rawH * 1.20));
-                    const padX = (boxW - rawW) / 2;
-                    const padY = (boxH - rawH) / 2;
-                    const boxL = Math.max(0, Math.min(100 - boxW, (1 - realtimeTelemetry.face_box.x - realtimeTelemetry.face_box.width) * 100 - padX));
-                    const boxT = Math.max(0, Math.min(100 - boxH, realtimeTelemetry.face_box.y * 100 - padY));
-
-                    return (
-                      <div
-                        className="absolute border-2 border-emerald-400/90 rounded-2xl shadow-[0_0_15px_rgba(52,211,153,0.3)] flex flex-col justify-between p-1.5 transition-all duration-75"
-                        style={{
-                          left: `${boxL}%`,
-                          top: `${boxT}%`,
-                          width: `${boxW}%`,
-                          height: `${boxH}%`,
-                        }}
-                      >
-                        <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded self-start">
-                          ID: FACE_01
-                        </span>
-                        <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded self-end">
-                          ATTN: {Math.round(realtimeTelemetry.screen_attention_pct ?? 0)}%
-                        </span>
-                      </div>
-                    );
-                  })() : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="px-3 py-1.5 rounded-full bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-mono font-semibold animate-pulse">
-                        Searching for face…
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-        {/* ── COLUMN 2: Sample Question & Media Player Bar (5 cols) ───────── */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between shadow-xs space-y-2">
-          {/* Top: Sample Question Card */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-              <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                Sample question
-              </span>
-            </div>
-
-            <p className="text-xs sm:text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-snug">
-              &ldquo;{sampleQuestion}&rdquo;
+          <div className="practice-step-heading mb-3 shrink-0">
+            <h2 className="text-lg font-bold tracking-tight sm:text-xl lg:text-2xl">Get comfortable before you begin</h2>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 sm:text-xs">
+              Take a quick 30-second practice run. There is no score and no pressure.
             </p>
           </div>
 
-          {/* Device Error Banner */}
+
+
           {deviceError && (
-            <div className="flex items-center gap-2 p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-[11px] font-semibold animate-in fade-in duration-200">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            <div className="mb-5 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
+              <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{deviceError}</span>
             </div>
           )}
 
-          {/* Center: Video Mode Start/Stop Button */}
-          <div className="flex items-center justify-start py-0.5">
-              {!isRecording ? (
-                <button
-                  type="button"
-                  onClick={startTestRecording}
-                  className="px-4 py-1.5 sm:py-2 rounded-xl font-bold text-xs bg-white dark:bg-slate-800 border-2 border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer"
-                >
-                  <Video className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
-                  <span>Start recording</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={stopTestRecording}
-                  className="px-4 py-1.5 sm:py-2 rounded-xl font-bold text-xs bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 shadow-md shadow-rose-600/30 active:scale-95 transition-all cursor-pointer animate-pulse"
-                >
-                  <span className="w-2 h-2 rounded-sm bg-white" />
-                  <span>Stop recording ({30 - recordTime}s)</span>
-                </button>
-              )}
-            </div>
-
-          {/* Bottom: Interactive Scrubber & Audio Player Bar */}
-          <div className="space-y-2 pt-1.5 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-              {/* Play / Pause Toggle */}
-              <button
-                type="button"
-                onClick={togglePlayback}
-                disabled={!testAudioUrl || isRecording}
-                className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white flex items-center justify-center shrink-0 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
-                title={testAudioUrl ? 'Play test recording' : 'Record a sample first to listen'}
-              >
-                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
-              </button>
-
-              {/* Time display */}
-              <span className="text-[10.5px] font-mono font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                {formatSeconds(isPlaying ? playbackTime : isRecording ? recordTime : 0)} / {formatSeconds(totalDuration)}
-              </span>
-
-              {/* Timeline scrub bar */}
-              <input
-                type="range"
-                min={0}
-                max={totalDuration || 30}
-                step={0.5}
-                value={playbackTime}
-                onChange={handleSeek}
-                disabled={!testAudioUrl || isRecording}
-                className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-40"
-              />
-
-              {/* Volume & Mute control */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
-                >
-                  {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 text-rose-500" /> : <Volume2 className="w-3.5 h-3.5" />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
-            </div>
-
-            {/* Note banner: "This is just a test. Your recording will not be saved." */}
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-[11px] px-1">
-              <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-              <span>This is just a test. Your recording will not be saved.</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── COLUMN 3: Device Status OR Real-time Analytics (3 cols) ─────── */}
-        <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 flex flex-col justify-between shadow-xs">
-          {modeVariant !== 'VIDEO_ANALYTICS' ? (
-            /* Variant 1 & 2: Device Status Card */
-            <div className="space-y-3">
-              <h3 className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Device status
-              </h3>
-
-              <div className="space-y-2">
-                {videoEnabled && (
-                  <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                      <Camera className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-semibold">Camera</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                      <span className="truncate">{selectedVideoLabel}</span>
-                      <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Mic className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Microphone</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedAudioLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                  </div>
+          <div className="practice-step-content grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] grid-cols-1 items-stretch gap-3 overflow-hidden lg:grid-cols-12 lg:gap-3">
+            <div className="flex min-h-0 flex-col overflow-hidden lg:col-span-8">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3">
+                <div className="shrink-0 rounded-xl border border-violet-100 bg-violet-50/60 px-2.5 py-1.5 dark:border-violet-900/60 dark:bg-violet-950/20 sm:px-3 sm:py-2">
+                  <span className="inline-flex rounded-full bg-violet-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">Sample prompt</span>
+                  <p className="mt-0.5 text-xs font-semibold leading-snug text-slate-800 dark:text-slate-100 sm:text-sm">
+                    “Introduce yourself or describe a recent challenge you solved.”
+                  </p>
                 </div>
 
-                <div className="flex items-center justify-between text-xs py-1">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Volume2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold">Speaker</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[130px]">
-                    <span className="truncate">{selectedSpeakerLabel}</span>
-                    <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-start gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[10.5px] text-emerald-800 dark:text-emerald-300 font-medium leading-snug">
-                  {videoEnabled
-                    ? 'Video and audio devices verified and locked for this session.'
-                    : 'Audio devices verified and locked for this session.'}
-                </p>
-              </div>
-            </div>
-          ) : (
-            /* Variant 3: Real-time Analytics (Driven by MediaPipe Vision Telemetry) */
-            <div className="space-y-2">
-              <h3 className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Analytics (live during practice)
-              </h3>
-
-              <div className="space-y-2 text-xs">
-                {[
-                  {
-                    label: 'Face detection',
-                    icon: <Eye className="w-3.5 h-3.5" />,
-                    status: realtimeTelemetry.is_instant_face_present ? 'Face Detected' : 'No Face',
-                    pct: realtimeTelemetry.is_instant_face_present ? 100 : 0,
-                    ok: !!realtimeTelemetry.is_instant_face_present,
-                  },
-                  {
-                    label: 'Eye contact',
-                    icon: <Activity className="w-3.5 h-3.5" />,
-                    status: realtimeTelemetry.is_instant_eyes_attentive ? 'Attentive' : 'Off-screen',
-                    pct: realtimeTelemetry.eye_contact_pct ?? 0,
-                    ok: !!realtimeTelemetry.is_instant_eyes_attentive,
-                  },
-                  {
-                    label: 'Posture alignment',
-                    icon: <Maximize className="w-3.5 h-3.5" />,
-                    status: realtimeTelemetry.sitting_position || 'Upright Centered',
-                    pct: realtimeTelemetry.is_instant_straight ? 100 : 60,
-                    ok: realtimeTelemetry.is_instant_straight !== false,
-                  },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex flex-col gap-0.5 p-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold text-[10.5px]">
-                        <span className="text-indigo-500">{item.icon}</span>
-                        <span>{item.label}</span>
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-evenly overflow-hidden py-1 text-center">
+                  {videoEnabled ? (
+                    <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-slate-950 aspect-video">
+                      <video ref={liveVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+                      {!cameraStream && (
+                        <div className="absolute inset-0 flex items-center justify-center text-sm text-white/80">
+                          <Camera className="mr-2 h-5 w-5" /> Camera preview unavailable
+                        </div>
+                      )}
+                      {isRecording && <span className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-bold text-white"><span className="h-2 w-2 animate-pulse rounded-full bg-white" /> Recording · {formatSeconds(recordTime)}</span>}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative mb-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40 sm:h-16 sm:w-16">
+                        {isRecording && <span className="absolute inset-0 rounded-full border-2 border-violet-400 animate-ping opacity-30" />}
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-lg shadow-violet-500/25 sm:h-12 sm:w-12">
+                          {isRecording ? <span className="h-7 w-7 rounded-md bg-white" /> : <Mic className="h-6 w-6 stroke-[1.8]" />}
+                        </div>
                       </div>
-                      <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-md ${
-                        item.ok
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </div>
-                    <div className="w-full h-1 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          item.ok ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${item.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      <h3 className="text-xs font-bold sm:text-sm">{isRecording ? 'Your practice recording' : testAudioUrl ? 'Practice recording ready' : 'Ready when you are'}</h3>
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
+                        {isRecording ? `Up to 30 seconds · ${30 - recordTime}s remaining` : testAudioUrl ? 'You can listen to your sample before continuing.' : 'Up to 30 seconds · Only you can hear it'}
+                      </p>
+                    </>
+                  )}
 
-              <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 flex items-center gap-1">
-                <Info className="w-3 h-3 text-indigo-500 shrink-0" />
-                <span>MediaPipe AI Vision tracking active in-memory.</span>
+                  <style>{`
+                    @keyframes practiceWaveform { 0%,100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+                  `}</style>
+                  <div className="flex h-5 items-center justify-center gap-1" aria-label={isRecording ? 'Recording waveform' : 'Audio waveform'}>
+                    {Array.from({ length: 25 }).map((_, i) => (
+                      <span key={i} className={`w-1 rounded-full ${isRecording ? 'bg-violet-500' : 'bg-violet-300 dark:bg-violet-700'}`} style={{ height: `${12 + ((i * 17) % 28)}px`, transformOrigin: 'center', animation: isRecording ? `practiceWaveform .8s ease-in-out ${i * 0.045}s infinite` : 'none' }} />
+                    ))}
+                  </div>
+
+                  <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
+                    {!isRecording ? (
+                      <button type="button" onClick={startTestRecording} disabled={isLaunching} className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm">
+                        <Mic className="h-4 w-4" /> {testAudioUrl ? 'Record again' : 'Try a practice recording'}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={stopTestRecording} className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-3 text-sm font-bold text-white shadow-md transition hover:bg-rose-700">
+                        <span className="h-2.5 w-2.5 rounded-sm bg-white" /> Stop recording ({30 - recordTime}s)
+                      </button>
+                    )}
+                    {testAudioUrl && !videoEnabled && (
+                      <button type="button" onClick={togglePlayback} disabled={isRecording} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:text-sm">
+                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />} {isPlaying ? 'Pause sample' : 'Listen to sample'}
+                      </button>
+                    )}
+                  </div>
+                  {testAudioUrl && !videoEnabled && (
+                    <div className="mt-1 flex w-full max-w-lg items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-800/60">
+                      <span className="text-xs font-mono text-slate-500">{formatSeconds(playbackTime)} / {formatSeconds(totalDuration)}</span>
+                      <input type="range" min={0} max={totalDuration || 30} step={0.5} value={playbackTime} onChange={handleSeek} disabled={isRecording} className="h-1.5 flex-1 cursor-pointer accent-violet-600" aria-label="Practice playback position" />
+                      <button type="button" onClick={toggleMute} className="text-slate-500 hover:text-violet-700" aria-label={isMuted ? 'Unmute sample' : 'Mute sample'}>
+                        {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-      )}
-      </div>
 
-      {/* ── BOTTOM NAVIGATION ACTIONS ──────────────────────────────────────── */}
-      <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 mt-auto">
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-4 py-1.5 sm:py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back</span>
-        </button>
+            <aside className="practice-step-aside flex min-h-0 flex-col gap-2 overflow-hidden lg:col-span-4">
+              <section className="shrink-0 rounded-xl border border-slate-200 p-2.5 dark:border-slate-800 sm:p-3">
+                <h3 className="text-xs font-bold sm:text-sm">What happens in practice?</h3>
+                <ul className="mt-1.5 space-y-1.5">
+                  {[
+                    'Check that your microphone works',
+                    'Listen to your sample if you like',
+                    'No score, no grading, no upload',
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-[11px] font-medium text-slate-700 dark:text-slate-200 sm:text-xs">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"><Check className="h-3.5 w-3.5 stroke-[3]" /></span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] text-slate-500 dark:border-slate-800 dark:text-slate-400">Tip: Speak naturally and check your volume.</div>
+              </section>
 
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Skip Practice — only visible before practice recording starts */}
-          {!isRecording && !testAudioUrl && (
-            <button
-              type="button"
-              onClick={handleSkipPractice}
-              disabled={isLaunching}
-              className={`px-5 sm:px-6 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 ${
-                isLaunching
-                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
-                  : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer'
-              }`}
-              title={isLaunching ? 'Launching Assessment...' : 'Skip Practice'}
-            >
-              {isLaunching ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Launching...</span>
-                </>
-              ) : (
-                <>
-                  <span>Skip Practice</span>
-                  <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                </>
-              )}
+              <section className="shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-900 dark:bg-emerald-950/25 sm:p-3">
+                <h3 className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 sm:text-sm"><CheckCircle2 className="h-4 w-4" /> Private practice</h3>
+                <p className="mt-1 text-[10px] leading-snug text-emerald-800 dark:text-emerald-200 sm:text-xs">This sample stays in your browser and is not submitted with your real assessment.</p>
+              </section>
+
+              <section className="min-h-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-800/50 sm:p-3">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Ready for the real assessment?</h3>
+                <p className="mt-1 text-[10px] leading-snug text-slate-500 dark:text-slate-400 sm:text-xs">You’ll see the assessment start screen next. You can also skip this practice entirely.</p>
+              </section>
+            </aside>
+          </div>
+
+          <footer className="mt-3 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-200 pt-3 dark:border-slate-800">
+            <button type="button" onClick={onBack} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:text-sm">
+              <ArrowLeft className="h-4 w-4" />
+              Back
             </button>
-          )}
-
-          {/* Start Assessment — only shown after a practice recording has been completed */}
-          {testAudioUrl && (
-            <button
-              type="button"
-              onClick={handleLaunchAssessment}
-              disabled={isLaunching}
-              className={`px-6 sm:px-7 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-all duration-200 ${
-                isLaunching
-                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
-                  : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer'
-              }`}
-              title={isLaunching ? 'Launching Assessment...' : 'Start Assessment'}
-            >
-              {isLaunching ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Launching...</span>
-                </>
-              ) : (
-                <>
-                  <span>Start Assessment</span>
-                  <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                </>
-              )}
+            <p className="justify-self-center text-center text-[10px] text-slate-500 dark:text-slate-400 sm:text-xs">Optional practice · No timer pressure</p>
+            <button type="button" onClick={testAudioUrl ? handleLaunchAssessment : handleSkipPractice} disabled={isRecording || isLaunching} className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm">
+              {isLaunching ? <><Loader2 className="h-4 w-4 animate-spin" /> Starting…</> : testAudioUrl ? <>Start Assessment <ChevronRight className="h-4 w-4" /></> : isRecording ? <>Recording practice…</> : <>Skip Practice <ChevronRight className="h-4 w-4" /></>}
             </button>
-          )}
-        </div>
-      </div>
+          </footer>
+          <style>{`
+            @media (max-width: 520px) {
+              .practice-step-card footer { grid-template-columns: auto auto; }
+              .practice-step-card footer p { grid-column: 1 / -1; grid-row: 2; }
+            }
+          `}</style>
+        </section>
+      </main>
     </div>
   );
 };
 export default PracticeStep;
-
