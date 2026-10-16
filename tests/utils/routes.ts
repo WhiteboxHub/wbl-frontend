@@ -58,6 +58,7 @@ export function getAllGridRoutes(): GridRoute[] {
     "leads_unsubscribe",
     "error",
     "privacy-policy",
+    "terms-of-service",
     "terms-of-use",
     "refer-and-earn",
     "contact",
