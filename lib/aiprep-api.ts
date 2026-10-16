@@ -337,9 +337,20 @@ export const aiPrepApi = {
   submitAssessment: (
     assessmentId: string | number,
     payload: CandidateSubmitAssessmentRequest = {},
-    candidateId?: string | number
+    candidateId?: string | number,
+    audioBlob?: Blob | null
   ): Promise<CandidateSubmitAssessmentResponse> => {
     const cid = resolveCandidateId(candidateId);
+    if (audioBlob) {
+      const formData = new FormData();
+      const ext = (audioBlob.type && audioBlob.type.includes("mp4")) ? "mp4" : "webm";
+      formData.append("audio", audioBlob, `assessment_audio.${ext}`);
+      formData.append("assessment_data", JSON.stringify(payload));
+      return apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`), {
+        method: "PUT",
+        body: formData,
+      }) as Promise<CandidateSubmitAssessmentResponse>;
+    }
     return apiFetch(endpoint(`candidates/${cid}/assessments/${assessmentId}`), {
       method: "PUT",
       body: payload,
@@ -353,7 +364,8 @@ export const aiPrepApi = {
     assessmentId: string | number,
     payload: CandidateSubmitAssessmentRequest = {},
     onProgress?: (event: Record<string, any>) => void,
-    candidateId?: string | number
+    candidateId?: string | number,
+    audioBlob?: Blob | null
   ): Promise<Record<string, any>> => {
     const cid = resolveCandidateId(candidateId);
     const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
@@ -373,14 +385,27 @@ export const aiPrepApi = {
         localStorage.getItem("auth_token") ||
         localStorage.getItem("bearer_token"));
 
+    let body: BodyInit;
+    const headers: Record<string, string> = {
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    if (audioBlob) {
+      const formData = new FormData();
+      const ext = (audioBlob.type && audioBlob.type.includes("mp4")) ? "mp4" : "webm";
+      formData.append("audio", audioBlob, `assessment_audio.${ext}`);
+      formData.append("assessment_data", JSON.stringify(payload));
+      body = formData;
+    } else {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(payload);
+    }
+
     const response = await fetch(url, {
       method: "PUT",
-      headers: {
-        Accept: "text/event-stream",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(payload),
+      headers,
+      body,
     });
 
     if (!response.ok) {
