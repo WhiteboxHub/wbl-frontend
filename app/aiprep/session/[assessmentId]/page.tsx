@@ -1679,27 +1679,45 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         .filter((s) => s.trim().length > 0).length
     : 0;
   const isQuestionBlurred = isInactive && !isIntroType && !hasStartedQuestion;
+  // Keep the Intro assessment's original timer styling unchanged; restore the
+  // elapsed-time color progression for Technical/JD assessment rooms only.
+  const technicalTimerColors = isIntroType
+    ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300'
+    : questionTimeRemaining <= 30
+      ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+      : questionTimeElapsed >= 60
+        ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+        : questionTimeElapsed >= 30
+          ? 'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+          : 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300';
 
   return (
     <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+      {(isIntroType || hasStartedQuestion) && (
       <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
-          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">TECHNICAL Assessment</span>
+          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{isIntroType ? 'INTRO Assessment' : 'TECHNICAL Assessment'}</span>
         </div>
-        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-300">
+        <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${!isIntroType && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
           <IconClock size={14} />
-          <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(Math.max(0, questionTimeLimit - questionTimeElapsed))}</span>
+          <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(questionTimeRemaining)}</span>
+          {!isIntroType && questionTimeRemaining <= 30 && questionTimeRemaining >= 29 && (
+            <span className="whitespace-nowrap border-l border-current/20 pl-2 text-[10px] font-black uppercase tracking-wide sm:text-[11px]" role="status" aria-live="polite">
+              30 seconds left
+            </span>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400" title="Connection status"><IconWifi size={17} /></span>
           <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen(); }} className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" aria-label="Toggle fullscreen" title="Toggle fullscreen"><IconMaximize size={16} /></button>
         </div>
       </header>
+      )}
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
-      <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto pb-28">
+      <div className={`flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto ${isIntroType ? 'pb-4' : 'pb-28'}`}>
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
-        <div className={`${isQuestionBlurred ? 'hidden' : 'lg:col-span-5'} flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible`}>
+        <div className={`${isQuestionBlurred ? 'hidden' : isIntroType ? 'lg:col-span-7' : 'lg:col-span-6'} flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible`}>
           {/* CINEMA CAMERA STAGE */}
           <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl overflow-hidden border flex items-center justify-center min-h-[220px] sm:min-h-[280px] transition-colors duration-300 ${
             isAudioOnly
@@ -1841,7 +1859,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
           {/* FLOATING GLASS MEETING DOCK */}
           <div className="fixed bottom-0 left-0 right-0 z-40 w-full flex items-center justify-center px-3 sm:px-5 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80">
-            <div className="flex items-center justify-between gap-3 w-full max-w-[1500px] h-14 sm:h-16 px-2 sm:px-4 rounded-2xl bg-transparent border-0 shadow-none">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 w-full max-w-[1500px] h-14 sm:h-16 px-2 sm:px-4 rounded-2xl bg-transparent border-0 shadow-none">
               {/* Left Group: Exit Button + Previous Question Button */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -1871,7 +1889,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               {/* Center Column: Perfectly Centered Primary CTA or Live Answering Indicator */}
-              <div className="flex items-center justify-center shrink-0">
+              <div className="flex min-w-0 items-center justify-center">
                 {isEnding ? (
                   <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 shrink-0 shadow-xs text-purple-700 dark:text-purple-300">
                     <IconLoader2 size={15} className="animate-spin text-purple-600 dark:text-purple-400" />
@@ -1891,17 +1909,40 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 ) : prepCountdown !== null ? (
                   <div className="h-10 w-36 shrink-0" aria-hidden="true" />
                 ) : (
-                  <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                      Answering Q{currentQuestionIndex + 1} ({formatTime(questionTimeElapsed)})
-                    </span>
+                  <div className="flex items-center justify-center gap-5">
+                    <div className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        Answering Q{currentQuestionIndex + 1} ({formatTime(questionTimeElapsed)})
+                      </span>
+                    </div>
+                    {isRecording && !isIntroType && (
+                      <button
+                        type="button"
+                        onClick={handleNextQuestion}
+                        disabled={isEnding || isTransitioningQuestion || currentQuestionIndex >= questions.length - 1 || countdownValue !== null}
+                        className="h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={currentQuestionIndex >= questions.length - 1 ? 'You are on the last question' : 'Save this answer and continue to the next question'}
+                      >
+                        {isTransitioningQuestion ? (
+                          <>
+                            <IconLoader2 size={16} className="animate-spin" />
+                            <span>Saving…</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Next Question</span>
+                            <IconArrowRight size={16} stroke={2.5} />
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Right Group: Forward Progression (Next Question / Finish Assessment) or Symmetrical Spacer */}
-              <div className="flex items-center justify-end shrink-0">
+              <div className="flex min-w-0 items-center justify-end">
                 {isQuestionBlurred && !isEnding ? (
                   prepCountdown !== null ? (
                     <div className="h-10 w-36 shrink-0" aria-hidden="true" />
@@ -1918,27 +1959,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                     </button>
                   )
                 ) : isRecording || isEnding ? (
-                  !isEnding && currentQuestionIndex < questions.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={handleNextQuestion}
-                      disabled={isTransitioningQuestion}
-                      className="h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-lg shadow-indigo-600/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50 transition-all shrink-0"
-                      title="Save this answer and continue to the next question"
-                    >
-                      {isTransitioningQuestion ? (
-                        <>
-                          <IconLoader2 size={16} className="animate-spin" />
-                          <span>Saving…</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Submit Answer</span>
-                          <IconArrowRight size={16} stroke={2.5} />
-                        </>
-                      )}
-                    </button>
-                  ) : (
+                  <div className="flex min-w-0 items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={handleEndSession}
@@ -1947,7 +1968,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                           ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
                           : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
                         }`}
-                      title="Submit your assessment"
+                      title="Submit your assessment and finish now"
                     >
                       {isEnding ? (
                         <>
@@ -1961,7 +1982,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         </>
                       )}
                     </button>
-                  )
+                  </div>
                 ) : (
                   /* Symmetrical spacer matching Exit button width so Start Answer is dead-center */
                   <div className="w-[72px] shrink-0" />
@@ -1972,7 +1993,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         </div>
 
         {/* RIGHT COLUMN: Question Prompt Card & Live Speech Transcript Card */}
-        <div className={`${isQuestionBlurred ? 'lg:col-span-12' : 'lg:col-span-7'} flex flex-col gap-3 min-h-[480px] lg:min-h-0 lg:h-full shrink-0 lg:shrink`}>
+        <div className={`${isQuestionBlurred ? 'lg:col-span-12' : isIntroType ? 'lg:col-span-5' : 'lg:col-span-6'} flex flex-col gap-3 min-h-[480px] lg:min-h-0 lg:h-full shrink-0 lg:shrink`}>
           {/* CARD 1: Question Prompt Card (Expanded height & scrollable) */}
           {activeQuestion ? (
             <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[420px] flex-1 space-y-4 overflow-hidden">
@@ -2000,16 +2021,35 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white"><IconMicrophone size={19} /></span>
                         <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">3. Explain your technical answer</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Answer clearly using your own words. Explain the concept, how it works, and a practical example when relevant. Keep an eye on the question timer.</p></div>
                       </div>
-                      <div className="flex items-start gap-3 py-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-600 text-white"><IconCheck size={19} /></span>
-                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">4. Submit to continue</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Select <span className="font-semibold">Submit Answer</span> when you finish. The assessment moves to the next question, and previously submitted questions cannot be revisited.</p></div>
+                    </div>
+                    {!isIntroType && (
+                      <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Assessment controls</p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="flex items-start gap-2.5">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">1</span>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"><IconArrowRight size={17} /></span>
+                            <div className="min-w-0"><p className="text-xs font-semibold text-slate-900 dark:text-white">Next Question</p><p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">When you finish your current answer, click this button to save your response and move to the next question. Once you move forward, you cannot return to the previous question.</p></div>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">2</span>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"><IconCheck size={17} /></span>
+                            <div className="min-w-0"><p className="text-xs font-semibold text-slate-900 dark:text-white">Submit Assessment</p><p className="mt-0.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">When you have finished all questions, submit the assessment for final evaluation. You cannot continue answering after submission.</p></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex shrink-0 items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 dark:border-rose-900/60 dark:bg-rose-950/25">
+                      <IconAlertTriangle size={14} className="mt-0.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                      <div className="min-w-0 text-xs leading-relaxed text-rose-800 dark:text-rose-200">
+                        <p className="font-semibold">Important: Before submitting</p>
+                        <p className="mt-0.5">Once you click <strong>Submit Assessment</strong>, your assessment will be finalized and you will be redirected to the evaluation/report page. You cannot continue answering after submission. To try again, restart the assessment from the beginning.</p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 dark:border-rose-900/60 dark:bg-rose-950/25"><IconAlertTriangle size={15} className="shrink-0 text-rose-600 dark:text-rose-400" /><p className="text-[11px] leading-relaxed text-rose-800 dark:text-rose-200"><span className="font-bold">Important:</span> Submitted questions cannot be reopened. Keep this assessment page open.</p></div>
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
                       <button
                         type="button"
-                        onClick={() => router.push('/aiprep')}
+                        onClick={() => router.replace('/user_dashboard/ai-prep/practice')}
                         className="h-11 shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                         title="Go back to assessment selection"
                       >
@@ -2054,9 +2094,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               <div className={`flex flex-col gap-2 shrink-0 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-sm select-none opacity-40' : ''}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
-                      {activeQuestion.category || assessmentType}
-                    </span>
+                    {isIntroType ? (
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
+                        {activeQuestion.category || assessmentType}
+                      </span>
+                    ) : questions.length > 1 ? (
+                      <div className="flex items-center gap-1.5 overflow-x-auto py-1" aria-label="Question progress">
+                        {questions.slice(0, currentQuestionIndex + 1).map((_, idx) => {
+                          const isCompleted = idx < currentQuestionIndex;
+                          const isCurrent = idx === currentQuestionIndex;
+                          return (
+                            <div key={idx} aria-current={isCurrent ? 'step' : undefined} className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${isCurrent ? 'bg-indigo-600 text-white shadow-xs' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'}`}>
+                              {isCompleted && <IconCheck size={12} stroke={3} className="text-emerald-500 shrink-0" />}
+                              <span>Q{idx + 1}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full">
+                        {activeQuestion.category || assessmentType}
+                      </span>
+                    )}
                     {assessmentType === 'JD_INTRO' && (
                       <button
                         type="button"
@@ -2075,29 +2134,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   </span>
                 </div>
 
-                {/* Multi-Question Stepper Dots/Pills */}
-                {questions.length > 1 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto py-1 border-b border-slate-100 dark:border-slate-800/80">
-                    {questions.map((_, idx) => {
-                      const isCompleted = idx < currentQuestionIndex || (!!questionAnswers[idx] && idx !== currentQuestionIndex);
-                      const isCurrent = idx === currentQuestionIndex;
-                      return (
-                        <div
-                          key={idx}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${isCurrent
-                              ? 'bg-indigo-600 text-white shadow-xs'
-                              : isCompleted
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
-                            }`}
-                        >
-                          {isCompleted && <IconCheck size={12} stroke={3} className="text-emerald-500 shrink-0" />}
-                          <span>Q{idx + 1}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+
               </div>
 
               {/* Backend-provided metadata updates with the active question. */}
