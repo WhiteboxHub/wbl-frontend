@@ -656,6 +656,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const cleanupRecorderRef = useRef(cleanupRecorder);
   cleanupRecorderRef.current = cleanupRecorder;
   const startAnswerRef = useRef<() => void>(() => { });
+  const preparationCancelledRef = useRef(false);
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
@@ -737,6 +738,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const handleExitSession = useCallback(async () => {
     if (isExitingRef.current) return;
     isExitingRef.current = true;
+    preparationCancelledRef.current = true;
+    setPrepCountdown(null);
     setIsSessionAlreadyEnded(true);
     setShowExitModal(false);
 
@@ -938,10 +941,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setQuestions(loadedQuestions);
         setCurrentQuestionIndex(0);
 
-        // If intro track, trigger 5-second auto countdown to start practice smoothly
+        // If intro track, trigger 7-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
           hasAutoStartedRef.current = true;
-          let currentCount = 5;
+          let currentCount = 7;
           setCountdownValue(currentCount);
           countdownIntervalRef.current = typeof window !== 'undefined' ? window.setInterval(() => {
             currentCount -= 1;
@@ -1172,7 +1175,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Read the first question aloud from the Start Answer gesture, then start recording.
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
-    if (hasStartedQuestion) return;
+    if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
     setHasStartedQuestion(true); // Reveal the question page immediately on click.
     stopAiSpeech();
     const activeQ = questions[currentQuestionIndex];
@@ -1182,14 +1185,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     if (activeQ?.question_text && !isSpeechMuted) {
       await speakAiText(activeQ.question_text);
     }
+    if (preparationCancelledRef.current || isEnding) return;
     // Intro assessments begin recording as soon as AI narration finishes.
     // Keep the 5-second preparation countdown for all other assessment types.
     if (assessmentType !== 'INTRO') {
       for (let seconds = 5; seconds > 0; seconds -= 1) {
+        if (preparationCancelledRef.current || isEnding) return;
         setPrepCountdown(seconds);
         await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
       }
     }
+    if (preparationCancelledRef.current || isEnding) return;
     setPrepCountdown(null);
     startRecorderCore();
   };
@@ -1281,14 +1287,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (nextQ?.question_text && !isSpeechMuted) {
         await speakAiText(nextQ.question_text);
       }
+      if (preparationCancelledRef.current || isEnding) return;
       // Intro should start recording immediately after narration; other types
       // retain the existing 5-second preparation countdown.
       if (assessmentType !== 'INTRO') {
         for (let seconds = 5; seconds > 0; seconds -= 1) {
+          if (preparationCancelledRef.current || isEnding) return;
           setPrepCountdown(seconds);
           await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
         }
       }
+      if (preparationCancelledRef.current || isEnding) return;
       setPrepCountdown(null);
       setIsQuestionPrepPaused(false);
       setIsTransitioningQuestion(false);
@@ -1345,6 +1354,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     if (!assessmentId || isEnding || countdownValue !== null) return;
 
     try {
+      preparationCancelledRef.current = true;
+      setPrepCountdown(null);
       setIsEnding(true);
       stopAiSpeech();
 
@@ -1791,8 +1802,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-5xl flex items-center justify-center animate-bounce shadow-2xl shadow-indigo-500/50">
                   {countdownValue}
                 </div>
-                <p className={`mt-4 w-[200px] max-w-[70%] box-border px-2 py-1 text-[7px] leading-tight text-center font-bold uppercase tracking-[0.02em] break-words animate-pulse ${
-                  isAudioOnly ? 'text-slate-700' : 'text-white'
+                <p className={`mt-3 w-full max-w-sm sm:max-w-md px-4 text-xs sm:text-sm leading-normal text-center font-bold tracking-wide animate-pulse ${
+                  isAudioOnly ? 'text-slate-700 dark:text-slate-200' : 'text-white'
                 }`}>
                   Get ready! Recording starts automatically… After the countdown, the AI will read the question aloud.
                 </p>
