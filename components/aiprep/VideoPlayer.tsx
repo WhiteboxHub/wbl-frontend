@@ -27,6 +27,7 @@ interface Props {
   durationSeconds?: number;
   waveformAmplitudes?: number[];
   onSeek?: (seconds: number) => void;
+  onDurationChange?: (durationSec: number) => void;
 }
 
 function extractYoutubeId(url: string): string | null {
@@ -70,6 +71,7 @@ export default function VideoPlayer({
   durationSeconds = 0,
   waveformAmplitudes,
   onSeek,
+  onDurationChange,
 }: Props) {
   const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || null);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
@@ -129,6 +131,8 @@ export default function VideoPlayer({
       setCurrentTime(mediaEl.currentTime);
       if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration)) {
         setDuration(mediaEl.duration);
+        const sec = Math.round(mediaEl.duration);
+        if (sec > 0) onDurationChange?.(sec);
       }
     };
 
@@ -146,6 +150,8 @@ export default function VideoPlayer({
       setHasMediaError(false);
       if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration)) {
         setDuration(mediaEl.duration);
+        const sec = Math.round(mediaEl.duration);
+        if (sec > 0) onDurationChange?.(sec);
       }
     };
 
@@ -393,9 +399,8 @@ export default function VideoPlayer({
         ) : (
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-xs">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-              }`}
+              className={`w-2.5 h-2.5 rounded-full ${isPlaying ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                }`}
             />
             <span className="text-xs font-mono font-semibold text-slate-300">
               {isPlaying ? "PLAYING" : "PAUSED"}

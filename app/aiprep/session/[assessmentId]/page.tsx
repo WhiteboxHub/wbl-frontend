@@ -130,7 +130,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
       console.warn('Audio visualizer error:', error);
       cancelled = true;
       if (source) {
-        try { source.disconnect(); } catch (_) {}
+        try { source.disconnect(); } catch (_) { }
       }
       if (audioCtx && audioCtx.state !== 'closed') {
         void audioCtx.close().catch(() => undefined);
@@ -147,7 +147,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
       if (animFrameRef.current === frameId) animFrameRef.current = null;
 
       if (source) {
-        try { source.disconnect(); } catch (_) {}
+        try { source.disconnect(); } catch (_) { }
       }
       if (audioCtx && audioCtx.state !== 'closed') {
         void audioCtx.close().catch(() => undefined);
@@ -167,11 +167,10 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
           <div
             key={i}
             style={{ height: isMuted ? '3px' : `${height}px` }}
-            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${
-              isMuted
+            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${isMuted
                 ? 'bg-slate-300 dark:bg-slate-600'
                 : 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
-            }`}
+              }`}
           />
         ))}
       </div>
@@ -303,7 +302,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           return true;
         }
       }
-    } catch (_) {}
+    } catch (_) { }
     return false;
   });
 
@@ -395,7 +394,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           setIsSessionActiveInOtherTab(true);
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. BroadcastChannel coordination
     let channel: BroadcastChannel | null = null;
@@ -418,7 +417,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
       };
       channel.postMessage({ type: 'PING_ACTIVE_SESSION', tabId: currentTabId, assessmentId });
-    } catch (_) {}
+    } catch (_) { }
 
     // 3. Heartbeat if this tab owns the active session
     const heartbeatTimer = setInterval(() => {
@@ -429,7 +428,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             heartbeat: Date.now(),
             assessmentId,
           }));
-        } catch (_) {}
+        } catch (_) { }
       }
     }, 4000);
 
@@ -437,7 +436,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       clearInterval(heartbeatTimer);
       try {
         channel?.close();
-      } catch (_) {}
+      } catch (_) { }
       try {
         const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
         if (raw) {
@@ -446,7 +445,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     };
   }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading, setIsSessionActiveInOtherTab]);
 
@@ -742,7 +741,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
           })
         );
-      } catch (_) {}
+      } catch (_) { }
     }
 
     try {
@@ -758,17 +757,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
         History.prototype.replaceState.call(window.history, {}, '', targetUrl);
       }
-    } catch (_) {}
+    } catch (_) { }
     router.replace(targetUrl);
   }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
 
-  // Immediate redirect & history check if this session was already exited or finished
+  // Immediate redirect & history check if this session was already exited, finished, or submitting
   useEffect(() => {
     if (!assessmentId || typeof window === 'undefined') return;
     const isEnded = Boolean(
       localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
       sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
-      localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+      localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true' ||
+      localStorage.getItem(`aiprep_submitting_${assessmentId}`) === 'true'
     );
     if (isEnded) {
       setIsSessionAlreadyEnded(true);
@@ -777,8 +777,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         if (window.history && History?.prototype?.replaceState) {
           History.prototype.replaceState.call(window.history, {}, '', targetUrl);
         }
-      } catch (_) {}
-      router.replace(targetUrl);
+      } catch (_) { }
+      window.location.replace(targetUrl);
     }
   }, [assessmentId, isEmbedded, router]);
 
@@ -788,14 +788,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     try {
       window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
-    } catch (_) {}
+    } catch (_) { }
 
     const handlePopState = () => {
       if (isExitingRef.current) return;
       setShowExitModal(true);
       try {
         window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
-      } catch (_) {}
+      } catch (_) { }
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -816,17 +816,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     async function initSession() {
       try {
-        // Guard against previously exited or completed session
+        // Guard against previously exited, completed, or submitting session
         if (typeof window !== 'undefined') {
           const wasExited = Boolean(
             localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
             sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
-            localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
+            localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true' ||
+            localStorage.getItem(`aiprep_submitting_${assessmentId}`) === 'true'
           );
           if (wasExited) {
             setIsSessionAlreadyEnded(true);
             const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
-            router.replace(targetUrl);
+            window.location.replace(targetUrl);
             return;
           }
         }
@@ -839,17 +840,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             if (typeof window !== 'undefined') {
               localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
               localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
+              localStorage.setItem(`aiprep_submitting_${assessmentId}`, 'true');
             }
             setIsSessionAlreadyEnded(true);
             const targetUrl = isEmbedded
               ? '/user_dashboard/ai-prep?embed=true'
-              : (status === 'COMPLETED' || status === 'EVALUATING' || status === 'SUBMITTED' || status === 'EVALUATED')
-                ? `/aiprep/reports/${assessmentId}`
-                : '/user_dashboard/ai-prep';
-            router.replace(targetUrl);
+              : '/user_dashboard/ai-prep';
+            window.location.replace(targetUrl);
             return;
           }
-        } catch (_) {}
+        } catch (_) { }
 
         setIsLoading(true);
 
@@ -887,7 +887,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 loadedQuestions = parsed as QuestionBankItem[];
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // Tier 3: Query Question Bank Catalog API
@@ -1283,6 +1283,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     try {
       setIsEnding(true);
       stopAiSpeech();
+      if (typeof window !== 'undefined' && assessmentId) {
+        localStorage.setItem(`aiprep_submitting_${assessmentId}`, 'true');
+        localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
+      }
 
       // 1. Stop recording and flush final slice / audio blob
       let finalAudioBlob: Blob | null = null;
@@ -1351,9 +1355,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       const finalSegments =
         transcriptSegmentsRef.current.length > 0
           ? transcriptSegmentsRef.current.map((seg) => ({
-              ...seg,
-              text: cleanTechnicalSpeech(seg.text),
-            }))
+            ...seg,
+            text: cleanTechnicalSpeech(seg.text),
+          }))
           : [
             {
               speaker: 'Candidate',
@@ -1376,9 +1380,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           video_telemetry: isAudioOnly
             ? {}
             : {
-                eye_contact_percentage: 85.0,
-                face_visibility_percentage: 95.0,
-              },
+              eye_contact_percentage: 85.0,
+              face_visibility_percentage: 95.0,
+            },
           status: null,
         },
         (event) => {
@@ -1426,7 +1430,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.removeItem('aiprep_hardware_check');
           localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
-        } catch (_) {}
+        } catch (_) { }
       }
 
       // 7. Transition directly to Evaluation page once response arrives
@@ -1437,7 +1441,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
           History.prototype.replaceState.call(window.history, {}, '', reportUrl);
         }
-      } catch (_) {}
+      } catch (_) { }
       setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
@@ -1497,29 +1501,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return <AiPrepReport assessmentId={String(finishedAssessmentId)} />;
   }
 
-  // ── Session Ended / Exited View ────────────────────────────────────────────
+  // ── Session Ended / Redirecting View ──────────────────────────────────────────
   if (isSessionAlreadyEnded) {
     return (
-      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden">
-        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col items-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
-            <IconAlertTriangle size={28} />
-          </div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Assessment Session Closed</h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            This assessment session (#{assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
-              router.replace(targetUrl);
-            }}
-            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
-          >
-            Return to AI Prep Dashboard
-          </button>
+      <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-700 dark:text-slate-200 flex flex-col items-center justify-center p-6 select-none overflow-hidden">
+        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400">
+          <IconLoader2 size={24} className="animate-spin" />
         </div>
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Redirecting to AI Prep Dashboard</h2>
+        <p className="text-slate-500 dark:text-slate-400 text-xs">Returning to your assessments…</p>
       </div>
     );
   }
@@ -1542,7 +1532,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
         <div className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xl p-6 sm:p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
-          
+
           {/* Top Pill Status Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-4">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -1670,9 +1660,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
   const sentenceCount = liveTranscript
     ? liveTranscript
-        .trim()
-        .split(/[.!?]+/)
-        .filter((s) => s.trim().length > 0).length
+      .trim()
+      .split(/[.!?]+/)
+      .filter((s) => s.trim().length > 0).length
     : 0;
   const isQuestionBlurred = isInactive && !isIntroType;
 
@@ -1697,10 +1687,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           {/* Active Question Countdown Badge */}
           <div
             className={`h-8 px-3 sm:px-3.5 rounded-full border shadow-xs inline-flex items-center gap-2 transition-colors duration-200 ${isQuestionTimeExpired
-                ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-600 dark:text-rose-400'
-                : isQuestionLowTime
-                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400'
-                  : 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
+              ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-400 dark:border-rose-800 text-rose-600 dark:text-rose-400'
+              : isQuestionLowTime
+                ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400'
+                : 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300'
               }`}
             title={`Time allocated for Question ${currentQuestionIndex + 1}: ${formatTime(questionTimeLimit)}`}
           >
@@ -1766,22 +1756,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
         <div className="lg:col-span-7 flex flex-col justify-between min-h-0 gap-2 h-full overflow-hidden">
           {/* CINEMA CAMERA STAGE */}
-          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${
-            isAudioOnly
+          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl sm:rounded-3xl overflow-hidden border flex items-center justify-center min-h-[260px] sm:min-h-[360px] transition-colors duration-300 ${isAudioOnly
               ? 'bg-white border-slate-200/90 shadow-sm'
               : 'bg-slate-950 border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl'
-          }`}>
+            }`}>
             {/* 3-2-1 Countdown Overlay for Intro Track */}
             {countdownValue !== null && (
-              <div className={`absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md ${
-                isAudioOnly ? 'bg-white/95' : 'bg-slate-950/90'
-              }`}>
+              <div className={`absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md ${isAudioOnly ? 'bg-white/95' : 'bg-slate-950/90'
+                }`}>
                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-5xl flex items-center justify-center animate-bounce shadow-2xl shadow-indigo-500/50">
                   {countdownValue}
                 </div>
-                <p className={`mt-4 text-sm font-bold uppercase tracking-widest animate-pulse ${
-                  isAudioOnly ? 'text-slate-700' : 'text-white'
-                }`}>
+                <p className={`mt-4 text-sm font-bold uppercase tracking-widest animate-pulse ${isAudioOnly ? 'text-slate-700' : 'text-white'
+                  }`}>
                   Get ready! Recording starts automatically…
                 </p>
               </div>
@@ -1822,11 +1809,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             )}
 
             {/* Top-Left Live REC Badge */}
-            <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
-              isAudioOnly
+            <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${isAudioOnly
                 ? 'bg-slate-50/90 border border-slate-200 text-slate-700'
                 : 'bg-slate-900/85 border border-slate-700/80 text-white backdrop-blur-md shadow-lg'
-            }`}>
+              }`}>
               <span
                 className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-400'
                   }`}
@@ -1944,8 +1930,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       onClick={handleEndSession}
                       disabled={isEnding || countdownValue !== null}
                       className={`h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-all duration-200 shrink-0 ${countdownValue !== null
-                          ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
-                          : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
+                        ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
+                        : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
                         }`}
                       title="Finish Assessment"
                     >
@@ -2026,10 +2012,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         <div
                           key={idx}
                           className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${isCurrent
-                              ? 'bg-indigo-600 text-white shadow-xs'
-                              : isCompleted
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : isCompleted
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
                             }`}
                         >
                           {isCompleted && <IconCheck size={12} stroke={3} className="text-emerald-500 shrink-0" />}
@@ -2060,10 +2046,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${isQuestionTimeExpired
-                          ? 'bg-rose-500'
-                          : isQuestionLowTime
-                            ? 'bg-amber-500'
-                            : 'bg-indigo-600'
+                        ? 'bg-rose-500'
+                        : isQuestionLowTime
+                          ? 'bg-amber-500'
+                          : 'bg-indigo-600'
                         }`}
                       style={{ width: `${questionProgressPct}%` }}
                     />

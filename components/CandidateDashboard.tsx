@@ -2397,7 +2397,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             if (!candidateId) {
                 getCandidateId().then((id) => {
                     if (id) setCandidateId(id);
-                }).catch(() => {});
+                }).catch(() => { });
             }
             return;
         }
@@ -2488,11 +2488,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
             {/* ==================== SIDEBAR ==================== */}
             <aside
-                className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm transition-all duration-300 ease-in-out ${
-                    isWizardActive && isSidebarCollapsed
+                className={`hidden lg:flex flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm transition-all duration-300 ease-in-out ${isWizardActive && isSidebarCollapsed
                         ? "w-0 border-r-0 opacity-0 pointer-events-none overflow-hidden"
                         : "w-60 opacity-100"
-                }`}
+                    }`}
             >
                 {/* Logo */}
                 <div className="p-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
@@ -2542,9 +2541,8 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 <button
                     type="button"
                     onClick={toggleLayout}
-                    className={`fixed top-1/2 -translate-y-1/2 z-[100] flex items-center justify-center py-3 px-2 rounded-r-xl bg-[#7C3AED] hover:bg-[#6D28D9] shadow-xl shadow-purple-500/25 text-white hover:pr-3 transition-all duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 group animate-in fade-in ${
-                        isSidebarCollapsed ? "left-0" : "left-60"
-                    }`}
+                    className={`fixed top-1/2 -translate-y-1/2 z-[100] flex items-center justify-center py-3 px-2 rounded-r-xl bg-[#7C3AED] hover:bg-[#6D28D9] shadow-xl shadow-purple-500/25 text-white hover:pr-3 transition-all duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 group animate-in fade-in ${isSidebarCollapsed ? "left-0" : "left-60"
+                        }`}
                     title={isSidebarCollapsed ? "Expand sidebar and header" : "Minimize sidebar and header"}
                     aria-label={isSidebarCollapsed ? "Expand sidebar and header" : "Minimize sidebar and header"}
                     aria-expanded={!isSidebarCollapsed}
@@ -2646,13 +2644,12 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                         disabled={isMobile}
                         onClick={() => !isMobile && goToTab('aiprep')}
                         title={isMobile ? "AI Prep is only available on desktop" : undefined}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${
-                            isMobile
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isMobile
                                 ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 opacity-50 cursor-not-allowed"
                                 : (activeTab === 'wbl-smartprep' || activeTab === 'aiprep')
                                     ? "bg-indigo-600 text-white shadow-sm"
                                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                        }`}
+                            }`}
                     >
                         <Sparkles className={`w-3.5 h-3.5 ${isMobile ? "text-gray-400 dark:text-gray-500" : ""}`} />
                         AI PrepTool
@@ -2696,7 +2693,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                         />
                                     </div>
                                 )}
-                                 {activeTab === 'overview' && data && (
+                                {activeTab === 'overview' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Job Board Clicks Status Banner */}
                                         {(() => {
@@ -2941,7 +2938,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                     </div>
                                 )}
 
-                                 {activeTab === 'my-sessions' && data && (
+                                {activeTab === 'my-sessions' && data && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">

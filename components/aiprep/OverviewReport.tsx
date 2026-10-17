@@ -400,40 +400,163 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   return fullText.length > 15;
 }
 
-function getTranscriptDuration(report: NormalizedReport): string {
-  if (!hasRealSpeech(report)) return "";
-  const assessment = report.assessment;
-  let totalSec: number | null = null;
+export function formatTranscriptIntoParagraphs(rawText: string): string[] {
+  if (!rawText || !rawText.trim()) return [];
+  let cleaned = rawText
+    .replace(/<\/?s>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const dataRec = assessment.data as any;
-  if (dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
-    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  // Clean stutter repetitions and ellipses (e.g., "..." -> ".")
+  cleaned = cleaned.replace(/\.{2,}/g, ".");
+  cleaned = cleaned.replace(/\s*([,.!?;:])\s*/g, "$1 ").replace(/\s+/g, " ").trim();
+
+  // Split into sentences using lookbehind for sentence-ending punctuation
+  const rawSentences = cleaned.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/);
+  const sentences: string[] = [];
+
+  for (let s of rawSentences) {
+    s = s.trim();
+    if (!s) continue;
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if (!/[.!?]$/.test(s)) s += ".";
+    sentences.push(s);
   }
-  if (!totalSec && (assessment as any)?.duration_seconds != null) {
+
+  if (sentences.length === 0) return [cleaned];
+
+  const topicStarters = [
+    /^(in my recent project|for my project|in this project)/i,
+    /^(phase \d|coming to phase|in phase \d)/i,
+    /^(in the (ingestion|query|engine) pipeline|after that, in the)/i,
+    /^(then,? for generation|for generation)/i,
+    /^(coming to phase 2|coming to phase \d)/i,
+    /^(in my previous experience|prior to this|earlier in my career)/i,
+    /^(overall|to summarize|in conclusion)/i,
+  ];
+
+  const paragraphs: string[] = [];
+  let currentGroup: string[] = [];
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sent = sentences[i];
+    const isTopicTransition = topicStarters.some((p) => p.test(sent));
+
+    if (isTopicTransition && currentGroup.length >= 2) {
+      paragraphs.push(currentGroup.join(" "));
+      currentGroup = [sent];
+      continue;
+    }
+
+    currentGroup.push(sent);
+
+    const wordCount = currentGroup.join(" ").split(/\s+/).length;
+    if (currentGroup.length >= 4 || (currentGroup.length >= 3 && wordCount >= 50)) {
+      paragraphs.push(currentGroup.join(" "));
+      currentGroup = [];
+    }
+  }
+
+  if (currentGroup.length > 0) {
+    paragraphs.push(currentGroup.join(" "));
+  }
+
+  return paragraphs;
+}
+
+export function getReportDurationSeconds(report: NormalizedReport, detectedMediaSec?: number | null): number {
+  if (detectedMediaSec != null && detectedMediaSec > 0) {
+    return Math.round(detectedMediaSec);
+  }
+  if (!hasRealSpeech(report)) return 0;
+  const assessment = report.assessment;
+  const dataRec = assessment?.data as any;
+
+  // 1. Direct total audio duration from acoustic analysis / audio engine
+  if (dataRec?.audio_telemetry?.total_audio_duration_seconds != null) {
+    const sec = Number(dataRec.audio_telemetry.total_audio_duration_seconds);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
+  }
+
+  // 2. Client recording duration measured directly by browser recorder
+  if (dataRec?.client_duration_seconds != null) {
+    const sec = Number(dataRec.client_duration_seconds);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
+  }
+
+  // 3. Video telemetry duration
+  if (dataRec?.video_telemetry?.duration_seconds != null) {
+    const sec = Number(dataRec.video_telemetry.duration_seconds);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
+  }
+
+  // 4. Assessment duration_seconds or duration column/property
+  if ((assessment as any)?.duration_seconds != null) {
     const sec = Number((assessment as any).duration_seconds);
-    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
   }
-  if (!totalSec && report.transcript?.segments && report.transcript.segments.length > 0) {
+  if (dataRec?.audio_telemetry?.duration_seconds != null) {
+    const sec = Number(dataRec.audio_telemetry.duration_seconds);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
+  }
+
+  // 5. Total session duration from started_at and completed_at timestamps
+  if (assessment?.started_at && assessment?.completed_at) {
+    const start = new Date(assessment.started_at).getTime();
+    const end = new Date(assessment.completed_at).getTime();
+    if (!isNaN(start) && !isNaN(end) && end > start) {
+      const elapsed = Math.round((end - start) / 1000);
+      if (elapsed > 0 && elapsed < 7200) {
+        return elapsed;
+      }
+    }
+  }
+
+  // 6. Last transcription segment end/timestamp
+  if (report.transcript?.segments && report.transcript.segments.length > 0) {
     const segs = report.transcript.segments;
     const lastSeg = segs[segs.length - 1];
-    if (lastSeg.timestamp_s != null && lastSeg.timestamp_s > 0) {
-      totalSec = Math.round(lastSeg.timestamp_s);
-    }
-  }
-  if (!totalSec && report.transcript?.full_text) {
-    const words = report.transcript.full_text.trim().split(/\s+/).filter(Boolean).length;
-    if (words > 0) {
-      totalSec = Math.max(1, Math.round((words / 130) * 60));
+    const segEnd = (lastSeg as any)?.end || lastSeg.timestamp_s;
+    if (segEnd != null && Number(segEnd) > 0) {
+      return Math.round(Number(segEnd));
     }
   }
 
+  // 7. Fallback to speaking duration if total audio length is not available
+  if (dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
+    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
+  }
+  if (dataRec?.audio_telemetry?.speaking_duration_sec != null) {
+    const sec = Number(dataRec.audio_telemetry.speaking_duration_sec);
+    if (!isNaN(sec) && sec > 0) return Math.round(sec);
+  }
+
+  // 8. Word-based approximation fallback
+  if (report.transcript?.full_text) {
+    const words = report.transcript.full_text.trim().split(/\s+/).filter(Boolean).length;
+    if (words > 0) {
+      return Math.max(1, Math.round((words / 130) * 60));
+    }
+  }
+
+  return 0;
+}
+
+export function formatReportDuration(totalSec: number): string {
   if (!totalSec || totalSec <= 0) return "";
   const mins = Math.floor(totalSec / 60);
   const secs = totalSec % 60;
   if (mins > 0 && secs > 0) return `${mins} min ${secs} sec`;
   if (mins > 0) return `${mins} min`;
   return `${secs} sec`;
+}
+
+function getTranscriptDuration(report: NormalizedReport, detectedMediaSec?: number | null): string {
+  const totalSec = getReportDurationSeconds(report, detectedMediaSec);
+  return formatReportDuration(totalSec);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -816,6 +939,7 @@ export interface OverviewProps {
   assessmentId: string;
   onSelectTab: (tab: ReportTab, subTab?: string) => void;
   onOpenTranscript?: () => void;
+  onDurationChange?: (durationSec: number) => void;
 }
 
 export function EvaluationContent({
@@ -825,6 +949,7 @@ export function EvaluationContent({
   assessmentId,
   onSelectTab,
   onOpenTranscript,
+  onDurationChange,
 }: OverviewProps) {
   const {
     youtube_url,
@@ -898,6 +1023,7 @@ export function EvaluationContent({
     : undefined;
 
   const durationSeconds =
+    getReportDurationSeconds(report) ||
     report.audio?.recording_environment?.speaking_duration_seconds ||
     (report as any).audio_telemetry?.duration ||
     0;
@@ -1120,6 +1246,7 @@ export function EvaluationContent({
               isAudioOnly={isAudioOnly}
               candidateName={report.candidate_name}
               durationSeconds={durationSeconds}
+              onDurationChange={onDurationChange}
             />
           </div>
         </section>
@@ -1595,29 +1722,30 @@ function TranscriptModal({
   isOpen,
   onClose,
   report,
+  durationStr,
 }: {
   isOpen: boolean;
   onClose: () => void;
   report: NormalizedReport;
+  durationStr?: string;
 }) {
   const [copiedTranscript, setCopiedTranscript] = useState(false);
   const canShowTranscript = Boolean(report.consent?.save_transcript ?? true);
 
   if (!isOpen || !canShowTranscript) return null;
 
-  const fullParagraphText = (() => {
+  const rawText = (() => {
     let raw = report.transcript?.full_text?.trim() || "";
     if (!raw && report.transcript?.segments && report.transcript.segments.length > 0) {
       raw = report.transcript.segments.map((s) => s.text).join(" ");
     }
-    return raw
-      .replace(/<\/?s>/gi, "")
-      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    return raw;
   })();
 
-  const transcriptDuration = getTranscriptDuration(report);
+  const paragraphs = formatTranscriptIntoParagraphs(rawText);
+  const fullParagraphText = paragraphs.join("\n\n");
+
+  const transcriptDuration = durationStr || getTranscriptDuration(report);
 
   const handleCopyTranscript = () => {
     if (fullParagraphText) {
@@ -1638,7 +1766,7 @@ function TranscriptModal({
             <div>
               <h3 className="font-bold text-slate-900 text-base">Full Assessment Transcript</h3>
               {transcriptDuration && (
-                <p className="text-xs text-slate-500">Duration: {transcriptDuration}</p>
+                <p className="text-xs text-slate-500 font-medium">Duration: {transcriptDuration}</p>
               )}
             </div>
           </div>
@@ -1653,9 +1781,16 @@ function TranscriptModal({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="flex items-center justify-between pb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Continuous Spoken Narrative
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Continuous Spoken Narrative
+              </span>
+              {paragraphs.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-50 text-violet-700 border border-violet-200/80">
+                  {paragraphs.length} {paragraphs.length === 1 ? "paragraph" : "paragraphs"}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={handleCopyTranscript}
@@ -1675,10 +1810,21 @@ function TranscriptModal({
             </button>
           </div>
 
-          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text">
-              {fullParagraphText || "No transcript recorded for this assessment."}
-            </p>
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-5 sm:p-6 space-y-3.5 shadow-2xs">
+            {paragraphs.length > 0 ? (
+              paragraphs.map((para, idx) => (
+                <p
+                  key={idx}
+                  className="text-xs sm:text-sm text-slate-800 leading-relaxed select-text"
+                >
+                  {para}
+                </p>
+              ))
+            ) : (
+              <p className="text-xs sm:text-sm text-slate-500 italic">
+                No transcript recorded for this assessment.
+              </p>
+            )}
           </div>
         </div>
 
@@ -1706,6 +1852,7 @@ export interface ReportHeaderProps {
   activeTab: ReportTab;
   onSelectTab: (tab: ReportTab) => void;
   onOpenTranscript?: () => void;
+  durationStr?: string;
 }
 
 export function getAssessmentsListUrl(): string {
@@ -1772,6 +1919,7 @@ export function ReportHeader({
   activeTab,
   onSelectTab,
   onOpenTranscript,
+  durationStr: durationStrProp,
 }: ReportHeaderProps) {
   const router = useRouter();
   const candidateSpoke = hasRealSpeech(report);
@@ -1833,7 +1981,7 @@ export function ReportHeader({
       })()
     : undefined;
 
-  const durationStr = getTranscriptDuration(report) || undefined;
+  const durationStr = durationStrProp || getTranscriptDuration(report) || undefined;
 
   const typeStr =
     assessment.assessment_type === "INTRO"
@@ -1964,6 +2112,7 @@ export default function AiPrepReport({
   const [statusMsg, setStatusMsg] = useState("");
   const [isCancelled, setIsCancelled] = useState(false);
   const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
+  const [detectedMediaDuration, setDetectedMediaDuration] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekTo = (seconds: number) => {
@@ -2095,7 +2244,13 @@ export default function AiPrepReport({
     if (!report || report.youtube_url || isProcessing || !assessmentId) return;
 
     let isMounted = true;
+    let pollCount = 0;
     const interval = setInterval(async () => {
+      pollCount++;
+      if (pollCount > 6) {
+        clearInterval(interval);
+        return;
+      }
       try {
         const fresh = await aiPrepApi.getAssessment(assessmentId);
         if (isMounted && fresh?.youtube_url) {
@@ -2238,6 +2393,7 @@ export default function AiPrepReport({
 
   const { assessment } = report;
   const isOverviewTab = activeTab === "Overview" || activeTab === "Evaluation";
+  const currentDurationStr = getTranscriptDuration(report, detectedMediaDuration) || undefined;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-6">
@@ -2248,6 +2404,7 @@ export default function AiPrepReport({
           activeTab={activeTab}
           onSelectTab={handleTabChange}
           onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+          durationStr={currentDurationStr}
         />
 
         <main>
@@ -2259,6 +2416,7 @@ export default function AiPrepReport({
               assessmentId={assessmentId}
               onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+              onDurationChange={setDetectedMediaDuration}
             />
           ) : (
             <DetailsContent
@@ -2275,6 +2433,7 @@ export default function AiPrepReport({
         isOpen={isTranscriptModalOpen}
         onClose={() => setIsTranscriptModalOpen(false)}
         report={report}
+        durationStr={currentDurationStr}
       />
     </div>
   );
