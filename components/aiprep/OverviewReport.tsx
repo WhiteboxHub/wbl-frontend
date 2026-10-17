@@ -53,6 +53,7 @@ import {
 } from "./report-tabs";
 import { getUserTeamRole } from "@/utils/auth";
 import VideoPlayer from "./VideoPlayer";
+import TechnicalEvaluationView from "./TechnicalEvaluationView";
 
 export type { ReportTab };
 
@@ -390,6 +391,7 @@ function hasRealSpeech(report: NormalizedReport): boolean {
     return false;
   }
   if (
+    Boolean(report.technical_evaluation) ||
     isRealContent(report.overall_summary) ||
     (report.intro_sections && report.intro_sections.length > 0) ||
     Boolean(report.scores?.overall_band || report.scores?.ai_engineering?.band)
@@ -909,6 +911,17 @@ export function EvaluationContent({
     return <EmptyEvaluationCard />;
   }
 
+  // ── Technical Assessment: delegate to dedicated view ─────────────────────
+  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+    return (
+      <TechnicalEvaluationView
+        report={report}
+        activeTab="Overview"
+        onSelectTab={(tab) => onSelectTab(tab)}
+      />
+    );
+  }
+
   // Pure dynamic data resolution per section category matching Details tab
   const introData = resolveSectionData(
     report,
@@ -1399,6 +1412,17 @@ export function DetailsContent({
 
   if (!candidateSpoke || report.insufficient_content) {
     return <EmptyEvaluationCard />;
+  }
+
+  // ── Technical Assessment: delegate to dedicated view ─────────────────────
+  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+    return (
+      <TechnicalEvaluationView
+        report={report}
+        activeTab="Details"
+        onSelectTab={() => {}}
+      />
+    );
   }
 
   // Pure dynamic data resolution per section category

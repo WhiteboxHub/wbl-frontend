@@ -345,7 +345,94 @@ export interface NormalizedReport {
     /** Whether the candidate consented to retain the transcript for display */
     save_transcript: boolean;
   };
+
+  // ── Technical Assessment evaluation (TECHNICAL type only) ─────────────────
+  // Populated from transcript_evaluation.technical_evaluation in the backend report.
+  // Absent for INTRO, JD_INTRO, and other assessment types.
+  technical_evaluation?: TechnicalEvaluation;
 }
+
+// ─── Technical Assessment Types ───────────────────────────────────────────────
+
+/** A single ground-truth point (covered or missed) for a question */
+export interface TechnicalQuestionPoint {
+  id: string | number;
+  description: string;
+  status?: string;
+}
+
+/** Study guidance returned for incorrectly-answered questions */
+export interface TechnicalStudyGuidance {
+  what_to_study: string[];
+  how_to_answer: string;
+}
+
+/** Per-question evaluation record */
+export interface TechnicalQuestionEval {
+  question_id: number;
+  question_text: string;
+  concept: string;
+  subject: string;
+  difficulty_level: string;
+  rating: string;
+  observation: string;
+  covered_points: TechnicalQuestionPoint[];
+  missed_points: TechnicalQuestionPoint[];
+  terms_used_well: string[];
+  terms_to_add: string[];
+  evidence: string[];
+  study_guidance: TechnicalStudyGuidance | null;
+}
+
+/** Per-concept rollup evaluation record */
+export interface TechnicalConceptEval {
+  concept: string;
+  subject: string;
+  questions_count: number;
+  question_ids: number[];
+  rating: string;
+  strengths: string[];
+  gaps: string[];
+  terminology_gaps: string[];
+  what_to_work_on: string[];
+  data_note: string | null;
+}
+
+/** Per-subject (discipline) rollup evaluation record */
+export interface TechnicalSubjectEval {
+  subject: string;
+  rating: string;
+  summary: string;
+  terminology_gaps: string[];
+  data_note: string | null;
+}
+
+/** Executive-level overall assessment */
+export interface TechnicalOverallAssessment {
+  rating: string;
+  executive_summary: string;
+  top_strengths: string[];
+  priority_improvements: string[];
+  data_note: string | null;
+}
+
+/** Difficulty-tier analysis */
+export interface TechnicalDifficultyAnalysis {
+  easy: string;
+  medium: string;
+  hard: string;
+  observation: string;
+}
+
+/** Root shape of the technical_evaluation JSON from the backend */
+export interface TechnicalEvaluation {
+  overall_assessment: TechnicalOverallAssessment;
+  subject_evaluations: TechnicalSubjectEval[];
+  difficulty_analysis: TechnicalDifficultyAnalysis;
+  concept_evaluations: TechnicalConceptEval[];
+  question_evaluations: TechnicalQuestionEval[];
+}
+
 
 // ─── Normalization ────────────────────────────────────────────────────────────
 
@@ -623,8 +710,107 @@ export function normalizeReport(
     unverified_claims: asStrArray(ra.unverified_claims),
   } : undefined;
 
-  // ── Technical analysis ───────────────────────────────────────────────────
 
+  // ── Technical analysis (legacy intro field) ───────────────────────────────
+
+  // ── Technical evaluation (TECHNICAL assessment type) ─────────────────────
+  // Reads from: transcript_evaluation.technical_evaluation (primary path set by backend)
+  // Falls back to: report.technical_evaluation, report_data.technical_evaluation
+  const parseTechnicalPoint = (raw: unknown): TechnicalQuestionPoint => {
+    const r = asRecord(raw);
+    return {
+      id: (r.id as string | number) ?? "",
+      description: asStr(r.description) ?? "",
+      status: asStr(r.status),
+    };
+  };
+
+  const rawTechEval =
+    asRecord(txEval.technical_evaluation).overall_assessment
+      ? txEval.technical_evaluation
+      : (bundled.technical_evaluation ?? repData.technical_evaluation ?? null);
+
+  let technical_evaluation: TechnicalEvaluation | undefined;
+
+  if (rawTechEval && typeof rawTechEval === "object" && !Array.isArray(rawTechEval)) {
+    const te = asRecord(rawTechEval);
+    const rawQEs = Array.isArray(te.question_evaluations) ? te.question_evaluations : [];
+    const rawCEs = Array.isArray(te.concept_evaluations) ? te.concept_evaluations : [];
+    const rawSEs = Array.isArray(te.subject_evaluations) ? te.subject_evaluations : [];
+    const rawOA = asRecord(te.overall_assessment);
+    const rawDA = asRecord(te.difficulty_analysis);
+
+    technical_evaluation = {
+      overall_assessment: {
+        rating: asStr(rawOA.rating) ?? "GOOD",
+        executive_summary: asStr(rawOA.executive_summary) ?? "",
+        top_strengths: asStrArray(rawOA.top_strengths),
+        priority_improvements: asStrArray(rawOA.priority_improvements),
+        data_note: asStr(rawOA.data_note) ?? null,
+      },
+      subject_evaluations: rawSEs.map((s: unknown) => {
+        const se = asRecord(s);
+        return {
+          subject: asStr(se.subject) ?? "",
+          rating: asStr(se.rating) ?? "GOOD",
+          summary: asStr(se.summary) ?? "",
+          terminology_gaps: asStrArray(se.terminology_gaps),
+          data_note: asStr(se.data_note) ?? null,
+        };
+      }),
+      difficulty_analysis: {
+        easy: asStr(rawDA.easy) ?? "—",
+        medium: asStr(rawDA.medium) ?? "—",
+        hard: asStr(rawDA.hard) ?? "—",
+        observation: asStr(rawDA.observation) ?? "",
+      },
+      concept_evaluations: rawCEs.map((c: unknown) => {
+        const ce = asRecord(c);
+        return {
+          concept: asStr(ce.concept) ?? "",
+          subject: asStr(ce.subject) ?? "",
+          questions_count: typeof ce.questions_count === "number" ? ce.questions_count : 0,
+          question_ids: Array.isArray(ce.question_ids)
+            ? (ce.question_ids as unknown[]).map(Number).filter(Boolean)
+            : [],
+          rating: asStr(ce.rating) ?? "GOOD",
+          strengths: asStrArray(ce.strengths),
+          gaps: asStrArray(ce.gaps),
+          terminology_gaps: asStrArray(ce.terminology_gaps),
+          what_to_work_on: asStrArray(ce.what_to_work_on),
+          data_note: asStr(ce.data_note) ?? null,
+        };
+      }),
+      question_evaluations: rawQEs.map((q: unknown) => {
+        const qe = asRecord(q);
+        const rawSG = qe.study_guidance ? asRecord(qe.study_guidance) : null;
+        return {
+          question_id: typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id),
+          question_text: asStr(qe.question_text) ?? "",
+          concept: asStr(qe.concept) ?? "",
+          subject: asStr(qe.subject) ?? "",
+          difficulty_level: asStr(qe.difficulty_level) ?? "",
+          rating: asStr(qe.rating) ?? asStr(qe.score_band) ?? "GOOD",
+          observation: asStr(qe.observation) ?? "",
+          covered_points: Array.isArray(qe.covered_points)
+            ? (qe.covered_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          missed_points: Array.isArray(qe.missed_points)
+            ? (qe.missed_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          terms_used_well: asStrArray(qe.terms_used_well),
+          terms_to_add: asStrArray(qe.terms_to_add),
+          evidence: asStrArray(qe.evidence),
+          study_guidance: rawSG
+            ? {
+                what_to_study: asStrArray(rawSG.what_to_study),
+                how_to_answer: asStr(rawSG.how_to_answer) ?? "",
+              }
+            : null,
+        };
+      }),
+    };
+  }
 
   // ── Non-technical analysis ───────────────────────────────────────────────
   const nt = asRecord(txEval.non_technical_analysis_json ?? repData.non_technical_analysis_json);
@@ -1060,6 +1246,7 @@ export function normalizeReport(
       save_recording: consentSaveRecording,
       save_transcript: consentSaveTranscript,
     },
+    technical_evaluation,
   };
 }
 
