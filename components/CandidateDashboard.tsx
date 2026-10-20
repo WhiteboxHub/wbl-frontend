@@ -708,7 +708,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         const targetUrl = `/user_dashboard/${tab}${searchString}`;
         setCurrentSubPath(targetUrl.toLowerCase());
-        router.push(targetUrl);
+        if (typeof window !== "undefined") {
+            window.history.pushState(null, "", targetUrl);
+        }
     };
 
     useEffect(() => {
@@ -2329,7 +2331,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         if (activeTab === 'my-applications' || activeTab === 'job-board' || activeTab === 'overview' || activeTab === 'career-hub') {
             void loadTotalClickSummary();
         }
-        if ((activeTab === 'job-board' || activeTab === 'career-hub') && positions.length === 0) {
+        if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
         if ((activeTab === 'my-resume' || activeTab === 'career-hub') && candidateId) {
@@ -2405,9 +2407,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
 
         sessionStorage.removeItem('onboarding_skipped');
-        loadDashboard();
-        void loadTodayClickSummary();
-        void loadTotalClickSummary();
+        if (!data) {
+            loadDashboard();
+        }
     }, [activeTab, candidateId, getCandidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
     const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
