@@ -39,7 +39,11 @@ export interface AssessmentQuestion {
   question_text: string;
   category?: string;
   sub_category?: string | null;
+  subject?: string | null;
+  concept?: string | null;
+  scope?: string | null;
   difficulty_level?: string;
+  time_limit_seconds?: number;
   is_active?: boolean | number;
 }
 
@@ -281,14 +285,36 @@ export type QuestionCategory =
   | 'TECHNICAL'
   | string;
 
-export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT';
+export type QuestionSubject =
+  | 'AI Engineering'
+  | 'Software Engineering'
+  | 'DevOps and Cloud'
+  | string;
+
+export type QuestionScope = 'BROAD' | 'SPECIFIC';
+
+export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
+
+export interface GroundTruthRubric {
+  required_evidence?: string[];
+  supporting_evidence?: string[];
+  negative_evidence?: string[];
+  partial_credit?: string[];
+  rubric?: string;
+  [key: string]: any;
+}
 
 export interface QuestionBankItem {
   id: number;
   category: QuestionCategory;
   sub_category?: string | null;
+  subject?: QuestionSubject | null;
+  concept?: string | null;
   difficulty_level: QuestionDifficulty;
+  scope?: QuestionScope | string | null;
+  time_limit_seconds?: number | null;
   question_text: string;
+  ground_truth?: GroundTruthRubric | string | null;
   is_active: number | boolean;
   created_at?: string;
   updated_at?: string;
@@ -297,8 +323,11 @@ export interface QuestionBankItem {
 export interface QuestionFiltersState {
   search: string;
   category: string;
-  sub_category: string;
+  sub_category?: string;
+  subject?: string;
+  concept?: string;
   difficulty: string;
+  scope?: string;
   status: 'all' | 'active' | 'inactive';
 }
 

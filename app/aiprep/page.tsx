@@ -74,6 +74,25 @@ export default function AIPrepPage() {
     return null;
   });
 
+  // While the technical instructions are open, browser Back should behave like the
+  // on-page Back button and return to the Practice page instead of leaving a stale attempt.
+  useEffect(() => {
+    if (!activeAssessmentId || typeof window === 'undefined') return;
+
+    const practiceUrl = '/user_dashboard/ai-prep/practice';
+    window.history.pushState({ aiprepInstructions: activeAssessmentId }, '', window.location.href);
+
+    const handleBrowserBack = () => {
+      sessionStorage.removeItem('aiprep_active_id');
+      sessionStorage.removeItem('aiprep_active_questions');
+      sessionStorage.removeItem('aiprep_hardware_check');
+      router.replace(practiceUrl);
+    };
+
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
+  }, [activeAssessmentId, router]);
+
   // Wizard final completion ("Start Assessment" button clicked)
   const handleCheckComplete = async (results: HardwareCheckResults) => {
     try {
@@ -101,19 +120,23 @@ export default function AIPrepPage() {
       }
 
       const targetId = assessment.id;
+      const returnedQuestions = Array.isArray(assessment.questions) ? assessment.questions : [];
+      if (returnedQuestions.length === 0) {
+        throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
+      }
+
+      // Preserve the exact question snapshot selected and persisted by the backend.
       sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
       sessionStorage.setItem('aiprep_active_id', String(targetId));
+      sessionStorage.setItem('aiprep_active_type', targetType);
+      sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+      sessionStorage.setItem('aiprep_active_questions', JSON.stringify(returnedQuestions));
       sessionStorage.removeItem('aiprep_wizard_step');
 
       const isEmbedded = window.self !== window.top || window.location.search.includes('embed=true');
-      const targetSessionUrl = isEmbedded ? `/aiprep/session/${targetId}?embed=true` : `/aiprep/session/${targetId}`;
 
-      try {
-        if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
-          History.prototype.replaceState.call(window.history, {}, '', targetSessionUrl);
-        }
-      } catch (_) {}
-
+      // Keep the practice/setup URL while the candidate reviews the instructions.
+      // The session URL is applied only when they press Start Assessment in the room.
       setActiveAssessmentId(targetId);
       setIsSaving(false);
     } catch (err: any) {
