@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Sparkles,
@@ -19,18 +19,179 @@ import {
   GraduationCap,
   Quote,
   Flame,
+  Video,
+  AudioWaveform,
+  Mic,
+  Clock,
+  Activity,
+  Gauge,
+  Radio,
+  AlertCircle,
+  Eye,
+  Monitor,
+  ScanFace,
 } from "lucide-react";
+import VideoPlayer from "./VideoPlayer";
 import type {
   NormalizedReport,
   TechnicalEvaluation,
   TechnicalQuestionEval,
   TechnicalConceptEval,
+  DeliveryFactor,
+  DeliveryMetric,
+  DeliveryAnalysis,
 } from "@/types/aiprep-report";
+import type { ReportTab } from "./report-tabs";
 
 interface Props {
   report: NormalizedReport;
-  activeTab: string;
-  onSelectTab: (tab: "Overview" | "Details") => void;
+  activeTab: ReportTab;
+  onSelectTab: (tab: ReportTab) => void;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  seekTo?: (seconds: number) => void;
+  assessmentId?: string;
+}
+
+// ─── Delivery Status Styling (Calm Palette decoupled from Technical Ratings) ───
+
+function getDeliveryStatusBadge(status?: string | null) {
+  if (!status) return null;
+  const s = status.toUpperCase().trim();
+  let badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
+  let dotClass = "bg-slate-400";
+  let label = s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+  if (["STRONG", "HIGH", "OPTIMAL"].includes(s)) {
+    badgeClass = "bg-teal-50 text-teal-800 border-teal-200/80";
+    dotClass = "bg-teal-500";
+  } else if (["ADEQUATE", "AVERAGE", "MODERATE", "NORMAL"].includes(s)) {
+    badgeClass = "bg-amber-50/80 text-amber-800 border-amber-200/70";
+    dotClass = "bg-amber-500";
+  } else if (["NEEDS_WORK", "POOR", "WEAK", "LOW", "TENSED"].includes(s)) {
+    badgeClass = "bg-rose-50 text-rose-800 border-rose-200/80";
+    dotClass = "bg-rose-500";
+  } else if (["INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) {
+    badgeClass = "bg-slate-100 text-slate-600 border-slate-200";
+    dotClass = "bg-slate-400";
+    label = "Insufficient Data";
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${badgeClass}`}>
+      <span className={`size-1.5 rounded-full ${dotClass}`} />
+      {label}
+    </span>
+  );
+}
+
+function getReliabilityBadge(reliability?: string | null, note?: string | null) {
+  const r = reliability?.toUpperCase().trim();
+  const hasNote = Boolean(note && note.trim());
+
+  if (!r || r === "HIGH") {
+    if (!hasNote) return null;
+    return (
+      <p className="text-[10px] text-slate-500 italic leading-tight pt-1.5 border-t border-slate-100">
+        {note}
+      </p>
+    );
+  }
+
+  let badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+  if (["UNRELIABLE", "LOW"].includes(r)) {
+    badgeClass = "bg-rose-50 text-rose-700 border-rose-200";
+  } else if (r === "MEDIUM") {
+    badgeClass = "bg-slate-100 text-slate-700 border-slate-200";
+  }
+
+  return (
+    <div className="pt-2 border-t border-slate-100 space-y-1">
+      <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold border ${badgeClass}`}>
+        Reliability: {r.replace(/_/g, " ")}
+      </span>
+      {hasNote && (
+        <p className="text-[10px] text-slate-500 italic leading-tight">
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function getFactorMetricDisplay(factorKey: string, metric?: DeliveryMetric | null): string | null {
+  if (!metric) return null;
+  if (metric.formatted) return metric.formatted;
+  if (metric.value !== undefined) {
+    return `${metric.value} ${metric.unit || ""}`.trim();
+  }
+  return null;
+}
+
+function getTelemetryValueColor(
+  type: "wpm" | "fillers" | "silence" | "duration" | "face" | "eye" | "screen" | "distraction",
+  value?: number | null,
+  factorStatus?: string | null
+): string {
+  if (value === undefined || value === null || isNaN(value)) {
+    return "text-rose-600";
+  }
+
+  const s = factorStatus?.toUpperCase().trim();
+  if (s) {
+    if (["STRONG", "HIGH", "OPTIMAL"].includes(s)) return "text-emerald-600";
+    if (["ADEQUATE", "AVERAGE", "MODERATE", "NORMAL"].includes(s)) return "text-amber-600";
+    if (["NEEDS_WORK", "POOR", "WEAK", "LOW", "TENSED", "INSUFFICIENT_DATA", "INSUFFICIENT"].includes(s)) {
+      return "text-rose-600";
+    }
+  }
+
+  switch (type) {
+    case "wpm":
+      if (value >= 120 && value <= 160) return "text-emerald-600";
+      if ((value >= 100 && value < 120) || (value > 160 && value <= 180)) return "text-amber-600";
+      return "text-rose-600";
+
+    case "fillers":
+      if (value === 0 && (factorStatus === "INSUFFICIENT_DATA" || !factorStatus)) return "text-rose-600";
+      if (value <= 2.0) return "text-emerald-600";
+      if (value <= 5.0) return "text-amber-600";
+      return "text-rose-600";
+
+    case "silence":
+      if (value >= 10 && value <= 25) return "text-emerald-600";
+      if ((value >= 8 && value < 10) || (value > 25 && value <= 40)) return "text-amber-600";
+      return "text-rose-600";
+
+    case "duration":
+      if (value >= 60) return "text-emerald-600";
+      if (value >= 30) return "text-amber-600";
+      return "text-rose-600";
+
+    case "face":
+    case "eye":
+    case "screen":
+      if (value >= 75) return "text-emerald-600";
+      if (value >= 50) return "text-amber-600";
+      return "text-rose-600";
+
+    case "distraction":
+      if (value <= 15) return "text-emerald-600";
+      if (value <= 30) return "text-amber-600";
+      return "text-rose-600";
+
+    default:
+      return "text-slate-900";
+  }
+}
+
+function getFactorValueColor(status?: string | null): string {
+  const s = status?.toUpperCase().trim();
+  if (s) {
+    if (["STRONG", "HIGH", "OPTIMAL"].includes(s)) return "text-emerald-600 font-bold";
+    if (["ADEQUATE", "AVERAGE", "MODERATE", "NORMAL"].includes(s)) return "text-amber-600 font-bold";
+    if (["NEEDS_WORK", "POOR", "WEAK", "LOW", "TENSED"].includes(s)) return "text-rose-600 font-bold";
+  }
+  return "text-slate-800 font-bold";
 }
 
 // ─── Rating config ────────────────────────────────────────────────────────────
@@ -81,6 +242,23 @@ function getRatingMeta(rating?: string) {
   return RATING_CONFIG[key] ?? RATING_CONFIG.GOOD;
 }
 
+function cleanPointText(text?: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\s*\(required\)/gi, "")
+    .replace(/\s*\(optional\)/gi, "")
+    .replace(/\\Delta/g, "Δ")
+    .replace(/\$([^$]+)\$/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatDifficulty(diff?: string): string {
+  if (!diff) return "—";
+  const lower = diff.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
 // ─── Fallback for when the report has no technical_evaluation yet ─────────────
 
 const EMPTY_TECHNICAL_EVALUATION: TechnicalEvaluation = {
@@ -102,11 +280,81 @@ const EMPTY_TECHNICAL_EVALUATION: TechnicalEvaluation = {
   question_evaluations: [],
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export default function TechnicalEvaluationView({ report, activeTab, onSelectTab }: Props) {
+export default function TechnicalEvaluationView({
+  report,
+  activeTab,
+  onSelectTab,
+  videoRef,
+  seekTo,
+  assessmentId,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const internalVideoRef = useRef<HTMLVideoElement | null>(null);
+  const activeVideoRef = videoRef || internalVideoRef;
+
+  const resolvedAssessmentId = assessmentId || String(report.assessment?.id || "");
+
+  const authToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
+      : "";
+
+  const rawMediaType = (report.assessment?.media_type || "").toUpperCase();
+  const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
+  const mediaPath = isAudioOnly ? "audio" : "video";
+
+  const canShowRecording = Boolean(
+    report.consent?.save_recording ??
+    (report.assessment as any)?.consent?.save_recording ??
+    true
+  );
+
+  const localPreviewUrl =
+    typeof window !== "undefined" && resolvedAssessmentId
+      ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
+        (() => {
+          try {
+            const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+            if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
+              sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+              return undefined;
+            }
+            return stored || undefined;
+          } catch (_) {
+            return undefined;
+          }
+        })()
+      : undefined;
+
+  const serverUrl = resolvedAssessmentId
+    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${resolvedAssessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    : undefined;
+
+  const effectivePlaybackUrl = canShowRecording
+    ? (report.youtube_url || localPreviewUrl || serverUrl)
+    : undefined;
+
+  const durationSeconds =
+    report.audio_telemetry?.speaking_duration_sec ||
+    report.audio?.recording_environment?.speaking_duration_seconds ||
+    0;
+
+  const [isMediaOpen, setIsMediaOpen] = useState(true);
+  const delivery = report.delivery_analysis;
+
+  const telemetryPace =
+    report.audio_telemetry?.words_per_minute ??
+    report.audio?.factors?.pace?.wpm_recorded;
+
+  const telemetryFillers =
+    report.audio_telemetry?.filler_word_count ??
+    (report.audio?.factors?.filler_word_usage?.status === "INSUFFICIENT_DATA" ? undefined : 0);
+
+  const telemetrySilence =
+    report.audio_telemetry?.silence_percentage ??
+    (report.audio?.factors?.pausing?.status === "INSUFFICIENT_DATA" ? undefined : 0);
 
   const techEval: TechnicalEvaluation =
     report.technical_evaluation ?? EMPTY_TECHNICAL_EVALUATION;
@@ -194,6 +442,14 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
     const overall = techEval.overall_assessment;
     const meta = getRatingMeta(overall.rating);
 
+    const testedSubjects = techEval.subject_evaluations
+      .filter((s) => s.rating !== "NOT_TESTED")
+      .map((s) => s.subject);
+    const dynamicSubtitle =
+      testedSubjects.length > 0
+        ? `Comprehensive evaluation across ${testedSubjects.join(", ")}`
+        : "Comprehensive evaluation across tested technical domains";
+
     return (
       <div className="space-y-3">
         {/* ── Executive strip ─────────────────────────────────────────────── */}
@@ -205,10 +461,10 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
               </span>
               <div>
                 <h1 className="text-sm font-bold text-slate-900 leading-tight">
-                  Technical Readiness Assessment
+                  Technical Performance Evaluation
                 </h1>
                 <p className="text-[11px] text-slate-500">
-                  Principal evaluation across AI, Software Systems, and Cloud Delivery
+                  {dynamicSubtitle}
                 </p>
               </div>
             </div>
@@ -230,7 +486,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
             </div>
           </div>
 
-          <p className="mt-2.5 text-xs text-slate-700 leading-relaxed line-clamp-2">
+          <p className="mt-2.5 text-xs text-slate-700 leading-relaxed">
             {overall.executive_summary}
           </p>
         </div>
@@ -297,27 +553,12 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                       </div>
                     )}
 
-                    <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed mb-2">
+                    <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
                       {subj.summary}
                     </p>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    {subj.terminology_gaps && subj.terminology_gaps.length > 0 ? (
-                      <div className="flex items-center gap-1 overflow-hidden pr-2">
-                        <span className="text-[10px] font-medium text-slate-400 shrink-0">
-                          Add:
-                        </span>
-                        <span className="text-[10px] font-semibold text-rose-600 truncate bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
-                          {subj.terminology_gaps[0]}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-emerald-600 font-medium">
-                        Terms accurate
-                      </span>
-                    )}
-
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
                     <button
                       type="button"
                       onClick={() => {
@@ -379,10 +620,9 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                     <span className={`text-[11px] font-extrabold ${qmeta.textClass}`}>
                       Q{idx + 1}
                     </span>
-                    <span className="text-[9px] font-semibold text-slate-500 truncate max-w-full">
-                      {q.difficulty_level?.[0] ?? "—"}
+                    <span className="text-[9px] font-medium text-slate-600 truncate max-w-full">
+                      {formatDifficulty(q.difficulty_level)}
                     </span>
-                    <span className={`mt-1 size-1.5 rounded-full ${qmeta.dotClass}`} />
                   </button>
                 );
               })}
@@ -404,7 +644,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                   className="flex items-start gap-1.5 text-[11px] text-slate-700 leading-snug"
                 >
                   <span className="size-1.5 rounded-full bg-emerald-500 mt-1 shrink-0" />
-                  <span className="line-clamp-2">{st}</span>
+                  <span>{st}</span>
                 </li>
               ))}
               {overall.top_strengths.length === 0 && (
@@ -425,7 +665,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                   className="flex items-start gap-1.5 text-[11px] text-slate-700 leading-snug"
                 >
                   <span className="size-1.5 rounded-full bg-rose-500 mt-1 shrink-0" />
-                  <span className="line-clamp-2">{imp}</span>
+                  <span>{imp}</span>
                 </li>
               ))}
               {overall.priority_improvements.length === 0 && (
@@ -452,7 +692,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
               <span className="text-[10px] font-extrabold uppercase text-emerald-700 tracking-wider">
                 Easy Tier
               </span>
-              <p className="mt-0.5 text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
                 {techEval.difficulty_analysis.easy}
               </p>
             </div>
@@ -460,7 +700,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
               <span className="text-[10px] font-extrabold uppercase text-blue-700 tracking-wider">
                 Medium Tier
               </span>
-              <p className="mt-0.5 text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
                 {techEval.difficulty_analysis.medium}
               </p>
             </div>
@@ -468,12 +708,510 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
               <span className="text-[10px] font-extrabold uppercase text-amber-700 tracking-wider">
                 Hard Tier
               </span>
-              <p className="mt-0.5 text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
                 {techEval.difficulty_analysis.hard}
               </p>
             </div>
           </div>
         </div>
+
+        {/* ── Session Recording & Communication Delivery (Section 3) ── */}
+        {canShowRecording && (
+          <div className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                {delivery?.type === "video" || (!isAudioOnly && !delivery) ? (
+                  <Video size={15} className="text-blue-600" />
+                ) : (
+                  <AudioWaveform size={15} className="text-blue-600" />
+                )}
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900">
+                  {delivery?.type === "video" || (!isAudioOnly && !delivery)
+                    ? "Video Recording & Presence"
+                    : "Audio Recording & Speech Delivery"}
+                </h2>
+                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                  {delivery?.type === "video" || (!isAudioOnly && !delivery) ? "Video Session" : "Audio Session"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMediaOpen(!isMediaOpen)}
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 cursor-pointer"
+              >
+                {isMediaOpen ? "Hide" : "Show Playback & Delivery"}
+                {isMediaOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+            </div>
+
+            {isMediaOpen && (
+              <div className={delivery ? "grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start" : "w-full"}>
+                {/* ── Media Player ── */}
+                <div className={delivery ? "lg:col-span-7 rounded-2xl overflow-hidden shadow-xs" : "w-full rounded-2xl overflow-hidden shadow-xs"}>
+                  <VideoPlayer
+                    youtubeUrl={effectivePlaybackUrl}
+                    fallbackUrl={serverUrl}
+                    videoRef={activeVideoRef}
+                    isAudioOnly={isAudioOnly}
+                    candidateName={report.candidate_name ?? undefined}
+                    durationSeconds={durationSeconds}
+                  />
+                </div>
+
+                {/* ── Measured Tiles & Delivery Summary (Only if delivery analysis exists) ── */}
+                {delivery && (
+                  <div className="lg:col-span-5 flex flex-col justify-between space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider flex items-center gap-1">
+                        <Activity size={12} className="text-blue-600" />
+                        {delivery.type === "video" ? "Presence Telemetry" : "Speech & Delivery Telemetry"}
+                      </span>
+                      <span className="text-[9px] font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100">
+                        Measured Signal
+                      </span>
+                    </div>
+
+                    {delivery.type === "video" ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Video Tile 1: Face Visibility */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Face Visibility</span>
+                            <div className="w-5 h-5 rounded bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                              <ScanFace size={12} className="text-blue-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("face", delivery.rawMetrics?.face_visibility_pct)}`}>
+                              {delivery.rawMetrics?.face_visibility_pct !== undefined
+                                ? `${delivery.rawMetrics.face_visibility_pct}%`
+                                : "—"}
+                            </span>
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Camera framing
+                          </span>
+                        </div>
+
+                        {/* Video Tile 2: Eye Contact */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Eye Contact</span>
+                            <div className="w-5 h-5 rounded bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0">
+                              <Eye size={12} className="text-teal-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("eye", delivery.rawMetrics?.eye_contact_pct, delivery.factors?.find((f) => f.key === "camera_angle_gaze_alignment")?.status)}`}>
+                              {delivery.rawMetrics?.eye_contact_pct !== undefined
+                                ? `${delivery.rawMetrics.eye_contact_pct}%`
+                                : "—"}
+                            </span>
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Gaze alignment
+                          </span>
+                        </div>
+
+                        {/* Video Tile 3: Screen Attention */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Screen Attention</span>
+                            <div className="w-5 h-5 rounded bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                              <Monitor size={12} className="text-indigo-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("screen", delivery.rawMetrics?.screen_attention_pct, delivery.factors?.find((f) => f.key === "primary_display_orientation")?.status)}`}>
+                              {delivery.rawMetrics?.screen_attention_pct !== undefined
+                                ? `${delivery.rawMetrics.screen_attention_pct}%`
+                                : "—"}
+                            </span>
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Display focus
+                          </span>
+                        </div>
+
+                        {/* Video Tile 4: Off-Screen Gaze */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Off-Screen Gaze</span>
+                            <div className="w-5 h-5 rounded bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                              <Activity size={12} className="text-amber-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("distraction", delivery.rawMetrics?.distraction_level_pct, delivery.factors?.find((f) => f.key === "off_screen_gaze_duration")?.status)}`}>
+                              {delivery.rawMetrics?.distraction_level_pct !== undefined
+                                ? `${delivery.rawMetrics.distraction_level_pct}%`
+                                : "—"}
+                            </span>
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Distraction level
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Audio Tile 1: Speaking Pace */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Speaking Pace</span>
+                            <div className="w-5 h-5 rounded bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                              <Gauge size={12} className="text-blue-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("wpm", delivery.rawMetrics?.wpm_recorded, delivery.factors?.find((f) => f.key === "pace")?.status)}`}>
+                              {delivery.rawMetrics?.wpm_recorded !== undefined
+                                ? `${delivery.rawMetrics.wpm_recorded}`
+                                : "—"}
+                            </span>
+                            {delivery.rawMetrics?.wpm_recorded !== undefined && (
+                              <span className="text-[10px] text-slate-500 font-medium">WPM</span>
+                            )}
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Words per minute
+                          </span>
+                        </div>
+
+                        {/* Audio Tile 2: Filler Words */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Filler Words</span>
+                            <div className="w-5 h-5 rounded bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                              <Mic size={12} className="text-indigo-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("fillers", delivery.rawMetrics?.filler_rate_per_min, delivery.factors?.find((f) => f.key === "filler_word_usage")?.status)}`}>
+                              {delivery.rawMetrics?.filler_rate_per_min !== undefined
+                                ? `${delivery.rawMetrics.filler_rate_per_min}`
+                                : "—"}
+                            </span>
+                            {delivery.rawMetrics?.filler_rate_per_min !== undefined && (
+                              <span className="text-[10px] text-slate-500 font-medium">/min</span>
+                            )}
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Rate per minute
+                          </span>
+                        </div>
+
+                        {/* Audio Tile 3: Silence & Pausing */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Silence & Pausing</span>
+                            <div className="w-5 h-5 rounded bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                              <Clock size={12} className="text-amber-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor("silence", delivery.rawMetrics?.silence_ratio_pct, delivery.factors?.find((f) => f.key === "pausing")?.status)}`}>
+                              {delivery.rawMetrics?.silence_ratio_pct !== undefined
+                                ? `${delivery.rawMetrics.silence_ratio_pct}%`
+                                : "—"}
+                            </span>
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Silence ratio
+                          </span>
+                        </div>
+
+                        {/* Audio Tile 4: Spoken Duration */}
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                            <span>Spoken Duration</span>
+                            <div className="w-5 h-5 rounded bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                              <Radio size={12} className="text-emerald-600" />
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className={`text-base font-bold ${getTelemetryValueColor(
+                              "duration",
+                              delivery.rawMetrics?.speaking_duration_seconds !== undefined && delivery.rawMetrics.speaking_duration_seconds > 0
+                                ? delivery.rawMetrics.speaking_duration_seconds
+                                : durationSeconds > 0
+                                ? durationSeconds
+                                : null
+                            )}`}>
+                              {delivery.rawMetrics?.speaking_duration_seconds !== undefined && delivery.rawMetrics.speaking_duration_seconds > 0
+                                ? `${Math.floor(delivery.rawMetrics.speaking_duration_seconds / 60)}m ${Math.round(delivery.rawMetrics.speaking_duration_seconds % 60)}s`
+                                : durationSeconds > 0
+                                ? `${Math.floor(durationSeconds / 60)}m ${Math.round(durationSeconds % 60)}s`
+                                : "—"}
+                            </span>
+                          </div>
+                          <span className="mt-0.5 inline-block text-[9px] font-semibold text-slate-600">
+                            Recorded speech
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Footer: one line of summaryText, link to full analysis, and note */}
+                    <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
+                      {delivery.summaryText && (
+                        <p className="text-xs text-slate-600 line-clamp-1 leading-normal">
+                          {delivery.summaryText}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectTab(delivery.type === "video" ? "Video Analysis" : "Audio Analysis")}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                        >
+                          View full {delivery.type === "video" ? "video" : "audio"} analysis &rarr;
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 italic leading-snug">
+                        Communication & delivery signals are computed from audio/video telemetry and do not influence your technical scores.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  //  DELIVERY ANALYSIS TAB (Audio Analysis or Video Analysis)
+  // ══════════════════════════════════════════════════════════════════════════════
+  if (activeTab === "Audio Analysis" || activeTab === "Video Analysis") {
+    if (!delivery) {
+      return (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+          <p className="text-sm">No delivery analysis available for this assessment.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* a) Summary Card */}
+        <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              {delivery.type === "video" ? (
+                <Video size={18} className="text-blue-600" />
+              ) : (
+                <AudioWaveform size={18} className="text-blue-600" />
+              )}
+              <h2 className="text-base font-bold text-slate-900">
+                {delivery.type === "video" ? "Video & Presence Analysis" : "Audio & Delivery Analysis"}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Readiness pill (audio only, hide for video) */}
+              {delivery.type === "audio" && delivery.readiness && (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
+                    delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
+                      ? "bg-slate-100 text-slate-700 border-slate-300"
+                      : "bg-teal-50 text-teal-800 border-teal-200"
+                  }`}
+                >
+                  {delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
+                    ? "Status: Insufficient Data"
+                    : `Readiness: ${delivery.readiness.replace(/_/g, " ")}`}
+                </span>
+              )}
+
+              {/* Confidence: Small "High confidence" chip if HIGH */}
+              {delivery.confidence &&
+                delivery.confidence.level.toUpperCase() === "HIGH" &&
+                delivery.readiness?.toUpperCase() !== "INSUFFICIENT_DATA" && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                    <CheckCircle2 size={11} className="text-teal-600" /> High confidence
+                  </span>
+                )}
+            </div>
+          </div>
+
+          {/* b) Confidence Notice / Insufficient Data Banner */}
+          {delivery.confidence &&
+            (delivery.confidence.level.toUpperCase() === "INSUFFICIENT_DATA" ||
+              delivery.readiness?.toUpperCase() === "INSUFFICIENT_DATA" ? (
+              <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-xs text-slate-800 flex items-start gap-2">
+                <AlertCircle size={15} className="text-slate-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    Telemetry Notice: Insufficient Data to Evaluate
+                  </p>
+                  <p className="mt-0.5 text-slate-600 leading-relaxed">
+                    {delivery.confidence.rationale ||
+                      "Audio signal or spoken duration was insufficient to compute reliable delivery telemetry."}
+                  </p>
+                </div>
+              </div>
+            ) : delivery.confidence.level.toUpperCase() !== "HIGH" ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900 flex items-start gap-2">
+                <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">
+                    Confidence Level: {delivery.confidence.level.replace(/_/g, " ")}
+                  </p>
+                  {delivery.confidence.rationale && (
+                    <p className="mt-0.5 text-amber-800 leading-relaxed">
+                      {delivery.confidence.rationale}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : null)}
+
+          {/* summaryText */}
+          {delivery.summaryText && (
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              {delivery.summaryText}
+            </p>
+          )}
+
+          {/* Strength (green) and Gap (amber) callouts */}
+          {(delivery.strength || delivery.gap) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              {delivery.strength && (
+                <div className="rounded-lg border border-teal-200/80 bg-teal-50/40 p-3 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-teal-900 mb-1">
+                    <CheckCircle2 size={13} className="text-teal-600" />
+                    <span>Primary Strength</span>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed">{delivery.strength}</p>
+                </div>
+              )}
+              {delivery.gap && (
+                <div className="rounded-lg border border-amber-200/80 bg-amber-50/40 p-3 text-xs">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900 mb-1">
+                    <AlertCircle size={13} className="text-amber-600" />
+                    <span>Primary Focus Area</span>
+                  </div>
+                  <p className="text-slate-700 leading-relaxed">{delivery.gap}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* c) Factor Grid */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <Activity size={14} className="text-blue-600" />
+              Delivery Factors & Telemetry Signals
+            </h3>
+            <span className="text-[10px] text-slate-500 font-medium">
+              {delivery.factors.length} assessed dimensions
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {delivery.factors.map((factor) => {
+              const metricDisplay = getFactorMetricDisplay(factor.key, factor.metric);
+              return (
+                <div
+                  key={factor.key}
+                  className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs flex flex-col justify-between space-y-2.5"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-900 leading-tight">
+                        {factor.label}
+                      </span>
+                      {getDeliveryStatusBadge(factor.status)}
+                    </div>
+
+                    {metricDisplay && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-50 border border-slate-200/80 text-[11px] font-bold text-slate-800">
+                        <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Measured:</span>
+                        <span className={getFactorValueColor(factor.status)}>{metricDisplay}</span>
+                      </div>
+                    )}
+
+                    {factor.observation && (
+                      <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                        {factor.observation}
+                      </p>
+                    )}
+                  </div>
+
+                  {getReliabilityBadge(factor.reliability, factor.reliabilityNote)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* d) Key Findings */}
+        {delivery.keyFindings && delivery.keyFindings.length > 0 && (
+          <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <Sparkles size={14} className="text-indigo-600" />
+              Key Findings & Actionable Takeaways
+            </h3>
+            <div className="divide-y divide-slate-100">
+              {delivery.keyFindings.map((item, idx) => (
+                <div key={idx} className="py-2.5 first:pt-0 last:pb-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                      {item.factor.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800 pt-0.5">
+                    {item.finding}
+                  </p>
+                  {item.why_it_matters && (
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      <span className="font-semibold text-slate-700">Why it matters: </span>
+                      {item.why_it_matters}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* e) Environment Strip */}
+        {(delivery.environmentNote || delivery.backgroundNoise || delivery.clippingDetected) && (
+          <div className="rounded-lg border border-slate-200/70 bg-slate-50/80 px-3.5 py-2.5 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Recording Environment:
+              </span>
+              {delivery.environmentNote && (
+                <span className="text-slate-700">{delivery.environmentNote}</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {delivery.type === "audio" && delivery.backgroundNoise && (
+                <span className="text-[11px] font-medium text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded">
+                  Noise: {delivery.backgroundNoise}
+                </span>
+              )}
+              {delivery.type === "audio" && delivery.clippingDetected && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                  <AlertCircle size={11} className="text-rose-600" />
+                  Clipping detected
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Telemetry Disclaimer */}
+        <p className="text-[11px] text-slate-400 text-center italic">
+          * Communication & delivery signals are computed directly from audio/video telemetry and do not influence your technical depth scores.
+        </p>
       </div>
     );
   }
@@ -567,6 +1305,38 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
 
         {/* ── RIGHT: Concept workspace ─────────────────────────────────────── */}
         <div className="md:col-span-8 space-y-3">
+          {/* Discipline Context Banner */}
+          {(() => {
+            const activeSubject = techEval.subject_evaluations.find(
+              (s) => s.subject.toLowerCase() === activeConcept.subject?.toLowerCase()
+            );
+            if (!activeSubject) return null;
+            const subMeta = getRatingMeta(activeSubject.rating);
+            return (
+              <div className="rounded-xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-blue-50/20 p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
+                      Discipline Evaluation:
+                    </span>
+                    <span className="text-xs font-bold text-slate-900">
+                      {activeSubject.subject}
+                    </span>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${subMeta.bgClass} ${subMeta.textClass} ${subMeta.borderClass}`}
+                  >
+                    <span className={`size-1.5 rounded-full ${subMeta.dotClass}`} />
+                    {subMeta.label}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                  {activeSubject.summary}
+                </p>
+              </div>
+            );
+          })()}
+
           {/* Concept header */}
           <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
@@ -587,18 +1357,10 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                 {activeConcept.subject && (
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     Part of{" "}
-                    <span className="font-semibold text-slate-700">{activeConcept.subject}</span>{" "}
-                    • {activeConcept.questions_count ?? 0} question
-                    {(activeConcept.questions_count ?? 0) !== 1 ? "s" : ""} tested
+                    <span className="font-semibold text-slate-700">{activeConcept.subject}</span>
                   </p>
                 )}
               </div>
-
-              {activeConcept.data_note && (
-                <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                  {activeConcept.data_note}
-                </span>
-              )}
             </div>
 
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -608,9 +1370,9 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                 </span>
                 <ul className="space-y-1">
                   {activeConcept.strengths && activeConcept.strengths.length > 0 ? (
-                    activeConcept.strengths.slice(0, 2).map((st, i) => (
-                      <li key={i} className="text-[11px] text-slate-700 line-clamp-2">
-                        • {st}
+                    activeConcept.strengths.map((st, i) => (
+                      <li key={i} className="text-[11px] text-slate-700 leading-snug">
+                        • {cleanPointText(st)}
                       </li>
                     ))
                   ) : (
@@ -623,20 +1385,29 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
 
               <div className="p-2.5 rounded-lg bg-rose-50/50 border border-rose-100">
                 <span className="text-[10px] font-extrabold uppercase text-rose-800 tracking-wider flex items-center gap-1 mb-1">
-                  <AlertTriangle size={12} /> Priority Gaps &amp; Fixes
+                  <AlertTriangle size={12} /> Areas to Strengthen
                 </span>
                 <ul className="space-y-1">
-                  {activeConcept.gaps && activeConcept.gaps.length > 0 ? (
-                    activeConcept.gaps.slice(0, 2).map((gap, i) => (
-                      <li key={i} className="text-[11px] text-slate-700 line-clamp-2">
-                        • {gap}
+                  {(() => {
+                    const focusItems =
+                      activeConcept.what_to_work_on && activeConcept.what_to_work_on.length > 0
+                        ? activeConcept.what_to_work_on
+                        : activeConcept.gaps && activeConcept.gaps.length > 0
+                        ? activeConcept.gaps
+                        : [];
+                    if (focusItems.length === 0) {
+                      return (
+                        <li className="text-[11px] text-slate-400 italic">
+                          No major gaps identified!
+                        </li>
+                      );
+                    }
+                    return focusItems.map((item, i) => (
+                      <li key={i} className="text-[11px] text-slate-700 leading-snug">
+                        • {cleanPointText(item)}
                       </li>
-                    ))
-                  ) : (
-                    <li className="text-[11px] text-slate-400 italic">
-                      No major gaps identified!
-                    </li>
-                  )}
+                    ));
+                  })()}
                 </ul>
               </div>
             </div>
@@ -713,7 +1484,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                             {qNumberLabel}
                           </span>
                           <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                            {q.difficulty_level}
+                            {formatDifficulty(q.difficulty_level)}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${qmeta.bgClass} ${qmeta.textClass} ${qmeta.borderClass}`}
@@ -732,9 +1503,10 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                             {q.missed_points.slice(0, 2).map((mp) => (
                               <span
                                 key={mp.id}
-                                className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 truncate max-w-[200px]"
+                                className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 truncate max-w-[280px]"
+                                title={cleanPointText(mp.description)}
                               >
-                                {mp.description}
+                                {cleanPointText(mp.short_label || mp.description)}
                               </span>
                             ))}
                             {q.missed_points.length > 2 && (
@@ -746,25 +1518,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                         )}
                       </div>
 
-                      <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 gap-1.5 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                        <div className="text-right">
-                          <span className="text-[10px] font-bold text-slate-700">
-                            {coveredCount}/{totalPoints} points
-                          </span>
-                          <div className="w-16 h-1 bg-slate-200 rounded-full mt-0.5 overflow-hidden">
-                            <div
-                              className={`h-full ${
-                                coveragePercent >= 75
-                                  ? "bg-emerald-500"
-                                  : coveragePercent >= 50
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500"
-                              }`}
-                              style={{ width: `${coveragePercent}%` }}
-                            />
-                          </div>
-                        </div>
-
+                      <div className="flex items-center justify-end shrink-0 pt-2 sm:pt-0">
                         <button
                           type="button"
                           className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 group-hover:text-blue-700 cursor-pointer"
@@ -822,10 +1576,10 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
 
                         {activeQTab === "answer" ? (
                           <div className="space-y-3 pt-1">
-                            {/* Principal Evaluator Observation */}
+                            {/* Feedback on your answer */}
                             <div className="p-3 rounded-lg bg-blue-50/70 border border-blue-100 space-y-1">
                               <span className="text-[10px] font-extrabold uppercase text-blue-800 tracking-wider">
-                                Principal Evaluator Observation
+                                Feedback on your answer
                               </span>
                               <p className="text-xs text-slate-700 leading-relaxed">
                                 {q.observation}
@@ -846,7 +1600,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                                       className="p-2 rounded bg-emerald-50/50 border border-emerald-100 text-xs text-slate-800 flex items-start gap-1.5"
                                     >
                                       <span className="text-emerald-600 font-bold shrink-0">✓</span>
-                                      <span>{p.description}</span>
+                                      <span>{cleanPointText(p.description)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -870,7 +1624,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                                     >
                                       <div className="flex items-start gap-1.5">
                                         <span className="text-rose-600 font-bold shrink-0">✗</span>
-                                        <span>{p.description}</span>
+                                        <span>{cleanPointText(p.description)}</span>
                                       </div>
                                       {p.status && (
                                         <span className="text-[9px] font-bold text-rose-700 bg-rose-100 px-1 py-0.5 rounded shrink-0">
@@ -926,20 +1680,46 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                               </div>
                             </div>
 
-                            {/* Verbatim evidence */}
-                            {q.evidence && q.evidence.length > 0 && (
-                              <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                  <Quote size={12} /> Verbatim Transcript Evidence
+                            {/* Unexplained terms section (Mentioned but not explained) */}
+                            {q.terms_mentioned_unexplained && q.terms_mentioned_unexplained.length > 0 && (
+                              <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/80 space-y-2 mt-2">
+                                <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                                  <AlertTriangle size={12} className="text-amber-600" /> Mentioned But Not Explained
                                 </span>
-                                {q.evidence.map((ev, i) => (
-                                  <blockquote
-                                    key={i}
-                                    className="p-2.5 rounded bg-white border-l-2 border-slate-400 text-xs italic text-slate-700"
-                                  >
-                                    &ldquo;{ev}&rdquo;
-                                  </blockquote>
-                                ))}
+                                <ul className="space-y-2">
+                                  {q.terms_mentioned_unexplained.map((t, i) => (
+                                    <li
+                                      key={i}
+                                      className="p-2.5 rounded-md bg-white border border-amber-200/60 shadow-2xs space-y-1"
+                                    >
+                                      <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
+                                        {t.term}
+                                      </span>
+                                      {t.quote && (
+                                        <p className="text-[11px] italic text-slate-500">
+                                          &ldquo;{t.quote}&rdquo;
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-slate-800 leading-snug font-medium">
+                                        {t.feedback}
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Full Spoken Transcript */}
+                            {(q.transcript || (q.evidence && q.evidence.length > 0)) && (
+                              <div className="space-y-1.5 pt-2.5 border-t border-slate-200/60">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                  <Quote size={12} /> Full Spoken Transcript
+                                </span>
+                                <div className="p-3 rounded-lg bg-white border border-slate-200/80 shadow-2xs">
+                                  <p className="whitespace-pre-wrap text-xs text-slate-700 leading-relaxed font-sans">
+                                    {q.transcript || q.evidence.join(" ")}
+                                  </p>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -968,7 +1748,7 @@ export default function TechnicalEvaluationView({ report, activeTab, onSelectTab
                                 <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-slate-900 tracking-wider flex items-center gap-1">
                                     <GraduationCap size={14} className="text-blue-600" />
-                                    Recommended Answer Framing (Ground Truth)
+                                    Recommended Answer Framing
                                   </span>
                                   <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                                     {q.study_guidance.how_to_answer}
