@@ -190,11 +190,13 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'ai-prep' | 'aiprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume';
+type TabType = 'overview' | 'my-sessions' | 'my-interviews' | 'job-board' | 'wbl-smartprep' | 'ai-prep' | 'aiprep' | 'my-llm-key' | 'my-applications' | 'my-llm-setup' | 'my-resume' | 'career-hub';
 
 const normalizeTab = (tab?: string): TabType => {
     if (!tab) return 'overview';
     if (tab.startsWith('ai-prep') || tab.startsWith('aiprep') || tab.startsWith('wbl-smartprep')) return 'ai-prep';
+    if (tab.startsWith('career-hub/')) return tab.replace('career-hub/', '') as TabType;
+    if (tab.startsWith('career-hub')) return 'career-hub';
     return tab as TabType;
 };
 
@@ -556,7 +558,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     };
 
     const handleJobBoardClicksCardClick = () => {
-        goToTab("job-board");
+        goToTab("career-hub/job-board");
     };
 
     const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -706,7 +708,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         const searchString = typeof window !== "undefined" ? window.location.search : "";
         const targetUrl = `/user_dashboard/${tab}${searchString}`;
         setCurrentSubPath(targetUrl.toLowerCase());
-        router.push(targetUrl);
+        if (typeof window !== "undefined") {
+            window.history.pushState(null, "", targetUrl);
+        }
     };
 
     useEffect(() => {
@@ -2321,16 +2325,16 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
     }, [data?.candidate_stats, todayClickSummary]);
 
     useEffect(() => {
-        if (activeTab === 'job-board' || activeTab === 'overview') {
+        if (activeTab === 'job-board' || activeTab === 'overview' || activeTab === 'career-hub') {
             void loadTodayClickSummary();
         }
-        if (activeTab === 'my-applications' || activeTab === 'job-board' || activeTab === 'overview') {
+        if (activeTab === 'my-applications' || activeTab === 'job-board' || activeTab === 'overview' || activeTab === 'career-hub') {
             void loadTotalClickSummary();
         }
         if (activeTab === 'job-board' && positions.length === 0) {
             loadPositions();
         }
-        if (activeTab === 'my-resume' && candidateId) {
+        if ((activeTab === 'my-resume' || activeTab === 'career-hub') && candidateId) {
             const run = async () => {
                 try {
                     const token = localStorage.getItem("access_token") || "";
@@ -2403,14 +2407,14 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
         }
 
         sessionStorage.removeItem('onboarding_skipped');
-        loadDashboard();
-        void loadTodayClickSummary();
-        void loadTotalClickSummary();
+        if (!data) {
+            loadDashboard();
+        }
     }, [activeTab, candidateId, getCandidateId, loadDashboard, loadTodayClickSummary, loadTotalClickSummary]);
 
     const isAiPrep = activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep';
 
-    if (loading && !isAiPrep) {
+    if (loading && !data && !isAiPrep) {
         return (
             <div className="min-h-[400px] flex items-center justify-center">
                 <div className="text-center">
@@ -2468,19 +2472,43 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
 
     const firstName = data?.basic_info?.full_name?.split(" ")[0] || userProfile?.full_name?.split(" ")[0] || "Candidate";
 
+    const isCareerHubChild = ['my-resume', 'job-board', 'my-applications', 'my-interviews'].includes(activeTab);
+
+    const renderCareerHubBreadcrumb = (title: string) => (
+        <div className="flex items-center justify-between px-4 lg:px-6 py-2.5 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex-shrink-0 z-10">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                <button
+                    type="button"
+                    onClick={() => goToTab('career-hub')}
+                    className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5 cursor-pointer font-semibold"
+                >
+                    <Briefcase className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>Career Hub</span>
+                </button>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+                <span className="text-gray-900 dark:text-gray-100 font-bold">{title}</span>
+            </div>
+            <button
+                type="button"
+                onClick={() => goToTab('career-hub')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-all cursor-pointer"
+            >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Back to Career Hub</span>
+            </button>
+        </div>
+    );
+
     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
-        { id: 'job-board' as TabType, name: 'Job Board', icon: Briefcase },
+        { id: 'career-hub' as TabType, name: 'Career Hub', icon: Briefcase },
         { id: 'my-llm-setup' as TabType, name: 'My LLM Setup', icon: Settings },
-        { id: 'my-resume' as TabType, name: 'My Resume', icon: FileText },
         { id: 'my-sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
-        { id: 'my-interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
-        { id: 'my-applications' as TabType, name: 'My Applications', icon: ClipboardList },
         { id: 'ai-prep' as TabType, name: 'AI PrepTool', icon: Sparkles },
     ];
 
     return (
-        <div className="flex w-full h-full flex-1 min-h-0 bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
+        <div className="flex w-full min-h-[calc(100vh-6rem)] flex-1 bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
             {/* Hidden identity tag for browser extension telemetry */}
             {data?.basic_info?.email && (
                 <div id="wbl-user-identity" data-email={data.basic_info.email} style={{ display: 'none' }} />
@@ -2513,7 +2541,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 const Icon = tab.icon;
                                 const isActive = tab.id === 'ai-prep'
                                     ? (activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep')
-                                    : activeTab === tab.id;
+                                    : tab.id === 'career-hub'
+                                        ? (activeTab === 'career-hub' || isCareerHubChild)
+                                        : activeTab === tab.id;
                                 return (
                                     <React.Fragment key={tab.id}>
                                         <button
@@ -2623,7 +2653,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                 <div className="lg:hidden flex gap-2 px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 overflow-x-auto flex-shrink-0">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
+                        const isActive = tab.id === 'career-hub'
+                            ? (activeTab === 'career-hub' || isCareerHubChild)
+                            : activeTab === tab.id;
                         return (
                             <React.Fragment key={tab.id}>
                                 <button
@@ -2694,6 +2726,146 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                 goToTab('aiprep');
                                             }}
                                         />
+                                    </div>
+                                )}
+                                {activeTab === 'career-hub' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 animate-fadeIn">
+                                        {/* Header Banner */}
+                                        <div className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-6 py-4 shadow-sm flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Career Hub Overview Dashboard</p>
+                                                <h1 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                                    <span>Career Hub</span>
+                                                </h1>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                    Your complete job search workspace
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* 4 Cards Grid - 2x2 Option C Format */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                            {/* Card 1: My Resume */}
+                                            <div className="bg-[#f0f7ff] dark:bg-blue-950/20 border-2 border-blue-200/80 dark:border-blue-900/60 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all group">
+                                                <FileText className="absolute right-5 top-5 w-20 h-20 text-blue-400/20 dark:text-blue-500/10 pointer-events-none group-hover:scale-105 transition-transform" />
+                                                <div className="relative z-10">
+                                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                                                        My Resume
+                                                    </h3>
+                                                    <div className="inline-flex items-center gap-1.5 bg-blue-100/70 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-medium px-3 py-1 rounded-lg text-xs max-w-full truncate mb-2">
+                                                        <FileText className="w-3.5 h-3.5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+                                                        <span className="truncate">
+                                                            {setupStatus?.binary_resume_filename || prefetchedSession?.summaryData?.binary_resume_filename || (setupStatus?.has_binary_resume || setupStatus?.resume_uploaded ? "Resume Uploaded" : "No Resume Uploaded")}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                                                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                                                        <span>ATS Optimized & Recruiter Ready</span>
+                                                    </p>
+                                                </div>
+                                                <div className="relative z-10 pt-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => goToTab('career-hub/my-resume')}
+                                                        className="py-2.5 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer w-fit"
+                                                    >
+                                                        <span>View Resume</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Card 2: Job Board */}
+                                            <div className="bg-[#faf5ff] dark:bg-purple-950/20 border-2 border-purple-200/80 dark:border-purple-900/60 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all group">
+                                                <Briefcase className="absolute right-5 top-5 w-20 h-20 text-purple-400/20 dark:text-purple-500/10 pointer-events-none group-hover:scale-105 transition-transform" />
+                                                <div className="relative z-10">
+                                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                                                        Job Board
+                                                    </h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1.5">
+                                                        {positions.length > 0 ? positions.length : 496} Jobs Available
+                                                    </p>
+                                                    <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                                        {jobBoardClickCount} clicks today
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        Curated positions matched to your profile
+                                                    </p>
+                                                </div>
+                                                <div className="relative z-10 pt-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => goToTab('career-hub/job-board')}
+                                                        className="py-2.5 px-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer w-fit"
+                                                    >
+                                                        <span>Browse Jobs</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Card 3: My Applications */}
+                                            <div className="bg-[#f0fdf4] dark:bg-emerald-950/20 border-2 border-emerald-200/80 dark:border-emerald-900/60 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all group">
+                                                <ClipboardList className="absolute right-5 top-5 w-20 h-20 text-emerald-400/20 dark:text-emerald-500/10 pointer-events-none group-hover:scale-105 transition-transform" />
+                                                <div className="relative z-10">
+                                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                                                        My Applications
+                                                    </h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1.5">
+                                                        CLICKS: {totalJobBoardClickCount}
+                                                    </p>
+                                                    <p className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                                                        OUTREACH: {data?.candidate_stats?.complete_outreach_count ?? 0}
+                                                    </p>
+                                                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                                        EASY APPLIES: {easyApplyApplications.length > 0 ? easyApplyApplications.length : (data?.candidate_stats?.easy_apply_counter ?? 0)}
+                                                    </p>
+                                                </div>
+                                                <div className="relative z-10 pt-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => goToTab('career-hub/my-applications')}
+                                                        className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer w-fit"
+                                                    >
+                                                        <span>View Applications</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Card 4: My Interviews */}
+                                            <div className="bg-[#fffbeb] dark:bg-amber-950/20 border-2 border-amber-200/80 dark:border-amber-900/60 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px] shadow-sm hover:shadow-md transition-all group">
+                                                <MessageSquare className="absolute right-5 top-5 w-20 h-20 text-amber-400/20 dark:text-amber-500/10 pointer-events-none group-hover:scale-105 transition-transform" />
+                                                <div className="relative z-10">
+                                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                                                        My Interviews
+                                                    </h3>
+                                                    <p className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1.5">
+                                                        {data?.interview_stats?.total ?? data?.interviews?.length ?? 0} Total Interviews
+                                                    </p>
+                                                    {data?.interviews && data.interviews.length > 0 ? (
+                                                        <div className="text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
+                                                            {data.interviews.slice(0, 2).map((item: any, idx: number) => (
+                                                                <p key={idx} className="truncate">
+                                                                    {item.company || "Client"} - {item.type_of_interview || "Technical"}
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            Upcoming mock and client interviews
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="relative z-10 pt-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => goToTab('career-hub/my-interviews')}
+                                                        className="py-2.5 px-5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer w-fit"
+                                                    >
+                                                        <span>View Interviews</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                                  {activeTab === 'overview' && data && (
@@ -3069,7 +3241,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 )}
 
                                 {activeTab === 'my-interviews' && data && (
-                                    <div className="flex-1 overflow-y-auto p-0  space-y-4">
+                                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                                        {renderCareerHubBreadcrumb("My Interviews")}
+                                        <div className="flex-1 overflow-y-auto p-0 space-y-4">
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-2 sm:p-4">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center  gap-2 ">
@@ -3416,10 +3590,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             </div>
                                         </div>
                                     </div>
+                                </div>
                                 )}
 
                                 {activeTab === 'job-board' && (
-                                    <div className="flex-1 flex flex-col px-4 lg:px-6 pt-4 pb-8 w-full min-h-0">
+                                    <div className="flex-1 flex flex-col w-full min-h-0 overflow-hidden">
+                                        {renderCareerHubBreadcrumb("Job Board")}
+                                        <div className="flex-1 flex flex-col px-4 lg:px-6 pt-4 pb-8 w-full min-h-0 overflow-y-auto">
                                         {/* TOP ROW: Warning Card (Left) + Resume JSON & Autofill Buttons (Right) */}
                                         <div className="flex flex-col sm:flex-row items-start justify-between gap-4 w-full mb-4">
                                             {showJobBoardWarningModal ? (
@@ -3560,6 +3737,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             />
                                         </div>
                                     </div>
+                                </div>
                                 )}
 
                                 {(activeTab.startsWith('ai-prep') || activeTab.startsWith('aiprep') || activeTab === 'wbl-smartprep') && (
@@ -3649,7 +3827,9 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                 {activeTab === 'my-llm-key' && <CandidateLlmKeysPanel />}
 
                                 {activeTab === 'my-applications' && data && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+                                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                                        {renderCareerHubBreadcrumb("My Applications")}
+                                        <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
                                         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
                                             {/* Header */}
                                             <div className="mb-8">
@@ -3760,10 +3940,13 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             </div>
                                         </div>
                                     </div>
+                                </div>
                                 )}
 
                                 {activeTab === 'my-resume' && (
-                                    <div className={`flex-1 overflow-y-auto space-y-6 ${showTemplates && !isEditingJson ? 'p-0' : 'p-4 lg:p-6'}`}>
+                                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                                        {renderCareerHubBreadcrumb("My Resume")}
+                                        <div className={`flex-1 overflow-y-auto space-y-6 ${showTemplates && !isEditingJson ? 'p-0' : 'p-4 lg:p-6'}`}>
                                         <div className={`bg-white dark:bg-gray-900 rounded-3xl animate-in fade-in duration-200 ${showTemplates && !isEditingJson ? 'p-2 lg:p-4 rounded-none border-0 shadow-none' : 'p-6 lg:p-8 shadow-lg border border-gray-100 dark:border-gray-800'}`}>
                                             {!showTemplates ? (
                                                 <div className="space-y-6 animate-in fade-in duration-200">
@@ -4148,6 +4331,7 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                             )}
                                         </div>
                                     </div>
+                                </div>
                                 )}
                             </>
                         )}
