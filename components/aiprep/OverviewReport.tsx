@@ -53,6 +53,7 @@ import {
 } from "./report-tabs";
 import { getUserTeamRole } from "@/utils/auth";
 import VideoPlayer from "./VideoPlayer";
+import TechnicalEvaluationView from "./TechnicalEvaluationView";
 
 export type { ReportTab };
 
@@ -390,6 +391,7 @@ function hasRealSpeech(report: NormalizedReport): boolean {
     return false;
   }
   if (
+    Boolean(report.technical_evaluation) ||
     isRealContent(report.overall_summary) ||
     (report.intro_sections && report.intro_sections.length > 0) ||
     Boolean(report.scores?.overall_band || report.scores?.ai_engineering?.band)
@@ -909,6 +911,20 @@ export function EvaluationContent({
     return <EmptyEvaluationCard />;
   }
 
+  // ── Technical Assessment: delegate to dedicated view ─────────────────────
+  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+    return (
+      <TechnicalEvaluationView
+        report={report}
+        activeTab="Overview"
+        onSelectTab={(tab) => onSelectTab(tab)}
+        videoRef={videoRef}
+        seekTo={seekTo}
+        assessmentId={assessmentId}
+      />
+    );
+  }
+
   // Pure dynamic data resolution per section category matching Details tab
   const introData = resolveSectionData(
     report,
@@ -1338,12 +1354,18 @@ function DetailSectionCard({
 export function DetailsContent({
   report,
   seekTo,
+  videoRef,
   initialSubTab = "intro",
+  activeTab,
+  onSelectTab,
   onOpenTranscript,
 }: {
   report: NormalizedReport;
   seekTo: (seconds: number) => void;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
   initialSubTab?: string;
+  activeTab?: ReportTab;
+  onSelectTab?: (tab: ReportTab) => void;
   onOpenTranscript?: () => void;
 }) {
   const {
@@ -1399,6 +1421,20 @@ export function DetailsContent({
 
   if (!candidateSpoke || report.insufficient_content) {
     return <EmptyEvaluationCard />;
+  }
+
+  // ── Technical Assessment: delegate to dedicated view ─────────────────────
+  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+    return (
+      <TechnicalEvaluationView
+        report={report}
+        activeTab={activeTab || "Details"}
+        onSelectTab={onSelectTab || (() => {})}
+        seekTo={seekTo}
+        videoRef={videoRef}
+        assessmentId={String(report.assessment?.id || "")}
+      />
+    );
   }
 
   // Pure dynamic data resolution per section category
@@ -1880,46 +1916,58 @@ export function ReportHeader({
               <User size={12} className="text-slate-400" />
               Candidate: {candidateName}
             </span>
-            {(completedDateStr || durationStr || typeStr) && <span className="text-slate-300">|</span>}
+            {(completedDateStr || durationStr) && <span className="text-slate-300">|</span>}
           </>
         )}
         {completedDateStr && <span>Completed on: {completedDateStr}</span>}
-        {completedDateStr && (durationStr || typeStr) && <span className="text-slate-300">|</span>}
+        {completedDateStr && durationStr && <span className="text-slate-300">|</span>}
         {durationStr && <span>Duration: {durationStr}</span>}
-        {durationStr && typeStr && <span className="text-slate-300">|</span>}
-        {typeStr && <span>Type: {typeStr}</span>}
       </div>
 
-      {/* Navigation Tabs: Overview & Details */}
+      {/* Navigation Tabs: Overview, Details, and Audio/Video Analysis */}
       <nav
         className="mt-2.5 flex gap-5 border-b border-slate-200"
         aria-label="Report sections"
       >
-        {REPORT_TABS.map((tab) => {
-          const isOverviewTab =
-            (tab.label === "Overview" && (activeTab === "Overview" || activeTab === "Evaluation")) ||
-            (tab.label === "Details" && activeTab === "Details");
+        {(() => {
+          const analysisTabLabel: ReportTab | null = report.delivery_analysis
+            ? (report.delivery_analysis.type === "video" ? "Video Analysis" : "Audio Analysis")
+            : null;
 
-          const isDetailsDisabled = tab.label === "Details" && !candidateSpoke;
+          const tabs: Array<{ label: ReportTab }> = [
+            { label: "Overview" },
+            { label: "Details" },
+            ...(analysisTabLabel ? [{ label: analysisTabLabel }] : []),
+          ];
 
-          return (
-            <button
-              key={tab.label}
-              type="button"
-              disabled={isDetailsDisabled}
-              onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
-              className={`pb-1.5 text-xs sm:text-sm transition-colors ${
-                isDetailsDisabled
-                  ? "text-slate-300 cursor-not-allowed select-none"
-                  : isOverviewTab
-                  ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
-                  : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+          return tabs.map((tab) => {
+            const isTabActive =
+              (tab.label === "Overview" && (activeTab === "Overview" || activeTab === "Evaluation")) ||
+              (tab.label === "Details" && activeTab === "Details") ||
+              (tab.label === "Audio Analysis" && activeTab === "Audio Analysis") ||
+              (tab.label === "Video Analysis" && activeTab === "Video Analysis");
+
+            const isDetailsDisabled = tab.label === "Details" && !candidateSpoke;
+
+            return (
+              <button
+                key={tab.label}
+                type="button"
+                disabled={isDetailsDisabled}
+                onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
+                className={`pb-1.5 text-xs sm:text-sm transition-colors ${
+                  isDetailsDisabled
+                    ? "text-slate-300 cursor-not-allowed select-none"
+                    : isTabActive
+                    ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                    : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          });
+        })()}
       </nav>
     </header>
   );
@@ -2264,7 +2312,10 @@ export default function AiPrepReport({
             <DetailsContent
               report={report}
               seekTo={seekTo}
+              videoRef={videoRef}
               initialSubTab={detailsSubTab}
+              activeTab={activeTab}
+              onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
             />
           )}

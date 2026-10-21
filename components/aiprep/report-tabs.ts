@@ -12,6 +12,8 @@ export type PrimaryReportTab = typeof REPORT_TABS[number]["label"];
 export type ReportTab =
   | "Overview"
   | "Details"
+  | "Audio Analysis"
+  | "Video Analysis"
   | "Evaluation"
   | "Performance"
   | "Technical"
@@ -26,6 +28,9 @@ export function tabFromParam(param: string | null | undefined): ReportTab {
   const p = param.toLowerCase().trim();
   if (p === "overview" || p === "evaluation") return "Overview";
   if (p === "details") return "Details";
+  if (p === "audio-analysis" || p === "audio_analysis") return "Audio Analysis";
+  if (p === "video-analysis" || p === "video_analysis") return "Video Analysis";
+  if (p === "analysis" || p === "delivery") return "Audio Analysis";
   if (
     ["transcript", "performance", "technical", "communication", "coaching", "next-steps"].includes(p)
   ) {
@@ -38,6 +43,8 @@ export function tabFromParam(param: string | null | undefined): ReportTab {
 export function paramFromTab(tab: ReportTab): string {
   if (tab === "Overview" || tab === "Evaluation") return "overview";
   if (tab === "Details" || tab === "Transcript") return "details";
+  if (tab === "Audio Analysis") return "audio-analysis";
+  if (tab === "Video Analysis") return "video-analysis";
   return "overview";
 }
 
