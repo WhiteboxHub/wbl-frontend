@@ -1423,8 +1423,13 @@ export function DetailsContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical Assessment: delegate to dedicated view ─────────────────────
-  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+  // ── Technical Assessment or Delivery Analysis: delegate to dedicated view ──
+  if (
+    report.technical_evaluation ||
+    report.assessment?.assessment_type === "TECHNICAL" ||
+    activeTab === "Audio Analysis" ||
+    activeTab === "Video Analysis"
+  ) {
     return (
       <TechnicalEvaluationView
         report={report}
