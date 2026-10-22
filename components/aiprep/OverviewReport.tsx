@@ -633,7 +633,9 @@ function resolveSectionData(
   const totalCovered = coveredSet.size;
   const totalMissed = missedSet.size;
 
-  if (totalCovered === 0) {
+  if (status === "WEAK") {
+    // Preserve "WEAK" status resolved in Step 1 from backend section evaluations
+  } else if (totalCovered === 0) {
     status = "NOT_MENTIONED";
   } else {
     const hasCoveredStatus = matchedSecs.some((s) => {
