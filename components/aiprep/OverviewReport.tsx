@@ -3148,6 +3148,10 @@ export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
       sessionStorage.removeItem("aiprep_active_id");
       sessionStorage.removeItem("aiprep_active_questions");
       sessionStorage.removeItem("aiprep_hardware_check");
+      sessionStorage.removeItem("aiprep_jd_text");
+      sessionStorage.removeItem("aiprep_jd_filename");
+      sessionStorage.removeItem("aiprep_jd_role");
+      sessionStorage.removeItem("aiprep_jd_company");
     } catch {}
 
     const searchParams = new URLSearchParams(window.location.search);
@@ -3185,6 +3189,10 @@ export function navigateToAssessmentsList(router: ReturnType<typeof useRouter>) 
     try {
       sessionStorage.removeItem("aiprep_wizard_step");
       sessionStorage.removeItem("aiprep_active_id");
+      sessionStorage.removeItem("aiprep_jd_text");
+      sessionStorage.removeItem("aiprep_jd_filename");
+      sessionStorage.removeItem("aiprep_jd_role");
+      sessionStorage.removeItem("aiprep_jd_company");
     } catch {}
 
     const targetUrl = getAssessmentsListUrl();

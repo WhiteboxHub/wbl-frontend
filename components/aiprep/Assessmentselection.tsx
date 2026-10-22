@@ -228,6 +228,15 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
     if (!isLocked) {
       setAssessmentType(type);
+      if (type !== 'JD_INTRO') {
+        if (setJdText) setJdText('');
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('aiprep_jd_text');
+          sessionStorage.removeItem('aiprep_jd_filename');
+          sessionStorage.removeItem('aiprep_jd_role');
+          sessionStorage.removeItem('aiprep_jd_company');
+        }
+      }
     }
   };
 

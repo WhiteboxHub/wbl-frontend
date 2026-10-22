@@ -481,6 +481,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
       // When accessing /aiprep directly or assessment type route, always start at Step 1 (Assessment Type)
       if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
+        window.sessionStorage?.removeItem('aiprep_jd_text');
+        window.sessionStorage?.removeItem('aiprep_jd_filename');
+        window.sessionStorage?.removeItem('aiprep_jd_role');
+        window.sessionStorage?.removeItem('aiprep_jd_company');
         return 'CONFIGURATION';
       }
       // Check URL route slugs
@@ -2061,6 +2065,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
           }
+          sessionStorage.removeItem('aiprep_jd_text');
+          sessionStorage.removeItem('aiprep_jd_filename');
+          sessionStorage.removeItem('aiprep_jd_role');
+          sessionStorage.removeItem('aiprep_jd_company');
         }
 
         router.replace(targetSessionUrl);
