@@ -911,8 +911,12 @@ export function EvaluationContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical Assessment: delegate to dedicated view ─────────────────────
-  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+  // ── Technical & Hiring Manager Assessment: delegate to dedicated view ────
+  if (
+    report.technical_evaluation ||
+    report.assessment?.assessment_type === "TECHNICAL" ||
+    report.assessment?.assessment_type === "HIRING_MANAGER"
+  ) {
     return (
       <TechnicalEvaluationView
         report={report}
@@ -1423,10 +1427,11 @@ export function DetailsContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical Assessment or Delivery Analysis: delegate to dedicated view ──
+  // ── Technical, Hiring Manager, or Delivery Analysis: delegate to dedicated view ──
   if (
     report.technical_evaluation ||
     report.assessment?.assessment_type === "TECHNICAL" ||
+    report.assessment?.assessment_type === "HIRING_MANAGER" ||
     activeTab === "Audio Analysis" ||
     activeTab === "Video Analysis"
   ) {

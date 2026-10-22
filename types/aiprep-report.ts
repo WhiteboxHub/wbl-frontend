@@ -1246,6 +1246,115 @@ export function normalizeReport(
     };
   }
 
+  // ── Hiring Manager evaluation (HIRING_MANAGER assessment type) ───────────
+  const assessData = asRecord(assessment.data);
+  const dataRecord = asRecord(data);
+  const rawHmEval =
+    asRecord(assessData.assessment_eval).hiring_manager_evaluation ??
+    asRecord(dataRecord.assessment_eval).hiring_manager_evaluation ??
+    asRecord(repData.assessment_eval).hiring_manager_evaluation ??
+    asRecord(bundled.assessment_eval).hiring_manager_evaluation ??
+    (asRecord(txEval.hiring_manager_evaluation).overall_assessment
+      ? txEval.hiring_manager_evaluation
+      : (bundled.hiring_manager_evaluation ?? repData.hiring_manager_evaluation ?? assessData.hiring_manager_evaluation ?? null));
+
+  if (!technical_evaluation && rawHmEval && typeof rawHmEval === "object" && !Array.isArray(rawHmEval)) {
+    const hme = asRecord(rawHmEval);
+    const rawQEs = Array.isArray(hme.question_evaluations) ? hme.question_evaluations : [];
+    const rawCEs = Array.isArray(hme.competency_evaluations) ? hme.competency_evaluations : [];
+    const rawOA = asRecord(hme.overall_assessment);
+    const rawFA = asRecord(hme.final_assessment);
+
+    technical_evaluation = {
+      overall_assessment: {
+        rating: asStr(rawOA.rating) ?? "GOOD",
+        executive_summary: asStr(rawOA.executive_summary) ?? "",
+        top_strengths: asStrArray(rawOA.top_strengths),
+        priority_improvements: asStrArray(rawOA.priority_improvements),
+        data_note: asStr(rawOA.data_note) ?? null,
+      },
+      subject_evaluations: rawCEs.map((c: unknown) => {
+        const ce = asRecord(c);
+        return {
+          subject: asStr(ce.competency) ?? asStr(ce.subject) ?? "",
+          rating: asStr(ce.rating) ?? "GOOD",
+          summary: asStr(ce.summary) ?? "",
+          terminology_gaps: asStrArray(ce.gaps),
+          data_note: asStr(ce.data_note) ?? null,
+        };
+      }),
+      difficulty_analysis: {
+        easy: "—",
+        medium: "—",
+        hard: "—",
+        observation: asStr(rawFA.most_important_improvement) ?? "",
+      },
+      concept_evaluations: rawCEs.map((c: unknown) => {
+        const ce = asRecord(c);
+        const compName = asStr(ce.competency) ?? asStr(ce.concept) ?? "";
+        const matchedQuestions = rawQEs.filter((q: unknown) => {
+          const qe = asRecord(q);
+          return (asStr(qe.competency) ?? asStr(qe.concept) ?? "").toLowerCase() === compName.toLowerCase();
+        });
+        const matchedIds = matchedQuestions.map((q: unknown) => {
+          const qe = asRecord(q);
+          return typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);
+        }).filter(Boolean);
+
+        return {
+          concept: compName,
+          subject: compName,
+          questions_count: matchedQuestions.length,
+          question_ids: matchedIds,
+          rating: asStr(ce.rating) ?? "GOOD",
+          strengths: asStrArray(ce.strengths),
+          gaps: asStrArray(ce.gaps),
+          terminology_gaps: [],
+          what_to_work_on: ce.what_to_work_on ? [asStr(ce.what_to_work_on) ?? ""] : [],
+          data_note: asStr(ce.data_note) ?? null,
+        };
+      }),
+      question_evaluations: rawQEs.map((q: unknown) => {
+        const qe = asRecord(q);
+        const coaching = asRecord(qe.coaching);
+        const qId = typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);
+        const comp = asStr(qe.competency) ?? asStr(qe.concept) ?? asStr(qe.subject) ?? "";
+
+        return {
+          question_id: qId,
+          question_text: asStr(qe.question_text) ?? "",
+          concept: comp,
+          subject: comp,
+          difficulty_level: asStr(qe.difficulty_level) ?? "MEDIUM",
+          rating: asStr(qe.rating) ?? "GOOD",
+          observation: asStr(qe.observation) ?? "",
+          covered_points: Array.isArray(qe.covered_points)
+            ? (qe.covered_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          missed_points: Array.isArray(qe.missed_points)
+            ? (qe.missed_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          terms_used_well: asStrArray(qe.leadership_signals_demonstrated),
+          terms_mentioned_unexplained: [],
+          terms_to_add: asStrArray(qe.leadership_signals_missing),
+          evidence: Array.isArray(qe.evidence)
+            ? (qe.evidence as unknown[]).map((ev: unknown) => {
+                const e = asRecord(ev);
+                return asStr(e.quote) ?? asStr(ev) ?? "";
+              }).filter(Boolean)
+            : [],
+          study_guidance: coaching && Object.keys(coaching).length > 0
+            ? {
+                what_to_study: coaching.stronger_version ? [asStr(coaching.stronger_version) ?? ""] : [],
+                how_to_answer: asStr(coaching.how_to_answer) ?? "",
+              }
+            : null,
+          transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
+        };
+      }),
+    };
+  }
+
   // ── Non-technical analysis ───────────────────────────────────────────────
   const nt = asRecord(txEval.non_technical_analysis_json ?? repData.non_technical_analysis_json);
   const non_technical = Object.keys(nt).length ? {

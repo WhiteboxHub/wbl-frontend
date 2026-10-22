@@ -30,6 +30,9 @@ import {
   Eye,
   Monitor,
   ScanFace,
+  Users,
+  Target,
+  ShieldCheck,
 } from "lucide-react";
 import VideoPlayer from "./VideoPlayer";
 import type {
@@ -359,6 +362,9 @@ export default function TechnicalEvaluationView({
   const techEval: TechnicalEvaluation =
     report.technical_evaluation ?? EMPTY_TECHNICAL_EVALUATION;
 
+  const isHiringManager =
+    (report.assessment?.assessment_type || "").toUpperCase() === "HIRING_MANAGER";
+
   const selectedConceptSlug = searchParams.get("concept");
   const selectedQuestionIdStr = searchParams.get("q");
 
@@ -448,7 +454,13 @@ export default function TechnicalEvaluationView({
     const dynamicSubtitle =
       testedSubjects.length > 0
         ? `Comprehensive evaluation across ${testedSubjects.join(", ")}`
+        : isHiringManager
+        ? "Comprehensive evaluation across tested leadership and behavioral competencies"
         : "Comprehensive evaluation across tested technical domains";
+
+    const dynamicTitle = isHiringManager
+      ? "Hiring Manager Performance Evaluation"
+      : "Technical Performance Evaluation";
 
     return (
       <div className="space-y-3">
@@ -461,7 +473,7 @@ export default function TechnicalEvaluationView({
               </span>
               <div>
                 <h1 className="text-sm font-bold text-slate-900 leading-tight">
-                  Technical Performance Evaluation
+                  {dynamicTitle}
                 </h1>
                 <p className="text-[11px] text-slate-500">
                   {dynamicSubtitle}
@@ -504,6 +516,12 @@ export default function TechnicalEvaluationView({
                 ? Cpu
                 : subj.subject.includes("Software")
                 ? Code2
+                : subj.subject.includes("Owner") || subj.subject.includes("Leader")
+                ? Users
+                : subj.subject.includes("Conflict") || subj.subject.includes("Collaborat")
+                ? Target
+                : subj.subject.includes("Roadblock") || subj.subject.includes("Delivery") || subj.subject.includes("Deadline")
+                ? ShieldCheck
                 : GitBranch;
 
               return (
@@ -1240,7 +1258,7 @@ export default function TechnicalEvaluationView({
         <div className="md:col-span-4 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Discipline Navigator
+              {isHiringManager ? "Competency Navigator" : "Discipline Navigator"}
             </h2>
             <span className="text-[10px] text-slate-400 font-semibold">
               {techEval.concept_evaluations.length} Topics
@@ -1317,7 +1335,7 @@ export default function TechnicalEvaluationView({
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-                      Discipline Evaluation:
+                      {isHiringManager ? "Competency Evaluation:" : "Discipline Evaluation:"}
                     </span>
                     <span className="text-xs font-bold text-slate-900">
                       {activeSubject.subject}
