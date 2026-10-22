@@ -340,6 +340,58 @@ export interface IntroOverallAssessment {
   biggest_gap?: string;
 }
 
+export interface DeliveryMetric {
+  value: number | string;
+  unit: string;
+  formatted: string;
+}
+
+export interface DeliveryFactor {
+  key: string;
+  label: string;
+  status: string;
+  reliability?: string | null;
+  reliabilityNote?: string | null;
+  observation?: string | null;
+  metric?: DeliveryMetric | null;
+}
+
+export interface DeliveryKeyFinding {
+  factor: string;
+  finding: string;
+  why_it_matters: string;
+}
+
+export interface DeliveryAnalysis {
+  type: "audio" | "video";
+  summaryText?: string | null;
+  strength?: string | null;
+  gap?: string | null;
+  readiness?: string | null; // audio only, null for video
+  confidence?: {
+    level: string; // HIGH, MEDIUM, LOW
+    rationale?: string | null;
+  } | null;
+  factors: DeliveryFactor[];
+  keyFindings: DeliveryKeyFinding[];
+  environmentNote?: string | null;
+  backgroundNoise?: string | null; // audio only
+  clippingDetected?: boolean | null; // audio only
+  rawMetrics?: {
+    // audio overview tiles
+    wpm_recorded?: number;
+    filler_rate_per_min?: number;
+    silence_ratio_pct?: number;
+    speaking_duration_seconds?: number;
+    // video overview tiles
+    face_visibility_pct?: number;
+    eye_contact_pct?: number;
+    screen_attention_pct?: number;
+    distraction_level_pct?: number;
+    stress_level?: number | string;
+  };
+}
+
 /** Unified normalized model consumed by all report components */
 export interface NormalizedReport {
   // ── Assessment meta ──────────────────────────────────────────
@@ -477,6 +529,24 @@ export interface NormalizedReport {
     key_findings: KeyFinding[];
   };
 
+  // ── Measured Audio & Video Telemetry ──
+  audio_telemetry?: {
+    words_per_minute?: number;
+    filler_word_count?: number;
+    silence_percentage?: number;
+    speaking_duration_sec?: number;
+  };
+  video_telemetry?: {
+    face_visibility_pct?: number;
+    eye_contact_pct?: number;
+    screen_attention_pct?: number;
+    distraction_level_pct?: number;
+    stress_level?: string;
+  };
+
+  // ── Unified Delivery & Communication Analysis ──
+  delivery_analysis?: DeliveryAnalysis | null;
+
   // ── Coaching (from coaching_suggestions_json) ──
   coaching_suggestions: CoachingSuggestion[];
 
@@ -511,6 +581,11 @@ export interface NormalizedReport {
     save_transcript: boolean;
   };
 
+  // ── Technical Assessment evaluation (TECHNICAL type only) ─────────────────
+  // Populated from transcript_evaluation.technical_evaluation in the backend report.
+  // Absent for INTRO, JD_INTRO, and other assessment types.
+  technical_evaluation?: TechnicalEvaluation;
+
   // ── JD Intro Walkthrough Evaluation ──
   is_jd_intro?: boolean;
   jd_evaluation?: JdIntroEvaluation;
@@ -526,6 +601,97 @@ export interface NormalizedReport {
   tailoring_quality?: JdTailoringQuality;
   suggested_opening?: JdSuggestedOpening;
   jd_final_assessment?: JdFinalAssessment;
+
+}
+
+// ─── Technical Assessment Types ───────────────────────────────────────────────
+
+/** A single ground-truth point (covered or missed) for a question */
+export interface TechnicalQuestionPoint {
+  id: string | number;
+  description: string;
+  status?: string;
+  short_label?: string;
+}
+
+/** Study guidance returned for incorrectly-answered questions */
+export interface TechnicalStudyGuidance {
+  what_to_study: string[];
+  how_to_answer: string;
+}
+
+export interface TermMentionedUnexplained {
+  term: string;
+  quote: string;
+  feedback: string;
+}
+
+/** Per-question evaluation record */
+export interface TechnicalQuestionEval {
+  question_id: number;
+  question_text: string;
+  concept: string;
+  subject: string;
+  difficulty_level: string;
+  rating: string;
+  observation: string;
+  covered_points: TechnicalQuestionPoint[];
+  missed_points: TechnicalQuestionPoint[];
+  terms_used_well: string[];
+  terms_mentioned_unexplained: TermMentionedUnexplained[];
+  terms_to_add: string[];
+  evidence: string[];
+  study_guidance: TechnicalStudyGuidance | null;
+  transcript: string;
+}
+
+/** Per-concept rollup evaluation record */
+export interface TechnicalConceptEval {
+  concept: string;
+  subject: string;
+  questions_count: number;
+  question_ids: number[];
+  rating: string;
+  strengths: string[];
+  gaps: string[];
+  terminology_gaps: string[];
+  what_to_work_on: string[];
+  data_note: string | null;
+}
+
+/** Per-subject (discipline) rollup evaluation record */
+export interface TechnicalSubjectEval {
+  subject: string;
+  rating: string;
+  summary: string;
+  terminology_gaps: string[];
+  data_note: string | null;
+}
+
+/** Executive-level overall assessment */
+export interface TechnicalOverallAssessment {
+  rating: string;
+  executive_summary: string;
+  top_strengths: string[];
+  priority_improvements: string[];
+  data_note: string | null;
+}
+
+/** Difficulty-tier analysis */
+export interface TechnicalDifficultyAnalysis {
+  easy: string;
+  medium: string;
+  hard: string;
+  observation: string;
+}
+
+/** Root shape of the technical_evaluation JSON from the backend */
+export interface TechnicalEvaluation {
+  overall_assessment: TechnicalOverallAssessment;
+  subject_evaluations: TechnicalSubjectEval[];
+  difficulty_analysis: TechnicalDifficultyAnalysis;
+  concept_evaluations: TechnicalConceptEval[];
+  question_evaluations: TechnicalQuestionEval[];
 }
 
 // ─── Normalization ────────────────────────────────────────────────────────────
@@ -683,6 +849,348 @@ function parseVideo(raw: unknown): NormalizedReport["video"] | undefined {
       observable_physical_tension: parseVFactor("observable_physical_tension"),
     },
     key_findings: keyFindings,
+  };
+}
+
+function parseDeliveryAnalysis(
+  rawAudio: Record<string, unknown>,
+  rawVideo: Record<string, unknown>,
+  mediaType: "AUDIO" | "VIDEO",
+  dataAudioTelemetry?: Record<string, unknown>,
+  dataVideoTelemetry?: Record<string, unknown>,
+): DeliveryAnalysis | null {
+  const outerAudio = asRecord(rawAudio);
+  const srcAudio = Object.keys(nested(outerAudio, "audio_evaluation")).length
+    ? nested(outerAudio, "audio_evaluation")
+    : outerAudio;
+
+  const outerVideo = asRecord(rawVideo);
+  const srcVideo = Object.keys(nested(outerVideo, "video_evaluation")).length
+    ? nested(outerVideo, "video_evaluation")
+    : outerVideo;
+
+  const hasAudio = Boolean(
+    Object.keys(srcAudio).length &&
+    (srcAudio.summary || srcAudio.factors || srcAudio.key_findings || srcAudio.executive_summary)
+  );
+
+  const hasVideo = Boolean(
+    Object.keys(srcVideo).length &&
+    (srcVideo.summary || srcVideo.factors || srcVideo.key_findings || srcVideo.overall_summary)
+  );
+
+  // Pick type from assessment's media type field. Fall back to whichever is present.
+  // Never show both.
+  let selectedType: "audio" | "video" | null = null;
+  if (mediaType === "VIDEO" && hasVideo) {
+    selectedType = "video";
+  } else if (mediaType === "AUDIO" && hasAudio) {
+    selectedType = "audio";
+  } else if (hasVideo) {
+    selectedType = "video";
+  } else if (hasAudio) {
+    selectedType = "audio";
+  }
+
+  if (!selectedType) return null;
+
+  if (selectedType === "audio") {
+    const summary = asRecord(srcAudio.summary);
+    const factors = asRecord(srcAudio.factors);
+    const env = asRecord(srcAudio.recording_environment_context);
+    const keyFindings = (Array.isArray(srcAudio.key_findings) ? srcAudio.key_findings : [])
+      .map((f: unknown) => {
+        const fac = asRecord(f);
+        return {
+          factor: asStr(fac.factor) ?? "",
+          finding: asStr(fac.finding) ?? "",
+          why_it_matters: asStr(fac.why_it_matters) ?? "",
+        };
+      })
+      .filter((f) => f.finding);
+
+    const fConfidence = asRecord(factors.confidence_vocal_presence);
+    const fFluency = asRecord(factors.fluency);
+    const fPace = asRecord(factors.pace);
+    const fVolume = asRecord(factors.volume);
+    const fFillers = asRecord(factors.filler_word_usage);
+    const fPausing = asRecord(factors.pausing);
+
+    const wpmVal = typeof fPace.wpm_recorded === "number"
+      ? fPace.wpm_recorded
+      : (typeof dataAudioTelemetry?.words_per_minute === "number" ? dataAudioTelemetry.words_per_minute : undefined);
+
+    const volVal = typeof fVolume.avg_volume_db === "number"
+      ? fVolume.avg_volume_db
+      : undefined;
+
+    const fillerRateVal = typeof fFillers.filler_rate_per_min === "number"
+      ? fFillers.filler_rate_per_min
+      : undefined;
+
+    const silenceVal = typeof fPausing.silence_ratio_pct === "number"
+      ? fPausing.silence_ratio_pct
+      : (typeof dataAudioTelemetry?.silence_percentage === "number" ? dataAudioTelemetry.silence_percentage : undefined);
+
+    const pauseCountVal = typeof fPausing.pause_count === "number"
+      ? fPausing.pause_count
+      : undefined;
+
+    const speakingDurVal = typeof env.speaking_duration_seconds === "number"
+      ? env.speaking_duration_seconds
+      : (typeof dataAudioTelemetry?.speaking_duration_sec === "number" ? dataAudioTelemetry.speaking_duration_sec : undefined);
+
+    const deliveryFactors: DeliveryFactor[] = [
+      {
+        key: "confidence_vocal_presence",
+        label: "Confidence & Vocal Presence",
+        status: asStr(fConfidence.status) ?? "ADEQUATE",
+        reliability: asStr(fConfidence.reliability),
+        reliabilityNote: asStr(fConfidence.reliability_note),
+        observation: asStr(fConfidence.observation),
+        metric: null,
+      },
+      {
+        key: "fluency",
+        label: "Fluency",
+        status: asStr(fFluency.status) ?? "ADEQUATE",
+        reliability: asStr(fFluency.reliability),
+        reliabilityNote: asStr(fFluency.reliability_note),
+        observation: asStr(fFluency.observation),
+        metric: null,
+      },
+      {
+        key: "pace",
+        label: "Speaking Pace",
+        status: asStr(fPace.status) ?? "ADEQUATE",
+        reliability: asStr(fPace.reliability),
+        reliabilityNote: asStr(fPace.reliability_note),
+        observation: asStr(fPace.observation),
+        metric: wpmVal !== undefined ? {
+          value: wpmVal,
+          unit: "WPM",
+          formatted: `${Math.round(wpmVal)} WPM`,
+        } : null,
+      },
+      {
+        key: "volume",
+        label: "Volume",
+        status: asStr(fVolume.status) ?? "ADEQUATE",
+        reliability: asStr(fVolume.reliability),
+        reliabilityNote: asStr(fVolume.reliability_note),
+        observation: asStr(fVolume.observation),
+        metric: volVal !== undefined ? {
+          value: volVal,
+          unit: "dBFS",
+          formatted: `${volVal > 0 ? `+${volVal.toFixed(1)}` : volVal.toFixed(1)} dBFS`,
+        } : null,
+      },
+      {
+        key: "filler_word_usage",
+        label: "Filler Word Usage",
+        status: asStr(fFillers.status) ?? "ADEQUATE",
+        reliability: asStr(fFillers.reliability),
+        reliabilityNote: asStr(fFillers.reliability_note),
+        observation: asStr(fFillers.observation),
+        metric: fillerRateVal !== undefined ? {
+          value: fillerRateVal,
+          unit: "/min",
+          formatted: `${fillerRateVal.toFixed(1)}/min`,
+        } : null,
+      },
+      {
+        key: "pausing",
+        label: "Silence & Pausing",
+        status: asStr(fPausing.status) ?? "ADEQUATE",
+        reliability: asStr(fPausing.reliability),
+        reliabilityNote: asStr(fPausing.reliability_note),
+        observation: asStr(fPausing.observation),
+        metric: silenceVal !== undefined ? {
+          value: silenceVal,
+          unit: "%",
+          formatted: pauseCountVal !== undefined ? `${silenceVal.toFixed(1)}% (${pauseCountVal} pauses)` : `${silenceVal.toFixed(1)}%`,
+        } : null,
+      },
+    ];
+
+    const rawReadiness = asStr(summary.overall_readiness) ?? asStr(srcAudio.overall_readiness) ?? null;
+    const isInsufficient =
+      rawReadiness === "INSUFFICIENT_DATA" ||
+      asStr(summary.confidence_in_reading) === "INSUFFICIENT_DATA" ||
+      (speakingDurVal === 0 && (wpmVal === undefined || wpmVal === 0));
+
+    const confLevel = isInsufficient
+      ? "INSUFFICIENT_DATA"
+      : (asStr(summary.confidence_in_reading) ?? "HIGH");
+    const confRationale = asStr(summary.confidence_rationale);
+
+    return {
+      type: "audio",
+      summaryText: asStr(summary.executive_summary) ?? asStr(srcAudio.executive_summary) ?? null,
+      strength: asStr(summary.primary_vocal_strength) ?? asStr(srcAudio.primary_vocal_strength) ?? null,
+      gap: asStr(summary.primary_vocal_gap) ?? asStr(srcAudio.primary_vocal_gap) ?? null,
+      readiness: rawReadiness,
+      confidence: {
+        level: confLevel,
+        rationale: confRationale,
+      },
+      factors: deliveryFactors,
+      keyFindings,
+      environmentNote: asStr(env.noise_impact_observation) ?? null,
+      backgroundNoise: asStr(env.background_noise_level) ?? null,
+      clippingDetected: typeof env.clipping_detected === "boolean" ? env.clipping_detected : null,
+      rawMetrics: {
+        wpm_recorded: wpmVal,
+        filler_rate_per_min: fillerRateVal,
+        silence_ratio_pct: silenceVal,
+        speaking_duration_seconds: speakingDurVal,
+      },
+    };
+  }
+
+  // Selected: Video
+  const summary = asRecord(srcVideo.summary);
+  const factors = asRecord(srcVideo.factors);
+  const env = asRecord(srcVideo.recording_environment_context);
+  const keyFindings = (Array.isArray(srcVideo.key_findings) ? srcVideo.key_findings : [])
+    .map((f: unknown) => {
+      const fac = asRecord(f);
+      return {
+        factor: asStr(fac.factor) ?? "",
+        finding: asStr(fac.finding) ?? "",
+        why_it_matters: asStr(fac.why_it_matters) ?? "",
+      };
+    })
+    .filter((f) => f.finding);
+
+  const fFraming = asRecord(factors.camera_framing_centering);
+  const fAngle = asRecord(factors.camera_angle_gaze_alignment);
+  const fScreen = asRecord(factors.primary_display_orientation);
+  const fGaze = asRecord(factors.off_screen_gaze_duration);
+  const fTension = asRecord(factors.observable_physical_tension);
+
+  const faceVal = typeof fFraming.face_visibility_pct === "number"
+    ? fFraming.face_visibility_pct
+    : (typeof dataVideoTelemetry?.face_visibility_pct === "number" ? dataVideoTelemetry.face_visibility_pct : undefined);
+
+  const eyeVal = typeof fAngle.eye_contact_pct === "number"
+    ? fAngle.eye_contact_pct
+    : (typeof dataVideoTelemetry?.eye_contact_pct === "number" ? dataVideoTelemetry.eye_contact_pct : undefined);
+
+  const screenVal = typeof fScreen.screen_attention_pct === "number"
+    ? fScreen.screen_attention_pct
+    : (typeof dataVideoTelemetry?.screen_attention_pct === "number" ? dataVideoTelemetry.screen_attention_pct : undefined);
+
+  const distractionVal = typeof fGaze.distraction_level_pct === "number"
+    ? fGaze.distraction_level_pct
+    : (typeof dataVideoTelemetry?.distraction_level_pct === "number" ? dataVideoTelemetry.distraction_level_pct : undefined);
+
+  const rawStress = typeof fTension.stress_level === "number" || typeof fTension.stress_level === "string"
+    ? fTension.stress_level
+    : dataVideoTelemetry?.stress_level;
+  const stressVal: number | string | undefined =
+    typeof rawStress === "number" || typeof rawStress === "string"
+      ? rawStress
+      : undefined;
+
+  const deliveryFactors: DeliveryFactor[] = [
+    {
+      key: "camera_framing_centering",
+      label: "Camera Framing & Centering",
+      status: asStr(fFraming.status) ?? "ADEQUATE",
+      reliability: asStr(fFraming.reliability),
+      reliabilityNote: asStr(fFraming.reliability_note),
+      observation: asStr(fFraming.observation),
+      metric: faceVal !== undefined ? {
+        value: faceVal,
+        unit: "%",
+        formatted: `${faceVal.toFixed(1)}%`,
+      } : null,
+    },
+    {
+      key: "camera_angle_gaze_alignment",
+      label: "Camera Angle & Gaze Alignment",
+      status: asStr(fAngle.status) ?? "ADEQUATE",
+      reliability: asStr(fAngle.reliability),
+      reliabilityNote: asStr(fAngle.reliability_note),
+      observation: asStr(fAngle.observation),
+      metric: eyeVal !== undefined ? {
+        value: eyeVal,
+        unit: "%",
+        formatted: `${eyeVal.toFixed(1)}%`,
+      } : null,
+    },
+    {
+      key: "primary_display_orientation",
+      label: "Primary Display Orientation",
+      status: asStr(fScreen.status) ?? "ADEQUATE",
+      reliability: asStr(fScreen.reliability),
+      reliabilityNote: asStr(fScreen.reliability_note),
+      observation: asStr(fScreen.observation),
+      metric: screenVal !== undefined ? {
+        value: screenVal,
+        unit: "%",
+        formatted: `${screenVal.toFixed(1)}%`,
+      } : null,
+    },
+    {
+      key: "off_screen_gaze_duration",
+      label: "Off-Screen Gaze & Display Aversion",
+      status: asStr(fGaze.status) ?? "ADEQUATE",
+      reliability: asStr(fGaze.reliability),
+      reliabilityNote: asStr(fGaze.reliability_note),
+      observation: asStr(fGaze.observation),
+      metric: distractionVal !== undefined ? {
+        value: distractionVal,
+        unit: "%",
+        formatted: `${distractionVal.toFixed(1)}%`,
+      } : null,
+    },
+    {
+      key: "observable_physical_tension",
+      label: "Observable Physical Tension",
+      status: asStr(fTension.status) ?? "ADEQUATE",
+      reliability: asStr(fTension.reliability),
+      reliabilityNote: asStr(fTension.reliability_note),
+      observation: asStr(fTension.observation),
+      metric: stressVal !== undefined ? {
+        value: stressVal,
+        unit: typeof stressVal === "number" ? "%" : "",
+        formatted: typeof stressVal === "number" ? `${stressVal.toFixed(1)}%` : String(stressVal),
+      } : null,
+    },
+  ];
+
+  const isVideoInsufficient =
+    asStr(summary.confidence_in_reading) === "INSUFFICIENT_DATA" ||
+    (faceVal === undefined && eyeVal === undefined);
+  const confLevel = isVideoInsufficient
+    ? "INSUFFICIENT_DATA"
+    : (asStr(summary.confidence_in_reading) ?? "HIGH");
+  const confRationale = asStr(summary.confidence_rationale);
+
+  return {
+    type: "video",
+    summaryText: asStr(summary.overall_summary) ?? asStr(srcVideo.overall_summary) ?? null,
+    strength: asStr(summary.primary_setup_strength) ?? asStr(srcVideo.primary_setup_strength) ?? null,
+    gap: asStr(summary.primary_setup_gap) ?? asStr(srcVideo.primary_setup_gap) ?? null,
+    readiness: null, // Hide for video
+    confidence: {
+      level: confLevel,
+      rationale: confRationale,
+    },
+    factors: deliveryFactors,
+    keyFindings,
+    environmentNote: asStr(env.setup_quality_context) ?? null,
+    backgroundNoise: null,
+    clippingDetected: null,
+    rawMetrics: {
+      face_visibility_pct: faceVal,
+      eye_contact_pct: eyeVal,
+      screen_attention_pct: screenVal,
+      distraction_level_pct: distractionVal,
+      stress_level: stressVal,
+    },
   };
 }
 
@@ -993,8 +1501,120 @@ export function normalizeReport(
     unverified_claims: asStrArray(ra.unverified_claims),
   } : undefined;
 
-  // ── Technical analysis ───────────────────────────────────────────────────
 
+  // ── Technical analysis (legacy intro field) ───────────────────────────────
+
+  // ── Technical evaluation (TECHNICAL assessment type) ─────────────────────
+  // Reads from: transcript_evaluation.technical_evaluation (primary path set by backend)
+  // Falls back to: report.technical_evaluation, report_data.technical_evaluation
+  const parseTechnicalPoint = (raw: unknown): TechnicalQuestionPoint => {
+    const r = asRecord(raw);
+    return {
+      id: (r.id as string | number) ?? "",
+      description: asStr(r.description) ?? "",
+      status: asStr(r.status),
+      short_label: asStr(r.short_label),
+    };
+  };
+
+  const rawTechEval =
+    asRecord(txEval.technical_evaluation).overall_assessment
+      ? txEval.technical_evaluation
+      : (bundled.technical_evaluation ?? repData.technical_evaluation ?? null);
+
+  let technical_evaluation: TechnicalEvaluation | undefined;
+
+  if (rawTechEval && typeof rawTechEval === "object" && !Array.isArray(rawTechEval)) {
+    const te = asRecord(rawTechEval);
+    const rawQEs = Array.isArray(te.question_evaluations) ? te.question_evaluations : [];
+    const rawCEs = Array.isArray(te.concept_evaluations) ? te.concept_evaluations : [];
+    const rawSEs = Array.isArray(te.subject_evaluations) ? te.subject_evaluations : [];
+    const rawOA = asRecord(te.overall_assessment);
+    const rawDA = asRecord(te.difficulty_analysis);
+
+    technical_evaluation = {
+      overall_assessment: {
+        rating: asStr(rawOA.rating) ?? "GOOD",
+        executive_summary: asStr(rawOA.executive_summary) ?? "",
+        top_strengths: asStrArray(rawOA.top_strengths),
+        priority_improvements: asStrArray(rawOA.priority_improvements),
+        data_note: asStr(rawOA.data_note) ?? null,
+      },
+      subject_evaluations: rawSEs.map((s: unknown) => {
+        const se = asRecord(s);
+        return {
+          subject: asStr(se.subject) ?? "",
+          rating: asStr(se.rating) ?? "GOOD",
+          summary: asStr(se.summary) ?? "",
+          terminology_gaps: asStrArray(se.terminology_gaps),
+          data_note: asStr(se.data_note) ?? null,
+        };
+      }),
+      difficulty_analysis: {
+        easy: asStr(rawDA.easy) ?? "—",
+        medium: asStr(rawDA.medium) ?? "—",
+        hard: asStr(rawDA.hard) ?? "—",
+        observation: asStr(rawDA.observation) ?? "",
+      },
+      concept_evaluations: rawCEs.map((c: unknown) => {
+        const ce = asRecord(c);
+        return {
+          concept: asStr(ce.concept) ?? "",
+          subject: asStr(ce.subject) ?? "",
+          questions_count: typeof ce.questions_count === "number" ? ce.questions_count : 0,
+          question_ids: Array.isArray(ce.question_ids)
+            ? (ce.question_ids as unknown[]).map(Number).filter(Boolean)
+            : [],
+          rating: asStr(ce.rating) ?? "GOOD",
+          strengths: asStrArray(ce.strengths),
+          gaps: asStrArray(ce.gaps),
+          terminology_gaps: asStrArray(ce.terminology_gaps),
+          what_to_work_on: asStrArray(ce.what_to_work_on),
+          data_note: asStr(ce.data_note) ?? null,
+        };
+      }),
+      question_evaluations: rawQEs.map((q: unknown) => {
+        const qe = asRecord(q);
+        const rawSG = qe.study_guidance ? asRecord(qe.study_guidance) : null;
+        const qId = typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);
+        const rawUnexplained = Array.isArray(qe.terms_mentioned_unexplained)
+          ? qe.terms_mentioned_unexplained
+          : [];
+        return {
+          question_id: qId,
+          question_text: asStr(qe.question_text) ?? "",
+          concept: asStr(qe.concept) ?? "",
+          subject: asStr(qe.subject) ?? "",
+          difficulty_level: asStr(qe.difficulty_level) ?? "",
+          rating: asStr(qe.rating) ?? asStr(qe.score_band) ?? "GOOD",
+          observation: asStr(qe.observation) ?? "",
+          covered_points: Array.isArray(qe.covered_points)
+            ? (qe.covered_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          missed_points: Array.isArray(qe.missed_points)
+            ? (qe.missed_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          terms_used_well: asStrArray(qe.terms_used_well),
+          terms_mentioned_unexplained: rawUnexplained
+            .filter((t: any) => t && (t.term || t.feedback))
+            .map((t: any) => ({
+              term: String(t.term ?? ""),
+              quote: String(t.quote ?? ""),
+              feedback: String(t.feedback ?? ""),
+            })),
+          terms_to_add: asStrArray(qe.terms_to_add),
+          evidence: asStrArray(qe.evidence),
+          study_guidance: rawSG
+            ? {
+                what_to_study: asStrArray(rawSG.what_to_study),
+                how_to_answer: asStr(rawSG.how_to_answer) ?? "",
+              }
+            : null,
+          transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
+        };
+      }),
+    };
+  }
 
   // ── Non-technical analysis ───────────────────────────────────────────────
   const nt = asRecord(txEval.non_technical_analysis_json ?? repData.non_technical_analysis_json);
@@ -1397,6 +2017,31 @@ export function normalizeReport(
     youtube_url: resolvedMediaUrl,
   };
 
+  const rawAudioTelemetry = asRecord(
+    (data as any)?.audio_telemetry ??
+    (assessment as any)?.audio_telemetry ??
+    nested(repData, "audio_telemetry")
+  );
+  const audio_telemetry = Object.keys(rawAudioTelemetry).length > 0 ? {
+    words_per_minute: typeof rawAudioTelemetry.words_per_minute === "number" ? rawAudioTelemetry.words_per_minute : (typeof rawAudioTelemetry.wpm === "number" ? rawAudioTelemetry.wpm : undefined),
+    filler_word_count: typeof rawAudioTelemetry.filler_word_count === "number" ? rawAudioTelemetry.filler_word_count : (typeof rawAudioTelemetry.filler_count === "number" ? rawAudioTelemetry.filler_count : undefined),
+    silence_percentage: typeof rawAudioTelemetry.silence_percentage === "number" ? rawAudioTelemetry.silence_percentage : (typeof rawAudioTelemetry.silence_ratio === "number" ? rawAudioTelemetry.silence_ratio * 100 : undefined),
+    speaking_duration_sec: typeof rawAudioTelemetry.speaking_duration_sec === "number" ? rawAudioTelemetry.speaking_duration_sec : (typeof rawAudioTelemetry.speaking_duration_seconds === "number" ? rawAudioTelemetry.speaking_duration_seconds : undefined),
+  } : undefined;
+
+  const rawVideoTelemetry = asRecord(
+    (data as any)?.video_telemetry ??
+    (assessment as any)?.video_telemetry ??
+    nested(repData, "video_telemetry")
+  );
+  const video_telemetry = Object.keys(rawVideoTelemetry).length > 0 ? {
+    face_visibility_pct: typeof rawVideoTelemetry.face_visibility_pct === "number" ? rawVideoTelemetry.face_visibility_pct : undefined,
+    eye_contact_pct: typeof rawVideoTelemetry.eye_contact_pct === "number" ? rawVideoTelemetry.eye_contact_pct : undefined,
+    screen_attention_pct: typeof rawVideoTelemetry.screen_attention_pct === "number" ? rawVideoTelemetry.screen_attention_pct : undefined,
+    distraction_level_pct: typeof rawVideoTelemetry.distraction_level_pct === "number" ? rawVideoTelemetry.distraction_level_pct : undefined,
+    stress_level: asStr(rawVideoTelemetry.stress_level),
+  } : undefined;
+
   return {
     assessment: normalizedAssessment,
     candidate_name: resolvedCandidateName,
@@ -1438,6 +2083,9 @@ export function normalizeReport(
     final_assessment,
     audio: parseAudio(rawAudio),
     video: parseVideo(rawVideo),
+    audio_telemetry,
+    video_telemetry,
+    delivery_analysis: parseDeliveryAnalysis(rawAudio, rawVideo, normalizedMediaType, rawAudioTelemetry, rawVideoTelemetry),
     coaching_suggestions,
     improvements,
     gaps_to_validate,
@@ -1448,6 +2096,7 @@ export function normalizeReport(
       save_recording: consentSaveRecording,
       save_transcript: consentSaveTranscript,
     },
+    technical_evaluation,
   };
 }
 
