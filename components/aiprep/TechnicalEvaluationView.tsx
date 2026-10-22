@@ -50,6 +50,7 @@ interface Props {
   videoRef?: React.RefObject<HTMLVideoElement | null>;
   seekTo?: (seconds: number) => void;
   assessmentId?: string;
+  onDurationChange?: (durationSeconds: number) => void;
 }
 
 // ─── Delivery Status Styling (Calm Palette decoupled from Technical Ratings) ───
@@ -287,6 +288,7 @@ export default function TechnicalEvaluationView({
   videoRef,
   seekTo,
   assessmentId,
+  onDurationChange,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -338,7 +340,13 @@ export default function TechnicalEvaluationView({
 
   const durationSeconds =
     report.audio_telemetry?.speaking_duration_sec ||
+    report.delivery_analysis?.rawMetrics?.speaking_duration_seconds ||
     report.audio?.recording_environment?.speaking_duration_seconds ||
+    Number((report.assessment as any)?.duration_seconds) ||
+    Number((report.assessment as any)?.client_duration_seconds) ||
+    Number((report.assessment as any)?.total_duration_seconds) ||
+    Number((report.assessment?.data as any)?.audio_telemetry?.total_audio_duration_seconds) ||
+    Number((report.assessment?.data as any)?.duration_seconds) ||
     0;
 
   const [isMediaOpen, setIsMediaOpen] = useState(true);
@@ -755,6 +763,7 @@ export default function TechnicalEvaluationView({
                     isAudioOnly={isAudioOnly}
                     candidateName={report.candidate_name ?? undefined}
                     durationSeconds={durationSeconds}
+                    onDurationChange={onDurationChange}
                   />
                 </div>
 
