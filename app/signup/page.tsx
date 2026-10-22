@@ -758,7 +758,11 @@ const SignupPage = () => {
                         className="font-bold text-black dark:text-white"
                       >
                         I accept the{" "}
-                        <a href="../privacy-policy" className="hover:underline">
+                        <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">
+                          Terms of Service
+                        </a>{" "}
+                        and{" "}
+                        <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">
                           Privacy Policy
                         </a>.
                       </label>

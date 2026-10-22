@@ -53,6 +53,7 @@ import {
 } from "./report-tabs";
 import { getUserTeamRole } from "@/utils/auth";
 import VideoPlayer from "./VideoPlayer";
+import TechnicalEvaluationView from "./TechnicalEvaluationView";
 
 export type { ReportTab };
 
@@ -390,6 +391,7 @@ function hasRealSpeech(report: NormalizedReport): boolean {
     return false;
   }
   if (
+    Boolean(report.technical_evaluation) ||
     isRealContent(report.overall_summary) ||
     (report.intro_sections && report.intro_sections.length > 0) ||
     Boolean(report.scores?.overall_band || report.scores?.ai_engineering?.band)
@@ -855,15 +857,46 @@ export function EvaluationContent({
   );
   const localPreviewUrl =
     typeof window !== "undefined"
-      ? (window as any).__aiprep_local_preview?.[assessmentId] || undefined
+      ? (window as any).__aiprep_local_preview?.[assessmentId] ||
+        (() => {
+          const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
+          // A blob: URL is only valid within the lifetime of the in-memory window context.
+          // If the page was reloaded, window.__aiprep_local_preview is wiped, meaning the blob is dead.
+          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[assessmentId]) {
+            try {
+              sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+            } catch (_) {}
+            return undefined;
+          }
+          return stored || undefined;
+        })()
       : undefined;
 
+  const serverUrl = assessmentId
+    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    : undefined;
+
+  // Auto-cleanup local instant playback blob once YouTube URL is available
+  useEffect(() => {
+    if (youtube_url && typeof window !== "undefined" && assessmentId) {
+      if ((window as any).__aiprep_local_preview?.[assessmentId]) {
+        try {
+          URL.revokeObjectURL((window as any).__aiprep_local_preview[assessmentId]);
+        } catch (_) {}
+        delete (window as any).__aiprep_local_preview[assessmentId];
+      }
+      try {
+        sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+      } catch (_) {}
+    }
+  }, [youtube_url, assessmentId]);
+
+  // Playback hierarchy:
+  // 1. YouTube (once upload is done)
+  // 2. Instant Local Playback (0ms zero-latency preview while YouTube is pending)
+  // 3. Persistent Server Stream (when reopening a closed assessment)
   const effectivePlaybackUrl = canShowRecording
-    ? (youtube_url ||
-        localPreviewUrl ||
-        (assessmentId
-          ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
-          : undefined))
+    ? (youtube_url || localPreviewUrl || serverUrl)
     : undefined;
 
   const durationSeconds =
@@ -876,6 +909,20 @@ export function EvaluationContent({
 
   if (!candidateSpoke) {
     return <EmptyEvaluationCard />;
+  }
+
+  // ── Technical Assessment: delegate to dedicated view ─────────────────────
+  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+    return (
+      <TechnicalEvaluationView
+        report={report}
+        activeTab="Overview"
+        onSelectTab={(tab) => onSelectTab(tab)}
+        videoRef={videoRef}
+        seekTo={seekTo}
+        assessmentId={assessmentId}
+      />
+    );
   }
 
   // Pure dynamic data resolution per section category matching Details tab
@@ -1084,6 +1131,7 @@ export function EvaluationContent({
           <div className="w-full max-w-3xl mx-auto">
             <VideoPlayer
               youtubeUrl={effectivePlaybackUrl}
+              fallbackUrl={serverUrl}
               videoRef={videoRef}
               isAudioOnly={isAudioOnly}
               candidateName={report.candidate_name}
@@ -1306,12 +1354,18 @@ function DetailSectionCard({
 export function DetailsContent({
   report,
   seekTo,
+  videoRef,
   initialSubTab = "intro",
+  activeTab,
+  onSelectTab,
   onOpenTranscript,
 }: {
   report: NormalizedReport;
   seekTo: (seconds: number) => void;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
   initialSubTab?: string;
+  activeTab?: ReportTab;
+  onSelectTab?: (tab: ReportTab) => void;
   onOpenTranscript?: () => void;
 }) {
   const {
@@ -1367,6 +1421,25 @@ export function DetailsContent({
 
   if (!candidateSpoke || report.insufficient_content) {
     return <EmptyEvaluationCard />;
+  }
+
+  // ── Technical Assessment or Delivery Analysis: delegate to dedicated view ──
+  if (
+    report.technical_evaluation ||
+    report.assessment?.assessment_type === "TECHNICAL" ||
+    activeTab === "Audio Analysis" ||
+    activeTab === "Video Analysis"
+  ) {
+    return (
+      <TechnicalEvaluationView
+        report={report}
+        activeTab={activeTab || "Details"}
+        onSelectTab={onSelectTab || (() => {})}
+        seekTo={seekTo}
+        videoRef={videoRef}
+        assessmentId={String(report.assessment?.id || "")}
+      />
+    );
   }
 
   // Pure dynamic data resolution per section category
@@ -1848,46 +1921,58 @@ export function ReportHeader({
               <User size={12} className="text-slate-400" />
               Candidate: {candidateName}
             </span>
-            {(completedDateStr || durationStr || typeStr) && <span className="text-slate-300">|</span>}
+            {(completedDateStr || durationStr) && <span className="text-slate-300">|</span>}
           </>
         )}
         {completedDateStr && <span>Completed on: {completedDateStr}</span>}
-        {completedDateStr && (durationStr || typeStr) && <span className="text-slate-300">|</span>}
+        {completedDateStr && durationStr && <span className="text-slate-300">|</span>}
         {durationStr && <span>Duration: {durationStr}</span>}
-        {durationStr && typeStr && <span className="text-slate-300">|</span>}
-        {typeStr && <span>Type: {typeStr}</span>}
       </div>
 
-      {/* Navigation Tabs: Overview & Details */}
+      {/* Navigation Tabs: Overview, Details, and Audio/Video Analysis */}
       <nav
         className="mt-2.5 flex gap-5 border-b border-slate-200"
         aria-label="Report sections"
       >
-        {REPORT_TABS.map((tab) => {
-          const isOverviewTab =
-            (tab.label === "Overview" && (activeTab === "Overview" || activeTab === "Evaluation")) ||
-            (tab.label === "Details" && activeTab === "Details");
+        {(() => {
+          const analysisTabLabel: ReportTab | null = report.delivery_analysis
+            ? (report.delivery_analysis.type === "video" ? "Video Analysis" : "Audio Analysis")
+            : null;
 
-          const isDetailsDisabled = tab.label === "Details" && !candidateSpoke;
+          const tabs: Array<{ label: ReportTab }> = [
+            { label: "Overview" },
+            { label: "Details" },
+            ...(analysisTabLabel ? [{ label: analysisTabLabel }] : []),
+          ];
 
-          return (
-            <button
-              key={tab.label}
-              type="button"
-              disabled={isDetailsDisabled}
-              onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
-              className={`pb-1.5 text-xs sm:text-sm transition-colors ${
-                isDetailsDisabled
-                  ? "text-slate-300 cursor-not-allowed select-none"
-                  : isOverviewTab
-                  ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
-                  : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+          return tabs.map((tab) => {
+            const isTabActive =
+              (tab.label === "Overview" && (activeTab === "Overview" || activeTab === "Evaluation")) ||
+              (tab.label === "Details" && activeTab === "Details") ||
+              (tab.label === "Audio Analysis" && activeTab === "Audio Analysis") ||
+              (tab.label === "Video Analysis" && activeTab === "Video Analysis");
+
+            const isDetailsDisabled = tab.label === "Details" && !candidateSpoke;
+
+            return (
+              <button
+                key={tab.label}
+                type="button"
+                disabled={isDetailsDisabled}
+                onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
+                className={`pb-1.5 text-xs sm:text-sm transition-colors ${
+                  isDetailsDisabled
+                    ? "text-slate-300 cursor-not-allowed select-none"
+                    : isTabActive
+                    ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                    : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          });
+        })()}
       </nav>
     </header>
   );
@@ -2035,6 +2120,28 @@ export default function AiPrepReport({
 
   // The session page owns the submission SSE connection and navigates here only after COMPLETED.
   // This page intentionally performs no polling or secondary stream requests.
+
+  // ── Auto-Poll when assessment is in EVALUATING / isProcessing state ───────
+  useEffect(() => {
+    if (!isProcessing || !assessmentId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        const status = (fresh?.status || "").toUpperCase();
+        if (isMounted && (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || fresh?.report)) {
+          clearInterval(interval);
+          loadReport(true);
+        }
+      } catch (_) {}
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isProcessing, assessmentId, loadReport]);
 
   // ── Auto-Swap to YouTube when background upload completes ─────────────────
   useEffect(() => {
@@ -2210,7 +2317,10 @@ export default function AiPrepReport({
             <DetailsContent
               report={report}
               seekTo={seekTo}
+              videoRef={videoRef}
               initialSubTab={detailsSubTab}
+              activeTab={activeTab}
+              onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
             />
           )}

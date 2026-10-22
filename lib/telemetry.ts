@@ -25,15 +25,44 @@ export class AIPrepTelemetry {
   private static lastIdentifiedCandidateId: string | number | null = null;
 
   /**
+   * Returns true only for active AI Prep routes (strictly excluding reports and non-AI Prep pages).
+   */
+  static isAiPrepRoute(pathname?: string | null): boolean {
+    if (!pathname && typeof window !== 'undefined') {
+      pathname = window.location.pathname;
+    }
+    if (!pathname || typeof pathname !== 'string') return false;
+    const cleaned = pathname
+      .split('?')[0]
+      .split('#')[0]
+      .trim()
+      .toLowerCase()
+      .replace(/\/+/g, '/');
+
+    const segments = cleaned.split('/').filter(Boolean);
+    if (segments.length === 0) return false;
+
+    // Strictly exclude all report views and standalone summary dashboards
+    if (segments.some((s) => s === 'report' || s === 'reports')) {
+      return false;
+    }
+
+    return (
+      segments[0] === 'aiprep' ||
+      (segments[0] === 'user_dashboard' && (segments[1] === 'ai-prep' || segments[1] === 'aiprep'))
+    );
+  }
+
+  /**
    * Listens for global JS errors and unhandled promise rejections.
    */
   static initGlobalErrorListeners() {
     if (typeof window === 'undefined' || this.isErrorListenerInitialized) return;
     this.isErrorListenerInitialized = true;
 
-    // 1. Uncaught JS errors (AI Prep pages only)
+    // 1. Uncaught JS errors (active AI Prep pages only, excluding reports)
     window.addEventListener('error', (event) => {
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/aiprep') && !window.location.pathname.includes('/user_dashboard')) return;
+      if (typeof window !== 'undefined' && !this.isAiPrepRoute()) return;
       if (event.filename && event.filename.includes('telemetry')) return;
       if (typeof window !== 'undefined' && event.error) {
         try { posthog.captureException(event.error); } catch (_) { }
@@ -59,9 +88,9 @@ export class AIPrepTelemetry {
       });
     });
 
-    // 2. Unhandled promise rejections (AI Prep pages only)
+    // 2. Unhandled promise rejections (active AI Prep pages only, excluding reports)
     window.addEventListener('unhandledrejection', (event) => {
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/aiprep') && !window.location.pathname.includes('/user_dashboard')) return;
+      if (typeof window !== 'undefined' && !this.isAiPrepRoute()) return;
       const reason = event.reason;
       const errorMsg = reason?.message || String(reason || 'Unhandled Promise Rejection');
       if (typeof window !== 'undefined' && reason) {
@@ -87,9 +116,10 @@ export class AIPrepTelemetry {
   }
 
   /**
-   * Tracks React component crashes from error boundaries.
+   * Tracks React component crashes from error boundaries (active AI Prep pages only, excluding reports).
    */
   static trackReactComponentError(error: Error, errorInfo?: any) {
+    if (typeof window !== 'undefined' && !this.isAiPrepRoute()) return;
     if (typeof window !== 'undefined' && error) {
       try { posthog.captureException(error); } catch (_) { }
     }
@@ -127,10 +157,9 @@ export class AIPrepTelemetry {
     let lastTarget: HTMLElement | null = null;
 
     window.addEventListener('click', (e) => {
-      // Scope click tracking strictly to AI Prep routes (HIGH 3)
+      // Scope click tracking strictly to active AI Prep routes (excluding reports)
       if (typeof window === 'undefined') return;
-      const pathname = window.location.pathname;
-      if (!pathname.includes('/aiprep') && !pathname.includes('/user_dashboard/ai-prep')) return;
+      if (!this.isAiPrepRoute()) return;
 
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -191,8 +220,7 @@ export class AIPrepTelemetry {
     try {
       const handleMetric = (metric: any) => {
         if (typeof window === 'undefined') return;
-        const pathname = window.location.pathname;
-        if (!pathname.includes('/aiprep') && !pathname.includes('/user_dashboard/ai-prep')) return;
+        if (!this.isAiPrepRoute()) return;
         const value = Math.round(metric.value);
         this.trackCoreWebVitals(metric.name, value, metric.rating);
       };
@@ -769,7 +797,13 @@ export class AIPrepTelemetry {
     if (typeof window === 'undefined') return;
 
     const pathname = window.location.pathname;
-    if (!pathname.includes('/aiprep') && !pathname.includes('/user_dashboard')) {
+
+    // Safety: ensure assessment completion is never dropped even if navigation to /report occurs
+    const isCompletionEvent = payload.events.some(
+      (e) => e.stage === 'ASSESSMENT_COMPLETION' || e.event_type === 'ASSESSMENT_COMPLETED' || e.event_type === 'ASSESSMENT_ABANDONED'
+    );
+
+    if (!isCompletionEvent && !this.isAiPrepRoute(pathname)) {
       return;
     }
 
@@ -796,6 +830,9 @@ export class AIPrepTelemetry {
     }
 
     const nowIso = new Date().toISOString();
+    const safeCurrentUrl = typeof window !== 'undefined' && window.location.origin
+      ? `${window.location.origin}${pathname}`
+      : pathname;
 
     payload.events.forEach((evt) => {
       this.eventSequence++;
@@ -820,6 +857,7 @@ export class AIPrepTelemetry {
         const eventProperties: Record<string, any> = {
           ...(cleanMeta || {}),
           distinct_id: distinctId,
+          $current_url: safeCurrentUrl,
           stage: evt.stage,
           status: evt.status,
           message: cleanMsg,
@@ -1260,8 +1298,8 @@ export class AIPrepTelemetry {
   }
 
   static trackApiFailure(endpoint: string, statusCode: number, errorMessage: string, candidateId?: number) {
-    // Only track failures for AI Prep endpoints or when on AI Prep pages
-    if (typeof window !== 'undefined' && !window.location.pathname.includes('/aiprep') && !endpoint.includes('aiprep')) return;
+    // Only track failures when on active AI Prep pages (strictly excluding reports)
+    if (typeof window !== 'undefined' && !this.isAiPrepRoute()) return;
 
     this.sendToPostHog({
       candidate_id: candidateId,
