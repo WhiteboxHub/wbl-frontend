@@ -54,6 +54,7 @@ import {
 import { getUserTeamRole } from "@/utils/auth";
 import VideoPlayer from "./VideoPlayer";
 import TechnicalEvaluationView from "./TechnicalEvaluationView";
+import HiringManagerReport from "./HiringManagerReport";
 
 export type { ReportTab };
 
@@ -2291,6 +2292,17 @@ export default function AiPrepReport({
 
   const { assessment } = report;
   const isOverviewTab = activeTab === "Overview" || activeTab === "Evaluation";
+
+  // Polymorphic Dispatcher: Dedicated component for Hiring Manager track
+  if ((assessment?.assessment_type || "").toUpperCase() === "HIRING_MANAGER") {
+    return (
+      <HiringManagerReport
+        report={report}
+        assessmentId={assessmentId}
+        onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-6">

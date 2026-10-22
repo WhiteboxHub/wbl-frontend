@@ -70,6 +70,7 @@ export function formatBand(raw?: string | null, inverted: boolean = false): stri
     POOR:                "Needs Improvement",
     COVERED:             "Good",
     NOT_MENTIONED:       "Not Mentioned",
+    NOT_TESTED:          "Not Tested",
     NEGATIVE:            "Needs Improvement",
     NOT_APPLICABLE:      "N/A",
     INSUFFICIENT_DATA:   "Insufficient Data",
@@ -109,6 +110,7 @@ export function bandColor(band?: string, inverted: boolean = false): string {
     case "POOR":
     case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
     case "NOT_MENTIONED":
+    case "NOT_TESTED":
     case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
     default:              return "bg-slate-100 text-slate-500 border-slate-200";
   }
@@ -420,6 +422,9 @@ export interface NormalizedReport {
   // Populated from transcript_evaluation.technical_evaluation in the backend report.
   // Absent for INTRO, JD_INTRO, and other assessment types.
   technical_evaluation?: TechnicalEvaluation;
+
+  // ── Hiring Manager evaluation (HIRING_MANAGER type only) ───────────────────
+  hiring_manager?: HiringManagerEvaluation;
 }
 
 // ─── Technical Assessment Types ───────────────────────────────────────────────
@@ -510,6 +515,106 @@ export interface TechnicalEvaluation {
   difficulty_analysis: TechnicalDifficultyAnalysis;
   concept_evaluations: TechnicalConceptEval[];
   question_evaluations: TechnicalQuestionEval[];
+}
+
+// ─── Hiring Manager Evaluation Types (Backend Prompt v2.8) ────────────────────
+
+export interface HMCompetencyCheckpoints {
+  problem_identification_and_initiative?: string; // COVERED | PARTIAL | NOT_MENTIONED | NOT_APPLICABLE
+  technical_depth_and_soundness?: string;
+  stakeholder_alignment_and_communication?: string;
+  personal_accountability?: string;
+  measurable_impact?: string;
+}
+
+export interface HMCompetencyEvaluation {
+  competency: string; // Project Ownership | Technical Roadblocks | Conflict & Collaboration | Trade-offs & Deadlines | Delivery & Excellence
+  pillar?: string; // legacy alias
+  rating: string; // STRONG | GOOD | AVERAGE | POOR | NOT_TESTED
+  summary: string;
+  checkpoints?: HMCompetencyCheckpoints;
+  strengths: string[];
+  gaps: string[];
+  what_to_work_on: string;
+}
+
+export type HMPillarEvaluation = HMCompetencyEvaluation;
+
+export interface HMQuestionRubricPoint {
+  id: string;
+  description: string;
+  required?: boolean;
+  status?: string; // PARTIAL | MISSING | COVERED
+}
+
+export interface HMQuestionEvidence {
+  point_id?: string;
+  quote: string;
+}
+
+export interface HMStarPillar {
+  status: string; // COVERED | PARTIAL | NOT_MENTIONED
+  detail?: string;
+}
+
+export interface HMStarFramework {
+  situation?: HMStarPillar;
+  task?: HMStarPillar;
+  action?: HMStarPillar;
+  result?: HMStarPillar;
+}
+
+export interface HMQuestionEvaluation {
+  question_id: string;
+  question_text: string;
+  competency?: string;
+  pillar: string;
+  question_type?: string; // BEHAVIORAL | PHILOSOPHY
+  difficulty_level?: string;
+  response_state?: string; // ANSWERED | PARTIALLY_ANSWERED | NOT_ANSWERED
+  rating: string; // STRONG | GOOD | AVERAGE | POOR
+  personal_agency?: string; // STRONG | MODERATE | WEAK
+  star_framework?: HMStarFramework;
+  covered_points: HMQuestionRubricPoint[];
+  missed_points: HMQuestionRubricPoint[];
+  leadership_signals_demonstrated: string[];
+  leadership_signals_missing: string[];
+  critical_failure_triggered?: string | null;
+  evidence: HMQuestionEvidence[];
+  observation: string;
+  top_fix: string;
+  coaching?: {
+    how_to_answer?: string;
+    stronger_version?: string;
+  } | null;
+}
+
+export interface HMBehavioralDeliveryAnalysis {
+  directness?: string;
+  structured_storytelling?: string;
+  conciseness_and_focus?: string;
+  conciseness_and_pacing?: string;
+  answer_depth?: string;
+  authenticity_and_poise?: string;
+  observation?: string;
+}
+
+export interface HMOverallAssessment {
+  rating?: string; // STRONG | GOOD | AVERAGE | POOR
+  executive_summary?: string;
+  strongest_signal?: string;
+  biggest_gap?: string;
+  top_strengths?: string[];
+  priority_improvements?: string[];
+  next_practice_focus?: string;
+}
+
+export interface HiringManagerEvaluation {
+  overall_assessment?: HMOverallAssessment;
+  competency_evaluations?: HMCompetencyEvaluation[];
+  pillar_evaluations: HMCompetencyEvaluation[];
+  question_evaluations: HMQuestionEvaluation[];
+  behavioral_delivery_analysis?: HMBehavioralDeliveryAnalysis;
 }
 
 
@@ -1246,6 +1351,194 @@ export function normalizeReport(
     };
   }
 
+  // ── Hiring Manager evaluation (Backend Prompt v2.8 / v3.1.0) ───────────────
+  const isHiringManager = (assessment.assessment_type || "").toUpperCase() === "HIRING_MANAGER";
+  const assessmentEval = asRecord(
+    (data as any)?.assessment_eval ??
+    (assessment as any)?.data?.assessment_eval
+  );
+  const rawHMEval = asRecord(
+    (data as any)?.assessment_eval?.hiring_manager_evaluation ??
+    (data as any)?.assessment_eval?.general?.hiring_manager_evaluation ??
+    (assessment as any)?.data?.assessment_eval?.hiring_manager_evaluation ??
+    (assessment as any)?.data?.assessment_eval?.general?.hiring_manager_evaluation ??
+    (data as any)?.assessment_eval?.general ??
+    (assessment as any)?.data?.assessment_eval?.general ??
+    txEval.hiring_manager_evaluation ??
+    nested(txEval, "hiring_manager_evaluation") ??
+    bundled.hiring_manager_evaluation ??
+    genEval.hiring_manager_evaluation ??
+    repData.hiring_manager_evaluation
+  );
+
+  let hiring_manager: HiringManagerEvaluation | undefined = undefined;
+  if (isHiringManager || Object.keys(rawHMEval).length > 0) {
+    const hmOA = asRecord(rawHMEval.overall_assessment ?? genEval.overall_assessment);
+    const hmRating = asStr(hmOA.rating) ?? asStr(rawHMEval.rating) ?? asStr(assessmentEval.readiness) ?? asStr(genEval.readiness) ?? asStr(scoresRaw.overall_band);
+    const hmExecSummary = asStr(hmOA.executive_summary) ?? asStr(hmOA.summary) ?? asStr(assessmentEval.summary) ?? asStr(bundled.summary);
+    const hmStrongestSignal = asStr(hmOA.strongest_signal ?? assessmentEval.strongest_signal ?? genEval.strongest_signal);
+    const hmBiggestGap = asStr(hmOA.biggest_gap ?? assessmentEval.biggest_gap ?? genEval.biggest_gap);
+    const hmTopStrengths = asStrArray(hmOA.top_strengths ?? rawHMEval.top_strengths ?? genEval.strongest_points);
+    const hmPriorityImps = asStrArray(hmOA.priority_improvements ?? rawHMEval.priority_improvements ?? genEval.priority_improvements);
+    const hmNextFocus = asStr(hmOA.next_practice_focus ?? rawHMEval.next_practice_focus);
+
+    // Competencies / Pillars
+    const rawPillars = Array.isArray(rawHMEval.competency_evaluations)
+      ? rawHMEval.competency_evaluations
+      : Array.isArray(rawHMEval.pillar_evaluations)
+        ? rawHMEval.pillar_evaluations
+        : Array.isArray((assessmentEval?.general as any)?.competency_evaluations)
+          ? (assessmentEval.general as any).competency_evaluations
+          : Array.isArray(genEval.competency_evaluations)
+            ? genEval.competency_evaluations
+            : Array.isArray(genEval.pillar_evaluations)
+              ? genEval.pillar_evaluations
+              : [];
+    const pillar_evaluations: HMCompetencyEvaluation[] = rawPillars.map((p: unknown) => {
+      const prec = asRecord(p);
+      const name = asStr(prec.competency) || asStr(prec.pillar) || "Leadership Competency";
+      const rawCP = asRecord(prec.checkpoints);
+      const checkpoints: HMCompetencyCheckpoints | undefined = Object.keys(rawCP).length > 0
+        ? {
+            problem_identification_and_initiative: asStr(rawCP.problem_identification_and_initiative),
+            technical_depth_and_soundness: asStr(rawCP.technical_depth_and_soundness),
+            stakeholder_alignment_and_communication: asStr(rawCP.stakeholder_alignment_and_communication),
+            personal_accountability: asStr(rawCP.personal_accountability),
+            measurable_impact: asStr(rawCP.measurable_impact),
+          }
+        : undefined;
+
+      return {
+        competency: name,
+        pillar: name,
+        rating: asStr(prec.rating) || "NOT_TESTED",
+        summary: asStr(prec.summary) || "",
+        checkpoints,
+        strengths: asStrArray(prec.strengths),
+        gaps: asStrArray(prec.gaps),
+        what_to_work_on: asStr(prec.what_to_work_on) || "",
+      };
+    });
+
+    // Questions
+    const rawQuestions = Array.isArray(rawHMEval.question_evaluations)
+      ? rawHMEval.question_evaluations
+      : Array.isArray((assessmentEval?.general as any)?.question_evaluations)
+        ? (assessmentEval.general as any).question_evaluations
+        : Array.isArray(genEval.question_evaluations)
+          ? genEval.question_evaluations
+          : [];
+    const question_evaluations: HMQuestionEvaluation[] = rawQuestions.map((q: unknown) => {
+      const qrec = asRecord(q);
+      const compName = asStr(qrec.competency) || asStr(qrec.pillar) || "Leadership Competency";
+      const covered = Array.isArray(qrec.covered_points)
+        ? qrec.covered_points.map((cp: unknown) => {
+            const cprec = asRecord(cp);
+            return {
+              id: asStr(cprec.id) || "",
+              description: asStr(cprec.description) || "",
+              required: typeof cprec.required === "boolean" ? cprec.required : true,
+              status: "COVERED",
+            };
+          })
+        : [];
+      const missed = Array.isArray(qrec.missed_points)
+        ? qrec.missed_points.map((mp: unknown) => {
+            const mprec = asRecord(mp);
+            return {
+              id: asStr(mprec.id) || "",
+              description: asStr(mprec.description) || "",
+              required: typeof mprec.required === "boolean" ? mprec.required : true,
+              status: asStr(mprec.status) || "MISSING",
+            };
+          })
+        : [];
+      const evList = Array.isArray(qrec.evidence)
+        ? qrec.evidence.map((ev: unknown) => {
+            const evrec = asRecord(ev);
+            return {
+              point_id: asStr(evrec.point_id),
+              quote: asStr(evrec.quote) || "",
+            };
+          }).filter((e) => e.quote)
+        : [];
+
+      const coachRec = asRecord(qrec.coaching);
+      const coaching = Object.keys(coachRec).length > 0
+        ? {
+            how_to_answer: asStr(coachRec.how_to_answer),
+            stronger_version: asStr(coachRec.stronger_version),
+          }
+        : null;
+
+      const rawStar = asRecord(qrec.star_framework);
+      const star_framework: HMStarFramework | undefined = Object.keys(rawStar).length > 0
+        ? {
+            situation: rawStar.situation ? { status: asStr(asRecord(rawStar.situation).status) || "NOT_MENTIONED", detail: asStr(asRecord(rawStar.situation).detail) } : undefined,
+            task: rawStar.task ? { status: asStr(asRecord(rawStar.task).status) || "NOT_MENTIONED", detail: asStr(asRecord(rawStar.task).detail) } : undefined,
+            action: rawStar.action ? { status: asStr(asRecord(rawStar.action).status) || "NOT_MENTIONED", detail: asStr(asRecord(rawStar.action).detail) } : undefined,
+            result: rawStar.result ? { status: asStr(asRecord(rawStar.result).status) || "NOT_MENTIONED", detail: asStr(asRecord(rawStar.result).detail) } : undefined,
+          }
+        : undefined;
+
+      return {
+        question_id: asStr(qrec.question_id) || "",
+        question_text: asStr(qrec.question_text) || "",
+        competency: compName,
+        pillar: compName,
+        question_type: asStr(qrec.question_type) || undefined,
+        difficulty_level: asStr(qrec.difficulty_level),
+        response_state: asStr(qrec.response_state),
+        rating: asStr(qrec.rating) || "GOOD",
+        personal_agency: asStr(qrec.personal_agency) || undefined,
+        star_framework,
+        covered_points: covered,
+        missed_points: missed,
+        leadership_signals_demonstrated: asStrArray(qrec.leadership_signals_demonstrated),
+        leadership_signals_missing: asStrArray(qrec.leadership_signals_missing),
+        critical_failure_triggered: asStr(qrec.critical_failure_triggered) ?? null,
+        evidence: evList,
+        observation: asStr(qrec.observation) || "",
+        top_fix: asStr(qrec.top_fix) || "",
+        coaching,
+      };
+    });
+
+    // Behavioral Delivery
+    const rawDelivery = asRecord(
+      rawHMEval.behavioral_delivery_analysis ??
+      (assessmentEval?.general as any)?.behavioral_delivery_analysis ??
+      genEval.behavioral_delivery_analysis
+    );
+    const behavioral_delivery_analysis: HMBehavioralDeliveryAnalysis | undefined = Object.keys(rawDelivery).length > 0
+      ? {
+          directness: asStr(rawDelivery.directness),
+          structured_storytelling: asStr(rawDelivery.structured_storytelling),
+          conciseness_and_focus: asStr(rawDelivery.conciseness_and_focus) || asStr(rawDelivery.conciseness_and_pacing),
+          conciseness_and_pacing: asStr(rawDelivery.conciseness_and_pacing) || asStr(rawDelivery.conciseness_and_focus),
+          answer_depth: asStr(rawDelivery.answer_depth),
+          authenticity_and_poise: asStr(rawDelivery.authenticity_and_poise),
+          observation: asStr(rawDelivery.observation),
+        }
+      : undefined;
+
+    hiring_manager = {
+      overall_assessment: {
+        rating: hmRating,
+        executive_summary: hmExecSummary,
+        strongest_signal: hmStrongestSignal,
+        biggest_gap: hmBiggestGap,
+        top_strengths: hmTopStrengths,
+        priority_improvements: hmPriorityImps,
+        next_practice_focus: hmNextFocus,
+      },
+      competency_evaluations: pillar_evaluations,
+      pillar_evaluations,
+      question_evaluations,
+      behavioral_delivery_analysis,
+    };
+  }
+
   // ── Non-technical analysis ───────────────────────────────────────────────
   const nt = asRecord(txEval.non_technical_analysis_json ?? repData.non_technical_analysis_json);
   const non_technical = Object.keys(nt).length ? {
@@ -1709,6 +2002,7 @@ export function normalizeReport(
       save_transcript: consentSaveTranscript,
     },
     technical_evaluation,
+    hiring_manager,
   };
 }
 
