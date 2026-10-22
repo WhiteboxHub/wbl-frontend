@@ -764,6 +764,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         sessionStorage.removeItem('aiprep_active_mode');
         sessionStorage.removeItem('aiprep_wizard_step');
         sessionStorage.removeItem('aiprep_hardware_check');
+        sessionStorage.removeItem('aiprep_jd_text');
+        sessionStorage.removeItem('aiprep_jd_filename');
+        sessionStorage.removeItem('aiprep_jd_role');
+        sessionStorage.removeItem('aiprep_jd_company');
         window.dispatchEvent(
           new CustomEvent('aiprep-layout-mode', {
             detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
@@ -1500,6 +1504,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           sessionStorage.removeItem('aiprep_active_mode');
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.removeItem('aiprep_hardware_check');
+          sessionStorage.removeItem('aiprep_jd_text');
+          sessionStorage.removeItem('aiprep_jd_filename');
+          sessionStorage.removeItem('aiprep_jd_role');
+          sessionStorage.removeItem('aiprep_jd_company');
           localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
         } catch (_) {}
       }
