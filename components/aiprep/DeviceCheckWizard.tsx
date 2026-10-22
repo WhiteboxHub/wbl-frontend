@@ -6,7 +6,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity, ArrowLeft, Upload, FileText, ArrowRight } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity, ArrowLeft, Upload, FileText, ArrowRight, Loader2 } from 'lucide-react';
+import { extractDocumentText } from '@/utils/documentTextExtractor';
 import { AssessmentConfig } from './Assessmentselection';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
 import PracticeStep from './PracticeStep';
@@ -79,6 +80,7 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
   onNext,
 }) => {
   const [jdError, setJdError] = useState<string>('');
+  const [jdParsing, setJdParsing] = useState<boolean>(false);
 
   const persistJd = (text: string, filename: string) => {
     if (typeof window === 'undefined') return;
@@ -94,33 +96,37 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     }
   };
 
-  const handleFileRead = (file: File) => {
+  const handleFileRead = async (file: File) => {
     const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
     const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
     if (!allowedExtensions.includes(ext)) {
-      setJdError('Unsupported file type. Please upload a PDF, DOC, DOCX, or TXT file.');
+      setJdError('Unsupported file type. Please upload a PDF, DOCX, or TXT file.');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
       setJdError('File size exceeds the 10 MB limit.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result;
-      if (typeof text === 'string' && text.trim()) {
-        setJdText(text);
+
+    setJdParsing(true);
+    setJdError('');
+
+    try {
+      const extractedText = await extractDocumentText(file);
+      if (extractedText && extractedText.trim()) {
+        setJdText(extractedText);
         setJdFileName(file.name);
         setJdError('');
-        persistJd(text, file.name);
+        persistJd(extractedText, file.name);
       } else {
-        setJdError('Could not read file content. Please try a different file or paste the JD text directly.');
+        setJdError('Could not extract readable text from this file. It may be a scanned image or empty. Please copy and paste the JD text directly.');
       }
-    };
-    reader.onerror = () => {
-      setJdError('Failed to read the file. Please try again or paste the JD text directly.');
-    };
-    reader.readAsText(file);
+    } catch (err: any) {
+      console.error('Document extraction error:', err);
+      setJdError(err?.message || 'Failed to read the file. Please try again or paste the JD text directly.');
+    } finally {
+      setJdParsing(false);
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,8 +234,20 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
             </div>
           )}
 
-          {/* File uploaded state */}
-          {hasFile ? (
+          {/* File parsing state */}
+          {jdParsing ? (
+            <div className="flex flex-col items-center justify-center p-6 flex-1 gap-3 min-h-[330px] sm:min-h-[350px]">
+              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
+                <Loader2 className="w-7 h-7 text-purple-600 dark:text-purple-400 animate-spin" />
+              </div>
+              <div className="text-center max-w-md">
+                <p className="text-sm font-bold text-slate-900 dark:text-white">Extracting text from document...</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Parsing your file directly in your browser. This takes just a moment.
+                </p>
+              </div>
+            </div>
+          ) : hasFile ? (
             <div className="flex flex-col items-center justify-center p-6 flex-1 gap-3 min-h-[330px] sm:min-h-[350px]">
               <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
                 <FileText className="w-7 h-7 text-purple-600 dark:text-purple-400" />
@@ -379,10 +397,15 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
         </button>
         <button
           type="button"
+          disabled={jdParsing}
           onClick={handleNextClick}
-          className="px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer inline-flex items-center justify-center gap-1.5"
+          className={`px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 inline-flex items-center justify-center gap-1.5 ${
+            jdParsing
+              ? 'bg-purple-400 cursor-not-allowed opacity-75'
+              : 'bg-[#7C3AED] hover:bg-[#6D28D9] cursor-pointer'
+          }`}
         >
-          <span>Next</span>
+          <span>{jdParsing ? 'Extracting...' : 'Next'}</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
