@@ -771,11 +771,7 @@ export function EvaluationContent({
 
   const authToken =
     typeof window !== "undefined"
-      ? localStorage.getItem("access_token") ||
-        localStorage.getItem("token") ||
-        localStorage.getItem("auth_token") ||
-        localStorage.getItem("bearer_token") ||
-        ""
+      ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
       : "";
 
   const rawMediaType = (report.assessment.media_type || "").toUpperCase();
