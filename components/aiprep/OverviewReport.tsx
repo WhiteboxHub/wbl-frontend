@@ -48,7 +48,6 @@ import type { AssessmentDetail } from "@/types/aiprep";
 import {
   REPORT_TABS,
   tabFromParam,
-  paramFromTab,
   type ReportTab,
 } from "./report-tabs";
 import { getUserTeamRole } from "@/utils/auth";
@@ -114,6 +113,10 @@ const CONCEPT_LABEL_MAP: Readonly<Record<string, string>> = {
   automated_testing: "Automated Testing",
   deployment_strategy: "Deployment Strategy",
 
+  // ── Models & AI Platforms ──
+  model_selection_or_routing: "Model Selection / Routing",
+  model_registry: "Model Registry",
+
   // ── Cloud ──
   cloud_providers: "Cloud Providers",
   compute_services: "Compute Services",
@@ -136,73 +139,6 @@ export function getConceptLabel(key: string): string {
     .replaceAll("_", " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
-
-// Fixed evaluation concepts to show in checklists (shows covered, partial, not mentioned, N/A)
-const AGENTIC_AI_CONCEPTS = [
-  "agentic_ai",
-  "agent_framework",
-  "orchestration",
-  "design_patterns",
-  "agent_to_agent",
-  "multi_agent",
-  "mcp",
-  "tool_calling",
-  "memory_management",
-  "context_engineering",
-  "evaluations",
-  "guardrails",
-  "observability",
-  "governance",
-  "prompt_engineering",
-  "reasoning_strategy",
-] as const;
-
-const RAG_CONCEPTS = [
-  "rag",
-  "retrieval",
-  "ingestion",
-  "cleaning_preprocessing",
-  "chunking",
-  "embeddings",
-  "vector_database",
-  "hybrid_retrieval",
-  "reranking",
-  "metadata_filtering",
-  "knowledge_graph",
-  "ontology",
-  "query_optimization",
-  "caching",
-  "retrieval_evaluation",
-] as const;
-
-const SE_CONCEPTS = [
-  "apis",
-  "api_gateway",
-  "fastapi",
-  "backend_services",
-  "microservices",
-  "react_frontend",
-  "sql_database",
-  "document_nosql_database",
-  "caching",
-] as const;
-
-const DEVOPS_CONCEPTS = [
-  "cicd",
-  "github_actions",
-  "gitops",
-  "automated_testing",
-  "deployment_strategy",
-  "docker",
-  "kubernetes",
-] as const;
-
-const CLOUD_CONCEPTS = [
-  "aws",
-  "gcp",
-  "azure",
-  "terraform",
-] as const;
 
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -351,7 +287,10 @@ const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
   /\blacks?\s+(any\s+)?content\s+to\s+evaluate\b/i,
   /^no\s+specific\s+observation\s+recorded/i,
   /^eye\s+contact,\s+framing,\s+and\s+visual\s+presentation\s+evaluated\.?$/i,
-  /^assessment\s+completed\.?$/i,
+  /^(the\s+)?(candidate|speaker)\s+is\s+answering\s+technical/i,
+  /thank\s+you\s+for\s+watching/i,
+  /thanks\s+for\s+watching/i,
+  /please\s+(like\s+and\s+)?subscribe/i,
   /^(thank\s+you|thanks\s+for\s+watching)\.?$/i,
 ];
 
@@ -390,6 +329,22 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   if (isInsufficient) {
     return false;
   }
+  const fullText = (report.transcript?.full_text || "").trim();
+  if (
+    /^(the\s+)?(candidate|speaker)\s+is\s+answering\s+technical/i.test(fullText) ||
+    /thank\s+you\s+for\s+watching/i.test(fullText) ||
+    /thanks\s+for\s+watching/i.test(fullText)
+  ) {
+    const stripped = fullText
+      .replace(/^(the\s+)?(candidate|speaker)\s+is\s+answering\s+technical[^\.\n]*/gi, "")
+      .replace(/thank\s+you\s+for\s+watching!?/gi, "")
+      .replace(/thanks\s+for\s+watching!?/gi, "")
+      .trim();
+    if (stripped.length < 15) {
+      return false;
+    }
+  }
+
   if (
     Boolean(report.technical_evaluation) ||
     isRealContent(report.overall_summary) ||
@@ -398,7 +353,6 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   ) {
     return true;
   }
-  const fullText = (report.transcript?.full_text || "").trim();
   return fullText.length > 15;
 }
 
@@ -577,27 +531,9 @@ function isRelevantToSection(topic: string, secKeys: string[]): boolean {
   return false;
 }
 
-function matchesConceptOrTech(tech: string, conceptKey: string): boolean {
-  const normTech = tech.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const normKey = conceptKey.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!normTech || !normKey) return false;
-  if (normTech === normKey) return true;
-  // Common aliases and abbreviations
-  if (normKey === "cicd" && (normTech === "cicd" || normTech.includes("continuousintegration") || normTech.includes("continuousdeployment"))) return true;
-  if (normKey === "kubernetes" && (normTech === "k8s" || normTech === "kube" || normTech === "kubectl" || normTech === "eks" || normTech === "gke" || normTech === "aks")) return true;
-  if (normKey === "docker" && (normTech === "dockerfile" || normTech === "compose" || normTech === "containerd" || normTech === "containers")) return true;
-  if (normKey === "aws" && (normTech === "amazonwebservices" || normTech === "amazoncloud" || normTech === "ec2" || normTech === "s3" || normTech === "lambda" || normTech === "ecs")) return true;
-  if (normKey === "gcp" && (normTech === "googlecloud" || normTech === "googlecloudplatform" || normTech === "gke")) return true;
-  if (normKey === "azure" && (normTech === "microsoftazure" || normTech === "aks")) return true;
-  if (normKey === "terraform" && (normTech === "tf" || normTech === "opentofu" || normTech === "iac")) return true;
-  if (normKey === "githubactions" && (normTech === "ghactions" || normTech === "githubaction")) return true;
-  return false;
-}
-
 function resolveSectionData(
   report: NormalizedReport,
   secKeys: string[],
-  conceptMasterList: readonly string[],
   inventoryKeys: string[] = []
 ): SectionEvalData {
   const {
@@ -648,7 +584,7 @@ function resolveSectionData(
 
   const observations = Array.from(obsSet);
 
-  // 4. Technologies Mentioned
+  // 4. Technologies Mentioned (strictly scoped to this section, no global bleed)
   const techSet = new Set<string>();
   matchedSecs.forEach((sec) => {
     if (Array.isArray(sec.technologies_mentioned)) {
@@ -661,63 +597,57 @@ function resolveSectionData(
       list.forEach((t: string) => t && t.trim() && techSet.add(t.trim()));
     }
   });
-  // Also check if any item anywhere in technology_inventory matches any concept in conceptMasterList
-  if (technology_inventory && typeof technology_inventory === "object") {
-    Object.values(technology_inventory).forEach((list) => {
-      if (Array.isArray(list)) {
-        list.forEach((t) => {
-          if (typeof t === "string" && t.trim()) {
-            const trimmed = t.trim();
-            if (conceptMasterList.some((cKey) => matchesConceptOrTech(trimmed, cKey))) {
-              techSet.add(trimmed);
-            }
-          }
-        });
-      }
-    });
-  }
 
-  // 5. Concepts Covered vs Missed
+  // 5. Concepts Covered vs Missed (100% Dynamic rendering of backend evaluation)
   const coveredSet = new Set<string>();
   const missedSet = new Set<string>();
 
-  conceptMasterList.forEach((cKey) => {
-    let isCovered = false;
-
-    // Check matched section concepts
-    matchedSecs.forEach((sec) => {
-      if (sec.concepts) {
-        for (const [k, v] of Object.entries(sec.concepts)) {
-          if (matchesConceptOrTech(k, cKey)) {
-            const st = (v || "").toUpperCase().trim();
-            if (["COVERED", "STRONG", "GOOD", "EXCELLENT", "PARTIAL"].includes(st)) {
-              isCovered = true;
-            }
-          }
+  // Extract concepts dynamically from backend evaluation for these sections
+  matchedSecs.forEach((sec) => {
+    if (sec.concepts && typeof sec.concepts === "object") {
+      for (const [k, v] of Object.entries(sec.concepts)) {
+        if (!k) continue;
+        // Strict requirement: Caching belongs exclusively to Software Engineering
+        if (k.toLowerCase() === "caching" && !secKeys.includes("software_engineering")) {
+          continue;
+        }
+        const st = (v || "").toUpperCase().trim();
+        if (["COVERED", "STRONG", "GOOD", "EXCELLENT", "PARTIAL", "TRUE", "YES"].includes(st)) {
+          coveredSet.add(k);
+        } else {
+          // Exhaustive fallback: anything not covered is missed (NOT_MENTIONED, NOT_APPLICABLE, N/A, etc.)
+          missedSet.add(k);
         }
       }
-      if (sec.technologies_mentioned && Array.isArray(sec.technologies_mentioned)) {
-        if (sec.technologies_mentioned.some((t) => matchesConceptOrTech(t, cKey))) {
-          isCovered = true;
-        }
-      }
-    });
-
-    // Check techSet
-    if (Array.from(techSet).some((t) => matchesConceptOrTech(t, cKey))) {
-      isCovered = true;
-    }
-
-    if (isCovered) {
-      coveredSet.add(cKey);
-    } else {
-      missedSet.add(cKey);
     }
   });
 
-  // If any concepts or technologies were covered, ensure status is not NOT_MENTIONED
-  if (coveredSet.size > 0 && status === "NOT_MENTIONED") {
-    status = coveredSet.size >= 3 ? "STRONG" : "PARTIAL";
+  // Strict invariant: An item cannot be both covered and missed
+  coveredSet.forEach((item) => {
+    missedSet.delete(item);
+    missedSet.delete(item.toLowerCase().trim());
+  });
+
+  // 5b. Card Status Rule:
+  // "STRONG" requires: totalCovered >= totalMissed AND overall_status is COVERED/STRONG
+  const totalCovered = coveredSet.size;
+  const totalMissed = missedSet.size;
+
+  if (status === "WEAK") {
+    // Preserve "WEAK" status resolved in Step 1 from backend section evaluations
+  } else if (totalCovered === 0) {
+    status = "NOT_MENTIONED";
+  } else {
+    const hasCoveredStatus = matchedSecs.some((s) => {
+      const st = (s.status || "").toUpperCase().trim();
+      return ["STRONG", "EXCELLENT", "GOOD", "COVERED", "POSITIVE"].includes(st);
+    });
+
+    if (totalCovered >= totalMissed && hasCoveredStatus) {
+      status = "STRONG";
+    } else {
+      status = "PARTIAL";
+    }
   }
 
   // 6. Recommendations / Missed tools to include
@@ -933,29 +863,34 @@ export function EvaluationContent({
   const introData = resolveSectionData(
     report,
     ["career_story", "current_role", "current_project", "ai_engineering_evolution", "introduction_quality"],
-    [],
     ["career"]
   );
 
-
   const aiData = resolveSectionData(
     report,
-    ["agentic_ai", "rag_and_retrieval", "models_and_ai_platforms"],
-    [...AGENTIC_AI_CONCEPTS, ...RAG_CONCEPTS],
+    [
+      "agentic_ai",
+      "rag_and_retrieval",
+      "models_and_ai_platforms",
+      "ai_engineering",
+      "ai_agents_multiagent_mentioned",
+      "mcp_mentioned",
+      "memory_context_engineering_mentioned",
+      "guardrails_evals_observability_mentioned",
+      "rag_retrieval_chunking_mentioned",
+    ],
     ["ai_engineering", "agent_frameworks", "agent_protocols_and_patterns", "retrieval_and_rag", "vector_databases", "models", "model_platforms"]
   );
 
   const seData = resolveSectionData(
     report,
     ["software_engineering"],
-    SE_CONCEPTS,
     ["software_engineering", "backend_and_api", "frontend", "databases"]
   );
 
   const devopsCloudData = resolveSectionData(
     report,
     ["cicd_and_delivery", "cloud_and_infrastructure", "devops", "cloud", "infrastructure", "cicd", "containers_and_orchestration", "infrastructure_as_code"],
-    [...DEVOPS_CONCEPTS, ...CLOUD_CONCEPTS],
     ["devops", "cloud", "cicd", "containers_and_orchestration", "infrastructure_as_code", "cloud_and_infrastructure", "cicd_and_delivery", "containers", "infrastructure"]
   );
 
@@ -1451,28 +1386,34 @@ export function DetailsContent({
   const introData = resolveSectionData(
     report,
     ["career_story", "current_role", "current_project", "ai_engineering_evolution", "introduction_quality"],
-    [],
     ["career"]
   );
 
   const aiData = resolveSectionData(
     report,
-    ["agentic_ai", "rag_and_retrieval", "models_and_ai_platforms"],
-    [...AGENTIC_AI_CONCEPTS, ...RAG_CONCEPTS],
+    [
+      "agentic_ai",
+      "rag_and_retrieval",
+      "models_and_ai_platforms",
+      "ai_engineering",
+      "ai_agents_multiagent_mentioned",
+      "mcp_mentioned",
+      "memory_context_engineering_mentioned",
+      "guardrails_evals_observability_mentioned",
+      "rag_retrieval_chunking_mentioned",
+    ],
     ["ai_engineering", "agent_frameworks", "agent_protocols_and_patterns", "retrieval_and_rag", "vector_databases", "models", "model_platforms"]
   );
 
   const seData = resolveSectionData(
     report,
     ["software_engineering"],
-    SE_CONCEPTS,
     ["software_engineering", "backend_and_api", "frontend", "databases"]
   );
 
   const devopsCloudData = resolveSectionData(
     report,
     ["cicd_and_delivery", "cloud_and_infrastructure", "devops", "cloud", "infrastructure", "cicd", "containers_and_orchestration", "infrastructure_as_code"],
-    [...DEVOPS_CONCEPTS, ...CLOUD_CONCEPTS],
     ["devops", "cloud", "cicd", "containers_and_orchestration", "infrastructure_as_code", "cloud_and_infrastructure", "cicd_and_delivery", "containers", "infrastructure"]
   );
 
@@ -2196,13 +2137,6 @@ export default function AiPrepReport({
     if (resolvedSubTab) {
       setDetailsSubTab(resolvedSubTab);
     }
-    const param = paramFromTab(tabLabel);
-    const sectionParam = resolvedSubTab ? `&section=${resolvedSubTab}` : "";
-    const fromParam = searchParams.get("from");
-    const fromQuery = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
-
-    const targetUrl = `/aiprep/reports/${assessmentId}?tab=${param}${sectionParam}${fromQuery}`;
-    router.push(targetUrl, { scroll: false });
   };
 
   if (loading) {
@@ -2309,7 +2243,8 @@ export default function AiPrepReport({
         />
 
         <main>
-          {isOverviewTab ? (
+          {/* Keep both tabs mounted in the DOM to preserve audio/video playback and prevent unmount errors */}
+          <div className={isOverviewTab ? "block" : "hidden"}>
             <EvaluationContent
               report={report}
               videoRef={videoRef}
@@ -2318,7 +2253,8 @@ export default function AiPrepReport({
               onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
             />
-          ) : (
+          </div>
+          <div className={!isOverviewTab ? "block" : "hidden"}>
             <DetailsContent
               report={report}
               seekTo={seekTo}
@@ -2328,7 +2264,7 @@ export default function AiPrepReport({
               onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
             />
-          )}
+          </div>
         </main>
       </div>
 
