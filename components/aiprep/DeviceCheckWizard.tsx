@@ -472,6 +472,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       } catch { }
       const activePath = topPath || currentPath;
+      const savedStep = window.sessionStorage?.getItem('aiprep_wizard_step') as WizardStep | null;
+
+      // If we are under /user_dashboard and sessionStorage indicates we were on JD_UPLOAD,
+      // restore JD_UPLOAD because shouldSyncUrl intentionally suppressed the URL change.
+      if (savedStep === 'JD_UPLOAD' && activePath.startsWith('/user_dashboard')) {
+        return 'JD_UPLOAD';
+      }
       // When accessing /aiprep directly or assessment type route, always start at Step 1 (Assessment Type)
       if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
         return 'CONFIGURATION';
@@ -488,7 +495,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         return urlStep;
       }
       // Check sessionStorage fallback
-      const savedStep = window.sessionStorage?.getItem('aiprep_wizard_step') as WizardStep | null;
       if (savedStep && ALL_WIZARD_STEPS.includes(savedStep)) {
         return savedStep;
       }
