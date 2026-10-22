@@ -496,20 +496,50 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   return fullText.length > 15;
 }
 
-function getTranscriptDuration(report: NormalizedReport): string {
+function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: number | null): string {
+  // If the media element has already loaded and reported its exact duration, prioritize it for 100% sync
+  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    const totalSec = Math.round(mediaDurationSec);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    if (mins > 0 && secs > 0) return `${mins} min ${secs} sec`;
+    if (mins > 0) return `${mins} min`;
+    return `${secs} sec`;
+  }
+
   if (!hasRealSpeech(report)) return "";
   const assessment = report.assessment;
   let totalSec: number | null = null;
 
   const dataRec = assessment.data as any;
-  if (dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
-    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+
+  // 1. Prioritize total recording / playback duration (matches VideoPlayer)
+  const candidateDurations = [
+    report.audio_telemetry?.speaking_duration_sec,
+    report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
+    report.audio?.recording_environment?.speaking_duration_seconds,
+    (assessment as any)?.duration_seconds,
+    (assessment as any)?.client_duration_seconds,
+    (assessment as any)?.total_duration_seconds,
+    dataRec?.total_audio_duration_seconds,
+    dataRec?.audio_telemetry?.total_audio_duration_seconds,
+    dataRec?.duration_seconds,
+    dataRec?.client_duration_seconds,
+    dataRec?.audio_telemetry?.duration_seconds,
+    dataRec?.audio_telemetry?.speaking_duration_seconds,
+  ];
+
+  for (const dur of candidateDurations) {
+    if (dur != null) {
+      const sec = Number(dur);
+      if (!isNaN(sec) && sec > 0) {
+        totalSec = Math.round(sec);
+        break;
+      }
+    }
   }
-  if (!totalSec && (assessment as any)?.duration_seconds != null) {
-    const sec = Number((assessment as any).duration_seconds);
-    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
-  }
+
+  // 2. Fallback to last segment timestamp in transcript
   if (!totalSec && report.transcript?.segments && report.transcript.segments.length > 0) {
     const segs = report.transcript.segments;
     const lastSeg = segs[segs.length - 1];
@@ -517,6 +547,18 @@ function getTranscriptDuration(report: NormalizedReport): string {
       totalSec = Math.round(lastSeg.timestamp_s);
     }
   }
+
+  // 3. Fallback to speaking duration if total session duration is absent
+  if (!totalSec && dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
+    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+  if (!totalSec && report.audio_telemetry?.speaking_duration_sec != null) {
+    const sec = Number(report.audio_telemetry.speaking_duration_sec);
+    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  }
+
+  // 4. Fallback to estimated duration from words
   if (!totalSec && report.transcript?.full_text) {
     const words = report.transcript.full_text.trim().split(/\s+/).filter(Boolean).length;
     if (words > 0) {
@@ -888,6 +930,7 @@ export interface OverviewProps {
   assessmentId: string;
   onSelectTab: (tab: ReportTab, subTab?: string) => void;
   onOpenTranscript?: () => void;
+  onDurationChange?: (duration: number) => void;
 }
 
 
@@ -1567,6 +1610,7 @@ export function EvaluationContent({
   assessmentId,
   onSelectTab,
   onOpenTranscript,
+  onDurationChange,
 }: OverviewProps) {
   const {
     youtube_url,
@@ -1640,8 +1684,14 @@ export function EvaluationContent({
     : undefined;
 
   const durationSeconds =
+    report.audio_telemetry?.speaking_duration_sec ||
+    report.delivery_analysis?.rawMetrics?.speaking_duration_seconds ||
     report.audio?.recording_environment?.speaking_duration_seconds ||
     (report as any).audio_telemetry?.duration ||
+    Number((report.assessment as any)?.duration_seconds) ||
+    Number((report.assessment as any)?.client_duration_seconds) ||
+    Number((report.assessment as any)?.total_duration_seconds) ||
+    Number((report.assessment?.data as any)?.audio_telemetry?.total_audio_duration_seconds) ||
     0;
 
 
@@ -1661,6 +1711,7 @@ export function EvaluationContent({
         videoRef={videoRef}
         seekTo={seekTo}
         assessmentId={assessmentId}
+        onDurationChange={onDurationChange}
       />
     );
   }
@@ -2013,6 +2064,7 @@ export function EvaluationContent({
               isAudioOnly={isAudioOnly}
               candidateName={report.candidate_name}
               durationSeconds={durationSeconds}
+              onDurationChange={onDurationChange}
             />
           </div>
         </section>
@@ -2236,6 +2288,7 @@ export function DetailsContent({
   activeTab,
   onSelectTab,
   onOpenTranscript,
+  onDurationChange,
 }: {
   report: NormalizedReport;
   seekTo: (seconds: number) => void;
@@ -2244,6 +2297,7 @@ export function DetailsContent({
   activeTab?: ReportTab;
   onSelectTab?: (tab: ReportTab) => void;
   onOpenTranscript?: () => void;
+  onDurationChange?: (duration: number) => void;
 }) {
   const {
     critical_gaps = [],
@@ -2349,6 +2403,7 @@ export function DetailsContent({
         seekTo={seekTo}
         videoRef={videoRef}
         assessmentId={String(report.assessment?.id || "")}
+        onDurationChange={onDurationChange}
       />
     );
   }
@@ -3051,6 +3106,7 @@ export interface ReportHeaderProps {
   activeTab: ReportTab;
   onSelectTab: (tab: ReportTab) => void;
   onOpenTranscript?: () => void;
+  mediaDuration?: number | null;
   onOpenJd?: () => void;
 }
 
@@ -3149,6 +3205,7 @@ export function ReportHeader({
   activeTab,
   onSelectTab,
   onOpenTranscript,
+  mediaDuration,
   onOpenJd,
 }: ReportHeaderProps) {
   const router = useRouter();
@@ -3213,7 +3270,7 @@ export function ReportHeader({
       })()
     : undefined;
 
-  const durationStr = getTranscriptDuration(report) || undefined;
+  const durationStr = getTranscriptDuration(report, mediaDuration) || undefined;
 
   const typeStr =
     assessment.assessment_type === "INTRO"
@@ -3375,6 +3432,7 @@ export default function AiPrepReport({
   const [statusMsg, setStatusMsg] = useState("");
   const [isCancelled, setIsCancelled] = useState(false);
   const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
+  const [mediaDuration, setMediaDuration] = useState<number | null>(null);
   const [isJdModalOpen, setIsJdModalOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -3653,6 +3711,7 @@ export default function AiPrepReport({
           activeTab={activeTab}
           onSelectTab={handleTabChange}
           onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+          mediaDuration={mediaDuration}
           onOpenJd={() => setIsJdModalOpen(true)}
         />
 
@@ -3666,6 +3725,7 @@ export default function AiPrepReport({
               assessmentId={assessmentId}
               onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+              onDurationChange={setMediaDuration}
             />
           </div>
           <div className={!isOverviewTab ? "block" : "hidden"}>
@@ -3677,6 +3737,7 @@ export default function AiPrepReport({
               activeTab={activeTab}
               onSelectTab={handleTabChange}
               onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+              onDurationChange={setMediaDuration}
             />
           </div>
         </main>
