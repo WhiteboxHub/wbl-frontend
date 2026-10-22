@@ -170,6 +170,169 @@ export interface TranscriptEvidence {
   observation?: string;
 }
 
+// ─── JD Assessment Interfaces ────────────────────────────────────────────────
+
+export interface JdValidation {
+  status?: "VALID" | "PARTIAL" | "INVALID" | string;
+  reason?: string;
+}
+
+export interface JdAnalysis {
+  role_title?: string;
+  seniority_level?: "JUNIOR" | "MID" | "SENIOR" | "LEAD" | "UNSPECIFIED" | string;
+  domain?: string;
+  core_responsibilities?: string[];
+  must_have_requirements?: string[];
+  nice_to_have_requirements?: string[];
+  tech_stack?: Record<string, string[]>;
+  soft_skills_and_ownership?: string[];
+}
+
+export interface JdRequirementCoverageItem {
+  requirement: string;
+  category?: "TECHNICAL" | "RESPONSIBILITY" | "DOMAIN" | "EXPERIENCE_LEVEL" | "SOFT_SKILL" | string;
+  importance?: "MUST_HAVE" | "NICE_TO_HAVE" | string;
+  status: "COVERED" | "PARTIAL" | "NOT_MENTIONED" | "NOT_APPLICABLE" | string;
+  match_type?: "EXACT" | "EQUIVALENT" | "RELATED" | "NONE" | string;
+  evidence?: string | null;
+  note?: string;
+}
+
+export interface JdRoleAlignment {
+  overall_status?: string;
+  role_relevance?: string;
+  responsibilities_alignment?: string;
+  seniority_match?: "MATCHES" | "BELOW_TARGET" | "ABOVE_TARGET" | "UNCLEAR" | string;
+  domain_fit?: string;
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdCareerStory {
+  overall_status?: string;
+  timeline?: string;
+  roles?: string;
+  career_transitions?: string;
+  leads_logically_to_target_role?: string;
+  transitions_identified?: string[];
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdCurrentRoleAndProject {
+  overall_status?: string;
+  current_role?: string;
+  responsibilities?: string;
+  technical_ownership?: string;
+  project_explained?: string;
+  application_purpose?: string;
+  users_or_customers?: string;
+  business_problem?: string;
+  personal_contribution?: string;
+  relevance_to_jd?: string;
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdTechnicalAlignment {
+  overall_status?: string;
+  core_stack_alignment?: string;
+  architecture_and_design_depth?: string;
+  production_and_deployment?: string;
+  scale_and_performance?: string;
+  technologies_matching_jd?: string[];
+  equivalent_technologies?: string[];
+  jd_technologies_not_mentioned?: string[];
+  other_technologies_mentioned?: string[];
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdValueProposition {
+  overall_status?: string;
+  why_this_role?: string;
+  impact_and_outcomes?: string;
+  differentiators?: string[];
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdTailoringQuality {
+  tailored_to_role?: "STRONG" | "ADEQUATE" | "WEAK" | string;
+  relevant_experience_prioritized?: "STRONG" | "ADEQUATE" | "WEAK" | string;
+  irrelevant_content_ratio?: "LOW" | "MODERATE" | "HIGH" | string;
+  gap_bridging?: string;
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdIntroQuality {
+  clarity?: string;
+  coherence?: string;
+  technical_depth?: string;
+  business_context?: string;
+  personal_ownership?: string;
+  buzzword_density?: string;
+  length_appropriateness?: string;
+  observation?: string;
+}
+
+export interface JdSuggestedOpening {
+  note?: string;
+  example?: string;
+}
+
+export interface JdFinalAssessment {
+  jd_fit_summary?: string;
+  career_story_relevance?: string;
+  current_project_clarity?: string;
+  technical_alignment_depth?: string;
+  seniority_match?: string;
+  most_important_improvement?: string;
+}
+
+export interface JdIntroEvaluation {
+  jd_validation?: JdValidation;
+  overall_assessment?: {
+    jd_alignment?: "STRONG_FIT" | "GOOD_FIT" | "PARTIAL_FIT" | "WEAK_FIT" | string;
+    readiness?: string;
+    summary?: string;
+    strongest_signal?: string;
+    biggest_gap?: string;
+  };
+  jd_analysis?: JdAnalysis;
+  requirement_coverage?: JdRequirementCoverageItem[];
+  role_alignment?: JdRoleAlignment;
+  career_story?: JdCareerStory;
+  current_role_and_project?: JdCurrentRoleAndProject;
+  technical_alignment?: JdTechnicalAlignment;
+  value_proposition?: JdValueProposition;
+  tailoring_quality?: JdTailoringQuality;
+  introduction_quality?: JdIntroQuality;
+  technology_inventory?: {
+    jd_matched?: string[];
+    equivalent_to_jd?: string[];
+    other_mentioned?: string[];
+  };
+  strongest_points?: string[];
+  critical_gaps?: Array<{
+    topic?: string;
+    importance?: string;
+    status?: string;
+    what_is_missing?: string;
+    why_it_matters_for_this_role?: string;
+    suggested_addition?: string;
+  }>;
+  priority_improvements?: Array<{
+    priority?: number;
+    topic?: string;
+    guidance?: string;
+    example?: string;
+  }>;
+  suggested_opening?: JdSuggestedOpening;
+  final_assessment?: JdFinalAssessment;
+}
+
 export interface IntroOverallAssessment {
   readiness?: string;   // STRONG | GOOD | NEEDS_POLISH | WEAK
   summary?: string;
@@ -254,9 +417,11 @@ export interface NormalizedReport {
   strongest_points: string[];
   critical_gaps: {
     topic?: string;
+    importance?: string;
     status?: string;
     what_is_missing?: string;
     why_it_matters?: string;
+    why_it_matters_for_this_role?: string;
     suggested_addition?: string;
   }[];
   priority_improvements: {
@@ -345,6 +510,22 @@ export interface NormalizedReport {
     /** Whether the candidate consented to retain the transcript for display */
     save_transcript: boolean;
   };
+
+  // ── JD Intro Walkthrough Evaluation ──
+  is_jd_intro?: boolean;
+  jd_evaluation?: JdIntroEvaluation;
+  jd_validation?: JdValidation;
+  jd_alignment?: string; // "STRONG_FIT" | "GOOD_FIT" | "PARTIAL_FIT" | "WEAK_FIT"
+  jd_analysis?: JdAnalysis;
+  requirement_coverage?: JdRequirementCoverageItem[];
+  role_alignment?: JdRoleAlignment;
+  career_story?: JdCareerStory;
+  current_role_and_project?: JdCurrentRoleAndProject;
+  jd_technical_alignment?: JdTechnicalAlignment;
+  value_proposition?: JdValueProposition;
+  tailoring_quality?: JdTailoringQuality;
+  suggested_opening?: JdSuggestedOpening;
+  jd_final_assessment?: JdFinalAssessment;
 }
 
 // ─── Normalization ────────────────────────────────────────────────────────────
@@ -532,7 +713,8 @@ const SECTION_LABEL: Record<string, string> = {
 const SKIP_KEYS = new Set([
   "overall_assessment", "strongest_points", "critical_gaps",
   "priority_improvements", "final_assessment", "technology_inventory",
-  "introduction_quality",
+  "introduction_quality", "jd_validation", "jd_analysis",
+  "requirement_coverage", "suggested_opening",
 ]);
 
 export function normalizeReport(
@@ -574,13 +756,201 @@ export function normalizeReport(
 
   // Resolve intro_evaluation — it may be directly in transcript_evaluation, report_data, or bundled.general
   const genEval = asRecord(bundled.general);
+
+  // Check for JD Intro Evaluation in multiple locations
+  const rawJdIntro =
+    nested(txEval, "jd_intro_evaluation") && Object.keys(nested(txEval, "jd_intro_evaluation")).length
+      ? nested(txEval, "jd_intro_evaluation")
+      : Object.keys(nested(bundled, "jd_intro_evaluation")).length
+        ? nested(bundled, "jd_intro_evaluation")
+        : Object.keys(nested(repData, "jd_intro_evaluation")).length
+          ? nested(repData, "jd_intro_evaluation")
+          : (genEval.jd_analysis || genEval.requirement_coverage || genEval.jd_validation)
+            ? genEval
+            : null;
+
+  const isJdIntro = Boolean(
+    rawJdIntro ||
+    assessment.assessment_type === "JD_INTRO" ||
+    (bundled.general && Boolean((bundled.general as any).requirement_coverage))
+  );
+
+  let jdVal: JdValidation | undefined;
+  let jdAnalysis: JdAnalysis | undefined;
+  let reqCoverage: JdRequirementCoverageItem[] | undefined;
+  let roleAlign: JdRoleAlignment | undefined;
+  let careerStory: JdCareerStory | undefined;
+  let currentRoleProj: JdCurrentRoleAndProject | undefined;
+  let jdTechAlign: JdTechnicalAlignment | undefined;
+  let valueProp: JdValueProposition | undefined;
+  let tailoringQual: JdTailoringQuality | undefined;
+  let suggestedOpening: JdSuggestedOpening | undefined;
+  let jdFinalAssessment: JdFinalAssessment | undefined;
+  let jdAlignment: string | undefined;
+
+  if (rawJdIntro) {
+    const rawVal = asRecord(rawJdIntro.jd_validation);
+    if (Object.keys(rawVal).length) {
+      jdVal = {
+        status: asStr(rawVal.status),
+        reason: asStr(rawVal.reason),
+      };
+    }
+
+    const rawAnalysis = asRecord(rawJdIntro.jd_analysis);
+    if (Object.keys(rawAnalysis).length) {
+      const ts = asRecord(rawAnalysis.tech_stack);
+      const parsedTechStack: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(ts)) {
+        parsedTechStack[k] = asStrArray(v);
+      }
+      jdAnalysis = {
+        role_title: asStr(rawAnalysis.role_title),
+        seniority_level: asStr(rawAnalysis.seniority_level),
+        domain: asStr(rawAnalysis.domain),
+        core_responsibilities: asStrArray(rawAnalysis.core_responsibilities),
+        must_have_requirements: asStrArray(rawAnalysis.must_have_requirements),
+        nice_to_have_requirements: asStrArray(rawAnalysis.nice_to_have_requirements),
+        tech_stack: parsedTechStack,
+        soft_skills_and_ownership: asStrArray(rawAnalysis.soft_skills_and_ownership),
+      };
+    }
+
+    const rawReqCov = Array.isArray(rawJdIntro.requirement_coverage) ? rawJdIntro.requirement_coverage : [];
+    if (rawReqCov.length > 0) {
+      reqCoverage = rawReqCov.map((item: unknown) => {
+        const rc = asRecord(item);
+        return {
+          requirement: asStr(rc.requirement) || "Requirement",
+          category: asStr(rc.category),
+          importance: asStr(rc.importance),
+          status: asStr(rc.status) || "NOT_MENTIONED",
+          match_type: asStr(rc.match_type),
+          evidence: asStr(rc.evidence) ?? null,
+          note: asStr(rc.note),
+        };
+      });
+    }
+
+    const rawRoleAlign = asRecord(rawJdIntro.role_alignment);
+    if (Object.keys(rawRoleAlign).length) {
+      roleAlign = {
+        overall_status: asStr(rawRoleAlign.overall_status),
+        role_relevance: asStr(rawRoleAlign.role_relevance),
+        responsibilities_alignment: asStr(rawRoleAlign.responsibilities_alignment),
+        seniority_match: asStr(rawRoleAlign.seniority_match),
+        domain_fit: asStr(rawRoleAlign.domain_fit),
+        observation: asStr(rawRoleAlign.observation),
+        evidence: asStrArray(rawRoleAlign.evidence),
+      };
+    }
+
+    const rawCareerStory = asRecord(rawJdIntro.career_story);
+    if (Object.keys(rawCareerStory).length) {
+      careerStory = {
+        overall_status: asStr(rawCareerStory.overall_status),
+        timeline: asStr(rawCareerStory.timeline),
+        roles: asStr(rawCareerStory.roles),
+        career_transitions: asStr(rawCareerStory.career_transitions),
+        leads_logically_to_target_role: asStr(rawCareerStory.leads_logically_to_target_role),
+        transitions_identified: asStrArray(rawCareerStory.transitions_identified),
+        observation: asStr(rawCareerStory.observation),
+        evidence: asStrArray(rawCareerStory.evidence),
+      };
+    }
+
+    const rawCurrentRoleProj = asRecord(rawJdIntro.current_role_and_project);
+    if (Object.keys(rawCurrentRoleProj).length) {
+      currentRoleProj = {
+        overall_status: asStr(rawCurrentRoleProj.overall_status),
+        current_role: asStr(rawCurrentRoleProj.current_role),
+        responsibilities: asStr(rawCurrentRoleProj.responsibilities),
+        technical_ownership: asStr(rawCurrentRoleProj.technical_ownership),
+        project_explained: asStr(rawCurrentRoleProj.project_explained),
+        application_purpose: asStr(rawCurrentRoleProj.application_purpose),
+        users_or_customers: asStr(rawCurrentRoleProj.users_or_customers),
+        business_problem: asStr(rawCurrentRoleProj.business_problem),
+        personal_contribution: asStr(rawCurrentRoleProj.personal_contribution),
+        relevance_to_jd: asStr(rawCurrentRoleProj.relevance_to_jd),
+        observation: asStr(rawCurrentRoleProj.observation),
+        evidence: asStrArray(rawCurrentRoleProj.evidence),
+      };
+    }
+
+    const rawTechAlign = asRecord(rawJdIntro.technical_alignment);
+    if (Object.keys(rawTechAlign).length) {
+      jdTechAlign = {
+        overall_status: asStr(rawTechAlign.overall_status),
+        core_stack_alignment: asStr(rawTechAlign.core_stack_alignment),
+        architecture_and_design_depth: asStr(rawTechAlign.architecture_and_design_depth),
+        production_and_deployment: asStr(rawTechAlign.production_and_deployment),
+        scale_and_performance: asStr(rawTechAlign.scale_and_performance),
+        technologies_matching_jd: asStrArray(rawTechAlign.technologies_matching_jd),
+        equivalent_technologies: asStrArray(rawTechAlign.equivalent_technologies),
+        jd_technologies_not_mentioned: asStrArray(rawTechAlign.jd_technologies_not_mentioned),
+        other_technologies_mentioned: asStrArray(rawTechAlign.other_technologies_mentioned),
+        observation: asStr(rawTechAlign.observation),
+        evidence: asStrArray(rawTechAlign.evidence),
+      };
+    }
+
+    const rawValProp = asRecord(rawJdIntro.value_proposition);
+    if (Object.keys(rawValProp).length) {
+      valueProp = {
+        overall_status: asStr(rawValProp.overall_status),
+        why_this_role: asStr(rawValProp.why_this_role),
+        impact_and_outcomes: asStr(rawValProp.impact_and_outcomes),
+        differentiators: asStrArray(rawValProp.differentiators),
+        observation: asStr(rawValProp.observation),
+        evidence: asStrArray(rawValProp.evidence),
+      };
+    }
+
+    const rawTailoring = asRecord(rawJdIntro.tailoring_quality);
+    if (Object.keys(rawTailoring).length) {
+      tailoringQual = {
+        tailored_to_role: asStr(rawTailoring.tailored_to_role),
+        relevant_experience_prioritized: asStr(rawTailoring.relevant_experience_prioritized),
+        irrelevant_content_ratio: asStr(rawTailoring.irrelevant_content_ratio),
+        gap_bridging: asStr(rawTailoring.gap_bridging),
+        observation: asStr(rawTailoring.observation),
+        evidence: asStrArray(rawTailoring.evidence),
+      };
+    }
+
+    const rawSuggOpen = asRecord(rawJdIntro.suggested_opening);
+    if (Object.keys(rawSuggOpen).length) {
+      suggestedOpening = {
+        note: asStr(rawSuggOpen.note),
+        example: asStr(rawSuggOpen.example),
+      };
+    }
+
+    const rawJdFA = asRecord(rawJdIntro.final_assessment);
+    if (Object.keys(rawJdFA).length) {
+      jdFinalAssessment = {
+        jd_fit_summary: asStr(rawJdFA.jd_fit_summary),
+        career_story_relevance: asStr(rawJdFA.career_story_relevance),
+        current_project_clarity: asStr(rawJdFA.current_project_clarity),
+        technical_alignment_depth: asStr(rawJdFA.technical_alignment_depth),
+        seniority_match: asStr(rawJdFA.seniority_match),
+        most_important_improvement: asStr(rawJdFA.most_important_improvement),
+      };
+    }
+
+    const rawJdOA = asRecord(rawJdIntro.overall_assessment);
+    jdAlignment = asStr(rawJdOA.jd_alignment);
+  }
+
   const introEval = Object.keys(nested(txEval, "intro_evaluation")).length
     ? nested(txEval, "intro_evaluation")
-    : Object.keys(genEval).length
-      ? genEval
-      : txEval;
+    : rawJdIntro
+      ? rawJdIntro
+      : Object.keys(genEval).length
+        ? genEval
+        : txEval;
 
-  const rawOA = asRecord(introEval.overall_assessment);
+  const rawOA = asRecord(rawJdIntro?.overall_assessment ?? introEval.overall_assessment);
   const overallAssessment = {
     readiness: asStr(bundled.readiness) ?? asStr(rawOA.readiness) ?? asStr(bundled.overall_readiness),
     summary: asStr(bundled.summary) ?? asStr(rawOA.summary) ?? asStr(bundled.overall_summary),
@@ -720,21 +1090,25 @@ export function normalizeReport(
   }
 
   // ── Critical gaps & improvements ─────────────────────────────────────────
-  const cgRaw = Array.isArray(introEval.critical_gaps)
-    ? introEval.critical_gaps
-    : Array.isArray(bundled.critical_gaps)
-      ? bundled.critical_gaps
-      : Array.isArray(genEval.critical_gaps)
-        ? genEval.critical_gaps
-        : [];
+  const cgRaw = Array.isArray(rawJdIntro?.critical_gaps)
+    ? rawJdIntro.critical_gaps
+    : Array.isArray(introEval.critical_gaps)
+      ? introEval.critical_gaps
+      : Array.isArray(bundled.critical_gaps)
+        ? bundled.critical_gaps
+        : Array.isArray(genEval.critical_gaps)
+          ? genEval.critical_gaps
+          : [];
 
   const critical_gaps = cgRaw.map((g: unknown) => {
     const gap = asRecord(g);
     return {
       topic: asStr(gap.topic),
+      importance: asStr(gap.importance),
       status: asStr(gap.status),
       what_is_missing: asStr(gap.what_is_missing),
-      why_it_matters: asStr(gap.why_it_matters),
+      why_it_matters: asStr(gap.why_it_matters) ?? asStr(gap.why_it_matters_for_this_role),
+      why_it_matters_for_this_role: asStr(gap.why_it_matters_for_this_role) ?? asStr(gap.why_it_matters),
       suggested_addition: asStr(gap.suggested_addition),
     };
   });
@@ -1044,7 +1418,21 @@ export function normalizeReport(
     non_technical,
     intro_sections,
     technology_inventory: Object.keys(technology_inventory).length > 0 ? technology_inventory : undefined,
-    strongest_points: asStrArray(introEval.strongest_points),
+    strongest_points: asStrArray(rawJdIntro?.strongest_points ?? introEval.strongest_points ?? bundled.strongest_points ?? genEval.strongest_points),
+    is_jd_intro: isJdIntro,
+    jd_evaluation: rawJdIntro ? (rawJdIntro as JdIntroEvaluation) : undefined,
+    jd_validation: jdVal,
+    jd_alignment: jdAlignment,
+    jd_analysis: jdAnalysis,
+    requirement_coverage: reqCoverage,
+    role_alignment: roleAlign,
+    career_story: careerStory,
+    current_role_and_project: currentRoleProj,
+    jd_technical_alignment: jdTechAlign,
+    value_proposition: valueProp,
+    tailoring_quality: tailoringQual,
+    suggested_opening: suggestedOpening,
+    jd_final_assessment: jdFinalAssessment,
     critical_gaps,
     priority_improvements,
     final_assessment,

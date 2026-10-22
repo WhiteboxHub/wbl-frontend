@@ -38,11 +38,13 @@ import {
   Target,
   Layers,
   Boxes,
+  Briefcase,
 } from "lucide-react";
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
   normalizeReport,
   type NormalizedReport,
+  type JdRequirementCoverageItem,
 } from "@/types/aiprep-report";
 import type { AssessmentDetail } from "@/types/aiprep";
 import {
@@ -207,6 +209,142 @@ const CLOUD_CONCEPTS = [
 // ═════════════════════════════════════════════════════════════════════════════
 //  QUALITATIVE BADGE (STATUS PILL)
 // ═════════════════════════════════════════════════════════════════════════════
+
+export function JdFitBadge({ fit, size = "md" }: { fit?: string; size?: "sm" | "md" }) {
+  if (!fit) return null;
+  const raw = fit.toUpperCase().trim();
+  let label = raw.replaceAll("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  let classes = "bg-slate-100 text-slate-700 border-slate-200";
+
+  if (raw === "STRONG_FIT" || raw === "STRONG") {
+    label = "Strong Fit";
+    classes = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  } else if (raw === "GOOD_FIT" || raw === "GOOD") {
+    label = "Good Fit";
+    classes = "bg-blue-50 text-blue-700 border-blue-200";
+  } else if (raw === "PARTIAL_FIT" || raw === "PARTIAL") {
+    label = "Partial Fit";
+    classes = "bg-amber-50 text-amber-700 border-amber-200";
+  } else if (raw === "WEAK_FIT" || raw === "WEAK") {
+    label = "Weak Fit";
+    classes = "bg-rose-50 text-rose-700 border-rose-200";
+  }
+
+  const px = size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs";
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full font-bold border shadow-2xs ${px} ${classes}`}>
+      <span className="size-1.5 rounded-full bg-current opacity-70" />
+      {label}
+    </span>
+  );
+}
+
+export function MatchBadge({ matchType }: { matchType?: string }) {
+  if (!matchType) return null;
+  const raw = matchType.toUpperCase().trim();
+  let label = raw;
+  let classes = "bg-slate-50 text-slate-600 border-slate-200";
+
+  if (raw === "EXACT") {
+    label = "Exact Match";
+    classes = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  } else if (raw === "EQUIVALENT") {
+    label = "Equivalent";
+    classes = "bg-sky-50 text-sky-700 border-sky-200";
+  } else if (raw === "RELATED") {
+    label = "Related Experience";
+    classes = "bg-amber-50 text-amber-700 border-amber-200";
+  } else if (raw === "NONE") {
+    label = "No Match";
+    classes = "bg-slate-100 text-slate-500 border-slate-200";
+  }
+
+  return (
+    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold border ${classes}`}>
+      {label}
+    </span>
+  );
+}
+
+export function SeniorityBadge({ match }: { match?: string }) {
+  if (!match) return null;
+  const raw = match.toUpperCase().trim();
+  let label = raw.replaceAll("_", " ");
+  let classes = "bg-slate-50 text-slate-600 border-slate-200";
+
+  if (raw === "MATCHES" || raw === "MATCH") {
+    label = "Matches Target Level";
+    classes = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  } else if (raw === "BELOW_TARGET") {
+    label = "Below Target Level";
+    classes = "bg-amber-50 text-amber-700 border-amber-200";
+  } else if (raw === "ABOVE_TARGET") {
+    label = "Above Target Level";
+    classes = "bg-purple-50 text-purple-700 border-purple-200";
+  } else if (raw === "UNCLEAR") {
+    label = "Seniority Unclear";
+    classes = "bg-slate-100 text-slate-600 border-slate-200";
+  }
+
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold border ${classes}`}>
+      {label}
+    </span>
+  );
+}
+
+export function SuggestedOpeningCard({ opening }: { opening?: { note?: string; example?: string } }) {
+  const [copied, setCopied] = useState(false);
+  if (!opening?.example) return null;
+
+  const handleCopy = () => {
+    if (opening.example) {
+      navigator.clipboard.writeText(opening.example);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/50 p-3.5 sm:p-4 shadow-2xs">
+      <div className="flex items-center justify-between gap-2 border-b border-indigo-100/80 pb-2 mb-2.5">
+        <div className="flex items-center gap-2 text-indigo-700">
+          <div className="p-1 rounded-lg bg-indigo-100/80 border border-indigo-200">
+            <Sparkles size={15} />
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+              Suggested Opening Pitch
+            </h3>
+            <p className="text-[11px] text-indigo-700/80">
+              {opening.note || "Built strictly from facts you stated in the transcript, tightened to fit this JD."}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 hover:bg-indigo-50 transition-colors cursor-pointer shadow-2xs shrink-0"
+        >
+          {copied ? (
+            <>
+              <Check size={12} className="text-emerald-600" />
+              <span className="text-emerald-700 font-bold">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy size={12} />
+              <span>Copy Opening</span>
+            </>
+          )}
+        </button>
+      </div>
+      <p className="text-xs sm:text-sm text-slate-800 leading-relaxed italic bg-white/90 p-3 rounded-lg border border-indigo-100 shadow-2xs">
+        "{opening.example}"
+      </p>
+    </section>
+  );
+}
 
 const QualitativeBadge = memo(function QualitativeBadge({
   status,
@@ -392,6 +530,8 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   if (
     isRealContent(report.overall_summary) ||
     (report.intro_sections && report.intro_sections.length > 0) ||
+    (report.requirement_coverage && report.requirement_coverage.length > 0) ||
+    Boolean(report.jd_alignment || report.jd_evaluation) ||
     Boolean(report.scores?.overall_band || report.scores?.ai_engineering?.band)
   ) {
     return true;
@@ -818,6 +958,676 @@ export interface OverviewProps {
   onOpenTranscript?: () => void;
 }
 
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  JD WALKTHROUGH DETAIL ACCORDIONS & CARDS
+// ═════════════════════════════════════════════════════════════════════════════
+
+function JdRequirementsAccordion({
+  coverage = [],
+  isExpanded,
+  onToggle,
+}: {
+  coverage: JdRequirementCoverageItem[];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const coveredItems = coverage.filter((r) => r.status === "COVERED");
+  const partialItems = coverage.filter((r) => r.status === "PARTIAL");
+  const missedItems = coverage.filter((r) => r.status === "NOT_MENTIONED");
+  const gapItems = [...partialItems, ...missedItems];
+
+  const coveredRatio = coverage.length > 0 ? coveredItems.length / coverage.length : 0;
+  const overallStatus = coveredRatio >= 0.7 ? "STRONG" : coveredRatio >= 0.5 ? "ADEQUATE" : "NEEDS_WORK";
+
+  // Collect notes/observations
+  const observations = coverage
+    .filter((r) => r.note && r.note.trim())
+    .map((r) => `${r.requirement}: ${r.note}`);
+
+  return (
+    <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2.5 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-slate-50 border border-slate-100 text-slate-700">
+            <Target size={18} className="text-blue-600" />
+          </div>
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+            JD Requirements Coverage
+          </h3>
+          <QualitativeBadge status={overallStatus} size="sm" />
+          <span className="text-[10px] font-semibold text-slate-500">
+            ({coveredItems.length}/{coverage.length} Covered)
+          </span>
+        </div>
+        <ChevronDown
+          size={15}
+          className={`text-slate-400 transition-transform duration-200 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-2.5">
+          <p className="text-xs text-slate-600 leading-snug">
+            Granular evaluation of MUST_HAVE and NICE_TO_HAVE competencies aligned with the target Job Description.
+          </p>
+
+          {/* 1. REQUIREMENTS COVERED (Intro-style emerald pills) */}
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              REQUIREMENTS COVERED:
+            </span>
+            {coveredItems.length > 0 ? (
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {coveredItems.map((item, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/80 shadow-2xs"
+                  >
+                    <Check size={11} className="text-emerald-600 stroke-[3]" />
+                    {item.requirement}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">None verified in spoken transcript</p>
+            )}
+          </div>
+
+          {/* 2. REQUIREMENTS MISSED (Intro-style rose pills) */}
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              REQUIREMENTS MISSED / GAPS:
+            </span>
+            {gapItems.length > 0 ? (
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {gapItems.map((item, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200/80 shadow-2xs"
+                  >
+                    <AlertTriangle size={11} className="text-rose-500 stroke-[2]" />
+                    {item.requirement}
+                    {item.importance === "MUST_HAVE" && (
+                      <span className="text-[9px] font-bold uppercase text-rose-800 ml-0.5">• Must-Have</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">All target requirements covered</p>
+            )}
+          </div>
+
+          {/* 3. KEY OBSERVATIONS (Signature Intro-style blue box) */}
+          {observations.length > 0 && (
+            <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
+              <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
+              <ul className="space-y-0.5 text-xs text-slate-700">
+                {observations.map((obs, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="text-blue-500 font-bold shrink-0 mt-0.5">•</span>
+                    <span className="leading-snug">{obs}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 4. SPOKEN EVIDENCE BREAKDOWN (Compact, sleek checklist cards) */}
+          <div className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-2.5 space-y-1.5">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Spoken Evidence by Requirement:
+              </span>
+              <span className="text-[10px] text-slate-500 font-semibold">
+                {coveredItems.length}/{coverage.length} Verified
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {coverage.map((item, idx) => (
+                <div key={idx} className="bg-white rounded-md p-2 border border-slate-100 shadow-2xs text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      {item.status === "COVERED" ? (
+                        <Check size={12} className="text-emerald-600 stroke-[3] shrink-0" />
+                      ) : item.status === "PARTIAL" ? (
+                        <AlertTriangle size={12} className="text-amber-600 shrink-0" />
+                      ) : (
+                        <X size={12} className="text-rose-500 shrink-0" />
+                      )}
+                      <span className="font-semibold text-slate-900">{item.requirement}</span>
+                      {item.importance === "MUST_HAVE" && (
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">Must-Have</span>
+                      )}
+                      {item.category && (
+                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">{item.category.replaceAll("_", " ")}</span>
+                      )}
+                      {item.match_type && (
+                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">{item.match_type}</span>
+                      )}
+                    </div>
+                    <QualitativeBadge status={item.status} size="sm" />
+                  </div>
+                  {item.evidence && (
+                    <p className="text-[11px] text-slate-600 italic pl-2.5 border-l-2 border-emerald-400 mt-1 leading-snug">
+                      "{item.evidence}"
+                    </p>
+                  )}
+                  {item.note && !item.evidence && (
+                    <p className="text-[11px] text-slate-500 italic pl-2.5 border-l-2 border-slate-200 mt-1 leading-snug">
+                      {item.note}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JdRoleAlignmentAccordion({
+  roleAlignment,
+  careerStory,
+  isExpanded,
+  onToggle,
+}: {
+  roleAlignment?: NormalizedReport["role_alignment"];
+  careerStory?: NormalizedReport["career_story"];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2.5 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-slate-50 border border-slate-100 text-slate-700">
+            <User size={18} className="text-indigo-600" />
+          </div>
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+            Role Alignment & Career Story
+          </h3>
+          {roleAlignment?.overall_status && (
+            <QualitativeBadge status={roleAlignment.overall_status} size="sm" />
+          )}
+        </div>
+        <ChevronDown
+          size={15}
+          className={`text-slate-400 transition-transform duration-200 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-3">
+          {/* Metadata Badges */}
+          <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-100">
+            {roleAlignment?.seniority_match && (
+              <SeniorityBadge match={roleAlignment.seniority_match} />
+            )}
+            {roleAlignment?.domain_fit && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 font-semibold">Domain Fit:</span>
+                <QualitativeBadge status={roleAlignment.domain_fit} size="sm" />
+              </div>
+            )}
+            {roleAlignment?.role_relevance && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 font-semibold">Role Relevance:</span>
+                <QualitativeBadge status={roleAlignment.role_relevance} size="sm" />
+              </div>
+            )}
+            {careerStory?.leads_logically_to_target_role && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 font-semibold">Leads to Target Role:</span>
+                <QualitativeBadge status={careerStory.leads_logically_to_target_role} size="sm" />
+              </div>
+            )}
+          </div>
+
+          {/* Identified Transitions */}
+          {careerStory?.transitions_identified && careerStory.transitions_identified.length > 0 && (
+            <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Identified Career Transitions:
+              </span>
+              <ul className="space-y-1 text-xs text-slate-700">
+                {careerStory.transitions_identified.map((tr, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="text-indigo-500 font-bold">•</span>
+                    <span>{tr}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Observations */}
+          {(roleAlignment?.observation || careerStory?.observation) && (
+            <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1.5">
+              <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
+              {roleAlignment?.observation && (
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {roleAlignment.observation}
+                </p>
+              )}
+              {careerStory?.observation && careerStory.observation !== roleAlignment?.observation && (
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {careerStory.observation}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Evidence Quotes */}
+          {((roleAlignment?.evidence && roleAlignment.evidence.length > 0) ||
+            (careerStory?.evidence && careerStory.evidence.length > 0)) && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Spoken Transcript Evidence:
+              </span>
+              <div className="space-y-1.5">
+                {[...(roleAlignment?.evidence || []), ...(careerStory?.evidence || [])].map(
+                  (ev, idx) => (
+                    <blockquote
+                      key={idx}
+                      className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
+                    >
+                      "{ev}"
+                    </blockquote>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JdCurrentProjectAccordion({
+  project,
+  techAlign,
+  isExpanded,
+  onToggle,
+}: {
+  project?: NormalizedReport["current_role_and_project"];
+  techAlign?: NormalizedReport["jd_technical_alignment"];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2.5 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-slate-50 border border-slate-100 text-slate-700">
+            <Cpu size={18} className="text-sky-600" />
+          </div>
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+            Current Project & Technical Alignment
+          </h3>
+          {project?.overall_status && (
+            <QualitativeBadge status={project.overall_status} size="sm" />
+          )}
+        </div>
+        <ChevronDown
+          size={15}
+          className={`text-slate-400 transition-transform duration-200 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-3">
+          {/* Project Details Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            {project?.project_explained && (
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
+                <span className="text-slate-600 font-semibold">Project Explained:</span>
+                <QualitativeBadge status={project.project_explained} size="sm" />
+              </div>
+            )}
+            {project?.business_problem && (
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
+                <span className="text-slate-600 font-semibold">Business Problem:</span>
+                <QualitativeBadge status={project.business_problem} size="sm" />
+              </div>
+            )}
+            {project?.users_or_customers && (
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
+                <span className="text-slate-600 font-semibold">Users / Scale:</span>
+                <QualitativeBadge status={project.users_or_customers} size="sm" />
+              </div>
+            )}
+            {project?.technical_ownership && (
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between">
+                <span className="text-slate-600 font-semibold">Personal Ownership:</span>
+                <QualitativeBadge status={project.technical_ownership} size="sm" />
+              </div>
+            )}
+          </div>
+
+          {/* Technology Inventory */}
+          {techAlign && (
+            <div className="space-y-2 pt-1 border-t border-slate-100">
+              {techAlign.technologies_matching_jd && techAlign.technologies_matching_jd.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    Technologies Matching JD:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {techAlign.technologies_matching_jd.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200"
+                      >
+                        <Check size={11} className="text-emerald-600 stroke-[3]" />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {techAlign.jd_technologies_not_mentioned && techAlign.jd_technologies_not_mentioned.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                    JD Technologies Not Mentioned:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {techAlign.jd_technologies_not_mentioned.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200"
+                      >
+                        <AlertTriangle size={11} className="text-amber-600" />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {techAlign.equivalent_technologies && techAlign.equivalent_technologies.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-800">
+                    Equivalent Technologies:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {techAlign.equivalent_technologies.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 border border-sky-200"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Observations */}
+          {(project?.observation || techAlign?.observation) && (
+            <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
+              <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
+              {project?.observation && (
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {project.observation}
+                </p>
+              )}
+              {techAlign?.observation && techAlign.observation !== project?.observation && (
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {techAlign.observation}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Evidence Quotes */}
+          {((project?.evidence && project.evidence.length > 0) ||
+            (techAlign?.evidence && techAlign.evidence.length > 0)) && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Spoken Transcript Evidence:
+              </span>
+              <div className="space-y-1.5">
+                {[...(project?.evidence || []), ...(techAlign?.evidence || [])].map((ev, idx) => (
+                  <blockquote
+                    key={idx}
+                    className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
+                  >
+                    "{ev}"
+                  </blockquote>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JdTailoringAccordion({
+  tailoring,
+  valueProp,
+  isExpanded,
+  onToggle,
+}: {
+  tailoring?: NormalizedReport["tailoring_quality"];
+  valueProp?: NormalizedReport["value_proposition"];
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2.5 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-violet-50 border border-violet-100 text-violet-700">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                Value Proposition & Tailoring Quality
+              </h3>
+              {tailoring?.tailored_to_role && (
+                <QualitativeBadge status={tailoring.tailored_to_role} size="sm" />
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Why this role, quantified impact outcomes, differentiators, and adaptation to the JD
+            </p>
+          </div>
+        </div>
+        <ChevronDown
+          size={15}
+          className={`text-slate-400 transition-transform duration-200 ${
+            isExpanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-3">
+          {/* Metadata Badges */}
+          <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-100">
+            {tailoring?.tailored_to_role && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 font-semibold">Tailored to Role:</span>
+                <QualitativeBadge status={tailoring.tailored_to_role} size="sm" />
+              </div>
+            )}
+            {tailoring?.irrelevant_content_ratio && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 font-semibold">Irrelevant Content:</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                  {tailoring.irrelevant_content_ratio}
+                </span>
+              </div>
+            )}
+            {valueProp?.impact_and_outcomes && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 font-semibold">Impact Articulated:</span>
+                <QualitativeBadge status={valueProp.impact_and_outcomes} size="sm" />
+              </div>
+            )}
+          </div>
+
+          {/* Differentiators */}
+          {valueProp?.differentiators && valueProp.differentiators.length > 0 && (
+            <div className="rounded-lg bg-violet-50/50 p-2.5 border border-violet-100 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-900">
+                Key Differentiators:
+              </span>
+              <ul className="space-y-1 text-xs text-slate-700">
+                {valueProp.differentiators.map((diff, idx) => (
+                  <li key={idx} className="flex items-start gap-1.5">
+                    <span className="text-violet-600 font-bold">•</span>
+                    <span>{diff}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Observations */}
+          {(tailoring?.observation || valueProp?.observation) && (
+            <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
+              <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
+              {tailoring?.observation && (
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {tailoring.observation}
+                </p>
+              )}
+              {valueProp?.observation && valueProp.observation !== tailoring?.observation && (
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {valueProp.observation}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Evidence Quotes */}
+          {((tailoring?.evidence && tailoring.evidence.length > 0) ||
+            (valueProp?.evidence && valueProp.evidence.length > 0)) && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Spoken Transcript Evidence:
+              </span>
+              <div className="space-y-1.5">
+                {[...(tailoring?.evidence || []), ...(valueProp?.evidence || [])].map((ev, idx) => (
+                  <blockquote
+                    key={idx}
+                    className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
+                  >
+                    "{ev}"
+                  </blockquote>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JdFinalAssessmentCard({
+  finalAssessment,
+}: {
+  finalAssessment?: NormalizedReport["jd_final_assessment"];
+}) {
+  if (!finalAssessment) return null;
+
+  return (
+    <div className="rounded-xl border border-indigo-100 bg-white p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+      <div className="flex items-center gap-2 text-indigo-700 border-b border-slate-100 pb-2">
+        <Sparkles size={16} />
+        <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+          Final Diagnostic Assessment
+        </h3>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+        {finalAssessment.jd_fit_summary && (
+          <div className="p-2.5 rounded-lg bg-indigo-50/40 border border-indigo-100/70 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+              JD Fit Summary
+            </span>
+            <p className="text-slate-700 leading-snug">{finalAssessment.jd_fit_summary}</p>
+          </div>
+        )}
+        {finalAssessment.career_story_relevance && (
+          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              Career Story Relevance
+            </span>
+            <p className="text-slate-700 leading-snug">{finalAssessment.career_story_relevance}</p>
+          </div>
+        )}
+        {finalAssessment.current_project_clarity && (
+          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              Current Project Clarity
+            </span>
+            <p className="text-slate-700 leading-snug">{finalAssessment.current_project_clarity}</p>
+          </div>
+        )}
+        {finalAssessment.technical_alignment_depth && (
+          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              Technical Depth
+            </span>
+            <p className="text-slate-700 leading-snug">{finalAssessment.technical_alignment_depth}</p>
+          </div>
+        )}
+        {finalAssessment.seniority_match && (
+          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              Seniority Calibration
+            </span>
+            <p className="text-slate-700 leading-snug">{finalAssessment.seniority_match}</p>
+          </div>
+        )}
+        {finalAssessment.most_important_improvement && (
+          <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/60 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
+              Top Actionable Improvement
+            </span>
+            <p className="text-amber-950 font-medium leading-snug">{finalAssessment.most_important_improvement}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EvaluationContent({
   report,
   videoRef,
@@ -908,6 +1718,13 @@ export function EvaluationContent({
   if (!candidateSpoke) {
     return <EmptyEvaluationCard />;
   }
+
+  const isJdReport = Boolean(
+    report.is_jd_intro ||
+    report.jd_evaluation ||
+    isJobDescriptionAssessment(report.assessment, report)
+  );
+  const jdFit = report.jd_alignment || report.jd_evaluation?.overall_assessment?.jd_alignment;
 
   // Pure dynamic data resolution per section category matching Details tab
   const introData = resolveSectionData(
@@ -1021,9 +1838,17 @@ export function EvaluationContent({
             </div>
             <h2 className="text-sm sm:text-base font-bold text-slate-900">Overall Summary</h2>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-slate-500">Readiness:</span>
-            <QualitativeBadge status={readiness} size="sm" />
+          <div className="flex items-center gap-2.5">
+            {jdFit && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-slate-500">JD Fit:</span>
+                <JdFitBadge fit={jdFit} size="sm" />
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-500">Readiness:</span>
+              <QualitativeBadge status={readiness} size="sm" />
+            </div>
           </div>
         </div>
 
@@ -1058,46 +1883,163 @@ export function EvaluationContent({
             </p>
           </div>
         </div>
+
+        {report.jd_analysis && (
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+            {report.jd_analysis.role_title && (
+              <div className="flex items-center gap-1 text-slate-700">
+                <Briefcase size={13} className="text-indigo-600 shrink-0" />
+                <span className="font-bold">Target Role:</span>
+                <span className="font-semibold text-indigo-900">{report.jd_analysis.role_title}</span>
+              </div>
+            )}
+            {report.jd_analysis.seniority_level && report.jd_analysis.seniority_level !== "UNSPECIFIED" && (
+              <div className="flex items-center gap-1 text-slate-700">
+                <span className="font-bold">Seniority:</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700">
+                  {report.jd_analysis.seniority_level}
+                </span>
+              </div>
+            )}
+            {report.jd_analysis.domain && (
+              <div className="flex items-center gap-1 text-slate-700">
+                <span className="font-bold">Domain:</span>
+                <span className="text-slate-600">{report.jd_analysis.domain}</span>
+              </div>
+            )}
+            {report.requirement_coverage && report.requirement_coverage.length > 0 && (
+              <div className="flex items-center gap-1 text-slate-700 sm:ml-auto">
+                <span className="text-slate-500">Requirements:</span>
+                <span className="font-bold text-emerald-700">
+                  {report.requirement_coverage.filter((r) => r.status === "COVERED").length}/{report.requirement_coverage.length} Covered
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* ── 2. EVALUATION CATEGORY CARDS (2x2 GRID) ── */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-          <OverviewCategoryCard
-            icon={<User size={16} className="text-indigo-600" />}
-            title="Intro Evaluation"
-            status={introStatus}
-            summary={introSummary}
-            subTabId="intro"
-            onSelectTab={onSelectTab}
-          />
+        {isJdReport ? (
+          <>
+            <OverviewCategoryCard
+              icon={<User size={16} className="text-indigo-600" />}
+              title="Role & Career Story"
+              status={report.role_alignment?.overall_status || report.career_story?.overall_status || "COVERED"}
+              summary={report.role_alignment?.observation || report.career_story?.observation || "Evaluates seniority match, logical career narrative, and domain relevance."}
+              subTabId="role_alignment"
+              onSelectTab={onSelectTab}
+            />
 
-          <OverviewCategoryCard
-            icon={<Cpu size={16} className="text-blue-600" />}
-            title="AI Engineering"
-            status={aiStatus}
-            summary={aiSummary}
-            subTabId="ai_engineering"
-            onSelectTab={onSelectTab}
-          />
+            <OverviewCategoryCard
+              icon={<Target size={16} className="text-blue-600" />}
+              title="JD Requirements Coverage"
+              status={jdFit || "COVERED"}
+              summary={
+                report.requirement_coverage && report.requirement_coverage.length > 0
+                  ? `${report.requirement_coverage.filter((r) => r.status === "COVERED").length} of ${report.requirement_coverage.length} requirements verified from spoken evidence.`
+                  : "Granular verification of must-have and nice-to-have JD capabilities."
+              }
+              subTabId="requirements"
+              onSelectTab={onSelectTab}
+            />
 
-          <OverviewCategoryCard
-            icon={<Code2 size={16} className="text-sky-600" />}
-            title="Software Engineering"
-            status={seStatus}
-            summary={seSummary}
-            subTabId="software_engineering"
-            onSelectTab={onSelectTab}
-          />
+            <OverviewCategoryCard
+              icon={<Cpu size={16} className="text-sky-600" />}
+              title="Current Project & Tech Stack"
+              status={report.current_role_and_project?.overall_status || report.jd_technical_alignment?.overall_status || "COVERED"}
+              summary={report.current_role_and_project?.observation || report.jd_technical_alignment?.observation || "Evaluates project ownership, user scale, business problem, and core tech stack."}
+              subTabId="current_project"
+              onSelectTab={onSelectTab}
+            />
 
-          <OverviewCategoryCard
-            icon={<GitBranch size={16} className="text-orange-600" />}
-            title="DevOps, CI/CD & Cloud"
-            status={cicdStatus}
-            summary={cicdSummary}
-            subTabId="devops_cicd"
-            onSelectTab={onSelectTab}
-          />
+            <OverviewCategoryCard
+              icon={<Sparkles size={16} className="text-violet-600" />}
+              title="Value Proposition & Tailoring"
+              status={report.tailoring_quality?.tailored_to_role || report.value_proposition?.overall_status || "STRONG"}
+              summary={report.tailoring_quality?.observation || report.value_proposition?.observation || "Evaluates role tailoring, concrete impact outcomes, and differentiators."}
+              subTabId="tailoring"
+              onSelectTab={onSelectTab}
+            />
+          </>
+        ) : (
+          <>
+            <OverviewCategoryCard
+              icon={<User size={16} className="text-indigo-600" />}
+              title="Intro Evaluation"
+              status={introStatus}
+              summary={introSummary}
+              subTabId="intro"
+              onSelectTab={onSelectTab}
+            />
+
+            <OverviewCategoryCard
+              icon={<Cpu size={16} className="text-blue-600" />}
+              title="AI Engineering"
+              status={aiStatus}
+              summary={aiSummary}
+              subTabId="ai_engineering"
+              onSelectTab={onSelectTab}
+            />
+
+            <OverviewCategoryCard
+              icon={<Code2 size={16} className="text-sky-600" />}
+              title="Software Engineering"
+              status={seStatus}
+              summary={seSummary}
+              subTabId="software_engineering"
+              onSelectTab={onSelectTab}
+            />
+
+            <OverviewCategoryCard
+              icon={<GitBranch size={16} className="text-orange-600" />}
+              title="DevOps, CI/CD & Cloud"
+              status={cicdStatus}
+              summary={cicdSummary}
+              subTabId="devops_cicd"
+              onSelectTab={onSelectTab}
+            />
+          </>
+        )}
       </section>
+
+      {/* ── JD REQUIREMENTS QUICK SNAPSHOT (For JD reports) ── */}
+      {isJdReport && report.requirement_coverage && report.requirement_coverage.length > 0 && (
+        <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2.5">
+            <div className="flex items-center gap-2">
+              <Target size={15} className="text-blue-600" />
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">JD Requirements Evidence</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSelectTab("Details", "requirements")}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+            >
+              View Full Evidence Map →
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {report.requirement_coverage.slice(0, 6).map((req, idx) => (
+              <div key={idx} className="flex items-start justify-between gap-2 p-2 rounded-lg bg-slate-50/70 border border-slate-100 text-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    {req.importance === "MUST_HAVE" && (
+                      <span className="text-[9px] font-bold uppercase px-1 py-0.2 rounded bg-amber-100 text-amber-800">Must-Have</span>
+                    )}
+                    <span className="font-semibold text-slate-800 line-clamp-1">{req.requirement}</span>
+                  </div>
+                  {req.evidence && (
+                    <p className="text-[11px] text-slate-500 italic line-clamp-1">"{req.evidence}"</p>
+                  )}
+                </div>
+                <QualitativeBadge status={req.status} size="sm" />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── 3. RECORDING PLAYBACK ── */}
       {canShowRecording && effectivePlaybackUrl && (
@@ -1354,12 +2296,28 @@ export function DetailsContent({
 
   const candidateSpoke = hasRealSpeech(report);
 
-  // Accordion state
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    intro: initialSubTab === "intro" || !initialSubTab,
-    ai_engineering: initialSubTab === "ai_engineering",
-    software_engineering: initialSubTab === "software_engineering",
-    devops_cicd: initialSubTab === "devops_cicd" || initialSubTab === "cloud",
+  const isJdReport = Boolean(
+    report.is_jd_intro ||
+    report.jd_evaluation ||
+    isJobDescriptionAssessment(report.assessment, report)
+  );
+
+  // Accordion state supporting both JD and non-JD assessment types
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+    if (isJdReport) {
+      return {
+        requirements: initialSubTab === "requirements" || !initialSubTab || initialSubTab === "intro",
+        role_alignment: initialSubTab === "role_alignment",
+        current_project: initialSubTab === "current_project",
+        tailoring: initialSubTab === "tailoring",
+      };
+    }
+    return {
+      intro: initialSubTab === "intro" || !initialSubTab,
+      ai_engineering: initialSubTab === "ai_engineering",
+      software_engineering: initialSubTab === "software_engineering",
+      devops_cicd: initialSubTab === "devops_cicd" || initialSubTab === "cloud",
+    };
   });
 
   useEffect(() => {
@@ -1380,21 +2338,39 @@ export function DetailsContent({
   };
 
   const handleExpandAll = () => {
-    setExpandedSections({
-      intro: true,
-      ai_engineering: true,
-      software_engineering: true,
-      devops_cicd: true,
-    });
+    if (isJdReport) {
+      setExpandedSections({
+        requirements: true,
+        role_alignment: true,
+        current_project: true,
+        tailoring: true,
+      });
+    } else {
+      setExpandedSections({
+        intro: true,
+        ai_engineering: true,
+        software_engineering: true,
+        devops_cicd: true,
+      });
+    }
   };
 
   const handleCollapseAll = () => {
-    setExpandedSections({
-      intro: false,
-      ai_engineering: false,
-      software_engineering: false,
-      devops_cicd: false,
-    });
+    if (isJdReport) {
+      setExpandedSections({
+        requirements: false,
+        role_alignment: false,
+        current_project: false,
+        tailoring: false,
+      });
+    } else {
+      setExpandedSections({
+        intro: false,
+        ai_engineering: false,
+        software_engineering: false,
+        devops_cicd: false,
+      });
+    }
   };
 
   if (!candidateSpoke || report.insufficient_content) {
@@ -1450,66 +2426,103 @@ export function DetailsContent({
         </button>
       </div>
 
-      {/* ── ACCORDION 1: INTRO EVALUATION ── */}
-      <DetailSectionCard
-        icon={<User size={18} className="text-indigo-600" />}
-        title="Introduction Evaluation"
-        status={introData.status}
-        subtitle={introData.subtitle}
-        observations={introData.observations}
-        conceptsCovered={introData.conceptsCovered}
-        conceptsMissed={introData.conceptsMissed}
-        technologies={introData.technologies}
-        recommendations={introData.recommendations}
-        isExpanded={Boolean(expandedSections.intro)}
-        onToggle={() => toggleSection("intro")}
-        showConcepts={false}
-      />
+      {isJdReport ? (
+        <>
+          {/* ── ACCORDION 1: JD REQUIREMENTS EVIDENCE MAP ── */}
+          <JdRequirementsAccordion
+            coverage={report.requirement_coverage || []}
+            isExpanded={Boolean(expandedSections.requirements)}
+            onToggle={() => toggleSection("requirements")}
+          />
 
-      {/* ── ACCORDION 2: AI ENGINEERING CONCEPTS ── */}
-      <DetailSectionCard
-        icon={<Cpu size={18} className="text-blue-600" />}
-        title="AI Engineering Concepts"
-        status={aiData.status}
-        subtitle={aiData.subtitle}
-        observations={aiData.observations}
-        conceptsCovered={aiData.conceptsCovered}
-        conceptsMissed={aiData.conceptsMissed}
-        technologies={aiData.technologies}
-        recommendations={aiData.recommendations}
-        isExpanded={Boolean(expandedSections.ai_engineering)}
-        onToggle={() => toggleSection("ai_engineering")}
-      />
+          {/* ── ACCORDION 2: ROLE ALIGNMENT & CAREER STORY ── */}
+          <JdRoleAlignmentAccordion
+            roleAlignment={report.role_alignment}
+            careerStory={report.career_story}
+            isExpanded={Boolean(expandedSections.role_alignment)}
+            onToggle={() => toggleSection("role_alignment")}
+          />
 
-      {/* ── ACCORDION 3: SOFTWARE ENGINEERING CONCEPTS ── */}
-      <DetailSectionCard
-        icon={<Code2 size={18} className="text-sky-600" />}
-        title="Software Engineering Concepts"
-        status={seData.status}
-        subtitle={seData.subtitle}
-        observations={seData.observations}
-        conceptsCovered={seData.conceptsCovered}
-        conceptsMissed={seData.conceptsMissed}
-        technologies={seData.technologies}
-        recommendations={seData.recommendations}
-        isExpanded={Boolean(expandedSections.software_engineering)}
-        onToggle={() => toggleSection("software_engineering")}
-      />
+          {/* ── ACCORDION 3: CURRENT PROJECT & TECHNICAL ALIGNMENT ── */}
+          <JdCurrentProjectAccordion
+            project={report.current_role_and_project}
+            techAlign={report.jd_technical_alignment}
+            isExpanded={Boolean(expandedSections.current_project)}
+            onToggle={() => toggleSection("current_project")}
+          />
 
-      {/* ── ACCORDION 4: DEVOPS, CI/CD & CLOUD CONCEPTS ── */}
-      <DetailSectionCard
-        icon={<GitBranch size={18} className="text-orange-600" />}
-        title="DevOps, CI/CD & Cloud Concepts"
-        status={devopsCloudData.status}
-        subtitle={devopsCloudData.subtitle}
-        observations={devopsCloudData.observations}
-        conceptsCovered={devopsCloudData.conceptsCovered}
-        conceptsMissed={devopsCloudData.conceptsMissed}
-        technologies={devopsCloudData.technologies}
-        recommendations={devopsCloudData.recommendations}
-        isExpanded={Boolean(expandedSections.devops_cicd)}
-        onToggle={() => toggleSection("devops_cicd")}
-      />
+          {/* ── ACCORDION 4: VALUE PROPOSITION & TAILORING ── */}
+          <JdTailoringAccordion
+            tailoring={report.tailoring_quality}
+            valueProp={report.value_proposition}
+            isExpanded={Boolean(expandedSections.tailoring)}
+            onToggle={() => toggleSection("tailoring")}
+          />
+        </>
+      ) : (
+        <>
+          {/* ── ACCORDION 1: INTRO EVALUATION ── */}
+          <DetailSectionCard
+            icon={<User size={18} className="text-indigo-600" />}
+            title="Introduction Evaluation"
+            status={introData.status}
+            subtitle={introData.subtitle}
+            observations={introData.observations}
+            conceptsCovered={introData.conceptsCovered}
+            conceptsMissed={introData.conceptsMissed}
+            technologies={introData.technologies}
+            recommendations={introData.recommendations}
+            isExpanded={Boolean(expandedSections.intro)}
+            onToggle={() => toggleSection("intro")}
+            showConcepts={false}
+          />
+
+          {/* ── ACCORDION 2: AI ENGINEERING CONCEPTS ── */}
+          <DetailSectionCard
+            icon={<Cpu size={18} className="text-blue-600" />}
+            title="AI Engineering Concepts"
+            status={aiData.status}
+            subtitle={aiData.subtitle}
+            observations={aiData.observations}
+            conceptsCovered={aiData.conceptsCovered}
+            conceptsMissed={aiData.conceptsMissed}
+            technologies={aiData.technologies}
+            recommendations={aiData.recommendations}
+            isExpanded={Boolean(expandedSections.ai_engineering)}
+            onToggle={() => toggleSection("ai_engineering")}
+          />
+
+          {/* ── ACCORDION 3: SOFTWARE ENGINEERING CONCEPTS ── */}
+          <DetailSectionCard
+            icon={<Code2 size={18} className="text-sky-600" />}
+            title="Software Engineering Concepts"
+            status={seData.status}
+            subtitle={seData.subtitle}
+            observations={seData.observations}
+            conceptsCovered={seData.conceptsCovered}
+            conceptsMissed={seData.conceptsMissed}
+            technologies={seData.technologies}
+            recommendations={seData.recommendations}
+            isExpanded={Boolean(expandedSections.software_engineering)}
+            onToggle={() => toggleSection("software_engineering")}
+          />
+
+          {/* ── ACCORDION 4: DEVOPS, CI/CD & CLOUD CONCEPTS ── */}
+          <DetailSectionCard
+            icon={<GitBranch size={18} className="text-orange-600" />}
+            title="DevOps, CI/CD & Cloud Concepts"
+            status={devopsCloudData.status}
+            subtitle={devopsCloudData.subtitle}
+            observations={devopsCloudData.observations}
+            conceptsCovered={devopsCloudData.conceptsCovered}
+            conceptsMissed={devopsCloudData.conceptsMissed}
+            technologies={devopsCloudData.technologies}
+            recommendations={devopsCloudData.recommendations}
+            isExpanded={Boolean(expandedSections.devops_cicd)}
+            onToggle={() => toggleSection("devops_cicd")}
+          />
+        </>
+      )}
 
       {/* ── BOTTOM CARDS: STRONGEST POINTS & CRITICAL GAPS ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-2.5 pt-0.5">
@@ -1542,11 +2555,35 @@ export function DetailsContent({
           {critical_gaps.length > 0 ? (
             <ul className="space-y-1 text-xs text-slate-700">
               {critical_gaps.map((gap, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-amber-500 font-bold shrink-0 mt-0.5">•</span>
-                  <span className="leading-snug">
-                    {gap.what_is_missing || gap.topic || gap.why_it_matters}
-                  </span>
+                <li key={idx} className="p-2 rounded-lg bg-amber-50/50 border border-amber-200/60 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-900 text-xs">
+                      {gap.topic || "Critical Gap"}
+                    </span>
+                    {gap.importance && (
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                        {gap.importance}
+                      </span>
+                    )}
+                  </div>
+                  {gap.what_is_missing && (
+                    <p className="text-slate-700 text-xs leading-snug">
+                      <span className="font-semibold text-slate-800">What's missing: </span>
+                      {gap.what_is_missing}
+                    </p>
+                  )}
+                  {gap.why_it_matters && (
+                    <p className="text-slate-600 text-xs leading-snug">
+                      <span className="font-semibold text-slate-700">Why it matters: </span>
+                      {gap.why_it_matters}
+                    </p>
+                  )}
+                  {gap.suggested_addition && (
+                    <p className="text-emerald-900 text-xs leading-snug bg-emerald-50/70 p-1.5 rounded border border-emerald-200/70 italic">
+                      <span className="font-semibold not-italic text-emerald-800">Suggested addition: </span>
+                      "{gap.suggested_addition}"
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -1574,13 +2611,25 @@ export function DetailsContent({
                     {imp.topic || `Improvement #${idx + 1}`}
                   </h4>
                 </div>
-                <p className="text-xs text-slate-600 leading-snug">
-                  {imp.guidance || imp.example}
-                </p>
+                {imp.guidance && (
+                  <p className="text-xs text-slate-600 leading-snug">
+                    {imp.guidance}
+                  </p>
+                )}
+                {imp.example && (
+                  <p className="text-[11px] text-indigo-900 leading-snug italic bg-indigo-50/60 p-1.5 rounded border border-indigo-100/70">
+                    "{imp.example}"
+                  </p>
+                )}
               </div>
             ))}
           </div>
         </div>
+      )}
+
+      {/* Final Assessment Diagnostic Card */}
+      {report.jd_final_assessment && (
+        <JdFinalAssessmentCard finalAssessment={report.jd_final_assessment} />
       )}
 
     </div>
@@ -1697,6 +2746,320 @@ function TranscriptModal({
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  JOB DESCRIPTION MODAL & HELPERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+export function isJobDescriptionAssessment(
+  assessment?: AssessmentDetail | null,
+  report?: NormalizedReport | null
+): boolean {
+  if (!assessment) return false;
+  const rawType = (
+    assessment.assessment_type ||
+    (report?.assessment as any)?.assessment_type ||
+    ""
+  ).toUpperCase().replace(/[\s-]+/g, "_");
+
+  if (
+    rawType === "JD_INTRO" ||
+    rawType === "JOB_DESCRIPTION_INTRO" ||
+    rawType === "JD" ||
+    rawType === "JDINTRO"
+  ) {
+    return true;
+  }
+
+  const jdText =
+    assessment.job_description ||
+    (assessment as any)?.job_description_text ||
+    (report?.assessment as any)?.job_description ||
+    (report?.assessment as any)?.job_description_text ||
+    (assessment.data as any)?.job_description ||
+    (assessment.data as any)?.jd_text;
+
+  if (typeof jdText === "string" && jdText.trim().length > 0) {
+    return true;
+  }
+
+  if (typeof window !== "undefined") {
+    const activeType = (window.sessionStorage?.getItem("aiprep_active_type") || "").toUpperCase();
+    if (activeType === "JD_INTRO" || activeType === "JD") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function getAssessmentJobDescription(
+  assessment?: AssessmentDetail | null,
+  report?: NormalizedReport | null
+): string {
+  const direct =
+    assessment?.job_description ||
+    (assessment as any)?.job_description_text ||
+    (report?.assessment as any)?.job_description ||
+    (report?.assessment as any)?.job_description_text ||
+    (assessment?.data as any)?.job_description ||
+    (assessment?.data as any)?.jd_text ||
+    (report as any)?.job_description;
+
+  if (typeof direct === "string" && direct.trim().length > 0) {
+    return direct.trim();
+  }
+
+  if (typeof window !== "undefined") {
+    const stored = window.sessionStorage?.getItem("aiprep_jd_text");
+    if (stored && stored.trim().length > 0) {
+      return stored.trim();
+    }
+  }
+
+  // Fallback: reconstruct a readable JD summary from jd_analysis data
+  const analysis = report?.jd_analysis;
+  if (analysis) {
+    const lines: string[] = [];
+    if (analysis.role_title) lines.push(`Role: ${analysis.role_title}`);
+    if (analysis.domain) lines.push(`Domain: ${analysis.domain}`);
+    if (analysis.seniority_level) lines.push(`Seniority: ${analysis.seniority_level}`);
+
+    if (analysis.must_have_requirements?.length) {
+      lines.push("\nMust-Have Requirements:");
+      analysis.must_have_requirements.forEach((s: string) => lines.push(`  - ${s}`));
+    }
+    if (analysis.nice_to_have_requirements?.length) {
+      lines.push("\nNice-to-Have:");
+      analysis.nice_to_have_requirements.forEach((s: string) => lines.push(`  - ${s}`));
+    }
+    if (analysis.core_responsibilities?.length) {
+      lines.push("\nCore Responsibilities:");
+      analysis.core_responsibilities.forEach((r: string) => lines.push(`  - ${r}`));
+    }
+    if (analysis.soft_skills_and_ownership?.length) {
+      lines.push("\nSoft Skills & Ownership:");
+      analysis.soft_skills_and_ownership.forEach((s: string) => lines.push(`  - ${s}`));
+    }
+    if (lines.length > 0) return lines.join("\n");
+  }
+
+  return "";
+}
+
+export function getAssessmentTargetRoleInfo(
+  assessment?: AssessmentDetail | null,
+  report?: NormalizedReport | null
+): { role: string; company: string } {
+  let role = "";
+  let company = "";
+
+  if (typeof window !== "undefined") {
+    role = window.sessionStorage?.getItem("aiprep_jd_role") || "";
+    company = window.sessionStorage?.getItem("aiprep_jd_company") || "";
+  }
+
+  const dataObj = (assessment?.data as any) || {};
+  if (!role && dataObj?.target_role) role = String(dataObj.target_role);
+  if (!company && dataObj?.target_company) company = String(dataObj.target_company);
+
+  return { role, company };
+}
+
+function JobDescriptionModal({
+  isOpen,
+  onClose,
+  assessment,
+  report,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  assessment: AssessmentDetail;
+  report: NormalizedReport;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (!isOpen) return null;
+
+  const rawJd =
+    (typeof assessment?.job_description === "string" && assessment.job_description.trim()) ||
+    (typeof (assessment as any)?.job_description_text === "string" && (assessment as any).job_description_text.trim()) ||
+    (typeof (report?.assessment as any)?.job_description === "string" && (report?.assessment as any).job_description.trim()) ||
+    (typeof (report?.assessment as any)?.job_description_text === "string" && (report?.assessment as any).job_description_text.trim()) ||
+    (typeof (assessment?.data as any)?.job_description === "string" && (assessment?.data as any).job_description.trim()) ||
+    (typeof (assessment?.data as any)?.jd_text === "string" && (assessment?.data as any).jd_text.trim()) ||
+    (typeof (report as any)?.job_description === "string" && (report as any).job_description.trim()) ||
+    (typeof window !== "undefined" ? window.sessionStorage?.getItem("aiprep_jd_text")?.trim() || "" : "") ||
+    "";
+
+  const jdText = rawJd || getAssessmentJobDescription(assessment, report);
+  const { role, company } = getAssessmentTargetRoleInfo(assessment, report);
+
+  const handleCopy = () => {
+    if (jdText) {
+      navigator.clipboard.writeText(jdText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+              <Briefcase size={16} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-base">
+                {role || "Target Job Description"}
+              </h3>
+              {company ? (
+                <p className="text-xs text-slate-500">{company}</p>
+              ) : (
+                <p className="text-xs text-slate-500">Job Description for this assessment</p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+            aria-label="Close Job Description modal"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex items-center justify-between pb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              {!rawJd && report.jd_analysis
+                ? "Parsed JD Summary"
+                : "Job Description Content"}
+            </span>
+            {jdText && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer shadow-2xs"
+              >
+                {copied ? (
+                  <>
+                    <Check size={13} className="text-emerald-600" />
+                    <span className="text-emerald-700 font-bold">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={13} className="text-slate-500" />
+                    <span>Copy Job Description</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* If raw JD was provided, always display the exact text. Fall back to structured jd_analysis if only analysis exists */}
+          {!rawJd && report.jd_analysis ? (
+            <div className="space-y-4">
+              {/* Meta row */}
+              {(report.jd_analysis.role_title || report.jd_analysis.seniority_level || report.jd_analysis.domain) && (
+                <div className="flex flex-wrap gap-2">
+                  {report.jd_analysis.role_title && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      <Briefcase size={11} /> {report.jd_analysis.role_title}
+                    </span>
+                  )}
+                  {report.jd_analysis.seniority_level && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-100">
+                      {report.jd_analysis.seniority_level}
+                    </span>
+                  )}
+                  {report.jd_analysis.domain && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-100">
+                      {report.jd_analysis.domain}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Must-Have Requirements */}
+              {(report.jd_analysis.must_have_requirements?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Must-Have Requirements</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {report.jd_analysis.must_have_requirements!.map((s: string, i: number) => (
+                      <span key={i} className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Nice-to-Have Requirements */}
+              {(report.jd_analysis.nice_to_have_requirements?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nice-to-Have</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {report.jd_analysis.nice_to_have_requirements!.map((s: string, i: number) => (
+                      <span key={i} className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Core Responsibilities */}
+              {(report.jd_analysis.core_responsibilities?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Core Responsibilities</p>
+                  <ul className="space-y-1.5">
+                    {report.jd_analysis.core_responsibilities!.map((r: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-slate-700">
+                        <span className="mt-0.5 text-indigo-400 shrink-0">•</span>
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Soft Skills */}
+              {(report.jd_analysis.soft_skills_and_ownership?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Soft Skills & Ownership</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {report.jd_analysis.soft_skills_and_ownership!.map((s: string, i: number) => (
+                      <span key={i} className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-slate-400 italic text-center">
+                Showing AI-parsed JD summary — original JD text was not stored for this session.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
+              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text font-mono">
+                {jdText || "No job description text was provided for this assessment session."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  REPORT HEADER
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -1706,6 +3069,7 @@ export interface ReportHeaderProps {
   activeTab: ReportTab;
   onSelectTab: (tab: ReportTab) => void;
   onOpenTranscript?: () => void;
+  onOpenJd?: () => void;
 }
 
 export function getAssessmentsListUrl(): string {
@@ -1741,13 +3105,36 @@ export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
     try {
       sessionStorage.setItem("aiprep_wizard_step", "CONFIGURATION");
       sessionStorage.removeItem("aiprep_active_id");
+      sessionStorage.removeItem("aiprep_active_questions");
+      sessionStorage.removeItem("aiprep_hardware_check");
     } catch {}
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromParam = searchParams.get("from");
+    const isEmbedded = searchParams.get("embed") === "true" || (window.self !== window.top);
+
+    if (fromParam === "avatar" || fromParam?.includes("avatar")) {
+      router.push("/avatar/assessments");
+      return;
+    }
 
     const role = getUserTeamRole();
     if (role === "employee" || role === "admin") {
       router.push("/avatar/assessments");
       return;
     }
+
+    const storedReturn = sessionStorage.getItem("aiprep_return_url");
+    if (storedReturn && storedReturn.includes("/aiprep") && !storedReturn.includes("/user_dashboard")) {
+      router.push(isEmbedded ? "/aiprep?embed=true&start=true" : "/aiprep?start=true");
+      return;
+    }
+
+    const targetUrl = isEmbedded
+      ? "/user_dashboard/ai-prep/assessment-type?embed=true"
+      : "/user_dashboard/ai-prep/assessment-type";
+    router.push(targetUrl);
+    return;
   }
   router.push("/user_dashboard/ai-prep/assessment-type");
 }
@@ -1772,9 +3159,12 @@ export function ReportHeader({
   activeTab,
   onSelectTab,
   onOpenTranscript,
+  onOpenJd,
 }: ReportHeaderProps) {
   const router = useRouter();
   const candidateSpoke = hasRealSpeech(report);
+  const isJdAssessment = isJobDescriptionAssessment(assessment, report);
+  const showViewJd = isJdAssessment || Boolean(getAssessmentJobDescription(assessment, report));
 
   const candidateName =
     report.candidate_name ||
@@ -1799,7 +3189,7 @@ export function ReportHeader({
 
   const typeLabelMap: Record<string, string> = {
     INTRO: "Introductory Assessment",
-    JD_INTRO: "Job-Specific Introduction Assessment",
+    JD_INTRO: "JD Walkthrough Assessment",
     TECHNICAL: "Technical Assessment",
     SYSTEM_DESIGN: "System Design Assessment",
     HIRING_MANAGER: "Hiring Manager Assessment",
@@ -1808,7 +3198,7 @@ export function ReportHeader({
 
   const typeName =
     (assessment.assessment_type && typeLabelMap[assessment.assessment_type]) ||
-    "Assessment Evaluation";
+    (isJdAssessment ? "JD Walkthrough Assessment" : "Assessment Evaluation");
 
   const rawDate = assessment.completed_at || assessment.created_at;
   const completedDateStr = rawDate
@@ -1838,13 +3228,17 @@ export function ReportHeader({
   const typeStr =
     assessment.assessment_type === "INTRO"
       ? "Introductory"
-      : assessment.assessment_type
-        ? assessment.assessment_type.replaceAll("_", " ")
-        : "Introductory";
+      : assessment.assessment_type === "JD_INTRO"
+        ? "JD Walkthrough"
+        : isJdAssessment
+          ? "JD Walkthrough"
+          : assessment.assessment_type
+            ? assessment.assessment_type.replaceAll("_", " ")
+            : "Introductory";
 
   return (
     <header className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs mb-2.5 sm:mb-3">
-      {/* Top Row: Back link + View Transcript button */}
+      {/* Top Row: Back link + View JD + View Transcript button */}
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
@@ -1855,16 +3249,29 @@ export function ReportHeader({
           Back to Assessments
         </button>
 
-        {Boolean(report.consent?.save_transcript ?? true) && !report.insufficient_content && candidateSpoke && onOpenTranscript && (
-          <button
-            type="button"
-            onClick={onOpenTranscript}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 shadow-2xs hover:bg-violet-100 hover:border-violet-300 transition-colors cursor-pointer"
-          >
-            <FileText size={13} className="text-violet-600" />
-            View Transcript
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {showViewJd && onOpenJd && (
+            <button
+              type="button"
+              onClick={onOpenJd}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 shadow-2xs hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer"
+            >
+              <Briefcase size={13} className="text-indigo-600" />
+              View JD
+            </button>
+          )}
+
+          {Boolean(report.consent?.save_transcript ?? true) && !report.insufficient_content && candidateSpoke && onOpenTranscript && (
+            <button
+              type="button"
+              onClick={onOpenTranscript}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 shadow-2xs hover:bg-violet-100 hover:border-violet-300 transition-colors cursor-pointer"
+            >
+              <FileText size={13} className="text-violet-600" />
+              View Transcript
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Title */}
@@ -1964,6 +3371,7 @@ export default function AiPrepReport({
   const [statusMsg, setStatusMsg] = useState("");
   const [isCancelled, setIsCancelled] = useState(false);
   const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
+  const [isJdModalOpen, setIsJdModalOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekTo = (seconds: number) => {
@@ -2248,6 +3656,7 @@ export default function AiPrepReport({
           activeTab={activeTab}
           onSelectTab={handleTabChange}
           onOpenTranscript={() => setIsTranscriptModalOpen(true)}
+          onOpenJd={() => setIsJdModalOpen(true)}
         />
 
         <main>
@@ -2274,6 +3683,13 @@ export default function AiPrepReport({
       <TranscriptModal
         isOpen={isTranscriptModalOpen}
         onClose={() => setIsTranscriptModalOpen(false)}
+        report={report}
+      />
+
+      <JobDescriptionModal
+        isOpen={isJdModalOpen}
+        onClose={() => setIsJdModalOpen(false)}
+        assessment={assessment}
         report={report}
       />
     </div>
