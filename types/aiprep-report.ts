@@ -457,6 +457,7 @@ export interface NormalizedReport {
     title: string;
     status?: string;
     observation?: string;
+    key_observations?: string[];
     evidence?: string[];
     technologies_mentioned?: string[];
     concepts?: Record<string, string>;
@@ -1632,6 +1633,7 @@ export function normalizeReport(
     .flatMap(([key, value]): IntroSection[] => {
       const sec = asRecord(value);
       const observation = asStr(sec.observation) ?? asStr(sec.summary);
+      const key_observations = asStrArray(sec.key_observations).filter(Boolean);
       const status = asStr(sec.overall_status) ?? asStr(sec.status) ?? asStr(sec.readiness);
       const rawConcepts = asRecord(sec.concepts);
       const concepts: Record<string, string> = {};
@@ -1677,6 +1679,7 @@ export function normalizeReport(
         title: SECTION_LABEL[key] ?? key.replaceAll("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
         status: status ?? undefined,
         observation: observation ?? undefined,
+        key_observations: key_observations.length > 0 ? key_observations : undefined,
         evidence: asStrArray(sec.evidence),
         technologies_mentioned: techList.length > 0 ? techList : undefined,
         concepts: Object.keys(concepts).length > 0 ? concepts : undefined,
