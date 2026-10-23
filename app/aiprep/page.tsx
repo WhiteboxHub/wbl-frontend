@@ -230,6 +230,10 @@ export default function AIPrepPage() {
     sessionStorage.removeItem('aiprep_active_type');
     sessionStorage.removeItem('aiprep_active_mode');
     sessionStorage.removeItem('aiprep_active_id');
+    sessionStorage.removeItem('aiprep_jd_text');
+    sessionStorage.removeItem('aiprep_jd_filename');
+    sessionStorage.removeItem('aiprep_jd_role');
+    sessionStorage.removeItem('aiprep_jd_company');
     setStarted(false);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('aiprep-layout-mode', {
