@@ -265,6 +265,13 @@ export function AIPrepDashboard({
       setShowSetupModal(true);
       return;
     }
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("aiprep_jd_text");
+      sessionStorage.removeItem("aiprep_jd_filename");
+      sessionStorage.removeItem("aiprep_jd_role");
+      sessionStorage.removeItem("aiprep_jd_company");
+      sessionStorage.setItem("aiprep_wizard_step", "CONFIGURATION");
+    }
     if (onStartAssessment) {
       onStartAssessment();
     } else {
@@ -405,7 +412,16 @@ export function AIPrepDashboard({
             <LoaderCircle className="animate-spin text-indigo-600 dark:text-indigo-400" />
           </div>
         ) : view === "assessment" ? (
-          <DeviceCheckWizard onCancel={() => setView("home")} />
+          <DeviceCheckWizard onCancel={() => {
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("aiprep_jd_text");
+              sessionStorage.removeItem("aiprep_jd_filename");
+              sessionStorage.removeItem("aiprep_jd_role");
+              sessionStorage.removeItem("aiprep_jd_company");
+              sessionStorage.removeItem("aiprep_wizard_step");
+            }
+            setView("home");
+          }} />
         ) : view === "home" ? (
           <section className="mt-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex justify-between">
