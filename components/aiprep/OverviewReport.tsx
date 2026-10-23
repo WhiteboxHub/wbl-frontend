@@ -426,7 +426,7 @@ const BARE_PLACEHOLDER_PATTERNS: RegExp[] = [
   /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\.?$/i,
   /^(the\s+)?(candidate|speaker)\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to)\s+(mention|discuss|cover|speak)\.?$/i,
   /^no\s+(aspect|mention|concept|details?|depth|information|evidence|discussion|coverage|demonstration)\.?$/i,
-  /^neither\s+.*\s+(was|were)\s+(mentioned|discussed|covered|provided)\.?$/i,
+  /^neither(\s+of\s+(them|these))?\s+(was|were)\s+(mentioned|discussed|covered|provided)\.?$/i,
 ];
 
 function isRealContent(text?: string | null): boolean {
