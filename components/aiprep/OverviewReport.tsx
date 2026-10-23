@@ -399,28 +399,12 @@ function ConceptStatusItem({
 //  TEXT SANITIZATION & CONTENT FILTERING
 // ═════════════════════════════════════════════════════════════════════════════
 
-const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
-  /^no\s/i,
-  /^none\b/i,
-  /^n\/?a$/i,
-  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated|demonstrated|explained)\b/i,
-  /^(the\s+)?(candidate|speaker)\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to|was\s+not\s+able\s+to|omits?)\b/i,
-  /^(the\s+)?(candidate|speaker)\s+(should|needs\s+to|must)\s+(provide|explain|discuss|elaborate|give|include|cover)\b/i,
-  /^(the\s+)?introduction\s+(does\s+not|did\s+not|didn't|hasn't|lacks|failed\s+to|contains\s+no|has\s+no|is\s+missing|provides\s+no|omits)\b/i,
-  /\b(does\s+not|did\s+not|didn't|hasn't|failed\s+to)\s+(mention|demonstrate|contain|provide|include|cover|show|discuss|explain|elaborate|highlight|touch\s+upon)\b/i,
-  /\blacks?\s+(any\s+)?(mention|substantive|content|details?|depth|evidence|coverage|information)\b/i,
-  /\bno\s+(aspect|mention|concept|details?|depth|information|evidence|discussion|coverage|demonstration)\b/i,
-  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate|explain|demonstrate)\b/i,
-  /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\b/i,
-  /^neither\s+.*\s+(was|were)\s+(mentioned|discussed|covered|provided)\b/i,
-  /\b(was|were)\s+not\s+(mentioned|covered|discussed|demonstrated|provided|explained)\b/i,
-  /\bwasn't\s+(mentioned|covered|discussed|demonstrated|provided|explained)\b/i,
-  /\bnot\s+mentioned\b/i,
-  /\bnot\s+covered\b/i,
-  /\bnot_mentioned\b/i,
+// Patterns that indicate outright session failure, insufficient audio, or STT artifacts.
+// These are ALWAYS rejected as evaluation content regardless of length.
+const INSUFFICIENT_PATTERNS: RegExp[] = [
   /^(the\s+)?speaking\s+duration\s+is\s+too\s+short/i,
   /^duration\s+(is\s+)?too\s+short/i,
-  /^insufficient\s+(data|speech|audio|duration|information)\b/i,
+  /^insufficient\s+(data|speech|audio|duration|information|content)\b/i,
   /^unable\s+to\s+evaluate\b/i,
   /\blacks?\s+(any\s+)?content\s+to\s+evaluate\b/i,
   /^no\s+specific\s+observation\s+recorded/i,
@@ -432,18 +416,52 @@ const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
   /^(thank\s+you|thanks\s+for\s+watching)\.?$/i,
 ];
 
+// Standalone bare placeholder phrases (e.g. "Not mentioned", "N/A", "None").
+// These are anchored so a real 3-sentence evaluator paragraph pointing out what was
+// missing ("...did not discuss microservices...") is NEVER falsely discarded.
+const BARE_PLACEHOLDER_PATTERNS: RegExp[] = [
+  /^(none|n\/?a|not\s+mentioned|not\s+covered|not_mentioned|no)\.?$/i,
+  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated|demonstrated|explained)\.?$/i,
+  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate|explain|demonstrate)\.?$/i,
+  /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\.?$/i,
+  /^(the\s+)?(candidate|speaker)\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to)\s+(mention|discuss|cover|speak)\.?$/i,
+  /^no\s+(aspect|mention|concept|details?|depth|information|evidence|discussion|coverage|demonstration)\.?$/i,
+  /^neither(\s+of\s+(them|these))?\s+(was|were)\s+(mentioned|discussed|covered|provided)\.?$/i,
+];
+
 function isRealContent(text?: string | null): boolean {
   if (!text) return false;
   const t = text.trim();
   if (t.length < 8) return false;
-  return !EMPTY_FALLBACK_PATTERNS.some((p) => p.test(t));
+
+  // 1. Explicit failure / silence / YouTube STT artifacts are always rejected
+  if (INSUFFICIENT_PATTERNS.some((p) => p.test(t))) {
+    return false;
+  }
+
+  // 2. Standalone placeholder phrases ("Not mentioned.", "N/A", "None") are rejected
+  if (BARE_PLACEHOLDER_PATTERNS.some((p) => p.test(t))) {
+    return false;
+  }
+
+  // 3. Genuine evaluator feedback is preserved even if it notes what was missed
+  return true;
 }
 
 function isEvaluatorSentence(text?: string | null): boolean {
   if (!isRealContent(text)) return false;
   const trimmed = text!.trim();
 
-  // Reject first-person candidate transcript quotes (e.g., "I have worked...", "I'm familiar...")
+  // Evaluator feedback addressed to the candidate is ALWAYS valid, even if it quotes
+  // candidate speech inside the sentence (e.g. "You mentioned FastAPI but did not cover...").
+  // Section-label prefixes (e.g. "Software engineering:", "Cloud:") are also always valid.
+  const evaluatorLeadPattern =
+    /^(?:you\b|the\s+candidate\b|software\s+engineering[:\s]|cloud[:\s]|ci\/cd[:\s]|rag[:\s]|agentic\s+ai[:\s]|agentic[:\s]|cicd[:\s])/i;
+  if (evaluatorLeadPattern.test(trimmed)) {
+    return true;
+  }
+
+  // Reject standalone first-person candidate transcript quotes (e.g., "I have worked...", "I'm familiar...")
   const firstPersonPattern = /^(?:so\s+|and\s+|also\s+)?\b(i|i'm|i've|i'll|i'd|my|we|we've|our)\b/i;
   if (firstPersonPattern.test(trimmed)) {
     return false;
@@ -747,16 +765,30 @@ function resolveSectionData(
     .filter(isRealContent) as string[];
   let subtitle = observationTexts.length > 0 ? Array.from(new Set(observationTexts)).join(" ") : "";
 
-  if (!subtitle && status === "NOT_MENTIONED") {
-    subtitle = "The candidate did not cover specific details for this section during the assessment.";
+  if (!subtitle) {
+    if (status === "NOT_MENTIONED") {
+      subtitle = "The candidate did not cover specific details for this section during the assessment.";
+    } else if (status === "PARTIAL") {
+      subtitle = "The candidate demonstrated partial coverage in this section. Key observations and recommendations are detailed below.";
+    } else if (status === "STRONG") {
+      subtitle = "The candidate demonstrated strong understanding and coverage across core concepts in this section.";
+    }
   }
 
-  // 3. Observations list (strictly LLM synthesized evaluation sentences, NO raw candidate transcript quotes)
+  // 3. Observations list — sourced exclusively from key_observations[] (the dedicated bullet field).
+  //    "observation" belongs to subtitle only and must NOT be duplicated here.
   const obsSet = new Set<string>();
+
+  // Primary source: dedicated key_observations field on each matched section
   matchedSecs.forEach((sec) => {
-    if (isEvaluatorSentence(sec.observation)) obsSet.add(sec.observation!);
+    if (Array.isArray((sec as any).key_observations)) {
+      ((sec as any).key_observations as string[]).forEach(
+        (obs: string) => isEvaluatorSentence(obs) && obsSet.add(obs)
+      );
+    }
   });
 
+  // Secondary source: technical_analysis[key].key_observations (existing field, unchanged)
   secKeys.forEach((key) => {
     const techSec = (technical_analysis as any)?.[key];
     if (techSec?.key_observations && Array.isArray(techSec.key_observations)) {
