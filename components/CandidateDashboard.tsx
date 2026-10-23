@@ -703,6 +703,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
             setIsAiPrepWizardActive(false);
             if (typeof window !== "undefined") {
                 sessionStorage.removeItem('aiprep_wizard_step');
+                sessionStorage.removeItem('aiprep_jd_text');
+                sessionStorage.removeItem('aiprep_jd_filename');
+                sessionStorage.removeItem('aiprep_jd_role');
+                sessionStorage.removeItem('aiprep_jd_company');
             }
         }
         const searchString = typeof window !== "undefined" ? window.location.search : "";
@@ -3769,6 +3773,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         onCancel={() => {
                                                             sessionStorage.removeItem('aiprep_wizard_step');
                                                             sessionStorage.removeItem('aiprep_history_initialized');
+                                                            sessionStorage.removeItem('aiprep_jd_text');
+                                                            sessionStorage.removeItem('aiprep_jd_filename');
+                                                            sessionStorage.removeItem('aiprep_jd_role');
+                                                            sessionStorage.removeItem('aiprep_jd_company');
                                                             setIsAiPrepWizardActive(false);
                                                             setCurrentSubPath('/user_dashboard/ai-prep');
                                                             setActiveTab('ai-prep');
@@ -3806,6 +3814,10 @@ export default function CandidateDashboard({ defaultTab = 'overview' }: Candidat
                                                         } : undefined}
                                                         onStartAssessment={() => {
                                                             sessionStorage.setItem('aiprep_wizard_step', 'CONFIGURATION');
+                                                            sessionStorage.removeItem('aiprep_jd_text');
+                                                            sessionStorage.removeItem('aiprep_jd_filename');
+                                                            sessionStorage.removeItem('aiprep_jd_role');
+                                                            sessionStorage.removeItem('aiprep_jd_company');
                                                             setIsAiPrepWizardActive(true);
                                                             goToTab('ai-prep/assessment-type');
                                                         }}
