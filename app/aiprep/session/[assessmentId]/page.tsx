@@ -1259,10 +1259,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsQuestionPrepPaused(true);
       stopAiSpeech();
 
+      // Slice and upload completed question's audio in background (0ms UI lag)
+      const activeQ = questions[currentQuestionIndex];
+      if (isAudioOnly && isRecording) {
+        try {
+          const audioRes = await stopAudioRecorder();
+          if (audioRes?.blob && activeQ?.id) {
+            void aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
+          }
+        } catch (e) {
+          console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
+        }
+      }
+
       // 1. Snapshot current question's live transcript
       const currentText = cleanTechnicalSpeech(liveTranscript).trim();
 
-      const activeQ = questions[currentQuestionIndex];
       recordQuestionAction(
         activeQ?.id || currentQuestionIndex,
         currentQuestionIndex + 1,
@@ -1301,6 +1313,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setPrepCountdown(null);
       setIsQuestionPrepPaused(false);
       setIsTransitioningQuestion(false);
+      startRecorderCore();
     }
   };
   handleNextQuestionRef.current = handleNextQuestion;
@@ -1364,6 +1377,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
+        const activeQ = questions[currentQuestionIndex];
+        if (finalAudioBlob && activeQ?.id) {
+          void aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+        }
         if (audioRes?.url && assessmentId) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
