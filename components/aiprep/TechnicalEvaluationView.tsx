@@ -747,15 +747,15 @@ export default function TechnicalEvaluationView({
                 onClick={() => setIsMediaOpen(!isMediaOpen)}
                 className="text-[11px] font-bold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 cursor-pointer"
               >
-                {isMediaOpen ? "Hide" : "Show Playback & Delivery"}
+                {isMediaOpen ? "Hide" : "Show Playback"}
                 {isMediaOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
               </button>
             </div>
 
             {isMediaOpen && (
-              <div className={delivery ? "grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start" : "w-full"}>
+              <div className="w-full">
                 {/* ── Media Player ── */}
-                <div className={delivery ? "lg:col-span-7 rounded-2xl overflow-hidden shadow-xs" : "w-full rounded-2xl overflow-hidden shadow-xs"}>
+                <div className="w-full max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-xs">
                   <VideoPlayer
                     youtubeUrl={effectivePlaybackUrl}
                     fallbackUrl={serverUrl}
@@ -767,7 +767,7 @@ export default function TechnicalEvaluationView({
                   />
                 </div>
 
-                {/* ── Measured Tiles & Delivery Summary (Only if delivery analysis exists) ── */}
+                {/* TEMPORARILY DISABLED: Speech & Delivery Telemetry tiles
                 {delivery && (
                   <div className="lg:col-span-5 flex flex-col justify-between space-y-3">
                     <div className="flex items-center justify-between">
@@ -782,7 +782,6 @@ export default function TechnicalEvaluationView({
 
                     {delivery.type === "video" ? (
                       <div className="grid grid-cols-2 gap-2">
-                        {/* Video Tile 1: Face Visibility */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Face Visibility</span>
@@ -802,7 +801,6 @@ export default function TechnicalEvaluationView({
                           </span>
                         </div>
 
-                        {/* Video Tile 2: Eye Contact */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Eye Contact</span>
@@ -822,7 +820,6 @@ export default function TechnicalEvaluationView({
                           </span>
                         </div>
 
-                        {/* Video Tile 3: Screen Attention */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Screen Attention</span>
@@ -842,7 +839,6 @@ export default function TechnicalEvaluationView({
                           </span>
                         </div>
 
-                        {/* Video Tile 4: Off-Screen Gaze */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Off-Screen Gaze</span>
@@ -864,7 +860,6 @@ export default function TechnicalEvaluationView({
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
-                        {/* Audio Tile 1: Speaking Pace */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Speaking Pace</span>
@@ -887,7 +882,6 @@ export default function TechnicalEvaluationView({
                           </span>
                         </div>
 
-                        {/* Audio Tile 2: Filler Words */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Filler Words</span>
@@ -910,7 +904,6 @@ export default function TechnicalEvaluationView({
                           </span>
                         </div>
 
-                        {/* Audio Tile 3: Silence & Pausing */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Silence & Pausing</span>
@@ -930,7 +923,6 @@ export default function TechnicalEvaluationView({
                           </span>
                         </div>
 
-                        {/* Audio Tile 4: Spoken Duration */}
                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/70">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                             <span>Spoken Duration</span>
@@ -961,7 +953,6 @@ export default function TechnicalEvaluationView({
                       </div>
                     )}
 
-                    {/* Footer: one line of summaryText, link to full analysis, and note */}
                     <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
                       {delivery.summaryText && (
                         <p className="text-xs text-slate-600 line-clamp-1 leading-normal">
@@ -983,6 +974,7 @@ export default function TechnicalEvaluationView({
                     </div>
                   </div>
                 )}
+                */}
               </div>
             )}
           </div>
