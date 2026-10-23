@@ -3357,7 +3357,8 @@ export function ReportHeader({
           const tabs: Array<{ label: ReportTab }> = [
             { label: "Overview" },
             { label: "Details" },
-            ...(analysisTabLabel ? [{ label: analysisTabLabel }] : []),
+            // TEMPORARY: Audio/Video Analysis tab disabled
+            // ...(analysisTabLabel ? [{ label: analysisTabLabel }] : []),
           ];
 
           return tabs.map((tab) => {

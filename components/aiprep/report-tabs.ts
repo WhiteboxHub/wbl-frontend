@@ -28,9 +28,10 @@ export function tabFromParam(param: string | null | undefined): ReportTab {
   const p = param.toLowerCase().trim();
   if (p === "overview" || p === "evaluation") return "Overview";
   if (p === "details") return "Details";
-  if (p === "audio-analysis" || p === "audio_analysis") return "Audio Analysis";
-  if (p === "video-analysis" || p === "video_analysis") return "Video Analysis";
-  if (p === "analysis" || p === "delivery") return "Audio Analysis";
+  // TEMPORARILY DISABLED: Redirect to Overview while Audio Analysis tab is disabled
+  // if (p === "audio-analysis" || p === "audio_analysis") return "Audio Analysis";
+  // if (p === "video-analysis" || p === "video_analysis") return "Video Analysis";
+  // if (p === "analysis" || p === "delivery") return "Audio Analysis";
   if (
     ["transcript", "performance", "technical", "communication", "coaching", "next-steps"].includes(p)
   ) {
