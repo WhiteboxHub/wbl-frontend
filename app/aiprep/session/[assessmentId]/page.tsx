@@ -1222,9 +1222,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     setCurrentQuestionIndex(0);
     setHasStartedQuestion(true);
     stopAiSpeech();
-    const activeQ = assessmentType === 'TECHNICAL'
-      ? pendingQuestions[0]
-      : questions[currentQuestionIndex];
+    // Use the loaded question list directly; React state updates from setQuestions are asynchronous.
+    const activeQ = pendingQuestions[currentQuestionIndex] ?? pendingQuestions[0];
 
     // Narration and preparation happen while the question is visible, but
     // before recording and the question timer start.
