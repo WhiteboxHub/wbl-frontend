@@ -65,6 +65,7 @@ const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
   SYSTEM_DESIGN: 'Architecture & Design',
 };
 
+// Keep only the currently available assessment types unlocked.
 export const UNLOCKED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO', 'JD_INTRO', 'TECHNICAL'];
 
 export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
@@ -76,14 +77,14 @@ export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES
     title: SHORT_TITLES[type] || details?.title || type,
     subtitle: details?.subtitle || '',
     description: SHORT_DESCRIPTIONS[type] || details?.shortDescription || '',
-    duration: (details?.duration || '15 mins').replace('–', '-'),
+    duration: (details?.duration || '15 mins').replace('â€“', '-'),
     isLocked: !isUnlocked,
     lockBadge: isUnlocked ? undefined : 'Coming Soon',
     icon: CARD_ICONS[type] || <MessageSquare className="w-5 h-5 stroke-[1.8]" />,
   };
 });
 
-/* ── Individual AssessmentCard Component ── */
+/* â”€â”€ Individual AssessmentCard Component â”€â”€ */
 export interface AssessmentCardProps {
   card: DisplayAssessmentCard;
   isSelected?: boolean;
@@ -191,7 +192,7 @@ export function AssessmentCard({
   );
 }
 
-/* ── AssessmentConfig Container Component for Step 1 ── */
+/* â”€â”€ AssessmentConfig Container Component for Step 1 â”€â”€ */
 export interface AssessmentConfigProps {
   assessmentType: AssessmentType;
   setAssessmentType: (type: AssessmentType) => void;
@@ -305,7 +306,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         )}
       </div>
 
-      {/* ── Assessment Info Modal ── */}
+      {/* â”€â”€ Assessment Info Modal â”€â”€ */}
       <AssessmentInfoModal
         isOpen={infoModalType !== null && UNLOCKED_ASSESSMENT_TYPES.includes(infoModalType)}
         type={infoModalType}
