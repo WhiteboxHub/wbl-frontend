@@ -12,6 +12,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import AiPrepReport from "@/components/aiprep/OverviewReport";
 import { aiprepApi } from '@/lib/aiprep-api';
 import type {
+  AssessmentDetail,
   AssessmentType,
   AssessmentStatus,
   MediaType,
@@ -137,7 +138,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
       console.warn('Audio visualizer error:', error);
       cancelled = true;
       if (source) {
-        try { source.disconnect(); } catch (_) {}
+        try { source.disconnect(); } catch (_) { }
       }
       if (audioCtx && audioCtx.state !== 'closed') {
         void audioCtx.close().catch(() => undefined);
@@ -154,7 +155,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
       if (animFrameRef.current === frameId) animFrameRef.current = null;
 
       if (source) {
-        try { source.disconnect(); } catch (_) {}
+        try { source.disconnect(); } catch (_) { }
       }
       if (audioCtx && audioCtx.state !== 'closed') {
         void audioCtx.close().catch(() => undefined);
@@ -174,11 +175,10 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
           <div
             key={i}
             style={{ height: isMuted ? '3px' : `${height}px` }}
-            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${
-              isMuted
+            className={`w-[5px] rounded-full shrink-0 transition-all duration-75 ${isMuted
                 ? 'bg-slate-300 dark:bg-slate-600'
                 : 'bg-gradient-to-t from-indigo-600 via-purple-500 to-indigo-400'
-            }`}
+              }`}
           />
         ))}
       </div>
@@ -189,16 +189,16 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
     <>
       <style>{introQuestionReadPulseStyles}</style>
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full shadow-sm transition-colors bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-lg">
-      <IconMicrophone size={14} stroke={2} className="text-emerald-400 shrink-0" />
-      <div className="flex items-center gap-[2.5px] h-4 overflow-hidden">
-        {audioLevels.map((height, i) => (
-          <div
-            key={i}
-            style={{ height: `${height}px` }}
-            className="w-[2.5px] rounded-full shrink-0 transition-all duration-75 bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300"
-          />
-        ))}
-      </div>
+        <IconMicrophone size={14} stroke={2} className="text-emerald-400 shrink-0" />
+        <div className="flex items-center gap-[2.5px] h-4 overflow-hidden">
+          {audioLevels.map((height, i) => (
+            <div
+              key={i}
+              style={{ height: `${height}px` }}
+              className="w-[2.5px] rounded-full shrink-0 transition-all duration-75 bg-gradient-to-t from-indigo-400 via-purple-400 to-cyan-300"
+            />
+          ))}
+        </div>
       </div>
     </>
   );
@@ -234,8 +234,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
 
   // Core session metadata
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
-  const [mediaType, setMediaType] = useState<MediaType>('AUDIO_ONLY');
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage.getItem('aiprep_active_type');
+      if (stored) return stored as AssessmentType;
+    }
+    return 'TECHNICAL';
+  });
+  const [mediaType, setMediaType] = useState<MediaType>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage.getItem('aiprep_active_mode');
+      if (stored) return stored as MediaType;
+      const isVideo = window.sessionStorage.getItem('aiprep_video_enabled') === 'true';
+      if (isVideo) return 'VIDEO_AUDIO';
+    }
+    return 'AUDIO_ONLY';
+  });
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   // Hold technical questions out of rendered state until Start Assessment is clicked.
   const pendingAssessmentQuestionsRef = useRef<QuestionBankItem[]>([]);
@@ -317,7 +331,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           return true;
         }
       }
-    } catch (_) {}
+    } catch (_) { }
     return false;
   });
 
@@ -412,7 +426,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           setIsSessionActiveInOtherTab(true);
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // 2. BroadcastChannel coordination
     let channel: BroadcastChannel | null = null;
@@ -435,7 +449,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
       };
       channel.postMessage({ type: 'PING_ACTIVE_SESSION', tabId: currentTabId, assessmentId });
-    } catch (_) {}
+    } catch (_) { }
 
     // 3. Heartbeat if this tab owns the active session
     const heartbeatTimer = setInterval(() => {
@@ -446,7 +460,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             heartbeat: Date.now(),
             assessmentId,
           }));
-        } catch (_) {}
+        } catch (_) { }
       }
     }, 4000);
 
@@ -454,7 +468,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       clearInterval(heartbeatTimer);
       try {
         channel?.close();
-      } catch (_) {}
+      } catch (_) { }
       try {
         const raw = localStorage.getItem(`aiprep_active_session_${assessmentId}`);
         if (raw) {
@@ -463,7 +477,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     };
   }, [assessmentId, currentTabId, isSessionActiveInOtherTab, questions, setIsLoading, setIsSessionActiveInOtherTab]);
 
@@ -584,7 +598,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     TECHNICAL: 'technical',
     SYSTEM_DESIGN: 'system design',
   } as Record<string, string>)[assessmentType] || assessmentType.replace(/_/g, ' ').toLowerCase();
-  const isAudioOnly = mediaType === 'AUDIO' || mediaType === 'AUDIO_ONLY';
+  const isAudioOnly = mediaType === 'AUDIO' || mediaType === 'AUDIO_ONLY' || assessmentType === 'JD_INTRO';
 
   // ── Chunk Upload Queue Hook ────────────────────────────────────────────────
   const {
@@ -771,6 +785,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     stopAiSpeech();
     cleanupRecorder();
     clearQueue();
+    localChunksRef.current = [];
 
     if (typeof window !== 'undefined') {
       try {
@@ -794,7 +809,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
           })
         );
-      } catch (_) {}
+      } catch (_) { }
     }
 
     try {
@@ -810,7 +825,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
         History.prototype.replaceState.call(window.history, {}, '', targetUrl);
       }
-    } catch (_) {}
+    } catch (_) { }
     router.replace(targetUrl);
   }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
 
@@ -829,7 +844,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         if (window.history && History?.prototype?.replaceState) {
           History.prototype.replaceState.call(window.history, {}, '', targetUrl);
         }
-      } catch (_) {}
+      } catch (_) { }
       router.replace(targetUrl);
     }
   }, [assessmentId, isEmbedded, router]);
@@ -840,14 +855,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     try {
       window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
-    } catch (_) {}
+    } catch (_) { }
 
     const handlePopState = () => {
       if (isExitingRef.current) return;
       setShowExitModal(true);
       try {
         window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
-      } catch (_) {}
+      } catch (_) { }
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -884,11 +899,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
 
         // Failsafe: check server assessment status
-        let serverDetail: any = null;
+        let serverDetail: AssessmentDetail | null = null;
         try {
-          const detail = await aiprepApi.getAssessment(assessmentId);
-          serverDetail = detail;
-          const status = (detail?.status || '').toUpperCase();
+          serverDetail = await aiprepApi.getAssessment(assessmentId);
+          const status = (serverDetail?.status || '').toUpperCase();
           if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
             if (typeof window !== 'undefined') {
               localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
@@ -903,23 +917,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             router.replace(targetUrl);
             return;
           }
-        } catch (_) {}
+        } catch (_) { }
 
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode directly from sessionStorage
-        const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
-        const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
+        // 1. Recover stored session track & mode directly from sessionStorage or server assessment detail
+        const resolvedType: AssessmentType = typeof window !== 'undefined'
+          ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || (serverDetail?.assessment_type as AssessmentType) || 'INTRO')
+          : ((serverDetail?.assessment_type as AssessmentType) || 'INTRO');
+        const resolvedMode: MediaType = typeof window !== 'undefined'
+          ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || (serverDetail?.media_type as MediaType) || 'AUDIO_ONLY')
+          : ((serverDetail?.media_type as MediaType) || 'AUDIO_ONLY');
         let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
 
+        // Keep sessionStorage in sync
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem('aiprep_active_type', finalType);
+          window.sessionStorage.setItem('aiprep_active_mode', finalMode);
+          window.sessionStorage.setItem('aiprep_video_enabled', (finalMode === 'VIDEO_AUDIO' || finalMode === 'VIDEO') ? 'true' : 'false');
+        }
+
         if (finalType === 'JD_INTRO') {
           const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
           const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
           const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
-          const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
+          const serverJd = (serverDetail as any)?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
           const activeJd = storedJd || serverJd;
           if (activeJd) setJobDescription((prev) => prev || activeJd);
           if (storedRole) setTargetRole(storedRole);
@@ -960,7 +985,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 loadedQuestions = parsed as QuestionBankItem[];
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // Technical assessments must use the exact question snapshot returned by POST.
@@ -1265,6 +1290,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
     if (preparationCancelledRef.current || isEnding) return;
     setPrepCountdown(null);
+    localChunksRef.current = [];
     startRecorderCore();
   };
   startAnswerRef.current = handleStartAnswer;
@@ -1487,7 +1513,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
+            (window as any).__aiprep_local_preview[String(assessmentId)] = audioRes.url;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, audioRes.url);
+            sessionStorage.setItem(`aiprep_local_preview_${String(assessmentId)}`, audioRes.url);
           }
         }
       } else {
@@ -1495,20 +1523,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
         if (localChunksRef.current.length > 0 && assessmentId) {
           try {
-            const mimeType = 'video/webm';
+            const mimeType = localChunksRef.current[0]?.type || 'video/webm';
             const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
             const previewUrl = URL.createObjectURL(combinedBlob);
             if (typeof window !== 'undefined') {
               (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
               (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
+              (window as any).__aiprep_local_preview[String(assessmentId)] = previewUrl;
               sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
+              sessionStorage.setItem(`aiprep_local_preview_${String(assessmentId)}`, previewUrl);
             }
           } catch (blobErr) {
             console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
           }
         }
         // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
-        await waitForAllChunks(8000);
+        setSubmissionStep("Uploading recording chunks…");
+        if (failedChunks > 0) {
+          retryFailedChunks();
+        }
+        await waitForAllChunks(10000);
       }
 
       // Commit any pending interim speech as a complete sentence before submitting
@@ -1545,9 +1579,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       const finalSegments =
         transcriptSegmentsRef.current.length > 0
           ? transcriptSegmentsRef.current.map((seg) => ({
-              ...seg,
-              text: cleanTechnicalSpeech(seg.text),
-            }))
+            ...seg,
+            text: cleanTechnicalSpeech(seg.text),
+          }))
           : [
             {
               speaker: 'Candidate',
@@ -1560,20 +1594,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // 3. Submit assessment and keep this PUT connection open for SSE progress.
       // The API resolves only after the backend sends a terminal COMPLETED event.
       setSubmissionProgress(0);
-      setSubmissionStep("Submitting assessment…");
+      const consentRecording = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_consent_recording') !== 'false' : true;
+      const consentTranscript = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_consent_transcript') !== 'false' : true;
+      const consentAnalytics = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_consent_analytics') !== 'false' : true;
+
       await aiprepApi.submitAssessmentStream(
         assessmentId,
         {
-          total_chunks_uploaded: isAudioOnly ? 0 : (totalChunks || 1),
+          total_chunks_uploaded: isAudioOnly ? 0 : (totalChunks || uploadedChunks || localChunksRef.current.length || 1),
           is_final: true,
           client_duration_seconds: elapsedTimeRef.current,
           video_telemetry: isAudioOnly
             ? {}
             : {
-                eye_contact_percentage: 85.0,
-                face_visibility_percentage: 95.0,
-              },
+              eye_contact_percentage: 85.0,
+              face_visibility_percentage: 95.0,
+            },
           status: null,
+          consent: {
+            save_recording: consentRecording,
+            save_transcript: consentTranscript,
+            video_analytics: consentAnalytics,
+          },
         },
         (event) => {
           // Progress UI must never interrupt consumption of the assessment SSE stream.
@@ -1624,18 +1666,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           sessionStorage.removeItem('aiprep_jd_role');
           sessionStorage.removeItem('aiprep_jd_company');
           localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
-        } catch (_) {}
+        } catch (_) { }
       }
 
       // 7. Transition directly to Evaluation page once response arrives
       const reportUrl = isEmbedded
         ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
         : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('aiprep-layout-mode', {
+            detail: { isWizardActive: false, fullscreen: false, active: false, headerCollapsed: false },
+          })
+        );
+      }
       try {
         if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
           History.prototype.replaceState.call(window.history, {}, '', reportUrl);
         }
-      } catch (_) {}
+      } catch (_) { }
+      router.replace(reportUrl);
       setFinishedAssessmentId(assessmentId);
     } catch (err: any) {
       console.error('Finalize session error:', err);
@@ -1740,7 +1790,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center overflow-y-auto">
         <div className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xl p-6 sm:p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
-          
+
           {/* Top Pill Status Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-700 dark:text-amber-300 text-xs font-semibold mb-4">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -1868,9 +1918,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const wordCount = liveTranscript ? liveTranscript.trim().split(/\s+/).filter(Boolean).length : 0;
   const sentenceCount = liveTranscript
     ? liveTranscript
-        .trim()
-        .split(/[.!?]+/)
-        .filter((s) => s.trim().length > 0).length
+      .trim()
+      .split(/[.!?]+/)
+      .filter((s) => s.trim().length > 0).length
     : 0;
   // Keep the instructions screen visible for every non-intro assessment until Start Assessment is clicked.
   // Do not let recordingStatus or microphone state reveal the question early.
@@ -1889,47 +1939,44 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   return (
     <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {(isIntroType || hasStartedQuestion) && (
-      <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
-          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
-        </div>
-        {!isQuestionBlurred && <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${isRecording && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
-          <IconClock size={14} />
-          <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(questionTimeRemaining)}</span>
-          {!isIntroType && questionTimeRemaining <= 30 && questionTimeRemaining >= 29 && (
-            <span className="whitespace-nowrap border-l border-current/20 pl-2 text-[10px] font-black uppercase tracking-wide sm:text-[11px]" role="status" aria-live="polite">
-              30 seconds left
-            </span>
-          )}
-        </div>}
-        {!isQuestionBlurred && <div className="ml-auto flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400" title="Connection status"><IconWifi size={17} /></span>
-          <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen(); }} className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" aria-label="Toggle fullscreen" title="Toggle fullscreen"><IconMaximize size={16} /></button>
-        </div>}
-      </header>
+        <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
+            <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
+          </div>
+          {!isQuestionBlurred && <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${isRecording && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
+            <IconClock size={14} />
+            <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(questionTimeRemaining)}</span>
+            {!isIntroType && questionTimeRemaining <= 30 && questionTimeRemaining >= 29 && (
+              <span className="whitespace-nowrap border-l border-current/20 pl-2 text-[10px] font-black uppercase tracking-wide sm:text-[11px]" role="status" aria-live="polite">
+                30 seconds left
+              </span>
+            )}
+          </div>}
+          {!isQuestionBlurred && <div className="ml-auto flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400" title="Connection status"><IconWifi size={17} /></span>
+            <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen(); }} className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" aria-label="Toggle fullscreen" title="Toggle fullscreen"><IconMaximize size={16} /></button>
+          </div>}
+        </header>
       )}
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
       <div className={`relative flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto ${isIntroType ? 'pb-4' : 'pb-28'}`}>
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
         <div className={`${isQuestionBlurred ? 'hidden' : isIntroType ? 'lg:col-span-7' : 'lg:col-span-6'} flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible`}>
           {/* CINEMA CAMERA STAGE */}
-          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl overflow-hidden border flex items-center justify-center min-h-[220px] sm:min-h-[280px] transition-colors duration-300 ${
-            isAudioOnly
+          <div className={`relative w-full aspect-video sm:aspect-auto sm:flex-1 rounded-2xl overflow-hidden border flex items-center justify-center min-h-[220px] sm:min-h-[280px] transition-colors duration-300 ${isAudioOnly
               ? 'bg-white border-slate-200/90 shadow-sm'
               : 'bg-slate-950 border-slate-200 dark:border-slate-800/80 shadow-lg dark:shadow-2xl'
-          }`}>
+            }`}>
             {/* 3-2-1 Countdown Overlay for Intro Track */}
             {countdownValue !== null && (
-              <div className={`absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md ${
-                isAudioOnly ? 'bg-white/95' : 'bg-slate-950/90'
-              }`}>
+              <div className={`absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md ${isAudioOnly ? 'bg-white/95' : 'bg-slate-950/90'
+                }`}>
                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-5xl flex items-center justify-center animate-bounce shadow-2xl shadow-indigo-500/50">
                   {countdownValue}
                 </div>
-                <p className={`mt-3 w-full max-w-sm sm:max-w-md px-4 text-xs sm:text-sm leading-normal text-center font-bold tracking-wide animate-pulse ${
-                  isAudioOnly ? 'text-slate-700 dark:text-slate-200' : 'text-white'
-                }`}>
+                <p className={`mt-3 w-full max-w-sm sm:max-w-md px-4 text-xs sm:text-sm leading-normal text-center font-bold tracking-wide animate-pulse ${isAudioOnly ? 'text-slate-700 dark:text-slate-200' : 'text-white'
+                  }`}>
                   Get ready! Recording starts automatically… After the countdown, the AI will read the question aloud.
                 </p>
               </div>
@@ -1968,11 +2015,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             )}
 
             {/* Top-Left Live REC Badge */}
-            <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${
-              isAudioOnly
+            <div className={`absolute top-4 left-4 z-20 flex items-center gap-2 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors ${isAudioOnly
                 ? 'bg-slate-50/90 border border-slate-200 text-slate-700'
                 : 'bg-slate-900/85 border border-slate-700/80 text-white backdrop-blur-md shadow-lg'
-            }`}>
+              }`}>
               <span
                 className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-400'
                   }`}
@@ -2160,8 +2206,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       onClick={handleEndSession}
                       disabled={isEnding || countdownValue !== null}
                       className={`h-10 px-4 sm:px-5 rounded-xl font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-2 transition-all duration-200 shrink-0 ${countdownValue !== null
-                          ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
-                          : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
+                        ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60 shadow-none pointer-events-none'
+                        : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white shadow-md shadow-purple-500/30 hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-50'
                         }`}
                       title="Submit your assessment and finish now"
                     >
@@ -2363,7 +2409,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   className={`rounded-xl transition-all duration-300 ${isAiSpeaking
                     ? 'border border-violet-400 bg-violet-50/80 px-4 py-3 shadow-[0_0_0_3px_rgba(139,92,246,0.10)] animate-[question-read-pulse_1.8s_ease-in-out_infinite] dark:border-violet-500/80 dark:bg-violet-950/30'
                     : 'border border-transparent px-0 py-0'
-                  }`}
+                    }`}
                 >
                   <h2 className="text-lg sm:text-xl xl:text-2xl font-semibold text-slate-900 dark:text-white leading-relaxed tracking-tight">
                     {activeQuestion.question_text}
@@ -2383,10 +2429,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${isQuestionTimeExpired
-                          ? 'bg-rose-500'
-                          : isQuestionLowTime
-                            ? 'bg-amber-500'
-                            : 'bg-indigo-600'
+                        ? 'bg-rose-500'
+                        : isQuestionLowTime
+                          ? 'bg-amber-500'
+                          : 'bg-indigo-600'
                         }`}
                       style={{ width: `${questionProgressPct}%` }}
                     />

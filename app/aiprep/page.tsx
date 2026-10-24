@@ -108,11 +108,22 @@ export default function AIPrepPage() {
       }
 
       const targetType: AssessmentType = (results.assessment_type as AssessmentType) || effectiveType || 'INTRO';
+      const saveRecordingConsent = results.consent_save_recording !== undefined ? results.consent_save_recording : true;
+      const saveTranscriptConsent = results.consent_save_transcript !== undefined ? results.consent_save_transcript : true;
+      const videoAnalyticsConsent = results.analytics_consent !== undefined ? results.analytics_consent : true;
+
       const assessment = await aiPrepApi.createAssessment({
         assessment_type: targetType,
         assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
         candidate_id: candidateId,
         job_description_text: results.jd_text || null,
+        consent: {
+          save_recording: saveRecordingConsent,
+          save_transcript: saveTranscriptConsent,
+          video_analytics: videoAnalyticsConsent,
+        },
+        consent_save_recording: saveRecordingConsent,
+        consent_save_transcript: saveTranscriptConsent,
       });
 
       if (!assessment || !assessment.id) {

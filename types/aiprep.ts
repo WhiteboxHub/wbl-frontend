@@ -65,6 +65,7 @@ export interface CandidateSubmitAssessmentRequest {
   client_duration_seconds?: number;
   video_telemetry?: Record<string, unknown>;
   status?: string;
+  consent?: Record<string, unknown>;
 }
 
 export interface CandidateSubmitAssessmentResponse {

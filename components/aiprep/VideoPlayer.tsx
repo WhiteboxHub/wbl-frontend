@@ -73,7 +73,7 @@ export default function VideoPlayer({
   onSeek,
   onDurationChange,
 }: Props) {
-  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || null);
+  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || fallbackUrl || null);
   const [isMounted, setIsMounted] = useState(false);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
 
@@ -117,12 +117,12 @@ export default function VideoPlayer({
 
   // Reset playback and error states when media URL changes
   useEffect(() => {
-    setCurrentMediaUrl(youtubeUrl || null);
+    setCurrentMediaUrl(youtubeUrl || fallbackUrl || null);
     setUseServerFallback(false);
     setHasMediaError(false);
     setCurrentTime(0);
     setIsPlaying(false);
-  }, [youtubeUrl]);
+  }, [youtubeUrl, fallbackUrl]);
 
   const handleMediaError = useCallback(() => {
     if (currentMediaUrl && fallbackUrl && currentMediaUrl !== fallbackUrl) {
@@ -279,10 +279,10 @@ export default function VideoPlayer({
   if (ytId && !useServerFallback) {
     return (
       <div
-        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
+        className={`relative w-full max-w-2xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
       >
         <iframe
-          className="w-full h-[320px] sm:h-[360px] rounded-2xl"
+          className="w-full h-[300px] sm:h-[340px] rounded-2xl"
           src={`https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1`}
           title="Assessment recording"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -308,40 +308,13 @@ export default function VideoPlayer({
   }
 
   // ── 2. Standard Video Mode (when media is Video and has valid URL) ──────────
-  const isVideoFile =
-    !isAudioOnly &&
-    youtubeUrl &&
-    (() => {
-      if (youtubeUrl.startsWith("blob:") || youtubeUrl.startsWith("data:")) {
-        return true;
-      }
-      try {
-        const pathname = new URL(youtubeUrl).pathname.toLowerCase();
-        return (
-          pathname.endsWith(".mp4") ||
-          pathname.endsWith(".webm") ||
-          pathname.endsWith("/video") ||
-          pathname.includes("/playback")
-        );
-      } catch {
-        // Fallback for relative or non-standard URLs the URL constructor rejects
-        const lower = youtubeUrl.toLowerCase();
-        return (
-          lower.startsWith("blob:") ||
-          lower.includes(".mp4") ||
-          lower.includes(".webm") ||
-          lower.includes("/video") ||
-          lower.includes("/playback")
-        );
-      }
-    })();
-  if (!isAudioOnly && currentMediaUrl && isVideoFile) {
+  if (!isAudioOnly && currentMediaUrl) {
     return (
       <div
-        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center border-2 border-slate-800 shadow-md ${className ?? ""}`}
+        className={`relative w-full max-w-2xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center border-2 border-slate-800 shadow-md ${className ?? ""}`}
       >
         {hasMediaError ? (
-          <div className="h-[320px] sm:h-[360px] w-full flex flex-col items-center justify-center gap-2 text-center p-6">
+          <div className="h-[300px] sm:h-[340px] w-full flex flex-col items-center justify-center gap-2 text-center p-6">
             <VideoOff size={32} className="text-rose-400" />
             <span className="text-sm font-semibold text-rose-300">
               Failed to load video recording
@@ -358,7 +331,7 @@ export default function VideoPlayer({
             playsInline
             preload="metadata"
             onError={handleMediaError}
-            className="w-full h-[320px] sm:h-[360px] rounded-2xl bg-black object-contain"
+            className="w-full h-[300px] sm:h-[340px] rounded-2xl bg-black object-contain"
           >
             Your browser does not support video playback.
           </video>
@@ -371,7 +344,7 @@ export default function VideoPlayer({
   if (!isAudioOnly && !currentMediaUrl) {
     return (
       <div
-        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
+        className={`relative w-full max-w-2xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
       >
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-amber-950/80 border border-amber-700/60 z-10">
@@ -397,7 +370,7 @@ export default function VideoPlayer({
 
   return (
     <div
-      className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto rounded-2xl bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-5 border-2 border-slate-800 shadow-md overflow-hidden min-h-[300px] sm:min-h-[340px] select-none ${className ?? ""}`}
+      className={`relative w-full max-w-2xl mx-auto rounded-2xl bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-5 border-2 border-slate-800 shadow-md overflow-hidden min-h-[300px] sm:min-h-[340px] select-none ${className ?? ""}`}
     >
       {/* Background ambient gradient */}
       <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />

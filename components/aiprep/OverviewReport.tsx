@@ -589,7 +589,23 @@ function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: numb
 //  EMPTY STATE CARD
 // ═════════════════════════════════════════════════════════════════════════════
 
-export function EmptyEvaluationCard() {
+export function EmptyEvaluationCard({
+  playbackUrl,
+  fallbackUrl,
+  isAudioOnly = false,
+  candidateName,
+  durationSeconds = 0,
+  videoRef,
+  onDurationChange,
+}: {
+  playbackUrl?: string;
+  fallbackUrl?: string;
+  isAudioOnly?: boolean;
+  candidateName?: string;
+  durationSeconds?: number;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
+  onDurationChange?: (duration: number) => void;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromAvatar = searchParams.get("from") === "avatar";
@@ -602,7 +618,7 @@ export function EmptyEvaluationCard() {
       sessionStorage.getItem("aiprep_return_url")?.includes("avatar"));
 
   return (
-    <div className="flex items-center justify-center py-6 sm:py-10 px-4 animate-in fade-in zoom-in-95 duration-150">
+    <div className="flex flex-col items-center justify-center py-6 sm:py-10 px-4 animate-in fade-in zoom-in-95 duration-150 gap-6">
       <div className="w-full max-w-sm rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 text-center shadow-lg shadow-slate-900/5">
         <div className="mx-auto mb-2.5 flex size-9 items-center justify-center rounded-full bg-amber-50 border border-amber-200/80 text-amber-600">
           <MicOff size={16} strokeWidth={2.2} />
@@ -1797,11 +1813,16 @@ export function EvaluationContent({
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
 
   const mediaPath = isAudioOnly ? "audio" : "video";
-  const canShowRecording = Boolean(
-    consent?.save_recording ??
-    (report.assessment as any)?.consent?.save_recording ??
-    true
-  );
+  const clientConsentRecording = typeof window !== "undefined"
+    ? (sessionStorage.getItem("aiprep_consent_recording") === "false" ? false : undefined)
+    : undefined;
+
+  const serverConsentRecording = consent?.save_recording ?? (report.assessment as any)?.consent?.save_recording;
+  const canShowRecording = clientConsentRecording === false
+    ? false
+    : serverConsentRecording !== undefined
+    ? Boolean(serverConsentRecording)
+    : true;
   const localPreviewUrl =
     typeof window !== "undefined"
       ? (window as any).__aiprep_local_preview?.[assessmentId] ||
@@ -1833,14 +1854,19 @@ export function EvaluationContent({
   // Auto-cleanup local instant playback blob once YouTube URL is available
   useEffect(() => {
     if (youtube_url && typeof window !== "undefined" && assessmentId) {
-      if ((window as any).__aiprep_local_preview?.[assessmentId]) {
+      const idKey = String(assessmentId);
+      const activeObj = (window as any).__aiprep_local_preview;
+      if (activeObj?.[assessmentId] || activeObj?.[idKey]) {
         try {
-          URL.revokeObjectURL((window as any).__aiprep_local_preview[assessmentId]);
+          const urlToRevoke = activeObj[assessmentId] || activeObj[idKey];
+          if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
         } catch (_) { }
-        delete (window as any).__aiprep_local_preview[assessmentId];
+        delete activeObj[assessmentId];
+        delete activeObj[idKey];
       }
       try {
         sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+        sessionStorage.removeItem(`aiprep_local_preview_${idKey}`);
       } catch (_) { }
     }
   }, [youtube_url, assessmentId]);
@@ -1877,7 +1903,17 @@ export function EvaluationContent({
   const candidateSpoke = hasRealSpeech(report);
 
   if (!candidateSpoke) {
-    return <EmptyEvaluationCard />;
+    return (
+      <EmptyEvaluationCard
+        playbackUrl={canShowRecording ? effectivePlaybackUrl : undefined}
+        fallbackUrl={serverUrl}
+        videoRef={videoRef}
+        isAudioOnly={isAudioOnly}
+        candidateName={report.candidate_name}
+        durationSeconds={durationSeconds}
+        onDurationChange={onDurationChange}
+      />
+    );
   }
 
   // ── Technical Assessment: delegate to dedicated view ─────────────────────
@@ -2821,7 +2857,55 @@ export function DetailsContent({
   };
 
   if (!candidateSpoke || report.insufficient_content) {
-    return <EmptyEvaluationCard />;
+    const rawMediaType = (report.assessment?.media_type || "").toUpperCase();
+    const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
+    const mediaPath = isAudioOnly ? "audio" : "video";
+    const clientConsentRecording = typeof window !== "undefined"
+      ? (sessionStorage.getItem("aiprep_consent_recording") === "false" ? false : undefined)
+      : undefined;
+
+    const serverConsentRecording = report.consent?.save_recording ?? (report.assessment as any)?.consent?.save_recording;
+    const canShowRecording = clientConsentRecording === false
+      ? false
+      : serverConsentRecording !== undefined
+      ? Boolean(serverConsentRecording)
+      : true;
+    const detailAssessmentId = String(report.assessment?.id || "");
+    const authToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
+        : "";
+    const localPreviewUrl =
+      typeof window !== "undefined" && detailAssessmentId
+        ? (window as any).__aiprep_local_preview?.[detailAssessmentId] ||
+        (() => {
+          const stored = sessionStorage.getItem(`aiprep_local_preview_${detailAssessmentId}`);
+          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[detailAssessmentId]) {
+            try {
+              sessionStorage.removeItem(`aiprep_local_preview_${detailAssessmentId}`);
+            } catch (_) { }
+            return undefined;
+          }
+          return stored || undefined;
+        })()
+        : undefined;
+    const serverUrl = detailAssessmentId
+      ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${detailAssessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+      : undefined;
+    const effectivePlaybackUrl = canShowRecording
+      ? (report.youtube_url || localPreviewUrl || serverUrl)
+      : undefined;
+
+    return (
+      <EmptyEvaluationCard
+        playbackUrl={canShowRecording ? effectivePlaybackUrl : undefined}
+        fallbackUrl={serverUrl}
+        videoRef={videoRef}
+        isAudioOnly={isAudioOnly}
+        candidateName={report.candidate_name}
+        onDurationChange={onDurationChange}
+      />
+    );
   }
 
   // ── Technical Assessment or Delivery Analysis: delegate to dedicated view ──
@@ -4035,7 +4119,6 @@ export default function AiPrepReport({
           }
         }
       } catch (_) {
-        consecutiveErrors += 1;
         if (consecutiveErrors >= 3) {
           clearInterval(interval);
         }
@@ -4089,10 +4172,29 @@ export default function AiPrepReport({
   }, [report?.youtube_url, isProcessing, assessmentId]);
 
   useEffect(() => {
+    // Unfreeze document and body scrolling completely
     document.documentElement.style.removeProperty("overflow");
     document.documentElement.style.removeProperty("height");
     document.body.style.removeProperty("overflow");
     document.body.style.removeProperty("height");
+    document.documentElement.classList.remove("overflow-hidden", "h-full");
+    document.body.classList.remove("overflow-hidden", "h-screen", "h-[100dvh]");
+    document.documentElement.style.overflowY = "auto";
+    document.body.style.overflowY = "auto";
+
+    // Notify RootLayout to reset fullscreen/wizard mode and restore normal layout scrolling
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("aiprep-layout-mode", {
+          detail: {
+            isWizardActive: false,
+            fullscreen: false,
+            active: false,
+            headerCollapsed: false,
+          },
+        })
+      );
+    }
   }, []);
 
   const [detailsSubTab, setDetailsSubTab] = useState<string>(() => {
@@ -4210,7 +4312,7 @@ export default function AiPrepReport({
   const isOverviewTab = activeTab === "Overview" || activeTab === "Evaluation";
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-6">
+    <div className="min-h-screen w-full overflow-y-auto bg-[#f8fafc] text-slate-900 pb-6">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 w-full space-y-2.5 sm:space-y-3">
         <ReportHeader
           assessment={assessment}
