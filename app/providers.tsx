@@ -87,6 +87,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
     let isSubscribed = true;
 
     async function init() {
+      // Disable PostHog in production. The browser was repeatedly blocking its
+      // event endpoint, generating failed requests and retries in DevTools.
+      // Keep the application itself running; only product analytics is disabled.
+      if (process.env.NODE_ENV === "production") {
+        if (isSubscribed) {
+          setIsPostHogInitialized(false);
+          setMounted(true);
+        }
+        return;
+      }
+
       // Safely derive process from global scope or window fallback for non-Node environments
       const safeProcess =
         typeof globalThis !== "undefined" && (globalThis as any).process
