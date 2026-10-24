@@ -55,26 +55,30 @@ export function formatBand(raw?: string | null, inverted: boolean = false): stri
   }
 
   const map: Record<string, string> = {
-    EXCELLENT:           "Good",
-    STRONG:              "Good",
-    GOOD:                "Good",
-    POSITIVE:            "Good",
-    ADEQUATE:            "Average",
-    AVERAGE:             "Average",
-    DEVELOPING:          "Average",
-    PARTIAL:             "Average",
-    NEEDS_WORK:          "Needs Improvement",
-    NEEDS_POLISH:        "Needs Improvement",
-    NEEDS_IMPROVEMENT:   "Needs Improvement",
-    WEAK:                "Needs Improvement",
-    POOR:                "Needs Improvement",
-    COVERED:             "Good",
-    NOT_MENTIONED:       "Not Mentioned",
-    NEGATIVE:            "Needs Improvement",
-    NOT_APPLICABLE:      "N/A",
-    INSUFFICIENT_DATA:   "Insufficient Data",
+    EXCELLENT: "Excellent",
+    STRONG: "Strong",
+    GOOD: "Good",
+    POSITIVE: "Positive",
+    ADEQUATE: "Adequate",
+    AVERAGE: "Average",
+    DEVELOPING: "Developing",
+    PARTIAL: "Partial",
+    NEEDS_WORK: "Needs Work",
+    NEEDS_POLISH: "Needs Polish",
+    NEEDS_IMPROVEMENT: "Needs Improvement",
+    WEAK: "Weak",
+    POOR: "Poor",
+    COVERED: "Covered",
+    NOT_MENTIONED: "Not Mentioned",
+    NEGATIVE: "Negative",
+    NOT_APPLICABLE: "N/A",
+    INSUFFICIENT_DATA: "Insufficient Data",
+    STRONG_FIT: "Strong Fit",
+    GOOD_FIT: "Good Fit",
+    PARTIAL_FIT: "Partial Fit",
+    WEAK_FIT: "Weak Fit",
   };
-  return map[upper] ?? raw;
+  return map[upper] ?? (upper.charAt(0) + upper.slice(1).toLowerCase().replaceAll("_", " "));
 }
 
 /** Tailwind colour tokens for a status badge */
@@ -95,22 +99,28 @@ export function bandColor(band?: string, inverted: boolean = false): string {
   switch (upper) {
     case "EXCELLENT":
     case "STRONG":
+    case "STRONG_FIT": return "bg-indigo-50 text-indigo-700 border-indigo-200";
     case "GOOD":
+    case "GOOD_FIT":
     case "COVERED":
-    case "POSITIVE":      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    case "POSITIVE": return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "AVERAGE":
     case "ADEQUATE":
     case "DEVELOPING":
-    case "PARTIAL":       return "bg-amber-100 text-amber-800 border-amber-200";
+    case "PARTIAL":
+    case "PARTIAL_FIT":
+    case "NEEDS_POLISH": return "bg-amber-100 text-amber-800 border-amber-200";
     case "NEEDS_WORK":
-    case "NEEDS_POLISH":
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
+    case "WEAK_FIT":
     case "POOR":
-    case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NEGATIVE": return "bg-rose-100 text-rose-800 border-rose-200";
     case "NOT_MENTIONED":
-    case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
-    default:              return "bg-slate-100 text-slate-500 border-slate-200";
+    case "NOT_APPLICABLE":
+    case "INSUFFICIENT_DATA":
+    case "N/A": return "bg-slate-100 text-slate-500 border-slate-200";
+    default: return "bg-slate-100 text-slate-500 border-slate-200";
   }
 }
 
@@ -194,6 +204,9 @@ export interface JdRequirementCoverageItem {
   importance?: "MUST_HAVE" | "NICE_TO_HAVE" | string;
   status: "COVERED" | "PARTIAL" | "NOT_MENTIONED" | "NOT_APPLICABLE" | string;
   match_type?: "EXACT" | "EQUIVALENT" | "RELATED" | "NONE" | string;
+  in_resume?: boolean;
+  resume_evidence?: string | null;
+  verification_status?: "VERIFIED" | "UNVERIFIED_CLAIM" | "NOT_MENTIONED" | string;
   evidence?: string | null;
   note?: string;
 }
@@ -278,6 +291,9 @@ export interface JdIntroQuality {
 }
 
 export interface JdSuggestedOpening {
+  opening_statement?: string;
+  rationale?: string;
+  key_points_included?: string[];
   note?: string;
   example?: string;
 }
@@ -291,6 +307,15 @@ export interface JdFinalAssessment {
   most_important_improvement?: string;
 }
 
+export interface JdSkillBreakdown {
+  must_have_coverage_pct?: number;
+  must_have_band?: string;
+  nice_to_have_coverage_pct?: number;
+  nice_to_have_band?: string;
+  total_weighted_pct?: number;
+  unverified_spoken_claims?: string[];
+}
+
 export interface JdIntroEvaluation {
   jd_validation?: JdValidation;
   overall_assessment?: {
@@ -299,6 +324,7 @@ export interface JdIntroEvaluation {
     summary?: string;
     strongest_signal?: string;
     biggest_gap?: string;
+    skill_breakdown?: JdSkillBreakdown;
   };
   jd_analysis?: JdAnalysis;
   requirement_coverage?: JdRequirementCoverageItem[];
@@ -410,11 +436,11 @@ export interface NormalizedReport {
 
   // ── Scores breakdown (from transcript_evaluation.scores_breakdown_json) ──
   scores: {
-    ai_engineering?:   { band?: string };
+    ai_engineering?: { band?: string };
     core_engineering?: { band?: string };
-    non_technical?:    { band?: string };
-    business_acumen?:  { band?: string };
-    overall_band?:     string;
+    non_technical?: { band?: string };
+    business_acumen?: { band?: string };
+    overall_band?: string;
   };
 
   // ── Introduction quality (from intro_evaluation.introduction_quality) ──
@@ -535,6 +561,8 @@ export interface NormalizedReport {
     filler_word_count?: number;
     silence_percentage?: number;
     speaking_duration_sec?: number;
+    total_audio_duration_seconds?: number;
+    duration_seconds?: number;
   };
   video_telemetry?: {
     face_visibility_pct?: number;
@@ -601,6 +629,7 @@ export interface NormalizedReport {
   tailoring_quality?: JdTailoringQuality;
   suggested_opening?: JdSuggestedOpening;
   jd_final_assessment?: JdFinalAssessment;
+  skill_breakdown?: JdSkillBreakdown;
 
 }
 
@@ -708,7 +737,7 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       const ts = asStr(s.timestamp) ?? asStr(s.start_time);
       const ts_s =
         typeof s.timestamp_s === "number" ? s.timestamp_s :
-        typeof s.start_s === "number" ? s.start_s : undefined;
+          typeof s.start_s === "number" ? s.start_s : undefined;
       return {
         speaker: asStr(s.speaker) ?? asStr(s.role),
         timestamp: ts,
@@ -1336,6 +1365,9 @@ export function normalizeReport(
           match_type: asStr(rc.match_type),
           evidence: asStr(rc.evidence) ?? null,
           note: asStr(rc.note),
+          in_resume: typeof rc.in_resume === "boolean" ? rc.in_resume : undefined,
+          resume_evidence: asStr(rc.resume_evidence) ?? null,
+          verification_status: asStr(rc.verification_status),
         };
       });
     }
@@ -1429,8 +1461,11 @@ export function normalizeReport(
     const rawSuggOpen = asRecord(rawJdIntro.suggested_opening);
     if (Object.keys(rawSuggOpen).length) {
       suggestedOpening = {
+        opening_statement: asStr(rawSuggOpen.opening_statement) || asStr(rawSuggOpen.example),
+        rationale: asStr(rawSuggOpen.rationale) || asStr(rawSuggOpen.note),
+        key_points_included: asStrArray(rawSuggOpen.key_points_included),
         note: asStr(rawSuggOpen.note),
-        example: asStr(rawSuggOpen.example),
+        example: asStr(rawSuggOpen.example) || asStr(rawSuggOpen.opening_statement),
       };
     }
 
@@ -1448,6 +1483,20 @@ export function normalizeReport(
 
     const rawJdOA = asRecord(rawJdIntro.overall_assessment);
     jdAlignment = asStr(rawJdOA.jd_alignment);
+  }
+
+  let skillBreakdown: JdSkillBreakdown | undefined = undefined;
+  const rawJdOARec = rawJdIntro ? asRecord(rawJdIntro.overall_assessment) : {};
+  const rawSB = asRecord(rawJdOARec.skill_breakdown ?? bundled.skill_breakdown ?? repData.skill_breakdown);
+  if (Object.keys(rawSB).length > 0) {
+    skillBreakdown = {
+      must_have_coverage_pct: typeof rawSB.must_have_coverage_pct === "number" ? rawSB.must_have_coverage_pct : undefined,
+      must_have_band: asStr(rawSB.must_have_band),
+      nice_to_have_coverage_pct: typeof rawSB.nice_to_have_coverage_pct === "number" ? rawSB.nice_to_have_coverage_pct : undefined,
+      nice_to_have_band: asStr(rawSB.nice_to_have_band),
+      total_weighted_pct: typeof rawSB.total_weighted_pct === "number" ? rawSB.total_weighted_pct : undefined,
+      unverified_spoken_claims: asStrArray(rawSB.unverified_spoken_claims),
+    };
   }
 
   const introEval = Object.keys(nested(txEval, "intro_evaluation")).length
@@ -1606,9 +1655,9 @@ export function normalizeReport(
           evidence: asStrArray(qe.evidence),
           study_guidance: rawSG
             ? {
-                what_to_study: asStrArray(rawSG.what_to_study),
-                how_to_answer: asStr(rawSG.how_to_answer) ?? "",
-              }
+              what_to_study: asStrArray(rawSG.what_to_study),
+              how_to_answer: asStr(rawSG.how_to_answer) ?? "",
+            }
             : null,
           transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
         };
@@ -1780,12 +1829,12 @@ export function normalizeReport(
       ? asStrArray(ta.areas_for_improvement)
       : priority_improvements.length > 0
         ? priority_improvements
-            .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
-            .filter(Boolean)
+          .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
+          .filter(Boolean)
         : critical_gaps.length > 0
           ? critical_gaps
-              .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
-              .filter(Boolean)
+            .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
+            .filter(Boolean)
           : (overallAssessment.biggest_gap ? [overallAssessment.biggest_gap] : []);
   const taDepth =
     asStr(ta.depth_assessment) ??
@@ -1796,40 +1845,40 @@ export function normalizeReport(
   const technical_analysis =
     Object.keys(ta).length || taSummary || taStrengths.length > 0 || taImprovements.length > 0
       ? {
-          summary: taSummary,
-          strengths: taStrengths,
-          areas_for_improvement: taImprovements,
-          depth_assessment: taDepth,
-        }
+        summary: taSummary,
+        strengths: taStrengths,
+        areas_for_improvement: taImprovements,
+        depth_assessment: taDepth,
+      }
       : undefined;
 
   // ── Improvements ─────────────────────────────────────────────────────────
   const rawImprovements = txEval.improvements_json ?? repData.improvements_json;
   const improvements: ImprovementItem[] = Array.isArray(rawImprovements)
     ? rawImprovements.map((i: unknown) => {
-        const imp = asRecord(i);
-        return {
-          priority: typeof imp.priority === "number" ? imp.priority : undefined,
-          topic: asStr(imp.topic),
-          effort: asStr(imp.effort),
-          rationale: asStr(imp.rationale),
-        };
-      })
+      const imp = asRecord(i);
+      return {
+        priority: typeof imp.priority === "number" ? imp.priority : undefined,
+        topic: asStr(imp.topic),
+        effort: asStr(imp.effort),
+        rationale: asStr(imp.rationale),
+      };
+    })
     : [];
 
   // ── Coaching suggestions (with fallbacks for completed evaluations) ──────
   const rawCoaching = txEval.coaching_suggestions_json ?? repData.coaching_suggestions_json;
   let coaching_suggestions: CoachingSuggestion[] = Array.isArray(rawCoaching)
     ? rawCoaching.map((c: unknown) => {
-        const cs = asRecord(c);
-        return {
-          priority: typeof cs.priority === "number" ? cs.priority : undefined,
-          dimension: asStr(cs.dimension),
-          area: asStr(cs.area),
-          suggestion: asStr(cs.suggestion),
-          evidence: asStr(cs.evidence),
-        };
-      })
+      const cs = asRecord(c);
+      return {
+        priority: typeof cs.priority === "number" ? cs.priority : undefined,
+        dimension: asStr(cs.dimension),
+        area: asStr(cs.area),
+        suggestion: asStr(cs.suggestion),
+        evidence: asStr(cs.evidence),
+      };
+    })
     : [];
 
   if (coaching_suggestions.length === 0) {
@@ -1873,9 +1922,9 @@ export function normalizeReport(
   const rawGaps = txEval.gaps_to_validate_json ?? repData.gaps_to_validate_json;
   let gaps_to_validate: GapItem[] = Array.isArray(rawGaps)
     ? rawGaps.map((g: unknown) => {
-        const gap = asRecord(g);
-        return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
-      })
+      const gap = asRecord(g);
+      return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
+    })
     : [];
 
   if (gaps_to_validate.length === 0) {
@@ -1899,14 +1948,14 @@ export function normalizeReport(
   const rawEvidence = txEval.transcript_evidence_json ?? repData.transcript_evidence_json;
   const transcript_evidence: TranscriptEvidence[] = Array.isArray(rawEvidence)
     ? rawEvidence.map((e: unknown) => {
-        const ev = asRecord(e);
-        return {
-          quote: asStr(ev.quote) ?? "",
-          timestamp_s: typeof ev.timestamp_s === "number" ? ev.timestamp_s : null,
-          dimension: asStr(ev.dimension),
-          observation: asStr(ev.observation),
-        };
-      }).filter(e => e.quote)
+      const ev = asRecord(e);
+      return {
+        quote: asStr(ev.quote) ?? "",
+        timestamp_s: typeof ev.timestamp_s === "number" ? ev.timestamp_s : null,
+        dimension: asStr(ev.dimension),
+        observation: asStr(ev.observation),
+      };
+    }).filter(e => e.quote)
     : [];
 
   // ── Transcript from data response ────────────────────────────────────────
@@ -1951,9 +2000,24 @@ export function normalizeReport(
         ? (assessment as any).save_transcript
         : true;
 
-  const overallReadiness =
+  let overallReadiness =
     asStr(scoresRaw.overall_band) ??
     asStr(overallAssessment.readiness);
+
+  // Auto-calibrate readiness and jd_alignment for JD Walkthrough if 0 requirements are covered:
+  if (reqCoverage.length > 0) {
+    const coveredCount = reqCoverage.filter((r) => (r.status || "").toUpperCase() === "COVERED").length;
+    if (coveredCount === 0) {
+      const rawR = (overallReadiness || "").toUpperCase();
+      if (!rawR || rawR === "NEEDS_POLISH" || rawR === "GOOD" || rawR === "STRONG") {
+        overallReadiness = "WEAK";
+      }
+      const rawJ = (jdAlignment || "").toUpperCase();
+      if (!rawJ || rawJ === "PARTIAL_FIT" || rawJ === "GOOD_FIT" || rawJ === "STRONG_FIT" || rawJ === "PARTIAL") {
+        jdAlignment = "WEAK_FIT";
+      }
+    }
+  }
 
   const overallSummary =
     asStr(overallAssessment.summary) ??
@@ -2027,6 +2091,8 @@ export function normalizeReport(
     filler_word_count: typeof rawAudioTelemetry.filler_word_count === "number" ? rawAudioTelemetry.filler_word_count : (typeof rawAudioTelemetry.filler_count === "number" ? rawAudioTelemetry.filler_count : undefined),
     silence_percentage: typeof rawAudioTelemetry.silence_percentage === "number" ? rawAudioTelemetry.silence_percentage : (typeof rawAudioTelemetry.silence_ratio === "number" ? rawAudioTelemetry.silence_ratio * 100 : undefined),
     speaking_duration_sec: typeof rawAudioTelemetry.speaking_duration_sec === "number" ? rawAudioTelemetry.speaking_duration_sec : (typeof rawAudioTelemetry.speaking_duration_seconds === "number" ? rawAudioTelemetry.speaking_duration_seconds : undefined),
+    total_audio_duration_seconds: typeof rawAudioTelemetry.total_audio_duration_seconds === "number" ? rawAudioTelemetry.total_audio_duration_seconds : (typeof (rawAudioTelemetry as any).total_duration === "number" ? (rawAudioTelemetry as any).total_duration : undefined),
+    duration_seconds: typeof rawAudioTelemetry.duration_seconds === "number" ? rawAudioTelemetry.duration_seconds : (typeof (data as any)?.client_duration_seconds === "number" ? (data as any).client_duration_seconds : (typeof (assessment as any)?.duration_seconds === "number" ? (assessment as any).duration_seconds : undefined)),
   } : undefined;
 
   const rawVideoTelemetry = asRecord(
@@ -2051,11 +2117,11 @@ export function normalizeReport(
     overall_strongest_signal: asStr(overallAssessment.strongest_signal),
     overall_biggest_gap: asStr(overallAssessment.biggest_gap),
     scores: {
-      ai_engineering:   parseScore("ai_engineering"),
+      ai_engineering: parseScore("ai_engineering"),
       core_engineering: parseScore("core_engineering"),
-      non_technical:    parseScore("non_technical"),
-      business_acumen:  parseScore("business_acumen"),
-      overall_band:     asStr(scoresRaw.overall_band),
+      non_technical: parseScore("non_technical"),
+      business_acumen: parseScore("business_acumen"),
+      overall_band: asStr(scoresRaw.overall_band),
     },
     intro_quality,
     resume_alignment,
@@ -2078,6 +2144,7 @@ export function normalizeReport(
     tailoring_quality: tailoringQual,
     suggested_opening: suggestedOpening,
     jd_final_assessment: jdFinalAssessment,
+    skill_breakdown: skillBreakdown,
     critical_gaps,
     priority_improvements,
     final_assessment,
