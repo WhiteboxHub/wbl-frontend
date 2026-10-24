@@ -961,7 +961,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
         // Keep real questions out of rendered state until Start Assessment is clicked.
         // The instructions overlay can render using a blank placeholder without exposing a prompt.
-        pendingAssessmentQuestionsRef.current = loadedQuestions;
+        pendingAssessmentQuestionsRef.current = Array.isArray(loadedQuestions) ? loadedQuestions : [];
         setQuestions([{ id: 0, question_text: '', difficulty_level: 'MEDIUM', category: '', is_active: true }]);
         setCurrentQuestionIndex(0);
 
@@ -1201,7 +1201,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const handleStartAnswer = async () => {
     if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
     // Reveal questions only after the candidate clicks Start Assessment.
-    let pendingQuestions = pendingAssessmentQuestionsRef.current;
+    let pendingQuestions = pendingAssessmentQuestionsRef.current ?? [];
     if (pendingQuestions.length === 0) {
       try {
         const cachedQuestions = window.sessionStorage.getItem('aiprep_active_questions');
