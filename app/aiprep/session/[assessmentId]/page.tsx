@@ -917,10 +917,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
           const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
           const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
-          const activeJd = storedJd || serverJd;
+          const serverRole = serverDetail?.target_role || (serverDetail?.data as any)?.target_role || '';
+          const serverCompany = serverDetail?.target_company || (serverDetail?.data as any)?.target_company || '';
+          const activeJd = serverJd || storedJd;
           if (activeJd) setJobDescription((prev) => prev || activeJd);
-          if (storedRole) setTargetRole(storedRole);
-          if (storedCompany) setTargetCompany(storedCompany);
+          const activeRole = serverRole || storedRole;
+          if (activeRole) setTargetRole(activeRole);
+          const activeCompany = serverCompany || storedCompany;
+          if (activeCompany) setTargetCompany(activeCompany);
         } else {
           setJobDescription('');
           setTargetRole('');

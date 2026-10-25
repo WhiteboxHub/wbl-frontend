@@ -322,13 +322,14 @@ const QualitativeBadge = memo(function QualitativeBadge({
       colorClasses = "bg-rose-50 text-rose-700 border-rose-200";
     }
   } else {
-    if (raw === "STRONG" || raw === "EXCELLENT" || raw === "STRONG_FIT" || raw.includes("STRONG")) {
+    if (raw === "STRONG_FIT") {
       colorClasses = "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold";
     } else if (
-      ["GOOD", "COVERED", "POSITIVE", "GOOD_FIT"].includes(raw) ||
+      ["STRONG", "EXCELLENT", "GOOD", "COVERED", "POSITIVE", "GOOD_FIT"].includes(raw) ||
+      raw.includes("STRONG") ||
       raw.includes("GOOD")
     ) {
-      colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200";
+      colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold";
     } else if (["ADEQUATE"].includes(raw)) {
       colorClasses = "bg-blue-50 text-blue-700 border-blue-200";
     } else if (
@@ -525,103 +526,35 @@ function hasRealSpeech(report: NormalizedReport): boolean {
 }
 
 export function extractAssessmentDurationSeconds(report: NormalizedReport, mediaDurationSec?: number | null): number {
-  // If the media element has already loaded and reported its exact duration, prioritize it for 100% sync
   if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
     return Math.round(mediaDurationSec);
   }
 
-  const assessment = report.assessment;
+  const assessment = report.assessment as any;
   const dataRec = assessment?.data as any;
 
-  // 1. Audio telemetry duration fields
-  if (dataRec?.audio_telemetry?.duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (dataRec?.audio_telemetry?.total_audio_duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.total_audio_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (dataRec?.audio_telemetry?.speaking_duration_sec != null) {
-    const sec = Number(dataRec.audio_telemetry.speaking_duration_sec);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
+  const candidates = [
+    dataRec?.audio_telemetry?.duration_seconds,
+    dataRec?.audio_telemetry?.total_audio_duration_seconds,
+    dataRec?.audio_telemetry?.speaking_duration_sec,
+    dataRec?.audio_telemetry?.speaking_duration_seconds,
+    dataRec?.video_telemetry?.duration_seconds,
+    report.audio_telemetry?.duration_seconds,
+    report.audio_telemetry?.total_audio_duration_seconds,
+    report.audio_telemetry?.speaking_duration_sec,
+    report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
+    assessment?.duration_seconds,
+    assessment?.client_duration_seconds,
+    assessment?.total_duration_seconds,
+    report.audio?.recording_environment?.speaking_duration_seconds,
+    (report as any).audio_telemetry?.duration,
+    (report as any).duration_seconds,
+  ];
 
-  // 2. Video telemetry duration
-  if (dataRec?.video_telemetry?.duration_seconds != null) {
-    const sec = Number(dataRec.video_telemetry.duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-
-  // 3. Normalized report audio telemetry
-  if (report.audio_telemetry?.duration_seconds != null) {
-    const sec = Number(report.audio_telemetry.duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (report.audio_telemetry?.total_audio_duration_seconds != null) {
-    const sec = Number(report.audio_telemetry.total_audio_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (report.audio_telemetry?.speaking_duration_sec != null) {
-    const sec = Number(report.audio_telemetry.speaking_duration_sec);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (report.delivery_analysis?.rawMetrics?.speaking_duration_seconds != null) {
-    const sec = Number(report.delivery_analysis.rawMetrics.speaking_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-
-  // 4. Assessment duration fields
-  if ((assessment as any)?.duration_seconds != null) {
-    const sec = Number((assessment as any).duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if ((assessment as any)?.client_duration_seconds != null) {
-    const sec = Number((assessment as any).client_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if ((assessment as any)?.total_duration_seconds != null) {
-    const sec = Number((assessment as any).total_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (dataRec?.total_audio_duration_seconds != null) {
-    const sec = Number(dataRec.total_audio_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (dataRec?.duration_seconds != null) {
-    const sec = Number(dataRec.duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-  if (dataRec?.client_duration_seconds != null) {
-    const sec = Number(dataRec.client_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-
-  // 5. Recording environment context in audio evaluation
-  if (report.audio?.recording_environment?.speaking_duration_seconds != null) {
-    const sec = Number(report.audio.recording_environment.speaking_duration_seconds);
-    if (!isNaN(sec) && sec > 0) return Math.round(sec);
-  }
-
-  // 6. Transcript segments (Whisper segments carry start/end or timestamp_s)
-  if (report.transcript?.segments && report.transcript.segments.length > 0) {
-    const segs = report.transcript.segments;
-    const lastSeg = segs[segs.length - 1] as any;
-    const segTime = lastSeg?.end != null ? Number(lastSeg.end) : (lastSeg?.timestamp_s != null ? Number(lastSeg.timestamp_s) : null);
-    if (segTime != null && !isNaN(segTime) && segTime > 0) {
-      return Math.round(segTime);
-    }
-  }
-
-  // 7. Word count estimate ONLY if timing metadata is entirely absent
-  if (report.transcript?.full_text) {
-    const words = report.transcript.full_text.trim().split(/\s+/).filter(Boolean).length;
-    if (words > 0) {
-      return Math.max(1, Math.round((words / 130) * 60));
+  for (const val of candidates) {
+    if (val != null) {
+      const num = Number(val);
+      if (!isNaN(num) && num > 0) return Math.round(num);
     }
   }
 
@@ -1029,7 +962,7 @@ function JdRequirementsAccordion({
   onToggle: () => void;
 }) {
   const mustHaveItems = coverage.filter((r) => r.importance === "MUST_HAVE");
-  const niceToHaveItems = coverage.filter((r) => r.importance !== "MUST_HAVE");
+  const niceToHaveItems = coverage.filter((r) => r.importance === "NICE_TO_HAVE");
 
   const mustHaveCovered = mustHaveItems.filter((r) => r.status === "COVERED").length;
   const niceToHaveCovered = niceToHaveItems.filter((r) => r.status === "COVERED").length;
@@ -1037,12 +970,17 @@ function JdRequirementsAccordion({
   const mustHaveBand = skillBreakdown?.must_have_band || (
     mustHaveItems.length > 0
       ? (mustHaveCovered / mustHaveItems.length > 0.8 ? "STRONG" : mustHaveCovered / mustHaveItems.length >= 0.5 ? "GOOD" : mustHaveCovered / mustHaveItems.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
-      : "GOOD"
+      : undefined
   );
   const niceToHaveBand = skillBreakdown?.nice_to_have_band || (
     niceToHaveItems.length > 0
       ? (niceToHaveCovered / niceToHaveItems.length > 0.8 ? "STRONG" : niceToHaveCovered / niceToHaveItems.length >= 0.5 ? "GOOD" : niceToHaveCovered / niceToHaveItems.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
-      : "GOOD"
+      : undefined
+  );
+
+  const hasResumeData = Boolean(
+    skillBreakdown?.unverified_spoken_claims !== undefined ||
+    coverage.some((r) => r.in_resume !== undefined)
   );
 
   const coveredItems = coverage.filter((r) => r.status === "COVERED");
@@ -1093,15 +1031,15 @@ function JdRequirementsAccordion({
             Granular evaluation of Must-Have and Nice-to-Have competencies aligned with the target Job Description, cross-verified with your resume and project bullet points.
           </p>
 
-          {/* 3 Metric Cards matching CommunicationReport style */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Metric Cards */}
+          <div className={`grid grid-cols-1 ${hasResumeData ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3`}>
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/30 p-3.5 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Must-Have Skills</span>
-                <QualitativeBadge status={mustHaveBand} size="sm" />
+                {mustHaveBand && <QualitativeBadge status={mustHaveBand} size="sm" />}
               </div>
               <p className="text-xs font-semibold text-slate-800">
-                {mustHaveCovered} of {mustHaveItems.length} skills addressed
+                {mustHaveCovered} of {mustHaveItems.length} skills covered
               </p>
               <p className="text-[10px] text-slate-500">
                 Core requirements essential for the target role
@@ -1111,30 +1049,32 @@ function JdRequirementsAccordion({
             <div className="rounded-xl border border-blue-200/80 bg-blue-50/30 p-3.5 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Nice-to-Have Skills</span>
-                <QualitativeBadge status={niceToHaveBand} size="sm" />
+                {niceToHaveBand && <QualitativeBadge status={niceToHaveBand} size="sm" />}
               </div>
               <p className="text-xs font-semibold text-slate-800">
-                {niceToHaveCovered} of {niceToHaveItems.length} skills addressed
+                {niceToHaveCovered} of {niceToHaveItems.length} skills covered
               </p>
               <p className="text-[10px] text-slate-500">
                 Secondary competencies & bonus tool proficiencies
               </p>
             </div>
 
-            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-3.5 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Resume Verified</span>
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded">
-                  {verifiedInResume} Spoken & Verified
-                </span>
+            {hasResumeData && (
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Resume Verified</span>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+                    {verifiedInResume} Spoken & Verified
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-slate-800">
+                  {unverifiedSpoken.length > 0 ? `${unverifiedSpoken.length} unverified spoken claim(s)` : "All spoken claims verified in resume"}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Checked across project & experience bullet points · Skills only on resume earn 0 credit
+                </p>
               </div>
-              <p className="text-xs font-semibold text-slate-800">
-                {unverifiedSpoken.length > 0 ? `${unverifiedSpoken.length} unverified spoken claim(s)` : "All spoken claims verified in resume"}
-              </p>
-              <p className="text-[10px] text-slate-500">
-                Checked across project & experience bullet points · Skills only on resume earn 0 credit
-              </p>
-            </div>
+            )}
           </div>
 
           {/* Section A: MUST-HAVE COMPETENCIES */}
@@ -1198,14 +1138,14 @@ function JdRequirementsAccordion({
                     {item.evidence && (
                       <div className="text-[11px] text-slate-700 bg-slate-50/80 rounded p-2 border-l-2 border-emerald-500 space-y-0.5">
                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Spoken Evidence:</span>
-                        <p className="italic">"{item.evidence}"</p>
+                        <p className="italic">&ldquo;{item.evidence}&rdquo;</p>
                       </div>
                     )}
 
                     {item.resume_evidence && (
                       <div className="text-[11px] text-slate-700 bg-blue-50/50 rounded p-2 border-l-2 border-blue-500 space-y-0.5">
                         <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Resume / Project Citation:</span>
-                        <p className="italic">"{item.resume_evidence}"</p>
+                        <p className="italic">&ldquo;{item.resume_evidence}&rdquo;</p>
                       </div>
                     )}
 
@@ -1281,14 +1221,14 @@ function JdRequirementsAccordion({
                     {item.evidence && (
                       <div className="text-[11px] text-slate-700 bg-slate-50/80 rounded p-2 border-l-2 border-emerald-500 space-y-0.5">
                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Spoken Evidence:</span>
-                        <p className="italic">"{item.evidence}"</p>
+                        <p className="italic">&ldquo;{item.evidence}&rdquo;</p>
                       </div>
                     )}
 
                     {item.resume_evidence && (
                       <div className="text-[11px] text-slate-700 bg-blue-50/50 rounded p-2 border-l-2 border-blue-500 space-y-0.5">
                         <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Resume / Project Citation:</span>
-                        <p className="italic">"{item.resume_evidence}"</p>
+                        <p className="italic">&ldquo;{item.resume_evidence}&rdquo;</p>
                       </div>
                     )}
 
@@ -1939,15 +1879,6 @@ export function EvaluationContent({
     isJobDescriptionAssessment(report.assessment, report)
   );
   let jdFit = report.jd_alignment || report.jd_evaluation?.overall_assessment?.jd_alignment;
-  if (report.requirement_coverage && report.requirement_coverage.length > 0) {
-    const coveredCount = report.requirement_coverage.filter((r) => (r.status || "").toUpperCase() === "COVERED").length;
-    if (coveredCount === 0) {
-      const rawJ = (jdFit || "").toUpperCase();
-      if (!rawJ || rawJ === "PARTIAL_FIT" || rawJ === "GOOD_FIT" || rawJ === "STRONG_FIT" || rawJ === "PARTIAL") {
-        jdFit = "WEAK_FIT";
-      }
-    }
-  }
 
   // Pure dynamic data resolution per section category matching Details tab
   const introData = resolveSectionData(
@@ -1996,15 +1927,6 @@ export function EvaluationContent({
     scores.overall_band ||
     (allSectionsNotMentioned ? "NOT_MENTIONED" : "GOOD");
 
-  if (report.requirement_coverage && report.requirement_coverage.length > 0) {
-    const coveredCount = report.requirement_coverage.filter((r) => (r.status || "").toUpperCase() === "COVERED").length;
-    if (coveredCount === 0) {
-      const rawR = (readiness || "").toUpperCase();
-      if (!rawR || rawR === "NEEDS_POLISH" || rawR === "GOOD" || rawR === "STRONG") {
-        readiness = "WEAK";
-      }
-    }
-  }
 
   const summaryText =
     overall_summary ||
@@ -2267,22 +2189,28 @@ export function EvaluationContent({
       {isJdReport && report.requirement_coverage && report.requirement_coverage.length > 0 && (() => {
         const mustHaves = report.requirement_coverage.filter((r) => r.importance === "MUST_HAVE");
         const niceToHaves = report.requirement_coverage.filter((r) => r.importance === "NICE_TO_HAVE");
+        const hasResumeData = Boolean(
+          report.skill_breakdown?.unverified_spoken_claims !== undefined ||
+          report.requirement_coverage.some((r) => r.in_resume !== undefined)
+        );
         const unverifiedClaims = report.skill_breakdown?.unverified_spoken_claims ||
-          report.requirement_coverage
-            .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
-            .map((r) => r.requirement);
+          (hasResumeData
+            ? report.requirement_coverage
+                .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
+                .map((r) => r.requirement)
+            : []);
 
         const mustCoveredCount = mustHaves.filter((r) => r.status === "COVERED").length;
         const niceCoveredCount = niceToHaves.filter((r) => r.status === "COVERED").length;
         const mustBand = report.skill_breakdown?.must_have_band || (
           mustHaves.length > 0
             ? (mustCoveredCount / mustHaves.length > 0.8 ? "STRONG" : mustCoveredCount / mustHaves.length >= 0.5 ? "GOOD" : mustCoveredCount / mustHaves.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
-            : "GOOD"
+            : undefined
         );
         const niceBand = report.skill_breakdown?.nice_to_have_band || (
           niceToHaves.length > 0
             ? (niceCoveredCount / niceToHaves.length > 0.8 ? "STRONG" : niceCoveredCount / niceToHaves.length >= 0.5 ? "GOOD" : niceCoveredCount / niceToHaves.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
-            : "GOOD"
+            : undefined
         );
 
         return (
@@ -2351,14 +2279,14 @@ export function EvaluationContent({
 
                         {item.evidence && (
                           <div className="rounded bg-emerald-50/50 p-2 border-l-2 border-emerald-500 text-[11px] text-slate-700 italic leading-snug">
-                            "{item.evidence}"
+                            &ldquo;{item.evidence}&rdquo;
                           </div>
                         )}
 
                         {item.resume_evidence && (
                           <div className="rounded bg-blue-50/50 p-2 border-l-2 border-blue-400 text-[11px] text-slate-600 leading-snug">
                             <span className="font-semibold text-blue-900 not-italic">Project / Resume: </span>
-                            "{item.resume_evidence}"
+                            &ldquo;{item.resume_evidence}&rdquo;
                           </div>
                         )}
 
@@ -2440,14 +2368,14 @@ export function EvaluationContent({
 
                         {item.evidence && (
                           <div className="rounded bg-emerald-50/50 p-2 border-l-2 border-emerald-500 text-[11px] text-slate-700 italic leading-snug">
-                            "{item.evidence}"
+                            &ldquo;{item.evidence}&rdquo;
                           </div>
                         )}
 
                         {item.resume_evidence && (
                           <div className="rounded bg-blue-50/50 p-2 border-l-2 border-blue-400 text-[11px] text-slate-600 leading-snug">
                             <span className="font-semibold text-blue-900 not-italic">Project / Resume: </span>
-                            "{item.resume_evidence}"
+                            &ldquo;{item.resume_evidence}&rdquo;
                           </div>
                         )}
 
@@ -2464,6 +2392,7 @@ export function EvaluationContent({
             )}
 
             {/* 3. RESUME CROSS-VERIFICATION & CLAIMS ANALYSIS */}
+            {hasResumeData && (
             <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
@@ -2518,12 +2447,13 @@ export function EvaluationContent({
                   <div className="space-y-0.5 text-xs">
                     <p className="font-bold text-emerald-950">Full Resume Corroboration</p>
                     <p className="text-emerald-800 leading-relaxed">
-                      All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate's resume and project bullet points.
+                      All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate&apos;s resume and project bullet points.
                     </p>
                   </div>
                 </div>
               )}
             </section>
+            )}
           </div>
         );
       })()}
@@ -4034,7 +3964,7 @@ export default function AiPrepReport({
       setReport(normalizeReport(assessment, dataVal, reportVal));
     } catch (err: unknown) {
       if (!isCurrentRequest()) return;
-
+      console.error("[AiPrepReport] Failed to load real report:", err);
       setError("We couldn't load this assessment report.");
     } finally {
       if (isCurrentRequest()) setLoading(false);
@@ -4050,10 +3980,18 @@ export default function AiPrepReport({
 
   // ── Auto-Poll when assessment is in EVALUATING / isProcessing state ───────
   const processPollAttemptsRef = useRef(0);
+  const ytPollAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    processPollAttemptsRef.current = 0;
+    ytPollAttemptsRef.current = 0;
+  }, [assessmentId]);
+
   useEffect(() => {
     if (!isProcessing || !assessmentId) return;
 
     let isMounted = true;
+    let consecutiveErrors = 0;
     const interval = setInterval(async () => {
       try {
         processPollAttemptsRef.current += 1;
@@ -4063,13 +4001,17 @@ export default function AiPrepReport({
           return;
         }
         const fresh = await aiPrepApi.getAssessment(assessmentId);
+        consecutiveErrors = 0;
         const status = (fresh?.status || "").toUpperCase();
         if (isMounted && (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || fresh?.report)) {
           clearInterval(interval);
           loadReport(true);
         }
       } catch (_) {
-        clearInterval(interval);
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 5) {
+          clearInterval(interval);
+        }
       }
     }, 3000);
 
@@ -4080,28 +4022,33 @@ export default function AiPrepReport({
   }, [isProcessing, assessmentId, loadReport]);
 
   // ── Auto-Swap to YouTube when background upload completes ─────────────────
-  const ytPollAttemptsRef = useRef(0);
   useEffect(() => {
-    const isAudio = (report?.assessment?.media_type || "").toUpperCase() === "AUDIO";
+    const rawMedia = (report?.assessment?.media_type || "").toUpperCase();
+    const isAudio = rawMedia === "AUDIO" || rawMedia === "AUDIO_ONLY";
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
     if (!report || report.youtube_url || isProcessing || !assessmentId || isAudio || !canSaveRec) return;
 
     let isMounted = true;
+    let consecutiveErrors = 0;
     const interval = setInterval(async () => {
       try {
         ytPollAttemptsRef.current += 1;
-        if (ytPollAttemptsRef.current > 4) {
-          // Cap at 4 checks (20 seconds) to avoid unwanted continuous polling
+        if (ytPollAttemptsRef.current > 24) {
+          // Cap at 24 checks (2 minutes) to allow time for background upload
           clearInterval(interval);
           return;
         }
         const fresh = await aiPrepApi.getAssessment(assessmentId);
+        consecutiveErrors = 0;
         if (isMounted && fresh?.youtube_url) {
           clearInterval(interval);
           loadReport();
         }
       } catch (_) {
-        clearInterval(interval);
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 5) {
+          clearInterval(interval);
+        }
       }
     }, 5000);
 

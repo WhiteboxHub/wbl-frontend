@@ -97,9 +97,9 @@ export function bandColor(band?: string, inverted: boolean = false): string {
   }
 
   switch (upper) {
+    case "STRONG_FIT": return "bg-indigo-50 text-indigo-700 border-indigo-200";
     case "EXCELLENT":
     case "STRONG":
-    case "STRONG_FIT": return "bg-indigo-50 text-indigo-700 border-indigo-200";
     case "GOOD":
     case "GOOD_FIT":
     case "COVERED":
@@ -2007,20 +2007,6 @@ export function normalizeReport(
     asStr(scoresRaw.overall_band) ??
     asStr(overallAssessment.readiness);
 
-  // Auto-calibrate readiness and jd_alignment for JD Walkthrough if 0 requirements are covered:
-  if (reqCoverage.length > 0) {
-    const coveredCount = reqCoverage.filter((r) => (r.status || "").toUpperCase() === "COVERED").length;
-    if (coveredCount === 0) {
-      const rawR = (overallReadiness || "").toUpperCase();
-      if (!rawR || rawR === "NEEDS_POLISH" || rawR === "GOOD" || rawR === "STRONG") {
-        overallReadiness = "WEAK";
-      }
-      const rawJ = (jdAlignment || "").toUpperCase();
-      if (!rawJ || rawJ === "PARTIAL_FIT" || rawJ === "GOOD_FIT" || rawJ === "STRONG_FIT" || rawJ === "PARTIAL") {
-        jdAlignment = "WEAK_FIT";
-      }
-    }
-  }
 
   const overallSummary =
     asStr(overallAssessment.summary) ??
