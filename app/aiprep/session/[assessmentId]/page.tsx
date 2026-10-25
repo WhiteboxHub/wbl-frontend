@@ -881,8 +881,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
 
         // Failsafe: check server assessment status
+        let serverDetail: any = null;
         try {
           const detail = await aiprepApi.getAssessment(assessmentId);
+          serverDetail = detail;
           const status = (detail?.status || '').toUpperCase();
           if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
             if (typeof window !== 'undefined') {
@@ -910,11 +912,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
 
-        if (finalType === 'JD_INTRO' && typeof window !== 'undefined') {
-          const storedJd = window.sessionStorage.getItem('aiprep_jd_text');
-          const storedRole = window.sessionStorage.getItem('aiprep_jd_role');
-          const storedCompany = window.sessionStorage.getItem('aiprep_jd_company');
-          if (storedJd) setJobDescription((prev) => prev || storedJd);
+        if (finalType === 'JD_INTRO') {
+          const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
+          const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
+          const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
+          const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
+          const activeJd = storedJd || serverJd;
+          if (activeJd) setJobDescription((prev) => prev || activeJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
         } else {
@@ -2289,7 +2293,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               {/* Backend-provided metadata updates with the active question. */}
-              {(activeQuestion.subject || activeQuestion.concept || activeQuestion.scope) && (
+              {(activeQuestion.subject || activeQuestion.concept || activeQuestion.scope) && assessmentType !== 'JD_INTRO' && (
                 <div className={"flex flex-wrap items-center gap-2 shrink-0 transition-all duration-500 " + (isQuestionBlurred ? 'blur-sm select-none opacity-40' : '')}>
                   {activeQuestion.subject && (
                     <span className="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-300">
