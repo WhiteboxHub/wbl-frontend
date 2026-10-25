@@ -55,26 +55,30 @@ export function formatBand(raw?: string | null, inverted: boolean = false): stri
   }
 
   const map: Record<string, string> = {
-    EXCELLENT:           "Good",
-    STRONG:              "Good",
-    GOOD:                "Good",
-    POSITIVE:            "Good",
-    ADEQUATE:            "Average",
-    AVERAGE:             "Average",
-    DEVELOPING:          "Average",
-    PARTIAL:             "Average",
-    NEEDS_WORK:          "Needs Improvement",
-    NEEDS_POLISH:        "Needs Improvement",
-    NEEDS_IMPROVEMENT:   "Needs Improvement",
-    WEAK:                "Needs Improvement",
-    POOR:                "Needs Improvement",
-    COVERED:             "Good",
-    NOT_MENTIONED:       "Not Mentioned",
-    NEGATIVE:            "Needs Improvement",
-    NOT_APPLICABLE:      "N/A",
-    INSUFFICIENT_DATA:   "Insufficient Data",
+    EXCELLENT: "Excellent",
+    STRONG: "Strong",
+    GOOD: "Good",
+    POSITIVE: "Positive",
+    ADEQUATE: "Adequate",
+    AVERAGE: "Average",
+    DEVELOPING: "Developing",
+    PARTIAL: "Partial",
+    NEEDS_WORK: "Needs Work",
+    NEEDS_POLISH: "Needs Polish",
+    NEEDS_IMPROVEMENT: "Needs Improvement",
+    WEAK: "Weak",
+    POOR: "Poor",
+    COVERED: "Covered",
+    NOT_MENTIONED: "Not Mentioned",
+    NEGATIVE: "Negative",
+    NOT_APPLICABLE: "N/A",
+    INSUFFICIENT_DATA: "Insufficient Data",
+    STRONG_FIT: "Strong Fit",
+    GOOD_FIT: "Good Fit",
+    PARTIAL_FIT: "Partial Fit",
+    WEAK_FIT: "Weak Fit",
   };
-  return map[upper] ?? raw;
+  return map[upper] ?? (upper.charAt(0) + upper.slice(1).toLowerCase().replaceAll("_", " "));
 }
 
 /** Tailwind colour tokens for a status badge */
@@ -93,24 +97,30 @@ export function bandColor(band?: string, inverted: boolean = false): string {
   }
 
   switch (upper) {
+    case "STRONG_FIT": return "bg-indigo-50 text-indigo-700 border-indigo-200";
     case "EXCELLENT":
     case "STRONG":
     case "GOOD":
+    case "GOOD_FIT":
     case "COVERED":
-    case "POSITIVE":      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    case "POSITIVE": return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "AVERAGE":
     case "ADEQUATE":
     case "DEVELOPING":
-    case "PARTIAL":       return "bg-amber-100 text-amber-800 border-amber-200";
+    case "PARTIAL":
+    case "PARTIAL_FIT":
+    case "NEEDS_POLISH": return "bg-amber-100 text-amber-800 border-amber-200";
     case "NEEDS_WORK":
-    case "NEEDS_POLISH":
     case "NEEDS_IMPROVEMENT":
     case "WEAK":
+    case "WEAK_FIT":
     case "POOR":
-    case "NEGATIVE":      return "bg-rose-100 text-rose-800 border-rose-200";
+    case "NEGATIVE": return "bg-rose-100 text-rose-800 border-rose-200";
     case "NOT_MENTIONED":
-    case "NOT_APPLICABLE":return "bg-slate-100 text-slate-500 border-slate-200";
-    default:              return "bg-slate-100 text-slate-500 border-slate-200";
+    case "NOT_APPLICABLE":
+    case "INSUFFICIENT_DATA":
+    case "N/A": return "bg-slate-100 text-slate-500 border-slate-200";
+    default: return "bg-slate-100 text-slate-500 border-slate-200";
   }
 }
 
@@ -168,6 +178,185 @@ export interface TranscriptEvidence {
   timestamp_s?: number | null;
   dimension?: string;
   observation?: string;
+}
+
+// ─── JD Assessment Interfaces ────────────────────────────────────────────────
+
+export interface JdValidation {
+  status?: "VALID" | "PARTIAL" | "INVALID" | string;
+  reason?: string;
+}
+
+export interface JdAnalysis {
+  role_title?: string;
+  seniority_level?: "JUNIOR" | "MID" | "SENIOR" | "LEAD" | "UNSPECIFIED" | string;
+  domain?: string;
+  core_responsibilities?: string[];
+  must_have_requirements?: string[];
+  nice_to_have_requirements?: string[];
+  tech_stack?: Record<string, string[]>;
+  soft_skills_and_ownership?: string[];
+}
+
+export interface JdRequirementCoverageItem {
+  requirement: string;
+  category?: "TECHNICAL" | "RESPONSIBILITY" | "DOMAIN" | "EXPERIENCE_LEVEL" | "SOFT_SKILL" | string;
+  importance?: "MUST_HAVE" | "NICE_TO_HAVE" | string;
+  status: "COVERED" | "PARTIAL" | "NOT_MENTIONED" | "NOT_APPLICABLE" | string;
+  match_type?: "EXACT" | "EQUIVALENT" | "RELATED" | "NONE" | string;
+  in_resume?: boolean;
+  resume_evidence?: string | null;
+  verification_status?: "VERIFIED" | "UNVERIFIED_CLAIM" | "NOT_MENTIONED" | string;
+  evidence?: string | null;
+  note?: string;
+}
+
+export interface JdRoleAlignment {
+  overall_status?: string;
+  role_relevance?: string;
+  responsibilities_alignment?: string;
+  seniority_match?: "MATCHES" | "BELOW_TARGET" | "ABOVE_TARGET" | "UNCLEAR" | string;
+  domain_fit?: string;
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdCareerStory {
+  overall_status?: string;
+  timeline?: string;
+  roles?: string;
+  career_transitions?: string;
+  leads_logically_to_target_role?: string;
+  transitions_identified?: string[];
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdCurrentRoleAndProject {
+  overall_status?: string;
+  current_role?: string;
+  responsibilities?: string;
+  technical_ownership?: string;
+  project_explained?: string;
+  application_purpose?: string;
+  users_or_customers?: string;
+  business_problem?: string;
+  personal_contribution?: string;
+  relevance_to_jd?: string;
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdTechnicalAlignment {
+  overall_status?: string;
+  core_stack_alignment?: string;
+  architecture_and_design_depth?: string;
+  production_and_deployment?: string;
+  scale_and_performance?: string;
+  technologies_matching_jd?: string[];
+  equivalent_technologies?: string[];
+  jd_technologies_not_mentioned?: string[];
+  other_technologies_mentioned?: string[];
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdValueProposition {
+  overall_status?: string;
+  why_this_role?: string;
+  impact_and_outcomes?: string;
+  differentiators?: string[];
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdTailoringQuality {
+  tailored_to_role?: "STRONG" | "ADEQUATE" | "WEAK" | string;
+  relevant_experience_prioritized?: "STRONG" | "ADEQUATE" | "WEAK" | string;
+  irrelevant_content_ratio?: "LOW" | "MODERATE" | "HIGH" | string;
+  gap_bridging?: string;
+  observation?: string;
+  evidence?: string[];
+}
+
+export interface JdIntroQuality {
+  clarity?: string;
+  coherence?: string;
+  technical_depth?: string;
+  business_context?: string;
+  personal_ownership?: string;
+  buzzword_density?: string;
+  length_appropriateness?: string;
+  observation?: string;
+}
+
+export interface JdSuggestedOpening {
+  opening_statement?: string;
+  rationale?: string;
+  key_points_included?: string[];
+  note?: string;
+  example?: string;
+}
+
+export interface JdFinalAssessment {
+  jd_fit_summary?: string;
+  career_story_relevance?: string;
+  current_project_clarity?: string;
+  technical_alignment_depth?: string;
+  seniority_match?: string;
+  most_important_improvement?: string;
+}
+
+export interface JdSkillBreakdown {
+  must_have_coverage_pct?: number;
+  must_have_band?: string;
+  nice_to_have_coverage_pct?: number;
+  nice_to_have_band?: string;
+  total_weighted_pct?: number;
+  unverified_spoken_claims?: string[];
+}
+
+export interface JdIntroEvaluation {
+  jd_validation?: JdValidation;
+  overall_assessment?: {
+    jd_alignment?: "STRONG_FIT" | "GOOD_FIT" | "PARTIAL_FIT" | "WEAK_FIT" | string;
+    readiness?: string;
+    summary?: string;
+    strongest_signal?: string;
+    biggest_gap?: string;
+    skill_breakdown?: JdSkillBreakdown;
+  };
+  jd_analysis?: JdAnalysis;
+  requirement_coverage?: JdRequirementCoverageItem[];
+  role_alignment?: JdRoleAlignment;
+  career_story?: JdCareerStory;
+  current_role_and_project?: JdCurrentRoleAndProject;
+  technical_alignment?: JdTechnicalAlignment;
+  value_proposition?: JdValueProposition;
+  tailoring_quality?: JdTailoringQuality;
+  introduction_quality?: JdIntroQuality;
+  technology_inventory?: {
+    jd_matched?: string[];
+    equivalent_to_jd?: string[];
+    other_mentioned?: string[];
+  };
+  strongest_points?: string[];
+  critical_gaps?: Array<{
+    topic?: string;
+    importance?: string;
+    status?: string;
+    what_is_missing?: string;
+    why_it_matters_for_this_role?: string;
+    suggested_addition?: string;
+  }>;
+  priority_improvements?: Array<{
+    priority?: number;
+    topic?: string;
+    guidance?: string;
+    example?: string;
+  }>;
+  suggested_opening?: JdSuggestedOpening;
+  final_assessment?: JdFinalAssessment;
 }
 
 export interface IntroOverallAssessment {
@@ -247,11 +436,11 @@ export interface NormalizedReport {
 
   // ── Scores breakdown (from transcript_evaluation.scores_breakdown_json) ──
   scores: {
-    ai_engineering?:   { band?: string };
+    ai_engineering?: { band?: string };
     core_engineering?: { band?: string };
-    non_technical?:    { band?: string };
-    business_acumen?:  { band?: string };
-    overall_band?:     string;
+    non_technical?: { band?: string };
+    business_acumen?: { band?: string };
+    overall_band?: string;
   };
 
   // ── Introduction quality (from intro_evaluation.introduction_quality) ──
@@ -294,6 +483,7 @@ export interface NormalizedReport {
     title: string;
     status?: string;
     observation?: string;
+    key_observations?: string[];
     evidence?: string[];
     technologies_mentioned?: string[];
     concepts?: Record<string, string>;
@@ -306,9 +496,11 @@ export interface NormalizedReport {
   strongest_points: string[];
   critical_gaps: {
     topic?: string;
+    importance?: string;
     status?: string;
     what_is_missing?: string;
     why_it_matters?: string;
+    why_it_matters_for_this_role?: string;
     suggested_addition?: string;
   }[];
   priority_improvements: {
@@ -370,6 +562,8 @@ export interface NormalizedReport {
     filler_word_count?: number;
     silence_percentage?: number;
     speaking_duration_sec?: number;
+    total_audio_duration_seconds?: number;
+    duration_seconds?: number;
   };
   video_telemetry?: {
     face_visibility_pct?: number;
@@ -420,6 +614,24 @@ export interface NormalizedReport {
   // Populated from transcript_evaluation.technical_evaluation in the backend report.
   // Absent for INTRO, JD_INTRO, and other assessment types.
   technical_evaluation?: TechnicalEvaluation;
+
+  // ── JD Intro Walkthrough Evaluation ──
+  is_jd_intro?: boolean;
+  jd_evaluation?: JdIntroEvaluation;
+  jd_validation?: JdValidation;
+  jd_alignment?: string; // "STRONG_FIT" | "GOOD_FIT" | "PARTIAL_FIT" | "WEAK_FIT"
+  jd_analysis?: JdAnalysis;
+  requirement_coverage?: JdRequirementCoverageItem[];
+  role_alignment?: JdRoleAlignment;
+  career_story?: JdCareerStory;
+  current_role_and_project?: JdCurrentRoleAndProject;
+  jd_technical_alignment?: JdTechnicalAlignment;
+  value_proposition?: JdValueProposition;
+  tailoring_quality?: JdTailoringQuality;
+  suggested_opening?: JdSuggestedOpening;
+  jd_final_assessment?: JdFinalAssessment;
+  skill_breakdown?: JdSkillBreakdown;
+
 }
 
 // ─── Technical Assessment Types ───────────────────────────────────────────────
@@ -512,7 +724,6 @@ export interface TechnicalEvaluation {
   question_evaluations: TechnicalQuestionEval[];
 }
 
-
 // ─── Normalization ────────────────────────────────────────────────────────────
 
 function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
@@ -527,7 +738,7 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       const ts = asStr(s.timestamp) ?? asStr(s.start_time);
       const ts_s =
         typeof s.timestamp_s === "number" ? s.timestamp_s :
-        typeof s.start_s === "number" ? s.start_s : undefined;
+          typeof s.start_s === "number" ? s.start_s : undefined;
       return {
         speaker: asStr(s.speaker) ?? asStr(s.role),
         timestamp: ts,
@@ -1040,7 +1251,8 @@ const SECTION_LABEL: Record<string, string> = {
 const SKIP_KEYS = new Set([
   "overall_assessment", "strongest_points", "critical_gaps",
   "priority_improvements", "final_assessment", "technology_inventory",
-  "introduction_quality",
+  "introduction_quality", "jd_validation", "jd_analysis",
+  "requirement_coverage", "suggested_opening",
 ]);
 
 export function normalizeReport(
@@ -1082,13 +1294,221 @@ export function normalizeReport(
 
   // Resolve intro_evaluation — it may be directly in transcript_evaluation, report_data, or bundled.general
   const genEval = asRecord(bundled.general);
+
+  // Check for JD Intro Evaluation in multiple locations
+  const rawJdIntro =
+    nested(txEval, "jd_intro_evaluation") && Object.keys(nested(txEval, "jd_intro_evaluation")).length
+      ? nested(txEval, "jd_intro_evaluation")
+      : Object.keys(nested(bundled, "jd_intro_evaluation")).length
+        ? nested(bundled, "jd_intro_evaluation")
+        : Object.keys(nested(repData, "jd_intro_evaluation")).length
+          ? nested(repData, "jd_intro_evaluation")
+          : (genEval.jd_analysis || genEval.requirement_coverage || genEval.jd_validation)
+            ? genEval
+            : null;
+
+  const isJdIntro = Boolean(
+    rawJdIntro ||
+    assessment.assessment_type === "JD_INTRO" ||
+    (bundled.general && Boolean((bundled.general as any).requirement_coverage))
+  );
+
+  let jdVal: JdValidation | undefined;
+  let jdAnalysis: JdAnalysis | undefined;
+  let reqCoverage: JdRequirementCoverageItem[] | undefined;
+  let roleAlign: JdRoleAlignment | undefined;
+  let careerStory: JdCareerStory | undefined;
+  let currentRoleProj: JdCurrentRoleAndProject | undefined;
+  let jdTechAlign: JdTechnicalAlignment | undefined;
+  let valueProp: JdValueProposition | undefined;
+  let tailoringQual: JdTailoringQuality | undefined;
+  let suggestedOpening: JdSuggestedOpening | undefined;
+  let jdFinalAssessment: JdFinalAssessment | undefined;
+  let jdAlignment: string | undefined;
+
+  if (rawJdIntro) {
+    const rawVal = asRecord(rawJdIntro.jd_validation);
+    if (Object.keys(rawVal).length) {
+      jdVal = {
+        status: asStr(rawVal.status),
+        reason: asStr(rawVal.reason),
+      };
+    }
+
+    const rawAnalysis = asRecord(rawJdIntro.jd_analysis);
+    if (Object.keys(rawAnalysis).length) {
+      const ts = asRecord(rawAnalysis.tech_stack);
+      const parsedTechStack: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(ts)) {
+        parsedTechStack[k] = asStrArray(v);
+      }
+      jdAnalysis = {
+        role_title: asStr(rawAnalysis.role_title),
+        seniority_level: asStr(rawAnalysis.seniority_level),
+        domain: asStr(rawAnalysis.domain),
+        core_responsibilities: asStrArray(rawAnalysis.core_responsibilities),
+        must_have_requirements: asStrArray(rawAnalysis.must_have_requirements),
+        nice_to_have_requirements: asStrArray(rawAnalysis.nice_to_have_requirements),
+        tech_stack: parsedTechStack,
+        soft_skills_and_ownership: asStrArray(rawAnalysis.soft_skills_and_ownership),
+      };
+    }
+
+    const rawReqCov = Array.isArray(rawJdIntro.requirement_coverage) ? rawJdIntro.requirement_coverage : [];
+    if (rawReqCov.length > 0) {
+      reqCoverage = rawReqCov.map((item: unknown) => {
+        const rc = asRecord(item);
+        return {
+          requirement: asStr(rc.requirement) || "Requirement",
+          category: asStr(rc.category),
+          importance: asStr(rc.importance),
+          status: asStr(rc.status) || "NOT_MENTIONED",
+          match_type: asStr(rc.match_type),
+          evidence: asStr(rc.evidence) ?? null,
+          note: asStr(rc.note),
+          in_resume: typeof rc.in_resume === "boolean" ? rc.in_resume : undefined,
+          resume_evidence: asStr(rc.resume_evidence) ?? null,
+          verification_status: asStr(rc.verification_status),
+        };
+      });
+    }
+
+    const rawRoleAlign = asRecord(rawJdIntro.role_alignment);
+    if (Object.keys(rawRoleAlign).length) {
+      roleAlign = {
+        overall_status: asStr(rawRoleAlign.overall_status),
+        role_relevance: asStr(rawRoleAlign.role_relevance),
+        responsibilities_alignment: asStr(rawRoleAlign.responsibilities_alignment),
+        seniority_match: asStr(rawRoleAlign.seniority_match),
+        domain_fit: asStr(rawRoleAlign.domain_fit),
+        observation: asStr(rawRoleAlign.observation),
+        evidence: asStrArray(rawRoleAlign.evidence),
+      };
+    }
+
+    const rawCareerStory = asRecord(rawJdIntro.career_story);
+    if (Object.keys(rawCareerStory).length) {
+      careerStory = {
+        overall_status: asStr(rawCareerStory.overall_status),
+        timeline: asStr(rawCareerStory.timeline),
+        roles: asStr(rawCareerStory.roles),
+        career_transitions: asStr(rawCareerStory.career_transitions),
+        leads_logically_to_target_role: asStr(rawCareerStory.leads_logically_to_target_role),
+        transitions_identified: asStrArray(rawCareerStory.transitions_identified),
+        observation: asStr(rawCareerStory.observation),
+        evidence: asStrArray(rawCareerStory.evidence),
+      };
+    }
+
+    const rawCurrentRoleProj = asRecord(rawJdIntro.current_role_and_project);
+    if (Object.keys(rawCurrentRoleProj).length) {
+      currentRoleProj = {
+        overall_status: asStr(rawCurrentRoleProj.overall_status),
+        current_role: asStr(rawCurrentRoleProj.current_role),
+        responsibilities: asStr(rawCurrentRoleProj.responsibilities),
+        technical_ownership: asStr(rawCurrentRoleProj.technical_ownership),
+        project_explained: asStr(rawCurrentRoleProj.project_explained),
+        application_purpose: asStr(rawCurrentRoleProj.application_purpose),
+        users_or_customers: asStr(rawCurrentRoleProj.users_or_customers),
+        business_problem: asStr(rawCurrentRoleProj.business_problem),
+        personal_contribution: asStr(rawCurrentRoleProj.personal_contribution),
+        relevance_to_jd: asStr(rawCurrentRoleProj.relevance_to_jd),
+        observation: asStr(rawCurrentRoleProj.observation),
+        evidence: asStrArray(rawCurrentRoleProj.evidence),
+      };
+    }
+
+    const rawTechAlign = asRecord(rawJdIntro.technical_alignment);
+    if (Object.keys(rawTechAlign).length) {
+      jdTechAlign = {
+        overall_status: asStr(rawTechAlign.overall_status),
+        core_stack_alignment: asStr(rawTechAlign.core_stack_alignment),
+        architecture_and_design_depth: asStr(rawTechAlign.architecture_and_design_depth),
+        production_and_deployment: asStr(rawTechAlign.production_and_deployment),
+        scale_and_performance: asStr(rawTechAlign.scale_and_performance),
+        technologies_matching_jd: asStrArray(rawTechAlign.technologies_matching_jd),
+        equivalent_technologies: asStrArray(rawTechAlign.equivalent_technologies),
+        jd_technologies_not_mentioned: asStrArray(rawTechAlign.jd_technologies_not_mentioned),
+        other_technologies_mentioned: asStrArray(rawTechAlign.other_technologies_mentioned),
+        observation: asStr(rawTechAlign.observation),
+        evidence: asStrArray(rawTechAlign.evidence),
+      };
+    }
+
+    const rawValProp = asRecord(rawJdIntro.value_proposition);
+    if (Object.keys(rawValProp).length) {
+      valueProp = {
+        overall_status: asStr(rawValProp.overall_status),
+        why_this_role: asStr(rawValProp.why_this_role),
+        impact_and_outcomes: asStr(rawValProp.impact_and_outcomes),
+        differentiators: asStrArray(rawValProp.differentiators),
+        observation: asStr(rawValProp.observation),
+        evidence: asStrArray(rawValProp.evidence),
+      };
+    }
+
+    const rawTailoring = asRecord(rawJdIntro.tailoring_quality);
+    if (Object.keys(rawTailoring).length) {
+      tailoringQual = {
+        tailored_to_role: asStr(rawTailoring.tailored_to_role),
+        relevant_experience_prioritized: asStr(rawTailoring.relevant_experience_prioritized),
+        irrelevant_content_ratio: asStr(rawTailoring.irrelevant_content_ratio),
+        gap_bridging: asStr(rawTailoring.gap_bridging),
+        observation: asStr(rawTailoring.observation),
+        evidence: asStrArray(rawTailoring.evidence),
+      };
+    }
+
+    const rawSuggOpen = asRecord(rawJdIntro.suggested_opening);
+    if (Object.keys(rawSuggOpen).length) {
+      suggestedOpening = {
+        opening_statement: asStr(rawSuggOpen.opening_statement) || asStr(rawSuggOpen.example),
+        rationale: asStr(rawSuggOpen.rationale) || asStr(rawSuggOpen.note),
+        key_points_included: asStrArray(rawSuggOpen.key_points_included),
+        note: asStr(rawSuggOpen.note),
+        example: asStr(rawSuggOpen.example) || asStr(rawSuggOpen.opening_statement),
+      };
+    }
+
+    const rawJdFA = asRecord(rawJdIntro.final_assessment);
+    if (Object.keys(rawJdFA).length) {
+      jdFinalAssessment = {
+        jd_fit_summary: asStr(rawJdFA.jd_fit_summary),
+        career_story_relevance: asStr(rawJdFA.career_story_relevance),
+        current_project_clarity: asStr(rawJdFA.current_project_clarity),
+        technical_alignment_depth: asStr(rawJdFA.technical_alignment_depth),
+        seniority_match: asStr(rawJdFA.seniority_match),
+        most_important_improvement: asStr(rawJdFA.most_important_improvement),
+      };
+    }
+
+    const rawJdOA = asRecord(rawJdIntro.overall_assessment);
+    jdAlignment = asStr(rawJdOA.jd_alignment);
+  }
+
+  let skillBreakdown: JdSkillBreakdown | undefined = undefined;
+  const rawJdOARec = rawJdIntro ? asRecord(rawJdIntro.overall_assessment) : {};
+  const rawSB = asRecord(rawJdOARec.skill_breakdown ?? bundled.skill_breakdown ?? repData.skill_breakdown);
+  if (Object.keys(rawSB).length > 0) {
+    skillBreakdown = {
+      must_have_coverage_pct: typeof rawSB.must_have_coverage_pct === "number" ? rawSB.must_have_coverage_pct : undefined,
+      must_have_band: asStr(rawSB.must_have_band),
+      nice_to_have_coverage_pct: typeof rawSB.nice_to_have_coverage_pct === "number" ? rawSB.nice_to_have_coverage_pct : undefined,
+      nice_to_have_band: asStr(rawSB.nice_to_have_band),
+      total_weighted_pct: typeof rawSB.total_weighted_pct === "number" ? rawSB.total_weighted_pct : undefined,
+      unverified_spoken_claims: asStrArray(rawSB.unverified_spoken_claims),
+    };
+  }
+
   const introEval = Object.keys(nested(txEval, "intro_evaluation")).length
     ? nested(txEval, "intro_evaluation")
-    : Object.keys(genEval).length
-      ? genEval
-      : txEval;
+    : rawJdIntro
+      ? rawJdIntro
+      : Object.keys(genEval).length
+        ? genEval
+        : txEval;
 
-  const rawOA = asRecord(introEval.overall_assessment);
+  const rawOA = asRecord(rawJdIntro?.overall_assessment ?? introEval.overall_assessment);
   const overallAssessment = {
     readiness: asStr(bundled.readiness) ?? asStr(rawOA.readiness) ?? asStr(bundled.overall_readiness),
     summary: asStr(bundled.summary) ?? asStr(rawOA.summary) ?? asStr(bundled.overall_summary),
@@ -1236,9 +1656,9 @@ export function normalizeReport(
           evidence: asStrArray(qe.evidence),
           study_guidance: rawSG
             ? {
-                what_to_study: asStrArray(rawSG.what_to_study),
-                how_to_answer: asStr(rawSG.how_to_answer) ?? "",
-              }
+              what_to_study: asStrArray(rawSG.what_to_study),
+              how_to_answer: asStr(rawSG.how_to_answer) ?? "",
+            }
             : null,
           transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
         };
@@ -1262,6 +1682,7 @@ export function normalizeReport(
     .flatMap(([key, value]): IntroSection[] => {
       const sec = asRecord(value);
       const observation = asStr(sec.observation) ?? asStr(sec.summary);
+      const key_observations = asStrArray(sec.key_observations).filter(Boolean);
       const status = asStr(sec.overall_status) ?? asStr(sec.status) ?? asStr(sec.readiness);
       const rawConcepts = asRecord(sec.concepts);
       const concepts: Record<string, string> = {};
@@ -1307,6 +1728,7 @@ export function normalizeReport(
         title: SECTION_LABEL[key] ?? key.replaceAll("_", " ").replace(/\b\w/g, l => l.toUpperCase()),
         status: status ?? undefined,
         observation: observation ?? undefined,
+        key_observations: key_observations.length > 0 ? key_observations : undefined,
         evidence: asStrArray(sec.evidence),
         technologies_mentioned: techList.length > 0 ? techList : undefined,
         concepts: Object.keys(concepts).length > 0 ? concepts : undefined,
@@ -1340,21 +1762,25 @@ export function normalizeReport(
   }
 
   // ── Critical gaps & improvements ─────────────────────────────────────────
-  const cgRaw = Array.isArray(introEval.critical_gaps)
-    ? introEval.critical_gaps
-    : Array.isArray(bundled.critical_gaps)
-      ? bundled.critical_gaps
-      : Array.isArray(genEval.critical_gaps)
-        ? genEval.critical_gaps
-        : [];
+  const cgRaw = Array.isArray(rawJdIntro?.critical_gaps)
+    ? rawJdIntro.critical_gaps
+    : Array.isArray(introEval.critical_gaps)
+      ? introEval.critical_gaps
+      : Array.isArray(bundled.critical_gaps)
+        ? bundled.critical_gaps
+        : Array.isArray(genEval.critical_gaps)
+          ? genEval.critical_gaps
+          : [];
 
   const critical_gaps = cgRaw.map((g: unknown) => {
     const gap = asRecord(g);
     return {
       topic: asStr(gap.topic),
+      importance: asStr(gap.importance),
       status: asStr(gap.status),
       what_is_missing: asStr(gap.what_is_missing),
-      why_it_matters: asStr(gap.why_it_matters),
+      why_it_matters: asStr(gap.why_it_matters) ?? asStr(gap.why_it_matters_for_this_role),
+      why_it_matters_for_this_role: asStr(gap.why_it_matters_for_this_role) ?? asStr(gap.why_it_matters),
       suggested_addition: asStr(gap.suggested_addition),
     };
   });
@@ -1406,12 +1832,12 @@ export function normalizeReport(
       ? asStrArray(ta.areas_for_improvement)
       : priority_improvements.length > 0
         ? priority_improvements
-            .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
-            .filter(Boolean)
+          .map((p) => (p.topic ? `${p.topic}: ${p.guidance || ""}`.trim() : p.guidance || ""))
+          .filter(Boolean)
         : critical_gaps.length > 0
           ? critical_gaps
-              .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
-              .filter(Boolean)
+            .map((g) => (g.topic ? `${g.topic}: ${g.what_is_missing || g.why_it_matters || ""}`.trim() : g.what_is_missing || ""))
+            .filter(Boolean)
           : (overallAssessment.biggest_gap ? [overallAssessment.biggest_gap] : []);
   const taDepth =
     asStr(ta.depth_assessment) ??
@@ -1422,40 +1848,40 @@ export function normalizeReport(
   const technical_analysis =
     Object.keys(ta).length || taSummary || taStrengths.length > 0 || taImprovements.length > 0
       ? {
-          summary: taSummary,
-          strengths: taStrengths,
-          areas_for_improvement: taImprovements,
-          depth_assessment: taDepth,
-        }
+        summary: taSummary,
+        strengths: taStrengths,
+        areas_for_improvement: taImprovements,
+        depth_assessment: taDepth,
+      }
       : undefined;
 
   // ── Improvements ─────────────────────────────────────────────────────────
   const rawImprovements = txEval.improvements_json ?? repData.improvements_json;
   const improvements: ImprovementItem[] = Array.isArray(rawImprovements)
     ? rawImprovements.map((i: unknown) => {
-        const imp = asRecord(i);
-        return {
-          priority: typeof imp.priority === "number" ? imp.priority : undefined,
-          topic: asStr(imp.topic),
-          effort: asStr(imp.effort),
-          rationale: asStr(imp.rationale),
-        };
-      })
+      const imp = asRecord(i);
+      return {
+        priority: typeof imp.priority === "number" ? imp.priority : undefined,
+        topic: asStr(imp.topic),
+        effort: asStr(imp.effort),
+        rationale: asStr(imp.rationale),
+      };
+    })
     : [];
 
   // ── Coaching suggestions (with fallbacks for completed evaluations) ──────
   const rawCoaching = txEval.coaching_suggestions_json ?? repData.coaching_suggestions_json;
   let coaching_suggestions: CoachingSuggestion[] = Array.isArray(rawCoaching)
     ? rawCoaching.map((c: unknown) => {
-        const cs = asRecord(c);
-        return {
-          priority: typeof cs.priority === "number" ? cs.priority : undefined,
-          dimension: asStr(cs.dimension),
-          area: asStr(cs.area),
-          suggestion: asStr(cs.suggestion),
-          evidence: asStr(cs.evidence),
-        };
-      })
+      const cs = asRecord(c);
+      return {
+        priority: typeof cs.priority === "number" ? cs.priority : undefined,
+        dimension: asStr(cs.dimension),
+        area: asStr(cs.area),
+        suggestion: asStr(cs.suggestion),
+        evidence: asStr(cs.evidence),
+      };
+    })
     : [];
 
   if (coaching_suggestions.length === 0) {
@@ -1499,9 +1925,9 @@ export function normalizeReport(
   const rawGaps = txEval.gaps_to_validate_json ?? repData.gaps_to_validate_json;
   let gaps_to_validate: GapItem[] = Array.isArray(rawGaps)
     ? rawGaps.map((g: unknown) => {
-        const gap = asRecord(g);
-        return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
-      })
+      const gap = asRecord(g);
+      return { topic: asStr(gap.topic), reason: asStr(gap.reason) };
+    })
     : [];
 
   if (gaps_to_validate.length === 0) {
@@ -1525,14 +1951,14 @@ export function normalizeReport(
   const rawEvidence = txEval.transcript_evidence_json ?? repData.transcript_evidence_json;
   const transcript_evidence: TranscriptEvidence[] = Array.isArray(rawEvidence)
     ? rawEvidence.map((e: unknown) => {
-        const ev = asRecord(e);
-        return {
-          quote: asStr(ev.quote) ?? "",
-          timestamp_s: typeof ev.timestamp_s === "number" ? ev.timestamp_s : null,
-          dimension: asStr(ev.dimension),
-          observation: asStr(ev.observation),
-        };
-      }).filter(e => e.quote)
+      const ev = asRecord(e);
+      return {
+        quote: asStr(ev.quote) ?? "",
+        timestamp_s: typeof ev.timestamp_s === "number" ? ev.timestamp_s : null,
+        dimension: asStr(ev.dimension),
+        observation: asStr(ev.observation),
+      };
+    }).filter(e => e.quote)
     : [];
 
   // ── Transcript from data response ────────────────────────────────────────
@@ -1577,9 +2003,10 @@ export function normalizeReport(
         ? (assessment as any).save_transcript
         : true;
 
-  const overallReadiness =
+  let overallReadiness =
     asStr(scoresRaw.overall_band) ??
     asStr(overallAssessment.readiness);
+
 
   const overallSummary =
     asStr(overallAssessment.summary) ??
@@ -1653,6 +2080,8 @@ export function normalizeReport(
     filler_word_count: typeof rawAudioTelemetry.filler_word_count === "number" ? rawAudioTelemetry.filler_word_count : (typeof rawAudioTelemetry.filler_count === "number" ? rawAudioTelemetry.filler_count : undefined),
     silence_percentage: typeof rawAudioTelemetry.silence_percentage === "number" ? rawAudioTelemetry.silence_percentage : (typeof rawAudioTelemetry.silence_ratio === "number" ? rawAudioTelemetry.silence_ratio * 100 : undefined),
     speaking_duration_sec: typeof rawAudioTelemetry.speaking_duration_sec === "number" ? rawAudioTelemetry.speaking_duration_sec : (typeof rawAudioTelemetry.speaking_duration_seconds === "number" ? rawAudioTelemetry.speaking_duration_seconds : undefined),
+    total_audio_duration_seconds: typeof rawAudioTelemetry.total_audio_duration_seconds === "number" ? rawAudioTelemetry.total_audio_duration_seconds : (typeof (rawAudioTelemetry as any).total_duration === "number" ? (rawAudioTelemetry as any).total_duration : undefined),
+    duration_seconds: typeof rawAudioTelemetry.duration_seconds === "number" ? rawAudioTelemetry.duration_seconds : (typeof (data as any)?.client_duration_seconds === "number" ? (data as any).client_duration_seconds : (typeof (assessment as any)?.duration_seconds === "number" ? (assessment as any).duration_seconds : undefined)),
   } : undefined;
 
   const rawVideoTelemetry = asRecord(
@@ -1677,11 +2106,11 @@ export function normalizeReport(
     overall_strongest_signal: asStr(overallAssessment.strongest_signal),
     overall_biggest_gap: asStr(overallAssessment.biggest_gap),
     scores: {
-      ai_engineering:   parseScore("ai_engineering"),
+      ai_engineering: parseScore("ai_engineering"),
       core_engineering: parseScore("core_engineering"),
-      non_technical:    parseScore("non_technical"),
-      business_acumen:  parseScore("business_acumen"),
-      overall_band:     asStr(scoresRaw.overall_band),
+      non_technical: parseScore("non_technical"),
+      business_acumen: parseScore("business_acumen"),
+      overall_band: asStr(scoresRaw.overall_band),
     },
     intro_quality,
     resume_alignment,
@@ -1689,7 +2118,22 @@ export function normalizeReport(
     non_technical,
     intro_sections,
     technology_inventory: Object.keys(technology_inventory).length > 0 ? technology_inventory : undefined,
-    strongest_points: asStrArray(introEval.strongest_points),
+    strongest_points: asStrArray(rawJdIntro?.strongest_points ?? introEval.strongest_points ?? bundled.strongest_points ?? genEval.strongest_points),
+    is_jd_intro: isJdIntro,
+    jd_evaluation: rawJdIntro ? (rawJdIntro as JdIntroEvaluation) : undefined,
+    jd_validation: jdVal,
+    jd_alignment: jdAlignment,
+    jd_analysis: jdAnalysis,
+    requirement_coverage: reqCoverage,
+    role_alignment: roleAlign,
+    career_story: careerStory,
+    current_role_and_project: currentRoleProj,
+    jd_technical_alignment: jdTechAlign,
+    value_proposition: valueProp,
+    tailoring_quality: tailoringQual,
+    suggested_opening: suggestedOpening,
+    jd_final_assessment: jdFinalAssessment,
+    skill_breakdown: skillBreakdown,
     critical_gaps,
     priority_improvements,
     final_assessment,

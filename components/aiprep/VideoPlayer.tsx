@@ -27,6 +27,7 @@ interface Props {
   durationSeconds?: number;
   waveformAmplitudes?: number[];
   onSeek?: (seconds: number) => void;
+  onDurationChange?: (durationSeconds: number) => void;
 }
 
 function extractYoutubeId(url: string): string | null {
@@ -70,6 +71,7 @@ export default function VideoPlayer({
   durationSeconds = 0,
   waveformAmplitudes,
   onSeek,
+  onDurationChange,
 }: Props) {
   const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || null);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
@@ -108,9 +110,10 @@ export default function VideoPlayer({
   // Fix #6: setDuration is a stable setter — not a valid dep, removing it avoids lint noise
   useEffect(() => {
     if (durationSeconds && durationSeconds > 0) {
-      setDuration(durationSeconds);
+      setDuration((prev) => (prev > 0 ? prev : durationSeconds));
+      onDurationChange?.(durationSeconds);
     }
-  }, [durationSeconds]);
+  }, [durationSeconds, onDurationChange]);
 
   // Attach internal ref + state so seekTo() from parent works and effect re-runs on mount
   const setCombinedRef = useCallback((node: HTMLMediaElement | null) => {
@@ -127,7 +130,7 @@ export default function VideoPlayer({
 
     const handleTimeUpdate = () => {
       setCurrentTime(mediaEl.currentTime);
-      if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration)) {
+      if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration) && mediaEl.duration > 0) {
         setDuration(mediaEl.duration);
       }
     };
@@ -144,8 +147,9 @@ export default function VideoPlayer({
     };
     const handleLoaded = () => {
       setHasMediaError(false);
-      if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration)) {
+      if (mediaEl.duration && !isNaN(mediaEl.duration) && isFinite(mediaEl.duration) && mediaEl.duration > 0) {
         setDuration(mediaEl.duration);
+        onDurationChange?.(mediaEl.duration);
       }
     };
 
@@ -343,7 +347,7 @@ export default function VideoPlayer({
   // ── 3. Rich Audio Recording Playback Player ────────────────────────────────
   // Shown for AUDIO assessments or when video recording is audio-only
   const isMediaAvailable = Boolean(currentMediaUrl && !hasMediaError);
-  const effectiveDuration = !isMediaAvailable ? 0 : duration;
+  const effectiveDuration = duration > 0 ? duration : (durationSeconds > 0 ? durationSeconds : 0);
   const effectiveCurrentTime = !isMediaAvailable ? 0 : currentTime;
   const progressPercent = effectiveDuration > 0 ? Math.min(100, (effectiveCurrentTime / effectiveDuration) * 100) : 0;
   const bars = waveformAmplitudes && waveformAmplitudes.length > 0 ? waveformAmplitudes : WAVEFORM_BARS;

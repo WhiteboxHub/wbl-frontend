@@ -6,7 +6,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity, ArrowLeft, Upload, FileText, ArrowRight, Loader2 } from 'lucide-react';
+import { extractDocumentText } from '@/utils/documentTextExtractor';
 import { AssessmentConfig } from './Assessmentselection';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
 import PracticeStep from './PracticeStep';
@@ -16,30 +17,27 @@ import { useMediaPipeVision } from '@/hooks/useMediaPipeVision';
 import { AIPrepTelemetry } from '@/lib/telemetry';
 import { DeviceCheckCategory, DeviceCheckStatus, DeviceFailureReason, AIWizardStep } from '@/types/telemetry';
 
-export type WizardStep = 'CONFIGURATION' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START';
+export type WizardStep = 'CONFIGURATION' | 'JD_UPLOAD' | 'CONSENT' | 'DEVICE_CHECK' | 'PRACTICE_START';
+const ALL_WIZARD_STEPS: WizardStep[] = ['CONFIGURATION', 'JD_UPLOAD', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'];
 interface MediaDev { deviceId: string; label: string; }
 const STEP_TO_SLUG: Record<WizardStep, string> = {
-  CONFIGURATION: 'assessment-type', CONSENT: 'consent', DEVICE_CHECK: 'device-check', PRACTICE_START: 'practice',
+  CONFIGURATION: 'assessment-type', JD_UPLOAD: 'jd-upload', CONSENT: 'consent', DEVICE_CHECK: 'device-check', PRACTICE_START: 'practice',
 };
 const SLUG_TO_STEP: Record<string, WizardStep> = {
   'assesment-type': 'CONFIGURATION', 'assessment-type': 'CONFIGURATION', 'configuration': 'CONFIGURATION',
+  'jd-upload': 'JD_UPLOAD', 'jd_upload': 'JD_UPLOAD',
   'consent': 'CONSENT', 'device-check': 'DEVICE_CHECK', 'devicecheck': 'DEVICE_CHECK',
   'practice': 'PRACTICE_START', 'practice-start': 'PRACTICE_START',
 };
 
-const WIZARD_STEP_ITEMS = [
-  { key: 'CONFIGURATION' as const, num: 1, label: 'Assessment Type', shortLabel: 'Type' },
-  { key: 'CONSENT' as const, num: 2, label: 'Consent', shortLabel: 'Consent' },
-  { key: 'DEVICE_CHECK' as const, num: 3, label: 'Device Check', shortLabel: 'Device' },
-  { key: 'PRACTICE_START' as const, num: 4, label: 'Practice & Start', shortLabel: 'Practice' },
+// Base step definitions — JD_UPLOAD is injected dynamically only for JD_INTRO
+const BASE_WIZARD_STEP_ITEMS = [
+  { key: 'CONFIGURATION' as const, label: 'Assessment Type', shortLabel: 'Type' },
+  { key: 'CONSENT' as const, label: 'Consent', shortLabel: 'Consent' },
+  { key: 'DEVICE_CHECK' as const, label: 'Device Check', shortLabel: 'Device' },
+  { key: 'PRACTICE_START' as const, label: 'Practice & Start', shortLabel: 'Practice' },
 ];
-
-const WIZARD_STEP_ORDER: Record<WizardStep, number> = {
-  CONFIGURATION: 0,
-  CONSENT: 1,
-  DEVICE_CHECK: 2,
-  PRACTICE_START: 3,
-};
+const JD_UPLOAD_STEP_ITEM = { key: 'JD_UPLOAD' as const, label: 'JD Upload', shortLabel: 'JD' };
 
 const cleanLabel = (label: string, fallback: string) => {
   if (!label || !label.trim()) return fallback;
@@ -56,6 +54,365 @@ const filterDevs = (devs: any[], kind: string, fallback: string): MediaDev[] => 
   }).filter((d) => !seen.has(d.label) ? (seen.add(d.label), true) : false);
   return list.length > 0 ? list : [{ deviceId: 'default', label: fallback }];
 };
+// ── JD Upload Step Component ──────────────────────────────────────────────────
+// Self-contained upload step: Paste JD (priority 1) → Browse files (priority 2) → Drag & Drop (priority 3)
+interface JDUploadStepProps {
+  jdText: string;
+  setJdText: (text: string) => void;
+  jdFileName: string;
+  setJdFileName: (name: string) => void;
+  jdDragActive: boolean;
+  setJdDragActive: (active: boolean) => void;
+  jdFileInputRef: React.RefObject<HTMLInputElement>;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+const JDUploadStep: React.FC<JDUploadStepProps> = ({
+  jdText,
+  setJdText,
+  jdFileName,
+  setJdFileName,
+  jdDragActive,
+  setJdDragActive,
+  jdFileInputRef,
+  onBack,
+  onNext,
+}) => {
+  const [jdError, setJdError] = useState<string>('');
+  const [jdParsing, setJdParsing] = useState<boolean>(false);
+
+  const persistJd = (text: string, filename: string) => {
+    if (typeof window === 'undefined') return;
+    if (text.trim()) {
+      window.sessionStorage?.setItem('aiprep_jd_text', text);
+    } else {
+      window.sessionStorage?.removeItem('aiprep_jd_text');
+    }
+    if (filename) {
+      window.sessionStorage?.setItem('aiprep_jd_filename', filename);
+    } else {
+      window.sessionStorage?.removeItem('aiprep_jd_filename');
+    }
+  };
+
+  const handleFileRead = async (file: File) => {
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+    const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
+    if (!allowedExtensions.includes(ext)) {
+      setJdError('Unsupported file type. Please upload a PDF, DOCX, or TXT file.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setJdError('File size exceeds the 10 MB limit.');
+      return;
+    }
+
+    setJdParsing(true);
+    setJdError('');
+
+    try {
+      const extractedText = await extractDocumentText(file);
+      if (extractedText && extractedText.trim()) {
+        setJdText(extractedText);
+        setJdFileName(file.name);
+        setJdError('');
+        persistJd(extractedText, file.name);
+      } else {
+        setJdError('Could not extract readable text from this file. It may be a scanned image or empty. Please copy and paste the JD text directly.');
+      }
+    } catch (err: any) {
+      console.error('Document extraction error:', err);
+      setJdError(err?.message || 'Failed to read the file. Please try again or paste the JD text directly.');
+    } finally {
+      setJdParsing(false);
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileRead(file);
+    e.target.value = ''; // reset so same file can be re-selected
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJdDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJdDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJdDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileRead(file);
+  };
+
+  const handleClear = () => {
+    setJdText('');
+    setJdFileName('');
+    setJdError('');
+    persistJd('', '');
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setJdText(val);
+    if (val.trim()) setJdError('');
+    persistJd(val, '');
+  };
+
+  const handleNextClick = () => {
+    if (!jdText.trim()) {
+      setJdError('Please provide a job description to continue.');
+      return;
+    }
+    setJdError('');
+    AIPrepTelemetry.trackJdAttached(AIPrepTelemetry.getResolvedCandidateId(), jdText.trim().length);
+    onNext();
+  };
+
+  // Determine the current input mode for the unified box
+  const hasFile = !!jdFileName;
+  const hasText = !hasFile && jdText.trim().length > 0;
+  const isEmpty = !hasFile && !hasText;
+
+  return (
+    <div className="w-full flex flex-col px-4 sm:px-6 lg:px-7 py-3 sm:py-4 animate-in fade-in duration-200">
+      {/* Header matching Assessment Type page */}
+      <div className="mb-2.5 sm:mb-3 shrink-0">
+        <h2 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
+          Add Your Job Description
+        </h2>
+        <p className="text-[10.5px] sm:text-[11.5px] text-slate-500 dark:text-slate-400 mt-0.5 font-normal">
+          Paste text directly, browse for a file, or drag &amp; drop it below.
+        </p>
+      </div>
+
+      {/* ── Two-column: JD Box (left) + Tips panel (right) matching 6-card grid height ── */}
+      <div className="flex gap-2.5 sm:gap-3 flex-1 min-h-[330px] sm:min-h-[350px]">
+
+        {/* ── Left: Unified JD input box ── */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`relative flex flex-col flex-1 rounded-xl border-2 transition-all duration-200 overflow-hidden min-h-[330px] sm:min-h-[350px] ${
+            jdDragActive
+              ? 'border-purple-400 shadow-lg shadow-purple-100 dark:shadow-purple-900/20 bg-purple-50 dark:bg-purple-950/20'
+              : jdError && isEmpty
+              ? 'border-red-400 dark:border-red-500 bg-white dark:bg-slate-950'
+              : hasFile || hasText
+              ? 'border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-950'
+              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 hover:border-purple-200 dark:hover:border-purple-800'
+          }`}
+        >
+          {/* Hidden file input */}
+          <input
+            ref={jdFileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt"
+            className="hidden"
+            onChange={handleFileInput}
+          />
+
+          {/* Drag overlay */}
+          {jdDragActive && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-purple-50/90 dark:bg-purple-950/80 backdrop-blur-sm pointer-events-none rounded-xl">
+              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/60 rounded-2xl flex items-center justify-center mb-3 shadow-md">
+                <Upload className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+              </div>
+              <p className="text-sm font-bold text-purple-700 dark:text-purple-300">Drop your file here</p>
+              <p className="text-[11px] text-purple-500 dark:text-purple-400 mt-1">PDF, DOC, DOCX, TXT supported</p>
+            </div>
+          )}
+
+          {/* File parsing state */}
+          {jdParsing ? (
+            <div className="flex flex-col items-center justify-center p-6 flex-1 gap-3 min-h-[330px] sm:min-h-[350px]">
+              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
+                <Loader2 className="w-7 h-7 text-purple-600 dark:text-purple-400 animate-spin" />
+              </div>
+              <div className="text-center max-w-md">
+                <p className="text-sm font-bold text-slate-900 dark:text-white">Extracting text from document...</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Parsing your file directly in your browser. This takes just a moment.
+                </p>
+              </div>
+            </div>
+          ) : hasFile ? (
+            <div className="flex flex-col items-center justify-center p-6 flex-1 gap-3 min-h-[330px] sm:min-h-[350px]">
+              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
+                <FileText className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="text-center max-w-md">
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{jdFileName}</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center justify-center gap-1 font-medium">
+                  <Check className="w-3.5 h-3.5 shrink-0" /> File loaded successfully
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  {(jdText.length).toLocaleString()} characters extracted &bull; Ready for assessment
+                </p>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="text-xs font-semibold text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-950/20 inline-flex items-center gap-1.5"
+                >
+                  <X className="w-3.5 h-3.5" /> Remove file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => jdFileInputRef.current?.click()}
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 transition-colors cursor-pointer px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/20 inline-flex items-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Replace file
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Textarea — taller to match 6-card grid height */}
+              <div className="relative flex-1 flex flex-col min-h-0">
+                <textarea
+                  value={jdText}
+                  onChange={handleTextChange}
+                  placeholder="Paste your job description here — include the role title, responsibilities, required skills and qualifications…"
+                  className="w-full flex-1 min-h-[260px] sm:min-h-[280px] px-4 sm:px-5 pt-4 sm:pt-5 pb-3 text-[11.5px] sm:text-xs leading-relaxed bg-transparent border-0 resize-none focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                />
+                {jdText.trim().length > 0 && (
+                  <div className="absolute bottom-2 right-3 text-[9.5px] text-slate-300 dark:text-slate-600 select-none pointer-events-none">
+                    {jdText.trim().length.toLocaleString()} chars
+                  </div>
+                )}
+              </div>
+
+              {/* Action strip at bottom of box — enlarged to match target size */}
+              <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 px-4 sm:px-6 py-3.5 sm:py-4.5 min-h-[68px] sm:min-h-[76px] flex items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/50">
+                <div className="flex items-center gap-2.5 sm:gap-3 select-none min-w-0">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/60 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
+                    <Upload className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs sm:text-[13px] font-bold text-slate-800 dark:text-slate-200 truncate">
+                      Attach JD Document
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                      PDF, DOC, DOCX, TXT &bull; Max 10 MB
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {jdText.trim().length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="text-xs font-semibold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <X className="w-3.5 h-3.5" /> Clear
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => jdFileInputRef.current?.click()}
+                    className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold border-2 border-purple-200 hover:border-purple-300 dark:border-purple-800 dark:hover:border-purple-700 text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-50/80 dark:hover:bg-purple-950/40 transition-all duration-200 cursor-pointer shadow-xs active:scale-98"
+                  >
+                    <Upload className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Browse files</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Right: Tips panel matching project stylesheet and height ── */}
+        <div className="hidden md:flex flex-col gap-2.5 sm:gap-3 w-56 xl:w-60 shrink-0 min-h-[330px] sm:min-h-[350px]">
+          {/* What to include */}
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/40 rounded-xl p-3.5 sm:p-4 flex-1 flex flex-col justify-center">
+            <p className="text-[11px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 sm:mb-2.5 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Tips for a better result
+            </p>
+            <ul className="space-y-1.5 sm:space-y-2 text-[10.5px] sm:text-[11px] text-slate-600 dark:text-slate-400">
+              <li className="flex items-start gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-amber-400 mt-[5px] shrink-0" />
+                Include role title, responsibilities and required skills
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-amber-400 mt-[5px] shrink-0" />
+                Use PDF or DOCX for best results. Plain text also works.
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-amber-400 mt-[5px] shrink-0" />
+                Keep files under 10 MB
+              </li>
+            </ul>
+          </div>
+
+          {/* Supported formats */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 sm:p-4 shrink-0">
+            <p className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              Supported formats
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {['PDF', 'DOC', 'DOCX', 'TXT'].map((fmt) => (
+                <span key={fmt} className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 shadow-2xs">
+                  {fmt}
+                </span>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Or simply paste raw text</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Validation error */}
+      {jdError && (
+        <p className="text-xs text-red-500 dark:text-red-400 font-medium flex items-center gap-1.5 animate-in fade-in duration-150 mt-1">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          {jdError}
+        </p>
+      )}
+
+      {/* Bottom Action Bar — matching Assessment Type page */}
+      <div className="mt-4 sm:mt-5 flex items-center justify-between gap-3 shrink-0">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-5 py-2 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm cursor-pointer shadow-2xs inline-flex items-center gap-1.5 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
+        <button
+          type="button"
+          disabled={jdParsing}
+          onClick={handleNextClick}
+          className={`px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all duration-200 shadow-md shadow-purple-500/20 active:scale-95 inline-flex items-center justify-center gap-1.5 ${
+            jdParsing
+              ? 'bg-purple-400 cursor-not-allowed opacity-75'
+              : 'bg-[#7C3AED] hover:bg-[#6D28D9] cursor-pointer'
+          }`}
+        >
+          <span>{jdParsing ? 'Extracting...' : 'Next'}</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 interface DeviceCheckWizardProps {
   candidateId?: number;
   assessmentId?: number;
@@ -115,8 +472,19 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       } catch { }
       const activePath = topPath || currentPath;
+      const savedStep = window.sessionStorage?.getItem('aiprep_wizard_step') as WizardStep | null;
+
+      // If we are under /user_dashboard and sessionStorage indicates we were on JD_UPLOAD,
+      // restore JD_UPLOAD because shouldSyncUrl intentionally suppressed the URL change.
+      if (savedStep === 'JD_UPLOAD' && activePath.startsWith('/user_dashboard')) {
+        return 'JD_UPLOAD';
+      }
       // When accessing /aiprep directly or assessment type route, always start at Step 1 (Assessment Type)
       if (activePath === '/aiprep' || activePath === '/aiprep/' || activePath.includes('/assesment-type') || activePath.includes('/assessment-type')) {
+        window.sessionStorage?.removeItem('aiprep_jd_text');
+        window.sessionStorage?.removeItem('aiprep_jd_filename');
+        window.sessionStorage?.removeItem('aiprep_jd_role');
+        window.sessionStorage?.removeItem('aiprep_jd_company');
         return 'CONFIGURATION';
       }
       // Check URL route slugs
@@ -127,12 +495,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       }
       const urlParams = new URLSearchParams(window.location.search);
       const urlStep = urlParams.get('step') as WizardStep | null;
-      if (urlStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(urlStep)) {
+      if (urlStep && ALL_WIZARD_STEPS.includes(urlStep)) {
         return urlStep;
       }
       // Check sessionStorage fallback
-      const savedStep = window.sessionStorage?.getItem('aiprep_wizard_step') as WizardStep | null;
-      if (savedStep && ['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(savedStep)) {
+      if (savedStep && ALL_WIZARD_STEPS.includes(savedStep)) {
         return savedStep;
       }
     }
@@ -171,6 +538,12 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_text') || '';
     return '';
   });
+  const [jdFileName, setJdFileName] = useState<string>(() => {
+    if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+    return '';
+  });
+  const [jdDragActive, setJdDragActive] = useState<boolean>(false);
+  const jdFileInputRef = useRef<HTMLInputElement>(null);
   const isPopStateRef = useRef(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -189,20 +562,32 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     const isPop = isPopStateRef.current;
     isPopStateRef.current = false;
     try {
-      const isAiprepBase = typeof window !== 'undefined' && window.location.pathname.startsWith('/aiprep');
-      const basePath = isAiprepBase ? '/aiprep' : '/user_dashboard/ai-prep';
-      const newPath = `${basePath}/${slug}`;
       const win = (window.top && window.top !== window) ? window.top : window;
       const currentPath = win.location.pathname;
+      const isAiprepBase = currentPath.startsWith('/aiprep');
+      const isUserDashboard = currentPath.startsWith('/user_dashboard');
 
-      if (currentPath !== newPath) {
-        if (isPop) win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`); else {
-          const isInitial = !window.sessionStorage?.getItem('aiprep_history_initialized');
-          if (isInitial) {
-            window.sessionStorage?.setItem('aiprep_history_initialized', 'true');
+      // JD_UPLOAD must NOT push a new URL when running under /user_dashboard/ because
+      // Next.js App Router intercepts /user_dashboard/ai-prep/jd-upload and renders
+      // the dashboard page instead of keeping the wizard visible.
+      // We keep the current URL and rely solely on sessionStorage for state continuity.
+      const shouldSyncUrl = !(step === 'JD_UPLOAD' && isUserDashboard);
+
+      if (shouldSyncUrl) {
+        const basePath = isAiprepBase ? '/aiprep' : '/user_dashboard/ai-prep';
+        const newPath = `${basePath}/${slug}`;
+
+        if (currentPath !== newPath) {
+          if (isPop) {
             win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
           } else {
-            win.history.pushState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
+            const isInitial = !window.sessionStorage?.getItem('aiprep_history_initialized');
+            if (isInitial) {
+              window.sessionStorage?.setItem('aiprep_history_initialized', 'true');
+              win.history.replaceState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
+            } else {
+              win.history.pushState({ aiprep_step: step }, '', `${newPath}${win.location.search}`);
+            }
           }
         }
       }
@@ -268,7 +653,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
       if (typeof window !== 'undefined' && e.origin !== window.location.origin) return;
       if (e.data && e.data.type === 'AIPREP_SET_STEP' && e.data.step) {
         const nextStep = e.data.step as WizardStep;
-        if (['CONFIGURATION', 'CONSENT', 'DEVICE_CHECK', 'PRACTICE_START'].includes(nextStep)) {
+        if (ALL_WIZARD_STEPS.includes(nextStep)) {
           setStep(nextStep);
         }
       }
@@ -1680,6 +2065,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
           }
+          // Retain aiprep_jd_* in sessionStorage for Target JD modal inside session room
         }
 
         router.replace(targetSessionUrl);
@@ -1700,6 +2086,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   const handleNext = async () => {
     if (step === 'CONFIGURATION') {
+      // Route to JD Upload step only for JD Walkthrough assessment
+      if (assessmentType === 'JD_INTRO') {
+        setStep('JD_UPLOAD');
+      } else {
+        setStep('CONSENT');
+      }
+    } else if (step === 'JD_UPLOAD') {
       setStep('CONSENT');
     } else if (step === 'CONSENT') {
       setStep('DEVICE_CHECK');
@@ -1789,14 +2182,21 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   };
 
   const handlePrevious = () => {
-    if (step === 'CONSENT') {
+    if (step === 'JD_UPLOAD') {
+      setStep('CONFIGURATION');
+    } else if (step === 'CONSENT') {
       if (initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
         setVideoEnabled(false);
         setConsentCamera(false);
         setVideoAnalyticsEnabled(false);
         syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
       }
-      setStep('CONFIGURATION');
+      // Go back to JD Upload if it was a JD Walkthrough assessment
+      if (assessmentType === 'JD_INTRO') {
+        setStep('JD_UPLOAD');
+      } else {
+        setStep('CONFIGURATION');
+      }
     } else if (step === 'DEVICE_CHECK') {
       cleanup();
       setStep('CONSENT');
@@ -1827,32 +2227,41 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       `}</style>
 
-      <div className={`w-full max-w-5xl xl:max-w-6xl ${step === 'CONFIGURATION' ? 'h-auto max-h-[90vh] my-auto overflow-y-auto' : 'h-full flex-1 min-h-0 overflow-hidden'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col`}>
-        {/* Top Bar Header (Stepper inside the card) */}
-        <div className="relative w-full px-4 sm:px-6 py-1.5 sm:py-2 min-h-[38px] sm:min-h-[42px] border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
-          <div className="w-full flex items-center justify-center gap-1.5 sm:gap-3">
-            {WIZARD_STEP_ITEMS.map(({ key, num, label, shortLabel }, idx) => {
-              const currentStepIdx = WIZARD_STEP_ORDER[step] ?? 0;
-              const isActive = idx === currentStepIdx;
-              const isDone = currentStepIdx > idx;
-              return (
-                <div key={key} className="flex items-center gap-1 sm:gap-2">
-                  <div className="flex items-center gap-1 sm:gap-1.5">
-                    <span className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10.5px] sm:text-xs font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
-                      {isDone ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : num}
-                    </span>
-                    <span className={`text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
-                      <span className="hidden md:inline">{label}</span>
-                      <span className="inline md:hidden">{shortLabel}</span></span>
-                  </div>
-                  {idx < WIZARD_STEP_ITEMS.length - 1 && <div className={`w-2.5 sm:w-5 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
-                </div>);
-            })}
-          </div>
-        </div>
+      <div className={`w-full max-w-5xl xl:max-w-6xl ${(step === 'CONFIGURATION' || step === 'JD_UPLOAD') ? 'h-auto max-h-[90vh] my-auto overflow-y-auto' : 'h-full flex-1 min-h-0 overflow-hidden'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col`}>
+        {/* Top Bar Header — Dynamic Stepper (JD Upload step shown only for JD_INTRO) */}
+        {(() => {
+          const dynamicStepItems = assessmentType === 'JD_INTRO'
+            ? [BASE_WIZARD_STEP_ITEMS[0], JD_UPLOAD_STEP_ITEM, BASE_WIZARD_STEP_ITEMS[1], BASE_WIZARD_STEP_ITEMS[2], BASE_WIZARD_STEP_ITEMS[3]]
+            : BASE_WIZARD_STEP_ITEMS;
+          const currentStepIdx = dynamicStepItems.findIndex((s) => s.key === step);
+          return (
+            <div className="relative w-full px-4 sm:px-6 py-1.5 sm:py-2 min-h-[38px] sm:min-h-[42px] border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
+              <div className="w-full flex items-center justify-center gap-1.5 sm:gap-3">
+                {dynamicStepItems.map(({ key, label, shortLabel }, idx) => {
+                  const isActive = idx === currentStepIdx;
+                  const isDone = currentStepIdx > idx;
+                  return (
+                    <div key={key} className="flex items-center gap-1 sm:gap-2">
+                      <div className="flex items-center gap-1 sm:gap-1.5">
+                        <span className={`w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10.5px] sm:text-xs font-black border-2 transition-all shadow-sm ${isActive ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-400/20' : isDone ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-600'}`}>
+                          {isDone ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : idx + 1}
+                        </span>
+                        <span className={`text-xs font-bold whitespace-nowrap ${isActive ? 'text-slate-900 dark:text-white inline' : isDone ? 'text-slate-500 dark:text-slate-400 hidden sm:inline' : 'text-slate-400 dark:text-slate-500 hidden sm:inline'}`}>
+                          <span className="hidden md:inline">{label}</span>
+                          <span className="inline md:hidden">{shortLabel}</span>
+                        </span>
+                      </div>
+                      {idx < dynamicStepItems.length - 1 && <div className={`w-2.5 sm:w-5 h-0.5 rounded-full ${isDone ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Content Body */}
-        <div className={`${step === 'CONFIGURATION' ? 'h-auto overflow-y-auto max-h-[90vh]' : 'flex-1 min-h-0 overflow-hidden'} min-w-0 flex flex-col w-full p-0 bg-white dark:bg-slate-900`}>
+        <div className={`${(step === 'CONFIGURATION' || step === 'JD_UPLOAD') ? 'h-auto overflow-y-auto max-h-[90vh]' : 'flex-1 min-h-0 overflow-hidden'} min-w-0 flex flex-col w-full p-0 bg-white dark:bg-slate-900`}>
 
           {/* STEP 1: CONFIGURATION */}
           {step === 'CONFIGURATION' && (
@@ -1864,6 +2273,23 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
             </div>
           )}
 
+
+          {/* STEP: JD UPLOAD — shown only for JD Walkthrough (JD_INTRO) assessment */}
+          {step === 'JD_UPLOAD' && (
+            <div className="w-full h-auto flex flex-col overflow-y-auto">
+              <JDUploadStep
+                jdText={jdText}
+                setJdText={setJdText}
+                jdFileName={jdFileName}
+                setJdFileName={setJdFileName}
+                jdDragActive={jdDragActive}
+                setJdDragActive={setJdDragActive}
+                jdFileInputRef={jdFileInputRef}
+                onBack={() => setStep('CONFIGURATION')}
+                onNext={() => setStep('CONSENT')}
+              />
+            </div>
+          )}
           {/* STEP 2: CONSENT */}
           {step === 'CONSENT' && (
             <div className="w-full h-full flex-1 min-h-0 flex flex-col overflow-hidden">

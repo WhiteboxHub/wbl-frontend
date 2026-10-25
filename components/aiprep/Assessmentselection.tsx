@@ -65,6 +65,7 @@ const SHORT_DESCRIPTIONS: Record<AssessmentType, string> = {
   SYSTEM_DESIGN: 'Architecture & Design',
 };
 
+// Keep only the currently available assessment types unlocked.
 export const UNLOCKED_ASSESSMENT_TYPES: AssessmentType[] = ['INTRO', 'JD_INTRO', 'TECHNICAL'];
 
 export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES.map((type) => {
@@ -76,14 +77,14 @@ export const DISPLAY_CARDS: DisplayAssessmentCard[] = SUPPORTED_ASSESSMENT_TYPES
     title: SHORT_TITLES[type] || details?.title || type,
     subtitle: details?.subtitle || '',
     description: SHORT_DESCRIPTIONS[type] || details?.shortDescription || '',
-    duration: (details?.duration || '15 mins').replace('–', '-'),
+    duration: (details?.duration || '15 mins').replace('â€“', '-'),
     isLocked: !isUnlocked,
     lockBadge: isUnlocked ? undefined : 'Coming Soon',
     icon: CARD_ICONS[type] || <MessageSquare className="w-5 h-5 stroke-[1.8]" />,
   };
 });
 
-/* ── Individual AssessmentCard Component ── */
+/* â”€â”€ Individual AssessmentCard Component â”€â”€ */
 export interface AssessmentCardProps {
   card: DisplayAssessmentCard;
   isSelected?: boolean;
@@ -191,7 +192,7 @@ export function AssessmentCard({
   );
 }
 
-/* ── AssessmentConfig Container Component for Step 1 ── */
+/* â”€â”€ AssessmentConfig Container Component for Step 1 â”€â”€ */
 export interface AssessmentConfigProps {
   assessmentType: AssessmentType;
   setAssessmentType: (type: AssessmentType) => void;
@@ -210,8 +211,6 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   onCancel,
 }) => {
   const [infoModalType, setInfoModalType] = useState<AssessmentType | null>(null);
-  const [isJdModalOpen, setIsJdModalOpen] = useState(false);
-  const [showJdError, setShowJdError] = useState(false);
 
   // Track Catalog Mount
   useEffect(() => {
@@ -230,8 +229,14 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
 
     if (!isLocked) {
       setAssessmentType(type);
-      if (type === 'JD_INTRO' && !jdText.trim()) {
-        setIsJdModalOpen(true);
+      if (type !== 'JD_INTRO') {
+        if (setJdText) setJdText('');
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('aiprep_jd_text');
+          sessionStorage.removeItem('aiprep_jd_filename');
+          sessionStorage.removeItem('aiprep_jd_role');
+          sessionStorage.removeItem('aiprep_jd_company');
+        }
       }
     }
   };
@@ -242,10 +247,6 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
   };
 
   const handleNextClick = () => {
-    if (assessmentType === 'JD_INTRO' && !jdText.trim()) {
-      setIsJdModalOpen(true);
-      return;
-    }
     if (onNext) onNext();
   };
 
@@ -305,7 +306,7 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         )}
       </div>
 
-      {/* ── Assessment Info Modal ── */}
+      {/* â”€â”€ Assessment Info Modal â”€â”€ */}
       <AssessmentInfoModal
         isOpen={infoModalType !== null && UNLOCKED_ASSESSMENT_TYPES.includes(infoModalType)}
         type={infoModalType}
@@ -313,65 +314,12 @@ export const AssessmentConfig: React.FC<AssessmentConfigProps> = ({
         onSelect={(type) => {
           if (UNLOCKED_ASSESSMENT_TYPES.includes(type)) {
             setAssessmentType(type);
-            if (type === 'JD_INTRO' && !jdText.trim()) {
-              setIsJdModalOpen(true);
-            }
           }
           setInfoModalType(null);
         }}
       />
 
-      {/* ── JD Modal Popup ── */}
-      {isJdModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="font-bold text-slate-900 dark:text-white">Add Job Description</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsJdModalOpen(false);
-                  setShowJdError(false);
-                }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Paste the job description here to customize your assessment.
-              </p>
-              <textarea
-                value={jdText}
-                onChange={(e) => {
-                  if (setJdText) setJdText(e.target.value);
-                  if (e.target.value.trim()) setShowJdError(false);
-                }}
-                className={`w-full h-32 p-3 text-sm rounded-xl border bg-slate-50 dark:bg-slate-950 focus:outline-none focus:ring-2 resize-none ${showJdError ? 'border-red-400 focus:ring-red-500/50' : 'border-slate-300 dark:border-slate-700 focus:ring-purple-500/50'}`}
-                placeholder="Paste Job Description..."
-              />
-              {showJdError && (
-                <p className="text-xs text-red-500 font-medium">Please provide a job description to continue.</p>
-              )}
-              <button
-                type="button"
-                className="w-full py-2.5 rounded-xl bg-[#7C3AED] text-white font-semibold text-sm hover:bg-[#6D28D9] transition-colors cursor-pointer"
-                onClick={() => {
-                  if (!jdText.trim()) {
-                    setShowJdError(true);
-                    return;
-                  }
-                  AIPrepTelemetry.trackJdAttached(AIPrepTelemetry.getResolvedCandidateId(), jdText.trim().length);
-                  setIsJdModalOpen(false);
-                }}
-              >
-                Save JD
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };
