@@ -4019,7 +4019,7 @@ export default function AiPrepReport({
         if (isMounted && (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || fresh?.report)) {
           clearInterval(interval);
           if (fresh?.report) {
-            setReport(normalizeReport(fresh, (fresh.data as any) || null, fresh.report));
+            setReport(normalizeReport(fresh, (fresh.data as any) || null, fresh.report as any));
             setIsProcessing(false);
           } else {
             loadReport(true);

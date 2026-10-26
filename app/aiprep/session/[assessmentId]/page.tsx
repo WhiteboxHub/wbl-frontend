@@ -613,8 +613,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
   const localChunksRef = useRef<Blob[]>([]);
-  // Buffer of per-question audio blobs for instant zero-pause combined playback
-  const allQuestionBlobsRef = useRef<Blob[]>([]);
+
 
   // ── Audio Recorder Hook (Continuous Single-Upload for Audio Assessments) ──
   const {
@@ -1315,11 +1314,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (isAudioOnly && isRecording) {
         try {
           const audioRes = await stopAudioRecorder();
-          if (audioRes?.blob) {
-            allQuestionBlobsRef.current.push(audioRes.blob);
-            if (activeQ?.id) {
-              void aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
-            }
+          if (audioRes?.blob && activeQ?.id) {
+            void aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
           }
         } catch (e) {
           console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
@@ -1449,9 +1445,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
-        if (finalAudioBlob) {
-          allQuestionBlobsRef.current.push(finalAudioBlob);
-        }
+
         const activeQ = questions[currentQuestionIndex];
         if (finalAudioBlob && activeQ?.id) {
           try {
@@ -1460,21 +1454,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             console.warn("[handleEndSession] Final audio chunk upload error:", uploadErr);
           }
         }
-        // Create instant combined media blob for zero-gap playback in OverviewReport
-        if (allQuestionBlobsRef.current.length > 0 && assessmentId) {
-          try {
-            const mimeType = 'audio/webm';
-            const combinedBlob = new Blob(allQuestionBlobsRef.current, { type: mimeType });
-            const previewUrl = URL.createObjectURL(combinedBlob);
-            if (typeof window !== 'undefined') {
-              (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-              (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
-              sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
-            }
-          } catch (blobErr) {
-            console.warn('[handleEndSession] Failed to assemble audio preview blob:', blobErr);
-          }
-        } else if (audioRes?.url && assessmentId) {
+        if (audioRes?.url && assessmentId) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
