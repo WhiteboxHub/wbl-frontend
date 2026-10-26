@@ -289,7 +289,8 @@ export const aiPrepApi = {
     blob: Blob,
     mediaTypeOrFinal: string | boolean = "VIDEO",
     isFinalArg: boolean = false,
-    candidateId?: number | string
+    candidateId?: number | string,
+    questionId?: number | string
   ): Promise<{ success: boolean; chunk_index: number }> => {
     const isFinal = typeof mediaTypeOrFinal === "boolean" ? mediaTypeOrFinal : !!isFinalArg;
     const cid = resolveCandidateId(candidateId);
@@ -310,11 +311,15 @@ export const aiPrepApi = {
 
     const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
     const apiPrefix = baseUrl.endsWith("/api") ? baseUrl : (baseUrl ? `${baseUrl}/api` : "/api");
-    const url = `${apiPrefix}/aiprep/candidates/${cid}/assessments/${assessmentId}/media/chunk`;
+    const qParam = questionId !== undefined && questionId !== null ? `?question_id=${encodeURIComponent(questionId)}` : "";
+    const url = `${apiPrefix}/aiprep/candidates/${cid}/assessments/${assessmentId}/media/chunk${qParam}`;
 
     const headers: Record<string, string> = {};
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
+    }
+    if (questionId !== undefined && questionId !== null) {
+      headers["X-Question-Id"] = String(questionId);
     }
 
     const res = await fetch(url, {

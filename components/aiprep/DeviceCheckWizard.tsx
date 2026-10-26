@@ -2065,10 +2065,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
           }
-          sessionStorage.removeItem('aiprep_jd_text');
-          sessionStorage.removeItem('aiprep_jd_filename');
-          sessionStorage.removeItem('aiprep_jd_role');
-          sessionStorage.removeItem('aiprep_jd_company');
+          // Retain aiprep_jd_* in sessionStorage for Target JD modal inside session room
         }
 
         router.replace(targetSessionUrl);
