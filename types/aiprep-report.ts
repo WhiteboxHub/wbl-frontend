@@ -425,6 +425,9 @@ export interface NormalizedReport {
   candidate_name?: string | null;
   /** YouTube or streaming URL for playback; null = unavailable */
   youtube_url: string | null;
+  /** Direct audio/video recording playback URL */
+  recording_url?: string | null;
+  has_recording?: boolean;
 
   // ── Overall assessment ────────────────────────────────────────
   /** Intro readiness band: STRONG | GOOD | NEEDS_POLISH | WEAK */
@@ -2177,6 +2180,8 @@ export function normalizeReport(
     candidate_name: resolvedCandidateName,
     media_type: normalizedMediaType,
     youtube_url: resolvedMediaUrl,
+    recording_url: (assessment as any)?.recording_url ?? null,
+    has_recording: (assessment as any)?.has_recording ?? false,
   };
 
   const rawAudioTelemetry = asRecord(
@@ -2210,6 +2215,8 @@ export function normalizeReport(
     assessment: normalizedAssessment,
     candidate_name: resolvedCandidateName,
     youtube_url: resolvedMediaUrl,
+    recording_url: (assessment as any)?.recording_url ?? null,
+    has_recording: (assessment as any)?.has_recording ?? false,
     overall_readiness: overallReadiness,
     overall_summary: overallSummary,
     overall_strongest_signal: asStr(overallAssessment.strongest_signal),

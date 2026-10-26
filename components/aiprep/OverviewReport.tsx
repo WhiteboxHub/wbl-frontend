@@ -526,10 +526,6 @@ function hasRealSpeech(report: NormalizedReport): boolean {
 }
 
 export function extractAssessmentDurationSeconds(report: NormalizedReport, mediaDurationSec?: number | null): number {
-  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
-    return Math.round(mediaDurationSec);
-  }
-
   const assessment = report.assessment as any;
   const dataRec = assessment?.data as any;
 
@@ -551,14 +547,31 @@ export function extractAssessmentDurationSeconds(report: NormalizedReport, media
     (report as any).duration_seconds,
   ];
 
+  let telemetryDuration = 0;
   for (const val of candidates) {
     if (val != null) {
       const num = Number(val);
-      if (!isNaN(num) && num > 0) return Math.round(num);
+      if (!isNaN(num) && num > 0) {
+        telemetryDuration = Math.round(num);
+        break;
+      }
     }
   }
 
-  return 0;
+  // If telemetry recorded a substantial duration (e.g. 5+ minutes), but mediaDurationSec is an anomalous partial slice,
+  // prioritize the authoritative telemetry duration to ensure consistent timestamps across all views.
+  if (telemetryDuration > 0 && mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    if (mediaDurationSec >= telemetryDuration * 0.8) {
+      return Math.round(mediaDurationSec);
+    }
+    return telemetryDuration;
+  }
+
+  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    return Math.round(mediaDurationSec);
+  }
+
+  return telemetryDuration;
 }
 
 function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: number | null): string {
@@ -1806,8 +1819,15 @@ export function EvaluationContent({
       })()
       : undefined;
 
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+  const backendOrigin = apiBase.startsWith("http")
+    ? apiBase.replace(/\/api\/?$/, "")
+    : "http://127.0.0.1:8000";
+
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
+  const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = assessmentId
-    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
   // Auto-cleanup local instant playback blob once YouTube URL is available
@@ -1830,6 +1850,8 @@ export function EvaluationContent({
   // 2. Instant Local Playback (0ms zero-latency preview while YouTube is pending)
   // 3. Persistent Server Stream (when reopening a closed assessment with saved media)
   const hasServerRecording = Boolean(
+    (report as any)?.has_recording ??
+    (report as any)?.recording_url ??
     (report.assessment as any)?.has_recording ??
     (report.assessment?.data as any)?.has_recording ??
     (report.assessment as any)?.recording_url ??
@@ -4000,7 +4022,7 @@ export default function AiPrepReport({
     const interval = setInterval(async () => {
       try {
         processPollAttemptsRef.current += 1;
-        if (processPollAttemptsRef.current > 40) {
+        if (processPollAttemptsRef.current > 24) {
           // Stop polling after 2 minutes max to prevent unwanted API calls
           clearInterval(interval);
           return;
@@ -4010,48 +4032,16 @@ export default function AiPrepReport({
         const status = (fresh?.status || "").toUpperCase();
         if (isMounted && (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || fresh?.report)) {
           clearInterval(interval);
-          loadReport(true);
+          if (fresh?.report) {
+            setReport(normalizeReport(fresh, (fresh.data as any) || null, fresh.report as any));
+            setIsProcessing(false);
+          } else {
+            loadReport(true);
+          }
         }
       } catch (_) {
         consecutiveErrors += 1;
-        if (consecutiveErrors >= 5) {
-          clearInterval(interval);
-        }
-      }
-    }, 3000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [isProcessing, assessmentId, loadReport]);
-
-  // ── Auto-Swap to YouTube when background upload completes ─────────────────
-  useEffect(() => {
-    const rawMedia = (report?.assessment?.media_type || "").toUpperCase();
-    const isAudio = rawMedia === "AUDIO" || rawMedia === "AUDIO_ONLY";
-    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || report.youtube_url || isProcessing || !assessmentId || isAudio || !canSaveRec) return;
-
-    let isMounted = true;
-    let consecutiveErrors = 0;
-    const interval = setInterval(async () => {
-      try {
-        ytPollAttemptsRef.current += 1;
-        if (ytPollAttemptsRef.current > 24) {
-          // Cap at 24 checks (2 minutes) to allow time for background upload
-          clearInterval(interval);
-          return;
-        }
-        const fresh = await aiPrepApi.getAssessment(assessmentId);
-        consecutiveErrors = 0;
-        if (isMounted && fresh?.youtube_url) {
-          clearInterval(interval);
-          loadReport();
-        }
-      } catch (_) {
-        consecutiveErrors += 1;
-        if (consecutiveErrors >= 5) {
+        if (consecutiveErrors >= 3) {
           clearInterval(interval);
         }
       }
@@ -4061,7 +4051,47 @@ export default function AiPrepReport({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [report?.youtube_url, isProcessing, assessmentId, loadReport]);
+  }, [isProcessing, assessmentId, loadReport]);
+
+  // ── Auto-Swap to YouTube when background upload completes ─────────────────
+  useEffect(() => {
+    const isTechAudio = report?.assessment?.assessment_type === "TECHNICAL" &&
+      ((report?.assessment?.media_type || "").toUpperCase() === "AUDIO" || (report?.assessment?.media_type || "").toUpperCase() === "AUDIO_ONLY");
+    // Technical audio streams authoritative assembled.webm directly from serverUrl — bypass YouTube polling
+    if (isTechAudio) return;
+
+    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
+    if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+
+    let isMounted = true;
+    let consecutiveErrors = 0;
+    const interval = setInterval(async () => {
+      try {
+        ytPollAttemptsRef.current += 1;
+        if (ytPollAttemptsRef.current > 12) {
+          // Cap at 12 checks (2 minutes with 10s interval) to prevent unwanted API calls
+          clearInterval(interval);
+          return;
+        }
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        consecutiveErrors = 0;
+        if (isMounted && fresh?.youtube_url) {
+          clearInterval(interval);
+          setReport((prev) => (prev ? { ...prev, youtube_url: fresh.youtube_url } : prev));
+        }
+      } catch (_) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 3) {
+          clearInterval(interval);
+        }
+      }
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [report?.youtube_url, isProcessing, assessmentId]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
