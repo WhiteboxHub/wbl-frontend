@@ -1819,8 +1819,14 @@ export function EvaluationContent({
       })()
       : undefined;
 
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+  const backendOrigin = apiBase.startsWith("http")
+    ? apiBase.replace(/\/api\/?$/, "")
+    : "http://127.0.0.1:8000";
+
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
   const serverUrl = assessmentId
-    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    ? `${backendOrigin}${serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
   // Auto-cleanup local instant playback blob once YouTube URL is available
@@ -1843,6 +1849,8 @@ export function EvaluationContent({
   // 2. Instant Local Playback (0ms zero-latency preview while YouTube is pending)
   // 3. Persistent Server Stream (when reopening a closed assessment with saved media)
   const hasServerRecording = Boolean(
+    (report as any)?.has_recording ??
+    (report as any)?.recording_url ??
     (report.assessment as any)?.has_recording ??
     (report.assessment?.data as any)?.has_recording ??
     (report.assessment as any)?.recording_url ??
@@ -4041,6 +4049,11 @@ export default function AiPrepReport({
 
   // ── Auto-Swap to YouTube when background upload completes ─────────────────
   useEffect(() => {
+    const isTechAudio = report?.assessment?.assessment_type === "TECHNICAL" &&
+      ((report?.assessment?.media_type || "").toUpperCase() === "AUDIO" || (report?.assessment?.media_type || "").toUpperCase() === "AUDIO_ONLY");
+    // Technical audio streams authoritative assembled.webm directly from serverUrl — bypass YouTube polling
+    if (isTechAudio) return;
+
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
     if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
 
