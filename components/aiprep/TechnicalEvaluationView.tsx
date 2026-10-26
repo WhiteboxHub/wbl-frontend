@@ -336,8 +336,9 @@ export default function TechnicalEvaluationView({
     : "http://127.0.0.1:8000";
 
   const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${resolvedAssessmentId}/${mediaPath}`;
+  const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = resolvedAssessmentId
-    ? `${backendOrigin}${serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
+    ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
   const effectivePlaybackUrl = canShowRecording

@@ -1825,8 +1825,9 @@ export function EvaluationContent({
     : "http://127.0.0.1:8000";
 
   const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
+  const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = assessmentId
-    ? `${backendOrigin}${serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
+    ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
   // Auto-cleanup local instant playback blob once YouTube URL is available
