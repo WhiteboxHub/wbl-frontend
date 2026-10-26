@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation';
 import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity, ArrowLeft, Upload, FileText, ArrowRight, Loader2 } from 'lucide-react';
 import { extractDocumentText } from '@/utils/documentTextExtractor';
+import { validateJobDescription } from '@/utils/jdValidator';
 import { AssessmentConfig } from './Assessmentselection';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
 import PracticeStep from './PracticeStep';
@@ -80,7 +81,10 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
   onNext,
 }) => {
   const [jdError, setJdError] = useState<string>('');
+  const [jdGuidance, setJdGuidance] = useState<string[]>([]);
   const [jdParsing, setJdParsing] = useState<boolean>(false);
+  const [jdWarningAccepted, setJdWarningAccepted] = useState<boolean>(false);
+  const [isWarning, setIsWarning] = useState<boolean>(false);
 
   const persistJd = (text: string, filename: string) => {
     if (typeof window === 'undefined') return;
@@ -114,16 +118,36 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     try {
       const extractedText = await extractDocumentText(file);
       if (extractedText && extractedText.trim()) {
+        const validation = validateJobDescription(extractedText, file.name);
+        if (!validation.isValid && validation.isHardBlock) {
+          setJdError(validation.error || 'The uploaded file does not contain an acceptable job description.');
+          setJdGuidance(validation.guidance || []);
+          setIsWarning(false);
+          setJdWarningAccepted(false);
+          return;
+        }
         setJdText(extractedText);
         setJdFileName(file.name);
-        setJdError('');
+        setJdWarningAccepted(false);
+        if (!validation.isValid && validation.isWarning) {
+          setIsWarning(true);
+          setJdError(validation.error || 'Please review this job description.');
+          setJdGuidance(validation.guidance || []);
+        } else {
+          setIsWarning(false);
+          setJdError('');
+          setJdGuidance([]);
+        }
         persistJd(extractedText, file.name);
       } else {
         setJdError('Could not extract readable text from this file. It may be a scanned image or empty. Please copy and paste the JD text directly.');
+        setJdGuidance([]);
+        setIsWarning(false);
       }
     } catch (err: any) {
       console.error('Document extraction error:', err);
       setJdError(err?.message || 'Failed to read the file. Please try again or paste the JD text directly.');
+      setJdGuidance([]);
     } finally {
       setJdParsing(false);
     }
@@ -159,22 +183,49 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     setJdText('');
     setJdFileName('');
     setJdError('');
+    setJdGuidance([]);
+    setJdWarningAccepted(false);
+    setIsWarning(false);
     persistJd('', '');
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setJdText(val);
-    if (val.trim()) setJdError('');
+    setJdFileName('');
+    setJdWarningAccepted(false);
+    setIsWarning(false);
+    if (val.trim()) {
+      setJdError('');
+      setJdGuidance([]);
+    }
     persistJd(val, '');
   };
 
+  const handleUseAnyway = () => {
+    setJdWarningAccepted(true);
+    setJdError('');
+    setJdGuidance([]);
+  };
+
   const handleNextClick = () => {
-    if (!jdText.trim()) {
-      setJdError('Please provide a job description to continue.');
-      return;
+    const validation = validateJobDescription(jdText, jdFileName || undefined);
+    if (!validation.isValid) {
+      if (validation.isHardBlock) {
+        setIsWarning(false);
+        setJdError(validation.error || 'Please provide an acceptable job description to continue.');
+        setJdGuidance(validation.guidance || []);
+        return;
+      }
+      if (validation.isWarning && !jdWarningAccepted) {
+        setIsWarning(true);
+        setJdError(validation.error || 'Please review this job description before continuing.');
+        setJdGuidance(validation.guidance || []);
+        return;
+      }
     }
     setJdError('');
+    setJdGuidance([]);
     AIPrepTelemetry.trackJdAttached(AIPrepTelemetry.getResolvedCandidateId(), jdText.trim().length);
     onNext();
   };
@@ -258,7 +309,7 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
                   <Check className="w-3.5 h-3.5 shrink-0" /> File loaded successfully
                 </p>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  {(jdText.length).toLocaleString()} characters extracted &bull; Ready for assessment
+                  {(jdText.length).toLocaleString()} characters extracted &bull; Verified job description
                 </p>
               </div>
               <div className="flex items-center gap-2 mt-2">
@@ -377,12 +428,57 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
         </div>
       </div>
 
-      {/* Validation error */}
+      {/* Validation error or warning with actionable guidance & override option */}
       {jdError && (
-        <p className="text-xs text-red-500 dark:text-red-400 font-medium flex items-center gap-1.5 animate-in fade-in duration-150 mt-1">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          {jdError}
-        </p>
+        <div className={`mt-2.5 p-3 sm:p-3.5 rounded-xl border animate-in fade-in duration-150 ${
+          isWarning
+            ? 'bg-amber-50/90 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60'
+            : 'bg-red-50/90 dark:bg-red-950/30 border-red-200 dark:border-red-900/60'
+        }`}>
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
+              isWarning ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+            }`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-semibold leading-snug ${
+                isWarning ? 'text-amber-800 dark:text-amber-200' : 'text-red-700 dark:text-red-300'
+              }`}>
+                {jdError}
+              </p>
+              {jdGuidance && jdGuidance.length > 0 && (
+                <div className={`mt-2 text-[11px] ${
+                  isWarning ? 'text-amber-700 dark:text-amber-300' : 'text-red-600 dark:text-red-300'
+                }`}>
+                  <p className="font-semibold text-[11px] mb-1">Tips for an acceptable Job Description:</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    {jdGuidance.map((tip, idx) => (
+                      <li key={idx} className="leading-relaxed">{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {isWarning && (
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUseAnyway}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Use this description anyway</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {jdWarningAccepted && !jdError && (
+        <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300 animate-in fade-in duration-150">
+          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>Custom description confirmed. You can now click &ldquo;Next&rdquo; to continue.</span>
+        </div>
       )}
 
       {/* Bottom Action Bar — matching Assessment Type page */}
@@ -535,11 +631,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     window.sessionStorage.setItem('aiprep_video_enabled', 'false');
   }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
-    if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_text') || '';
+    if (typeof window !== 'undefined') {
+      return window.sessionStorage?.getItem('aiprep_jd_text') || '';
+    }
     return '';
   });
   const [jdFileName, setJdFileName] = useState<string>(() => {
-    if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+    if (typeof window !== 'undefined') {
+      return window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+    }
     return '';
   });
   const [jdDragActive, setJdDragActive] = useState<boolean>(false);
@@ -2030,6 +2130,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           sessionStorage.setItem('aiprep_candidate_id', String(cid));
         }
         targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+        if (targetType === 'JD_INTRO') {
+          const jdVal = validateJobDescription(jdText, jdFileName || undefined);
+          if (!jdVal.isValid && jdVal.isHardBlock) {
+            setStep('JD_UPLOAD');
+            return;
+          }
+        }
         const assessment = await aiPrepApi.createAssessment({
           assessment_type: targetType,
           assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',

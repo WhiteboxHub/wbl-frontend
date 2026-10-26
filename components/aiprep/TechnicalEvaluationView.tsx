@@ -30,6 +30,9 @@ import {
   Eye,
   Monitor,
   ScanFace,
+  Users,
+  Target,
+  ShieldCheck,
 } from "lucide-react";
 import VideoPlayer from "./VideoPlayer";
 import type {
@@ -201,6 +204,13 @@ const RATING_CONFIG: Record<
   string,
   { label: string; dotClass: string; bgClass: string; textClass: string; borderClass: string }
 > = {
+  STRONG: {
+    label: "Strong",
+    dotClass: "bg-emerald-500",
+    bgClass: "bg-emerald-50",
+    textClass: "text-emerald-700",
+    borderClass: "border-emerald-200",
+  },
   EXCELLENT: {
     label: "Excellent",
     dotClass: "bg-emerald-500",
@@ -215,12 +225,26 @@ const RATING_CONFIG: Record<
     textClass: "text-blue-700",
     borderClass: "border-blue-200",
   },
+  NEEDS_POLISH: {
+    label: "Needs Polish",
+    dotClass: "bg-amber-500",
+    bgClass: "bg-amber-50",
+    textClass: "text-amber-700",
+    borderClass: "border-amber-200",
+  },
   AVERAGE: {
     label: "Average",
     dotClass: "bg-amber-500",
     bgClass: "bg-amber-50",
     textClass: "text-amber-700",
     borderClass: "border-amber-200",
+  },
+  WEAK: {
+    label: "Needs Work",
+    dotClass: "bg-rose-500",
+    bgClass: "bg-rose-50",
+    textClass: "text-rose-700",
+    borderClass: "border-rose-200",
   },
   POOR: {
     label: "Needs Work",
@@ -239,8 +263,14 @@ const RATING_CONFIG: Record<
 };
 
 function getRatingMeta(rating?: string) {
-  const key = (rating ?? "").toUpperCase();
-  return RATING_CONFIG[key] ?? RATING_CONFIG.GOOD;
+  const raw = (rating ?? "").toUpperCase().trim();
+  if (RATING_CONFIG[raw]) return RATING_CONFIG[raw];
+  if (["STRONG", "EXCELLENT", "HIGH"].includes(raw)) return RATING_CONFIG.STRONG;
+  if (["GOOD", "ADEQUATE", "OPTIMAL"].includes(raw)) return RATING_CONFIG.GOOD;
+  if (["NEEDS_POLISH", "AVERAGE", "MODERATE"].includes(raw)) return RATING_CONFIG.NEEDS_POLISH;
+  if (["WEAK", "POOR", "NEEDS_WORK", "LOW"].includes(raw)) return RATING_CONFIG.WEAK;
+  if (["NOT_TESTED", "NOT_APPLICABLE", "N/A"].includes(raw)) return RATING_CONFIG.NOT_TESTED;
+  return RATING_CONFIG.GOOD;
 }
 
 function cleanPointText(text?: string): string {
@@ -374,6 +404,11 @@ export default function TechnicalEvaluationView({
   const techEval: TechnicalEvaluation =
     report.technical_evaluation ?? EMPTY_TECHNICAL_EVALUATION;
 
+  const isHiringManager =
+    (report.assessment?.assessment_type || "").toUpperCase() === "HIRING_MANAGER";
+  const isRecruiter =
+    (report.assessment?.assessment_type || "").toUpperCase() === "RECRUITER";
+
   const selectedConceptSlug = searchParams.get("concept");
   const selectedQuestionIdStr = searchParams.get("q");
 
@@ -463,7 +498,17 @@ export default function TechnicalEvaluationView({
     const dynamicSubtitle =
       testedSubjects.length > 0
         ? `Comprehensive evaluation across ${testedSubjects.join(", ")}`
+        : isHiringManager
+        ? "Comprehensive evaluation across tested leadership and behavioral competencies"
+        : isRecruiter
+        ? "Comprehensive evaluation across recruiter screening sections"
         : "Comprehensive evaluation across tested technical domains";
+
+    const dynamicTitle = isHiringManager
+      ? "Hiring Manager Performance Evaluation"
+      : isRecruiter
+      ? "Recruiter Screening Performance Evaluation"
+      : "Technical Performance Evaluation";
 
     return (
       <div className="space-y-3">
@@ -476,7 +521,7 @@ export default function TechnicalEvaluationView({
               </span>
               <div>
                 <h1 className="text-sm font-bold text-slate-900 leading-tight">
-                  Technical Performance Evaluation
+                  {dynamicTitle}
                 </h1>
                 <p className="text-[11px] text-slate-500">
                   {dynamicSubtitle}
@@ -519,6 +564,12 @@ export default function TechnicalEvaluationView({
                 ? Cpu
                 : subj.subject.includes("Software")
                 ? Code2
+                : subj.subject.includes("Owner") || subj.subject.includes("Leader")
+                ? Users
+                : subj.subject.includes("Conflict") || subj.subject.includes("Collaborat")
+                ? Target
+                : subj.subject.includes("Roadblock") || subj.subject.includes("Delivery") || subj.subject.includes("Deadline")
+                ? ShieldCheck
                 : GitBranch;
 
               return (
@@ -607,13 +658,13 @@ export default function TechnicalEvaluationView({
 
               <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-slate-500 font-medium">
                 <span className="flex items-center gap-1">
-                  <span className="size-2 rounded bg-emerald-500" /> Excellent
+                  <span className="size-2 rounded bg-emerald-500" /> {isHiringManager ? "Strong" : "Excellent"}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded bg-blue-500" /> Good
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="size-2 rounded bg-amber-500" /> Average
+                  <span className="size-2 rounded bg-amber-500" /> {isHiringManager ? "Needs Polish" : "Average"}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded bg-rose-500" /> Needs Work
@@ -1236,7 +1287,10 @@ export default function TechnicalEvaluationView({
 
   const displayedQuestions =
     filterMode === "needs_work"
-      ? conceptQuestions.filter((q) => q.rating === "AVERAGE" || q.rating === "POOR")
+      ? conceptQuestions.filter((q) => {
+          const r = (q.rating ?? "").toUpperCase().trim();
+          return ["AVERAGE", "POOR", "NEEDS_POLISH", "WEAK"].includes(r);
+        })
       : conceptQuestions;
 
   const activeConceptMeta = getRatingMeta(activeConcept.rating);
@@ -1248,7 +1302,7 @@ export default function TechnicalEvaluationView({
         <div className="md:col-span-4 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Discipline Navigator
+              {isHiringManager ? "Competency Navigator" : isRecruiter ? "Section Navigator" : "Discipline Navigator"}
             </h2>
             <span className="text-[10px] text-slate-400 font-semibold">
               {techEval.concept_evaluations.length} Topics
@@ -1325,7 +1379,7 @@ export default function TechnicalEvaluationView({
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-                      Discipline Evaluation:
+                      {isHiringManager ? "Competency Evaluation:" : isRecruiter ? "Section Evaluation:" : "Discipline Evaluation:"}
                     </span>
                     <span className="text-xs font-bold text-slate-900">
                       {activeSubject.subject}
@@ -1499,6 +1553,11 @@ export default function TechnicalEvaluationView({
                           >
                             {qmeta.label}
                           </span>
+                          {q.response_state === "UNANSWERED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              Unanswered / Skipped
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
@@ -1645,11 +1704,11 @@ export default function TechnicalEvaluationView({
                               </div>
                             )}
 
-                            {/* Terminology chips */}
+                            {/* Terminology / Signals chips */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
                               <div className="p-2.5 rounded-lg bg-white border border-slate-200/80">
                                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">
-                                  Accurate Terminology Used
+                                  {isHiringManager || isRecruiter ? "Key Signals Demonstrated" : "Accurate Terminology Used"}
                                 </span>
                                 {q.terms_used_well && q.terms_used_well.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -1669,7 +1728,7 @@ export default function TechnicalEvaluationView({
 
                               <div className="p-2.5 rounded-lg bg-white border border-slate-200/80">
                                 <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-1">
-                                  Key Terms to Add
+                                  {isHiringManager || isRecruiter ? "Signals / Evidence to Add" : "Key Terms to Add"}
                                 </span>
                                 {q.terms_to_add && q.terms_to_add.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -1738,7 +1797,7 @@ export default function TechnicalEvaluationView({
                               <>
                                 <div className="p-3 rounded-lg bg-indigo-50/50 border border-indigo-100 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-indigo-900 tracking-wider flex items-center gap-1">
-                                    <BookOpen size={13} /> Recommended Study Topics
+                                    <BookOpen size={13} /> {isHiringManager ? "Stronger Version" : isRecruiter ? "Model Response & What to Improve" : "Recommended Study Topics"}
                                   </span>
                                   <ul className="space-y-1.5">
                                     {q.study_guidance.what_to_study.map((item, i) => (
@@ -1756,7 +1815,7 @@ export default function TechnicalEvaluationView({
                                 <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-slate-900 tracking-wider flex items-center gap-1">
                                     <GraduationCap size={14} className="text-blue-600" />
-                                    Recommended Answer Framing
+                                    {isHiringManager || isRecruiter ? "How to Structure Your Answer" : "Recommended Answer Framing"}
                                   </span>
                                   <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                                     {q.study_guidance.how_to_answer}
