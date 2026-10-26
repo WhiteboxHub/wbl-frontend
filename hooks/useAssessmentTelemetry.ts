@@ -15,6 +15,7 @@ interface UseAssessmentTelemetryProps {
   assessmentType: AIAssessmentType | string;
   candidateId?: number;
   totalQuestions?: number;
+  isMonitoringActive?: boolean;
 }
 
 interface TelemetrySessionState {
@@ -34,6 +35,7 @@ export function useAssessmentTelemetry({
   assessmentType,
   candidateId,
   totalQuestions,
+  isMonitoringActive = true,
 }: UseAssessmentTelemetryProps) {
   const effectiveUuid = assessmentUuid || sessionId || `assessment_${assessmentId}`;
 
@@ -62,8 +64,10 @@ export function useAssessmentTelemetry({
     };
   }, [assessmentId, sessionStateRef]);
 
-  // Tab switch / Blur detection (Proctoring alerts)
+  // Tab switch / Blur detection (Proctoring alerts) - only active when session has begun
   useEffect(() => {
+    if (!isMonitoringActive) return;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         sessionStateRef.current.blurStartTime = Date.now();
@@ -90,7 +94,7 @@ export function useAssessmentTelemetry({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [assessmentId, effectiveUuid, candidateId]);
+  }, [assessmentId, effectiveUuid, candidateId, isMonitoringActive]);
 
   // Question transition callback
   const recordQuestionAction = useCallback(
