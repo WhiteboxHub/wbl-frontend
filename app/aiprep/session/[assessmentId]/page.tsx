@@ -1332,10 +1332,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (isAudioOnly && isRecording) {
         try {
           const audioRes = await stopAudioRecorder();
-          if (audioRes?.blob && activeQ?.id) {
-            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
+          const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+          if (audioRes?.blob && qId) {
+            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
             pendingAudioUploadsRef.current.push(uploadPromise);
           }
+
         } catch (e) {
           console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
         }
@@ -1466,13 +1468,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         finalAudioBlob = audioRes?.blob || null;
 
         const activeQ = questions[currentQuestionIndex];
-        if (finalAudioBlob && activeQ?.id) {
+        const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+        if (finalAudioBlob && qId) {
           try {
-            await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+            await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, qId);
           } catch (uploadErr) {
             console.warn("[handleEndSession] Final audio chunk upload error:", uploadErr);
           }
         }
+
         // Flush and await any remaining in-flight question uploads
         if (pendingAudioUploadsRef.current.length > 0) {
           try {
