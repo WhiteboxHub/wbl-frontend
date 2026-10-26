@@ -74,7 +74,33 @@ export default function VideoPlayer({
   onDurationChange,
 }: Props) {
   const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || null);
+  const [isMounted, setIsMounted] = useState(false);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const resolveBackendUrl = useCallback((url: string | null | undefined): string | null => {
+    if (!url) return null;
+    let finalUrl = url;
+    if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("blob:") && !url.startsWith("data:")) {
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+      const backendOrigin = apiBase.startsWith("http")
+        ? apiBase.replace(/\/api\/?$/, "")
+        : "http://127.0.0.1:8000";
+      finalUrl = `${backendOrigin}${url.startsWith("/") ? "" : "/"}${url}`;
+    }
+    if (typeof window !== "undefined" && finalUrl.includes("/api/aiprep/assessments/") && !finalUrl.includes("token=")) {
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
+      if (token) {
+        finalUrl += `${finalUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+      }
+    }
+    return finalUrl;
+  }, []);
+
+  const resolvedMediaUrl = isMounted ? resolveBackendUrl(currentMediaUrl) : null;
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -87,10 +113,12 @@ export default function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [hasMediaError, setHasMediaError] = useState(false);
+  const [useServerFallback, setUseServerFallback] = useState(false);
 
   // Reset playback and error states when media URL changes
   useEffect(() => {
     setCurrentMediaUrl(youtubeUrl || null);
+    setUseServerFallback(false);
     setHasMediaError(false);
     setCurrentTime(0);
     setIsPlaying(false);
@@ -248,7 +276,7 @@ export default function VideoPlayer({
   };
 
   // ── 1. YouTube Embed Mode ──────────────────────────────────────────────────
-  if (ytId) {
+  if (ytId && !useServerFallback) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
@@ -260,6 +288,21 @@ export default function VideoPlayer({
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
+        {fallbackUrl && (
+          <div className="py-1.5 px-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Playback issues?</span>
+            <button
+              type="button"
+              onClick={() => {
+                setUseServerFallback(true);
+                setCurrentMediaUrl(fallbackUrl);
+              }}
+              className="text-blue-400 hover:text-blue-300 font-medium underline cursor-pointer"
+            >
+              Switch to server recording
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -310,7 +353,7 @@ export default function VideoPlayer({
         ) : (
           <video
             ref={setCombinedRef as any}
-            src={currentMediaUrl}
+            src={resolvedMediaUrl || undefined}
             controls
             playsInline
             preload="metadata"
@@ -361,10 +404,10 @@ export default function VideoPlayer({
       <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Hidden audio/media element for native audio playback */}
-      {currentMediaUrl && (
+      {resolvedMediaUrl && (
         <audio
           ref={setCombinedRef as any}
-          src={currentMediaUrl}
+          src={resolvedMediaUrl}
           preload="auto"
           onError={handleMediaError}
           className="hidden"
