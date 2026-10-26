@@ -330,12 +330,19 @@ export default function TechnicalEvaluationView({
         })()
       : undefined;
 
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+  const backendOrigin = apiBase.startsWith("http")
+    ? apiBase.replace(/\/api\/?$/, "")
+    : "http://127.0.0.1:8000";
+
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${resolvedAssessmentId}/${mediaPath}`;
+  const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = resolvedAssessmentId
-    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${resolvedAssessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
   const effectivePlaybackUrl = canShowRecording
-    ? (report.youtube_url || localPreviewUrl || serverUrl)
+    ? (report.youtube_url || serverUrl)
     : undefined;
 
   const durationSeconds =
