@@ -1880,11 +1880,12 @@ export function EvaluationContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical & Hiring Manager Assessment: delegate to dedicated view ────
+  // ── Technical, Hiring Manager & Recruiter Assessment: delegate to dedicated view ────
   if (
     report.technical_evaluation ||
     report.assessment?.assessment_type === "TECHNICAL" ||
-    report.assessment?.assessment_type === "HIRING_MANAGER"
+    report.assessment?.assessment_type === "HIRING_MANAGER" ||
+    report.assessment?.assessment_type === "RECRUITER"
   ) {
     return (
       <TechnicalEvaluationView
@@ -2828,11 +2829,12 @@ export function DetailsContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical, Hiring Manager, or Delivery Analysis: delegate to dedicated view ──
+  // ── Technical, Hiring Manager, Recruiter, or Delivery Analysis: delegate to dedicated view ──
   if (
     report.technical_evaluation ||
     report.assessment?.assessment_type === "TECHNICAL" ||
     report.assessment?.assessment_type === "HIRING_MANAGER" ||
+    report.assessment?.assessment_type === "RECRUITER" ||
     activeTab === "Audio Analysis" ||
     activeTab === "Video Analysis"
   ) {

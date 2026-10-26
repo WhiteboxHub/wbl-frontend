@@ -405,6 +405,8 @@ export default function TechnicalEvaluationView({
 
   const isHiringManager =
     (report.assessment?.assessment_type || "").toUpperCase() === "HIRING_MANAGER";
+  const isRecruiter =
+    (report.assessment?.assessment_type || "").toUpperCase() === "RECRUITER";
 
   const selectedConceptSlug = searchParams.get("concept");
   const selectedQuestionIdStr = searchParams.get("q");
@@ -497,10 +499,14 @@ export default function TechnicalEvaluationView({
         ? `Comprehensive evaluation across ${testedSubjects.join(", ")}`
         : isHiringManager
         ? "Comprehensive evaluation across tested leadership and behavioral competencies"
+        : isRecruiter
+        ? "Comprehensive evaluation across recruiter screening sections"
         : "Comprehensive evaluation across tested technical domains";
 
     const dynamicTitle = isHiringManager
       ? "Hiring Manager Performance Evaluation"
+      : isRecruiter
+      ? "Recruiter Screening Performance Evaluation"
       : "Technical Performance Evaluation";
 
     return (
@@ -1295,7 +1301,7 @@ export default function TechnicalEvaluationView({
         <div className="md:col-span-4 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              {isHiringManager ? "Competency Navigator" : "Discipline Navigator"}
+              {isHiringManager ? "Competency Navigator" : isRecruiter ? "Section Navigator" : "Discipline Navigator"}
             </h2>
             <span className="text-[10px] text-slate-400 font-semibold">
               {techEval.concept_evaluations.length} Topics
@@ -1372,7 +1378,7 @@ export default function TechnicalEvaluationView({
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-                      {isHiringManager ? "Competency Evaluation:" : "Discipline Evaluation:"}
+                      {isHiringManager ? "Competency Evaluation:" : isRecruiter ? "Section Evaluation:" : "Discipline Evaluation:"}
                     </span>
                     <span className="text-xs font-bold text-slate-900">
                       {activeSubject.subject}
@@ -1546,6 +1552,11 @@ export default function TechnicalEvaluationView({
                           >
                             {qmeta.label}
                           </span>
+                          {q.response_state === "UNANSWERED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              Unanswered / Skipped
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
@@ -1692,11 +1703,11 @@ export default function TechnicalEvaluationView({
                               </div>
                             )}
 
-                            {/* Terminology chips */}
+                            {/* Terminology / Signals chips */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
                               <div className="p-2.5 rounded-lg bg-white border border-slate-200/80">
                                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">
-                                  Accurate Terminology Used
+                                  {isHiringManager || isRecruiter ? "Key Signals Demonstrated" : "Accurate Terminology Used"}
                                 </span>
                                 {q.terms_used_well && q.terms_used_well.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -1716,7 +1727,7 @@ export default function TechnicalEvaluationView({
 
                               <div className="p-2.5 rounded-lg bg-white border border-slate-200/80">
                                 <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-1">
-                                  Key Terms to Add
+                                  {isHiringManager || isRecruiter ? "Signals / Evidence to Add" : "Key Terms to Add"}
                                 </span>
                                 {q.terms_to_add && q.terms_to_add.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -1785,7 +1796,7 @@ export default function TechnicalEvaluationView({
                               <>
                                 <div className="p-3 rounded-lg bg-indigo-50/50 border border-indigo-100 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-indigo-900 tracking-wider flex items-center gap-1">
-                                    <BookOpen size={13} /> Recommended Study Topics
+                                    <BookOpen size={13} /> {isHiringManager ? "Stronger Version" : isRecruiter ? "Model Response & What to Improve" : "Recommended Study Topics"}
                                   </span>
                                   <ul className="space-y-1.5">
                                     {q.study_guidance.what_to_study.map((item, i) => (
@@ -1803,7 +1814,7 @@ export default function TechnicalEvaluationView({
                                 <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-slate-900 tracking-wider flex items-center gap-1">
                                     <GraduationCap size={14} className="text-blue-600" />
-                                    Recommended Answer Framing
+                                    {isHiringManager || isRecruiter ? "How to Structure Your Answer" : "Recommended Answer Framing"}
                                   </span>
                                   <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                                     {q.study_guidance.how_to_answer}
