@@ -1637,7 +1637,7 @@ export function normalizeReport(
 
     technical_evaluation = {
       overall_assessment: {
-        rating: asStr(rawOA.rating) ?? "GOOD",
+        rating: asStr(rawOA.rating) ?? asStr(rawOA.readiness) ?? "NEEDS_POLISH",
         executive_summary: asStr(rawOA.executive_summary) ?? "",
         top_strengths: asStrArray(rawOA.top_strengths),
         priority_improvements: asStrArray(rawOA.priority_improvements),
@@ -1647,7 +1647,7 @@ export function normalizeReport(
         const ce = asRecord(c);
         return {
           subject: asStr(ce.competency) ?? asStr(ce.subject) ?? "",
-          rating: asStr(ce.rating) ?? "GOOD",
+          rating: asStr(ce.rating) ?? "NOT_TESTED",
           summary: asStr(ce.summary) ?? "",
           terminology_gaps: asStrArray(ce.gaps),
           data_note: asStr(ce.data_note) ?? null,
@@ -1676,7 +1676,7 @@ export function normalizeReport(
           subject: compName,
           questions_count: matchedQuestions.length,
           question_ids: matchedIds,
-          rating: asStr(ce.rating) ?? "GOOD",
+          rating: asStr(ce.rating) ?? "NOT_TESTED",
           strengths: asStrArray(ce.strengths),
           gaps: asStrArray(ce.gaps),
           terminology_gaps: [],
@@ -1696,7 +1696,7 @@ export function normalizeReport(
           concept: comp,
           subject: comp,
           difficulty_level: asStr(qe.difficulty_level) ?? "MEDIUM",
-          rating: asStr(qe.rating) ?? "GOOD",
+          rating: asStr(qe.rating) ?? "WEAK",
           observation: asStr(qe.observation) ?? "",
           covered_points: Array.isArray(qe.covered_points)
             ? (qe.covered_points as unknown[]).map(parseTechnicalPoint)

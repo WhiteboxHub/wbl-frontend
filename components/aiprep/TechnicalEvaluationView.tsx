@@ -204,6 +204,13 @@ const RATING_CONFIG: Record<
   string,
   { label: string; dotClass: string; bgClass: string; textClass: string; borderClass: string }
 > = {
+  STRONG: {
+    label: "Strong",
+    dotClass: "bg-emerald-500",
+    bgClass: "bg-emerald-50",
+    textClass: "text-emerald-700",
+    borderClass: "border-emerald-200",
+  },
   EXCELLENT: {
     label: "Excellent",
     dotClass: "bg-emerald-500",
@@ -218,12 +225,26 @@ const RATING_CONFIG: Record<
     textClass: "text-blue-700",
     borderClass: "border-blue-200",
   },
+  NEEDS_POLISH: {
+    label: "Needs Polish",
+    dotClass: "bg-amber-500",
+    bgClass: "bg-amber-50",
+    textClass: "text-amber-700",
+    borderClass: "border-amber-200",
+  },
   AVERAGE: {
     label: "Average",
     dotClass: "bg-amber-500",
     bgClass: "bg-amber-50",
     textClass: "text-amber-700",
     borderClass: "border-amber-200",
+  },
+  WEAK: {
+    label: "Needs Work",
+    dotClass: "bg-rose-500",
+    bgClass: "bg-rose-50",
+    textClass: "text-rose-700",
+    borderClass: "border-rose-200",
   },
   POOR: {
     label: "Needs Work",
@@ -242,8 +263,13 @@ const RATING_CONFIG: Record<
 };
 
 function getRatingMeta(rating?: string) {
-  const key = (rating ?? "").toUpperCase();
-  return RATING_CONFIG[key] ?? RATING_CONFIG.GOOD;
+  const raw = (rating ?? "").toUpperCase().trim();
+  if (["STRONG", "EXCELLENT", "HIGH"].includes(raw)) return RATING_CONFIG.STRONG;
+  if (["GOOD", "ADEQUATE", "OPTIMAL"].includes(raw)) return RATING_CONFIG.GOOD;
+  if (["NEEDS_POLISH", "AVERAGE", "MODERATE"].includes(raw)) return RATING_CONFIG.NEEDS_POLISH;
+  if (["WEAK", "POOR", "NEEDS_WORK", "LOW"].includes(raw)) return RATING_CONFIG.WEAK;
+  if (["NOT_TESTED", "NOT_APPLICABLE", "N/A"].includes(raw)) return RATING_CONFIG.NOT_TESTED;
+  return RATING_CONFIG[raw] ?? RATING_CONFIG.GOOD;
 }
 
 function cleanPointText(text?: string): string {
@@ -618,13 +644,13 @@ export default function TechnicalEvaluationView({
 
               <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-slate-500 font-medium">
                 <span className="flex items-center gap-1">
-                  <span className="size-2 rounded bg-emerald-500" /> Excellent
+                  <span className="size-2 rounded bg-emerald-500" /> {isHiringManager ? "Strong" : "Excellent"}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded bg-blue-500" /> Good
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="size-2 rounded bg-amber-500" /> Average
+                  <span className="size-2 rounded bg-amber-500" /> {isHiringManager ? "Needs Polish" : "Average"}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded bg-rose-500" /> Needs Work
@@ -1247,7 +1273,10 @@ export default function TechnicalEvaluationView({
 
   const displayedQuestions =
     filterMode === "needs_work"
-      ? conceptQuestions.filter((q) => q.rating === "AVERAGE" || q.rating === "POOR")
+      ? conceptQuestions.filter((q) => {
+          const r = (q.rating ?? "").toUpperCase().trim();
+          return ["AVERAGE", "POOR", "NEEDS_POLISH", "WEAK"].includes(r);
+        })
       : conceptQuestions;
 
   const activeConceptMeta = getRatingMeta(activeConcept.rating);
