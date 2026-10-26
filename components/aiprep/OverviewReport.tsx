@@ -45,6 +45,7 @@ import {
   normalizeReport,
   type NormalizedReport,
   type JdRequirementCoverageItem,
+  type JdSkillBreakdown,
 } from "@/types/aiprep-report";
 import type { AssessmentDetail } from "@/types/aiprep";
 import {
@@ -321,17 +322,27 @@ const QualitativeBadge = memo(function QualitativeBadge({
       colorClasses = "bg-rose-50 text-rose-700 border-rose-200";
     }
   } else {
-    if (
-      ["STRONG", "EXCELLENT", "GOOD", "COVERED", "POSITIVE"].includes(raw) ||
+    if (raw === "STRONG_FIT") {
+      colorClasses = "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold";
+    } else if (
+      ["STRONG", "EXCELLENT", "GOOD", "COVERED", "POSITIVE", "GOOD_FIT"].includes(raw) ||
       raw.includes("STRONG") ||
       raw.includes("GOOD")
     ) {
-      colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200";
+      colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold";
     } else if (["ADEQUATE"].includes(raw)) {
       colorClasses = "bg-blue-50 text-blue-700 border-blue-200";
-    } else if (["NEEDS_POLISH", "PARTIAL", "MODERATE", "AVERAGE", "DEVELOPING"].includes(raw)) {
+    } else if (
+      ["NEEDS_POLISH", "PARTIAL", "MODERATE", "AVERAGE", "DEVELOPING", "PARTIAL_FIT"].includes(raw) ||
+      raw.includes("POLISH") ||
+      raw.includes("PARTIAL")
+    ) {
       colorClasses = "bg-amber-50 text-amber-700 border-amber-200";
-    } else if (["WEAK", "NEEDS_IMPROVEMENT", "NEEDS_WORK", "POOR", "NEGATIVE"].includes(raw)) {
+    } else if (
+      ["WEAK", "NEEDS_IMPROVEMENT", "NEEDS_WORK", "POOR", "NEGATIVE", "WEAK_FIT"].includes(raw) ||
+      raw.includes("WEAK") ||
+      raw.includes("POOR")
+    ) {
       colorClasses = "bg-rose-50 text-rose-700 border-rose-200";
     } else if (["NOT_MENTIONED", "NOT_APPLICABLE", "N/A", "INSUFFICIENT_DATA"].includes(raw)) {
       colorClasses = "bg-slate-100 text-slate-600 border-slate-200";
@@ -399,28 +410,12 @@ function ConceptStatusItem({
 //  TEXT SANITIZATION & CONTENT FILTERING
 // ═════════════════════════════════════════════════════════════════════════════
 
-const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
-  /^no\s/i,
-  /^none\b/i,
-  /^n\/?a$/i,
-  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated|demonstrated|explained)\b/i,
-  /^(the\s+)?(candidate|speaker)\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to|was\s+not\s+able\s+to|omits?)\b/i,
-  /^(the\s+)?(candidate|speaker)\s+(should|needs\s+to|must)\s+(provide|explain|discuss|elaborate|give|include|cover)\b/i,
-  /^(the\s+)?introduction\s+(does\s+not|did\s+not|didn't|hasn't|lacks|failed\s+to|contains\s+no|has\s+no|is\s+missing|provides\s+no|omits)\b/i,
-  /\b(does\s+not|did\s+not|didn't|hasn't|failed\s+to)\s+(mention|demonstrate|contain|provide|include|cover|show|discuss|explain|elaborate|highlight|touch\s+upon)\b/i,
-  /\blacks?\s+(any\s+)?(mention|substantive|content|details?|depth|evidence|coverage|information)\b/i,
-  /\bno\s+(aspect|mention|concept|details?|depth|information|evidence|discussion|coverage|demonstration)\b/i,
-  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate|explain|demonstrate)\b/i,
-  /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\b/i,
-  /^neither\s+.*\s+(was|were)\s+(mentioned|discussed|covered|provided)\b/i,
-  /\b(was|were)\s+not\s+(mentioned|covered|discussed|demonstrated|provided|explained)\b/i,
-  /\bwasn't\s+(mentioned|covered|discussed|demonstrated|provided|explained)\b/i,
-  /\bnot\s+mentioned\b/i,
-  /\bnot\s+covered\b/i,
-  /\bnot_mentioned\b/i,
+// Patterns that indicate outright session failure, insufficient audio, or STT artifacts.
+// These are ALWAYS rejected as evaluation content regardless of length.
+const INSUFFICIENT_PATTERNS: RegExp[] = [
   /^(the\s+)?speaking\s+duration\s+is\s+too\s+short/i,
   /^duration\s+(is\s+)?too\s+short/i,
-  /^insufficient\s+(data|speech|audio|duration|information)\b/i,
+  /^insufficient\s+(data|speech|audio|duration|information|content)\b/i,
   /^unable\s+to\s+evaluate\b/i,
   /\blacks?\s+(any\s+)?content\s+to\s+evaluate\b/i,
   /^no\s+specific\s+observation\s+recorded/i,
@@ -432,18 +427,52 @@ const EMPTY_FALLBACK_PATTERNS: RegExp[] = [
   /^(thank\s+you|thanks\s+for\s+watching)\.?$/i,
 ];
 
+// Standalone bare placeholder phrases (e.g. "Not mentioned", "N/A", "None").
+// These are anchored so a real 3-sentence evaluator paragraph pointing out what was
+// missing ("...did not discuss microservices...") is NEVER falsely discarded.
+const BARE_PLACEHOLDER_PATTERNS: RegExp[] = [
+  /^(none|n\/?a|not\s+mentioned|not\s+covered|not_mentioned|no)\.?$/i,
+  /^not\s+(provided|mentioned|covered|available|applicable|discussed|evaluated|demonstrated|explained)\.?$/i,
+  /^did\s+not\s+(mention|provide|discuss|cover|speak|attend|participate|explain|demonstrate)\.?$/i,
+  /^there\s+(is|was|were)\s+no\s+(mention|discussion|evidence|data|information|details)\.?$/i,
+  /^(the\s+)?(candidate|speaker)\s+(did\s+not|does\s+not|didn't|hasn't|failed\s+to)\s+(mention|discuss|cover|speak)\.?$/i,
+  /^no\s+(aspect|mention|concept|details?|depth|information|evidence|discussion|coverage|demonstration)\.?$/i,
+  /^neither(\s+of\s+(them|these))?\s+(was|were)\s+(mentioned|discussed|covered|provided)\.?$/i,
+];
+
 function isRealContent(text?: string | null): boolean {
   if (!text) return false;
   const t = text.trim();
   if (t.length < 8) return false;
-  return !EMPTY_FALLBACK_PATTERNS.some((p) => p.test(t));
+
+  // 1. Explicit failure / silence / YouTube STT artifacts are always rejected
+  if (INSUFFICIENT_PATTERNS.some((p) => p.test(t))) {
+    return false;
+  }
+
+  // 2. Standalone placeholder phrases ("Not mentioned.", "N/A", "None") are rejected
+  if (BARE_PLACEHOLDER_PATTERNS.some((p) => p.test(t))) {
+    return false;
+  }
+
+  // 3. Genuine evaluator feedback is preserved even if it notes what was missed
+  return true;
 }
 
 function isEvaluatorSentence(text?: string | null): boolean {
   if (!isRealContent(text)) return false;
   const trimmed = text!.trim();
 
-  // Reject first-person candidate transcript quotes (e.g., "I have worked...", "I'm familiar...")
+  // Evaluator feedback addressed to the candidate is ALWAYS valid, even if it quotes
+  // candidate speech inside the sentence (e.g. "You mentioned FastAPI but did not cover...").
+  // Section-label prefixes (e.g. "Software engineering:", "Cloud:") are also always valid.
+  const evaluatorLeadPattern =
+    /^(?:you\b|the\s+candidate\b|software\s+engineering[:\s]|cloud[:\s]|ci\/cd[:\s]|rag[:\s]|agentic\s+ai[:\s]|agentic[:\s]|cicd[:\s])/i;
+  if (evaluatorLeadPattern.test(trimmed)) {
+    return true;
+  }
+
+  // Reject standalone first-person candidate transcript quotes (e.g., "I have worked...", "I'm familiar...")
   const firstPersonPattern = /^(?:so\s+|and\s+|also\s+)?\b(i|i'm|i've|i'll|i'd|my|we|we've|our)\b/i;
   if (firstPersonPattern.test(trimmed)) {
     return false;
@@ -496,76 +525,58 @@ function hasRealSpeech(report: NormalizedReport): boolean {
   return fullText.length > 15;
 }
 
-function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: number | null): string {
-  // If the media element has already loaded and reported its exact duration, prioritize it for 100% sync
-  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
-    const totalSec = Math.round(mediaDurationSec);
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    if (mins > 0 && secs > 0) return `${mins} min ${secs} sec`;
-    if (mins > 0) return `${mins} min`;
-    return `${secs} sec`;
-  }
+export function extractAssessmentDurationSeconds(report: NormalizedReport, mediaDurationSec?: number | null): number {
+  const assessment = report.assessment as any;
+  const dataRec = assessment?.data as any;
 
-  if (!hasRealSpeech(report)) return "";
-  const assessment = report.assessment;
-  let totalSec: number | null = null;
-
-  const dataRec = assessment.data as any;
-
-  // 1. Prioritize total recording / playback duration (matches VideoPlayer)
-  const candidateDurations = [
+  const candidates = [
+    dataRec?.audio_telemetry?.duration_seconds,
+    dataRec?.audio_telemetry?.total_audio_duration_seconds,
+    dataRec?.audio_telemetry?.speaking_duration_sec,
+    dataRec?.audio_telemetry?.speaking_duration_seconds,
+    dataRec?.video_telemetry?.duration_seconds,
+    report.audio_telemetry?.duration_seconds,
+    report.audio_telemetry?.total_audio_duration_seconds,
     report.audio_telemetry?.speaking_duration_sec,
     report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
+    assessment?.duration_seconds,
+    assessment?.client_duration_seconds,
+    assessment?.total_duration_seconds,
     report.audio?.recording_environment?.speaking_duration_seconds,
-    (assessment as any)?.duration_seconds,
-    (assessment as any)?.client_duration_seconds,
-    (assessment as any)?.total_duration_seconds,
-    dataRec?.total_audio_duration_seconds,
-    dataRec?.audio_telemetry?.total_audio_duration_seconds,
-    dataRec?.duration_seconds,
-    dataRec?.client_duration_seconds,
-    dataRec?.audio_telemetry?.duration_seconds,
-    dataRec?.audio_telemetry?.speaking_duration_seconds,
+    (report as any).audio_telemetry?.duration,
+    (report as any).duration_seconds,
   ];
 
-  for (const dur of candidateDurations) {
-    if (dur != null) {
-      const sec = Number(dur);
-      if (!isNaN(sec) && sec > 0) {
-        totalSec = Math.round(sec);
+  let telemetryDuration = 0;
+  for (const val of candidates) {
+    if (val != null) {
+      const num = Number(val);
+      if (!isNaN(num) && num > 0) {
+        telemetryDuration = Math.round(num);
         break;
       }
     }
   }
 
-  // 2. Fallback to last segment timestamp in transcript
-  if (!totalSec && report.transcript?.segments && report.transcript.segments.length > 0) {
-    const segs = report.transcript.segments;
-    const lastSeg = segs[segs.length - 1];
-    if (lastSeg.timestamp_s != null && lastSeg.timestamp_s > 0) {
-      totalSec = Math.round(lastSeg.timestamp_s);
+  // If telemetry recorded a substantial duration (e.g. 5+ minutes), but mediaDurationSec is an anomalous partial slice,
+  // prioritize the authoritative telemetry duration to ensure consistent timestamps across all views.
+  if (telemetryDuration > 0 && mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    if (mediaDurationSec >= telemetryDuration * 0.8) {
+      return Math.round(mediaDurationSec);
     }
+    return telemetryDuration;
   }
 
-  // 3. Fallback to speaking duration if total session duration is absent
-  if (!totalSec && dataRec?.audio_telemetry?.speaking_duration_seconds != null) {
-    const sec = Number(dataRec.audio_telemetry.speaking_duration_seconds);
-    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
-  }
-  if (!totalSec && report.audio_telemetry?.speaking_duration_sec != null) {
-    const sec = Number(report.audio_telemetry.speaking_duration_sec);
-    if (!isNaN(sec) && sec > 0) totalSec = Math.round(sec);
+  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    return Math.round(mediaDurationSec);
   }
 
-  // 4. Fallback to estimated duration from words
-  if (!totalSec && report.transcript?.full_text) {
-    const words = report.transcript.full_text.trim().split(/\s+/).filter(Boolean).length;
-    if (words > 0) {
-      totalSec = Math.max(1, Math.round((words / 130) * 60));
-    }
-  }
+  return telemetryDuration;
+}
 
+function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: number | null): string {
+  if (!hasRealSpeech(report)) return "";
+  const totalSec = extractAssessmentDurationSeconds(report, mediaDurationSec);
   if (!totalSec || totalSec <= 0) return "";
   const mins = Math.floor(totalSec / 60);
   const secs = totalSec % 60;
@@ -747,16 +758,30 @@ function resolveSectionData(
     .filter(isRealContent) as string[];
   let subtitle = observationTexts.length > 0 ? Array.from(new Set(observationTexts)).join(" ") : "";
 
-  if (!subtitle && status === "NOT_MENTIONED") {
-    subtitle = "The candidate did not cover specific details for this section during the assessment.";
+  if (!subtitle) {
+    if (status === "NOT_MENTIONED") {
+      subtitle = "The candidate did not cover specific details for this section during the assessment.";
+    } else if (status === "PARTIAL") {
+      subtitle = "The candidate demonstrated partial coverage in this section. Key observations and recommendations are detailed below.";
+    } else if (status === "STRONG") {
+      subtitle = "The candidate demonstrated strong understanding and coverage across core concepts in this section.";
+    }
   }
 
-  // 3. Observations list (strictly LLM synthesized evaluation sentences, NO raw candidate transcript quotes)
+  // 3. Observations list — sourced exclusively from key_observations[] (the dedicated bullet field).
+  //    "observation" belongs to subtitle only and must NOT be duplicated here.
   const obsSet = new Set<string>();
+
+  // Primary source: dedicated key_observations field on each matched section
   matchedSecs.forEach((sec) => {
-    if (isEvaluatorSentence(sec.observation)) obsSet.add(sec.observation!);
+    if (Array.isArray((sec as any).key_observations)) {
+      ((sec as any).key_observations as string[]).forEach(
+        (obs: string) => isEvaluatorSentence(obs) && obsSet.add(obs)
+      );
+    }
   });
 
+  // Secondary source: technical_analysis[key].key_observations (existing field, unchanged)
   secKeys.forEach((key) => {
     const techSec = (technical_analysis as any)?.[key];
     if (techSec?.key_observations && Array.isArray(techSec.key_observations)) {
@@ -940,20 +965,40 @@ export interface OverviewProps {
 
 function JdRequirementsAccordion({
   coverage = [],
+  skillBreakdown,
   isExpanded,
   onToggle,
 }: {
   coverage: JdRequirementCoverageItem[];
+  skillBreakdown?: JdSkillBreakdown;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const coveredItems = coverage.filter((r) => r.status === "COVERED");
-  const partialItems = coverage.filter((r) => r.status === "PARTIAL");
-  const missedItems = coverage.filter((r) => r.status === "NOT_MENTIONED");
-  const gapItems = [...partialItems, ...missedItems];
+  const mustHaveItems = coverage.filter((r) => r.importance === "MUST_HAVE");
+  const niceToHaveItems = coverage.filter((r) => r.importance === "NICE_TO_HAVE");
 
-  const coveredRatio = coverage.length > 0 ? coveredItems.length / coverage.length : 0;
-  const overallStatus = coveredRatio >= 0.7 ? "STRONG" : coveredRatio >= 0.5 ? "ADEQUATE" : "NEEDS_WORK";
+  const mustHaveCovered = mustHaveItems.filter((r) => r.status === "COVERED").length;
+  const niceToHaveCovered = niceToHaveItems.filter((r) => r.status === "COVERED").length;
+
+  const mustHaveBand = skillBreakdown?.must_have_band || (
+    mustHaveItems.length > 0
+      ? (mustHaveCovered / mustHaveItems.length > 0.8 ? "STRONG" : mustHaveCovered / mustHaveItems.length >= 0.5 ? "GOOD" : mustHaveCovered / mustHaveItems.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
+      : undefined
+  );
+  const niceToHaveBand = skillBreakdown?.nice_to_have_band || (
+    niceToHaveItems.length > 0
+      ? (niceToHaveCovered / niceToHaveItems.length > 0.8 ? "STRONG" : niceToHaveCovered / niceToHaveItems.length >= 0.5 ? "GOOD" : niceToHaveCovered / niceToHaveItems.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
+      : undefined
+  );
+
+  const hasResumeData = Boolean(
+    skillBreakdown?.unverified_spoken_claims !== undefined ||
+    coverage.some((r) => r.in_resume !== undefined)
+  );
+
+  const coveredItems = coverage.filter((r) => r.status === "COVERED");
+  const verifiedInResume = coverage.filter((r) => r.in_resume === true && (r.status === "COVERED" || r.status === "PARTIAL")).length;
+  const unverifiedSpoken = coverage.filter((r) => r.in_resume === false && (r.status === "COVERED" || r.status === "PARTIAL"));
 
   // Collect notes/observations
   const observations = coverage
@@ -961,90 +1006,261 @@ function JdRequirementsAccordion({
     .map((r) => `${r.requirement}: ${r.note}`);
 
   return (
-    <div className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2 sm:px-3.5 sm:py-2.5 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50/70 transition-colors text-left cursor-pointer"
       >
-        <div className="flex items-center gap-2">
-          <div className="p-1 rounded-md bg-slate-50 border border-slate-100 text-slate-700">
-            <Target size={18} className="text-blue-600" />
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="p-1.5 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
+            <Target size={18} />
           </div>
-          <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-            JD Requirements Coverage
+          <h3 className="text-sm font-bold text-slate-900">
+            JD Requirements & Skill Alignment Breakdown
           </h3>
-          <QualitativeBadge status={overallStatus} size="sm" />
-          <span className="text-[10px] font-semibold text-slate-500">
-            ({coveredItems.length}/{coverage.length} Covered)
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
+              Must-Have: <QualitativeBadge status={mustHaveBand} size="sm" />
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-800 border border-blue-200">
+              Nice-to-Have: <QualitativeBadge status={niceToHaveBand} size="sm" />
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500">
+              ({coveredItems.length}/{coverage.length} Addressed)
+            </span>
+          </div>
         </div>
         <ChevronDown
-          size={15}
-          className={`text-slate-400 transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
+          size={16}
+          className={`text-slate-400 transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""
+            }`}
         />
       </button>
 
       {isExpanded && (
-        <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-2.5">
-          <p className="text-xs text-slate-600 leading-snug">
-            Granular evaluation of MUST_HAVE and NICE_TO_HAVE competencies aligned with the target Job Description.
+        <div className="p-4 sm:p-5 border-t border-slate-100 space-y-4">
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Granular evaluation of Must-Have and Nice-to-Have competencies aligned with the target Job Description, cross-verified with your resume and project bullet points.
           </p>
 
-          {/* 1. REQUIREMENTS COVERED (Intro-style emerald pills) */}
-          <div className="space-y-0.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              REQUIREMENTS COVERED:
-            </span>
-            {coveredItems.length > 0 ? (
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {coveredItems.map((item, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/80 shadow-2xs"
-                  >
-                    <Check size={11} className="text-emerald-600 stroke-[3]" />
-                    {item.requirement}
-                  </span>
-                ))}
+          {/* Metric Cards */}
+          <div className={`grid grid-cols-1 ${hasResumeData ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3`}>
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/30 p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">Must-Have Skills</span>
+                {mustHaveBand && <QualitativeBadge status={mustHaveBand} size="sm" />}
               </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">None verified in spoken transcript</p>
+              <p className="text-xs font-semibold text-slate-800">
+                {mustHaveCovered} of {mustHaveItems.length} skills covered
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Core requirements essential for the target role
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-200/80 bg-blue-50/30 p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Nice-to-Have Skills</span>
+                {niceToHaveBand && <QualitativeBadge status={niceToHaveBand} size="sm" />}
+              </div>
+              <p className="text-xs font-semibold text-slate-800">
+                {niceToHaveCovered} of {niceToHaveItems.length} skills covered
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Secondary competencies & bonus tool proficiencies
+              </p>
+            </div>
+
+            {hasResumeData && (
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-3.5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Resume Verified</span>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+                    {verifiedInResume} Spoken & Verified
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-slate-800">
+                  {unverifiedSpoken.length > 0 ? `${unverifiedSpoken.length} unverified spoken claim(s)` : "All spoken claims verified in resume"}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  Checked across project & experience bullet points · Skills only on resume earn 0 credit
+                </p>
+              </div>
             )}
           </div>
 
-          {/* 2. REQUIREMENTS MISSED (Intro-style rose pills) */}
-          <div className="space-y-0.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              REQUIREMENTS MISSED / GAPS:
-            </span>
-            {gapItems.length > 0 ? (
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {gapItems.map((item, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200/80 shadow-2xs"
-                  >
-                    <AlertTriangle size={11} className="text-rose-500 stroke-[2]" />
-                    {item.requirement}
-                    {item.importance === "MUST_HAVE" && (
-                      <span className="text-[9px] font-bold uppercase text-rose-800 ml-0.5">• Must-Have</span>
+          {/* Section A: MUST-HAVE COMPETENCIES */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-amber-500" />
+                Must-Have Competencies
+              </span>
+              <span className="text-[11px] font-medium text-slate-500">
+                {mustHaveCovered}/{mustHaveItems.length} Addressed
+              </span>
+            </div>
+
+            {mustHaveItems.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">No must-have skills identified</p>
+            ) : (
+              <div className="space-y-2">
+                {mustHaveItems.map((item, idx) => (
+                  <div key={idx} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2 hover:border-slate-300 transition-colors shadow-2xs">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.status === "COVERED" ? (
+                          <div className="p-1 rounded bg-emerald-50 text-emerald-600">
+                            <Check size={13} className="stroke-[3]" />
+                          </div>
+                        ) : item.status === "PARTIAL" ? (
+                          <div className="p-1 rounded bg-amber-50 text-amber-600">
+                            <AlertTriangle size={13} />
+                          </div>
+                        ) : (
+                          <div className="p-1 rounded bg-rose-50 text-rose-500">
+                            <X size={13} />
+                          </div>
+                        )}
+                        <span className="text-xs font-bold text-slate-900">{item.requirement}</span>
+                        {item.category && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                            {item.category.replaceAll("_", " ")}
+                          </span>
+                        )}
+                        {item.status !== "NOT_MENTIONED" && item.in_resume === true && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check size={10} className="stroke-[3]" /> Verified in Resume & Projects
+                          </span>
+                        )}
+                        {item.status === "NOT_MENTIONED" && item.in_resume === true && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                            In Resume (Not Spoken · 0 Credit)
+                          </span>
+                        )}
+                        {item.in_resume === false && (item.status === "COVERED" || item.status === "PARTIAL") && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <AlertTriangle size={10} /> Spoken Claim Only (Not in Resume)
+                          </span>
+                        )}
+                      </div>
+                      <QualitativeBadge status={item.status} size="sm" />
+                    </div>
+
+                    {item.evidence && (
+                      <div className="text-[11px] text-slate-700 bg-slate-50/80 rounded p-2 border-l-2 border-emerald-500 space-y-0.5">
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Spoken Evidence:</span>
+                        <p className="italic">&ldquo;{item.evidence}&rdquo;</p>
+                      </div>
                     )}
-                  </span>
+
+                    {item.resume_evidence && (
+                      <div className="text-[11px] text-slate-700 bg-blue-50/50 rounded p-2 border-l-2 border-blue-500 space-y-0.5">
+                        <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Resume / Project Citation:</span>
+                        <p className="italic">&ldquo;{item.resume_evidence}&rdquo;</p>
+                      </div>
+                    )}
+
+                    {item.note && !item.evidence && (
+                      <p className="text-[11px] text-slate-500 italic pl-2.5 border-l-2 border-slate-300">
+                        {item.note}
+                      </p>
+                    )}
+                  </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">All target requirements covered</p>
             )}
           </div>
 
-          {/* 3. KEY OBSERVATIONS (Signature Intro-style blue box) */}
+          {/* Section B: NICE-TO-HAVE COMPETENCIES */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-blue-500" />
+                Nice-to-Have Competencies
+              </span>
+              <span className="text-[11px] font-medium text-slate-500">
+                {niceToHaveCovered}/{niceToHaveItems.length} Addressed
+              </span>
+            </div>
+
+            {niceToHaveItems.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">No secondary nice-to-have skills listed</p>
+            ) : (
+              <div className="space-y-2">
+                {niceToHaveItems.map((item, idx) => (
+                  <div key={idx} className="rounded-lg border border-slate-200 bg-white p-3 space-y-2 hover:border-slate-300 transition-colors shadow-2xs">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.status === "COVERED" ? (
+                          <div className="p-1 rounded bg-emerald-50 text-emerald-600">
+                            <Check size={13} className="stroke-[3]" />
+                          </div>
+                        ) : item.status === "PARTIAL" ? (
+                          <div className="p-1 rounded bg-amber-50 text-amber-600">
+                            <AlertTriangle size={13} />
+                          </div>
+                        ) : (
+                          <div className="p-1 rounded bg-rose-50 text-rose-500">
+                            <X size={13} />
+                          </div>
+                        )}
+                        <span className="text-xs font-bold text-slate-900">{item.requirement}</span>
+                        {item.category && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                            {item.category.replaceAll("_", " ")}
+                          </span>
+                        )}
+                        {item.status !== "NOT_MENTIONED" && item.in_resume === true && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <Check size={10} className="stroke-[3]" /> Verified in Resume & Projects
+                          </span>
+                        )}
+                        {item.status === "NOT_MENTIONED" && item.in_resume === true && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                            In Resume (Not Spoken · 0 Credit)
+                          </span>
+                        )}
+                        {item.in_resume === false && (item.status === "COVERED" || item.status === "PARTIAL") && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <AlertTriangle size={10} /> Spoken Claim Only (Not in Resume)
+                          </span>
+                        )}
+                      </div>
+                      <QualitativeBadge status={item.status} size="sm" />
+                    </div>
+
+                    {item.evidence && (
+                      <div className="text-[11px] text-slate-700 bg-slate-50/80 rounded p-2 border-l-2 border-emerald-500 space-y-0.5">
+                        <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Spoken Evidence:</span>
+                        <p className="italic">&ldquo;{item.evidence}&rdquo;</p>
+                      </div>
+                    )}
+
+                    {item.resume_evidence && (
+                      <div className="text-[11px] text-slate-700 bg-blue-50/50 rounded p-2 border-l-2 border-blue-500 space-y-0.5">
+                        <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Resume / Project Citation:</span>
+                        <p className="italic">&ldquo;{item.resume_evidence}&rdquo;</p>
+                      </div>
+                    )}
+
+                    {item.note && !item.evidence && (
+                      <p className="text-[11px] text-slate-500 italic pl-2.5 border-l-2 border-slate-300">
+                        {item.note}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section C: KEY OBSERVATIONS & RESUME GAPS */}
           {observations.length > 0 && (
-            <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
+            <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-3 space-y-1.5 mt-3">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
-              <ul className="space-y-0.5 text-xs text-slate-700">
+              <ul className="space-y-1 text-xs text-slate-700">
                 {observations.map((obs, idx) => (
                   <li key={idx} className="flex items-start gap-1.5">
                     <span className="text-blue-500 font-bold shrink-0 mt-0.5">•</span>
@@ -1054,56 +1270,6 @@ function JdRequirementsAccordion({
               </ul>
             </div>
           )}
-
-          {/* 4. SPOKEN EVIDENCE BREAKDOWN (Compact, sleek checklist cards) */}
-          <div className="rounded-lg border border-slate-200/80 bg-slate-50/50 p-2.5 space-y-1.5">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Spoken Evidence by Requirement:
-              </span>
-              <span className="text-[10px] text-slate-500 font-semibold">
-                {coveredItems.length}/{coverage.length} Verified
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {coverage.map((item, idx) => (
-                <div key={idx} className="bg-white rounded-md p-2 border border-slate-100 shadow-2xs text-xs space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                      {item.status === "COVERED" ? (
-                        <Check size={12} className="text-emerald-600 stroke-[3] shrink-0" />
-                      ) : item.status === "PARTIAL" ? (
-                        <AlertTriangle size={12} className="text-amber-600 shrink-0" />
-                      ) : (
-                        <X size={12} className="text-rose-500 shrink-0" />
-                      )}
-                      <span className="font-semibold text-slate-900">{item.requirement}</span>
-                      {item.importance === "MUST_HAVE" && (
-                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">Must-Have</span>
-                      )}
-                      {item.category && (
-                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">{item.category.replaceAll("_", " ")}</span>
-                      )}
-                      {item.match_type && (
-                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">{item.match_type}</span>
-                      )}
-                    </div>
-                    <QualitativeBadge status={item.status} size="sm" />
-                  </div>
-                  {item.evidence && (
-                    <p className="text-[11px] text-slate-600 italic pl-2.5 border-l-2 border-emerald-400 mt-1 leading-snug">
-                      "{item.evidence}"
-                    </p>
-                  )}
-                  {item.note && !item.evidence && (
-                    <p className="text-[11px] text-slate-500 italic pl-2.5 border-l-2 border-slate-200 mt-1 leading-snug">
-                      {item.note}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       )}
     </div>
@@ -1141,9 +1307,8 @@ function JdRoleAlignmentAccordion({
         </div>
         <ChevronDown
           size={15}
-          className={`text-slate-400 transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
+          className={`text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -1211,24 +1376,24 @@ function JdRoleAlignmentAccordion({
           {/* Evidence Quotes */}
           {((roleAlignment?.evidence && roleAlignment.evidence.length > 0) ||
             (careerStory?.evidence && careerStory.evidence.length > 0)) && (
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Spoken Transcript Evidence:
-              </span>
-              <div className="space-y-1.5">
-                {[...(roleAlignment?.evidence || []), ...(careerStory?.evidence || [])].map(
-                  (ev, idx) => (
-                    <blockquote
-                      key={idx}
-                      className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
-                    >
-                      "{ev}"
-                    </blockquote>
-                  )
-                )}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Spoken Transcript Evidence:
+                </span>
+                <div className="space-y-1.5">
+                  {[...(roleAlignment?.evidence || []), ...(careerStory?.evidence || [])].map(
+                    (ev, idx) => (
+                      <blockquote
+                        key={idx}
+                        className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
+                      >
+                        "{ev}"
+                      </blockquote>
+                    )
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       )}
     </div>
@@ -1266,9 +1431,8 @@ function JdCurrentProjectAccordion({
         </div>
         <ChevronDown
           size={15}
-          className={`text-slate-400 transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
+          className={`text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -1383,22 +1547,22 @@ function JdCurrentProjectAccordion({
           {/* Evidence Quotes */}
           {((project?.evidence && project.evidence.length > 0) ||
             (techAlign?.evidence && techAlign.evidence.length > 0)) && (
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Spoken Transcript Evidence:
-              </span>
-              <div className="space-y-1.5">
-                {[...(project?.evidence || []), ...(techAlign?.evidence || [])].map((ev, idx) => (
-                  <blockquote
-                    key={idx}
-                    className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
-                  >
-                    "{ev}"
-                  </blockquote>
-                ))}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Spoken Transcript Evidence:
+                </span>
+                <div className="space-y-1.5">
+                  {[...(project?.evidence || []), ...(techAlign?.evidence || [])].map((ev, idx) => (
+                    <blockquote
+                      key={idx}
+                      className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
+                    >
+                      "{ev}"
+                    </blockquote>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       )}
     </div>
@@ -1443,9 +1607,8 @@ function JdTailoringAccordion({
         </div>
         <ChevronDown
           size={15}
-          className={`text-slate-400 transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
+          className={`text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -1512,22 +1675,22 @@ function JdTailoringAccordion({
           {/* Evidence Quotes */}
           {((tailoring?.evidence && tailoring.evidence.length > 0) ||
             (valueProp?.evidence && valueProp.evidence.length > 0)) && (
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Spoken Transcript Evidence:
-              </span>
-              <div className="space-y-1.5">
-                {[...(tailoring?.evidence || []), ...(valueProp?.evidence || [])].map((ev, idx) => (
-                  <blockquote
-                    key={idx}
-                    className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
-                  >
-                    "{ev}"
-                  </blockquote>
-                ))}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Spoken Transcript Evidence:
+                </span>
+                <div className="space-y-1.5">
+                  {[...(tailoring?.evidence || []), ...(valueProp?.evidence || [])].map((ev, idx) => (
+                    <blockquote
+                      key={idx}
+                      className="rounded-md bg-emerald-50/60 border border-emerald-200/60 p-2 text-xs italic text-emerald-950 font-medium"
+                    >
+                      "{ev}"
+                    </blockquote>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       )}
     </div>
@@ -1642,22 +1805,29 @@ export function EvaluationContent({
   const localPreviewUrl =
     typeof window !== "undefined"
       ? (window as any).__aiprep_local_preview?.[assessmentId] ||
-        (() => {
-          const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
-          // A blob: URL is only valid within the lifetime of the in-memory window context.
-          // If the page was reloaded, window.__aiprep_local_preview is wiped, meaning the blob is dead.
-          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[assessmentId]) {
-            try {
-              sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
-            } catch (_) {}
-            return undefined;
-          }
-          return stored || undefined;
-        })()
+      (() => {
+        const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
+        // A blob: URL is only valid within the lifetime of the in-memory window context.
+        // If the page was reloaded, window.__aiprep_local_preview is wiped, meaning the blob is dead.
+        if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[assessmentId]) {
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) { }
+          return undefined;
+        }
+        return stored || undefined;
+      })()
       : undefined;
 
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+  const backendOrigin = apiBase.startsWith("http")
+    ? apiBase.replace(/\/api\/?$/, "")
+    : "http://127.0.0.1:8000";
+
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
+  const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = assessmentId
-    ? `${(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/api$/, "")}/api/aiprep/assessments/${assessmentId}/${mediaPath}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`
+    ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
   // Auto-cleanup local instant playback blob once YouTube URL is available
@@ -1666,24 +1836,33 @@ export function EvaluationContent({
       if ((window as any).__aiprep_local_preview?.[assessmentId]) {
         try {
           URL.revokeObjectURL((window as any).__aiprep_local_preview[assessmentId]);
-        } catch (_) {}
+        } catch (_) { }
         delete (window as any).__aiprep_local_preview[assessmentId];
       }
       try {
         sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
-      } catch (_) {}
+      } catch (_) { }
     }
   }, [youtube_url, assessmentId]);
 
   // Playback hierarchy:
   // 1. YouTube (once upload is done)
   // 2. Instant Local Playback (0ms zero-latency preview while YouTube is pending)
-  // 3. Persistent Server Stream (when reopening a closed assessment)
+  // 3. Persistent Server Stream (when reopening a closed assessment with saved media)
+  const hasServerRecording = Boolean(
+    (report as any)?.has_recording ??
+    (report as any)?.recording_url ??
+    (report.assessment as any)?.has_recording ??
+    (report.assessment?.data as any)?.has_recording ??
+    (report.assessment as any)?.recording_url ??
+    false
+  );
   const effectivePlaybackUrl = canShowRecording
-    ? (youtube_url || localPreviewUrl || serverUrl)
+    ? (youtube_url || localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
     : undefined;
 
   const durationSeconds =
+    extractAssessmentDurationSeconds(report) ||
     report.audio_telemetry?.speaking_duration_sec ||
     report.delivery_analysis?.rawMetrics?.speaking_duration_seconds ||
     report.audio?.recording_environment?.speaking_duration_seconds ||
@@ -1721,7 +1900,7 @@ export function EvaluationContent({
     report.jd_evaluation ||
     isJobDescriptionAssessment(report.assessment, report)
   );
-  const jdFit = report.jd_alignment || report.jd_evaluation?.overall_assessment?.jd_alignment;
+  let jdFit = report.jd_alignment || report.jd_evaluation?.overall_assessment?.jd_alignment;
 
   // Pure dynamic data resolution per section category matching Details tab
   const introData = resolveSectionData(
@@ -1765,10 +1944,11 @@ export function EvaluationContent({
     devopsCloudData.status === "NOT_MENTIONED";
 
   // Dynamic overall readiness strictly from API or dynamic status
-  const readiness =
+  let readiness =
     overall_readiness ||
     scores.overall_band ||
     (allSectionsNotMentioned ? "NOT_MENTIONED" : "GOOD");
+
 
   const summaryText =
     overall_summary ||
@@ -1781,16 +1961,16 @@ export function EvaluationContent({
     (strongest_points && strongest_points.length > 0
       ? strongest_points[0]
       : allSectionsNotMentioned
-      ? "No specific technical strengths demonstrated during this brief response."
-      : "Strong understanding of core technical principles.");
+        ? "No specific technical strengths demonstrated during this brief response."
+        : "Strong understanding of core technical principles.");
 
   const biggestGapText =
     report.overall_biggest_gap ||
     (critical_gaps && critical_gaps.length > 0
       ? critical_gaps[0].what_is_missing || critical_gaps[0].topic || critical_gaps[0].why_it_matters
       : allSectionsNotMentioned
-      ? "The candidate did not elaborate on technical, engineering, or career concepts."
-      : "Further elaboration on technical depth suggested.");
+        ? "The candidate did not elaborate on technical, engineering, or career concepts."
+        : "Further elaboration on technical depth suggested.");
 
   const introStatus = introData.status;
   const introSummary = introData.subtitle;
@@ -1909,13 +2089,34 @@ export function EvaluationContent({
                 <span className="text-slate-600">{report.jd_analysis.domain}</span>
               </div>
             )}
-            {report.requirement_coverage && report.requirement_coverage.length > 0 && (
-              <div className="flex items-center gap-1 text-slate-700 sm:ml-auto">
-                <span className="text-slate-500">Requirements:</span>
-                <span className="font-bold text-emerald-700">
-                  {report.requirement_coverage.filter((r) => r.status === "COVERED").length}/{report.requirement_coverage.length} Covered
-                </span>
+            {report.skill_breakdown ? (
+              <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+                <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                  <span className="font-bold">Must-Have:</span>
+                  {report.skill_breakdown.must_have_band && (
+                    <span className="font-bold text-[10px] uppercase px-1.5 py-0.2 rounded bg-blue-100 text-blue-900">
+                      {report.skill_breakdown.must_have_band.replaceAll("_", " ")}
+                    </span>
+                  )}
+                </div>
+                <div className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-800 border border-violet-200">
+                  <span className="font-bold">Nice-to-Have:</span>
+                  {report.skill_breakdown.nice_to_have_band && (
+                    <span className="font-bold text-[10px] uppercase px-1.5 py-0.2 rounded bg-violet-100 text-violet-900">
+                      {report.skill_breakdown.nice_to_have_band.replaceAll("_", " ")}
+                    </span>
+                  )}
+                </div>
               </div>
+            ) : (
+              report.requirement_coverage && report.requirement_coverage.length > 0 && (
+                <div className="flex items-center gap-1 text-slate-700 sm:ml-auto">
+                  <span className="text-slate-500">Requirements:</span>
+                  <span className="font-bold text-emerald-700">
+                    {report.requirement_coverage.filter((r) => r.status === "COVERED").length}/{report.requirement_coverage.length} Covered
+                  </span>
+                </div>
+              )
             )}
           </div>
         )}
@@ -2006,42 +2207,278 @@ export function EvaluationContent({
         )}
       </section>
 
-      {/* ── JD REQUIREMENTS QUICK SNAPSHOT (For JD reports) ── */}
-      {isJdReport && report.requirement_coverage && report.requirement_coverage.length > 0 && (
-        <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2.5">
-            <div className="flex items-center gap-2">
-              <Target size={15} className="text-blue-600" />
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900">JD Requirements Evidence</h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => onSelectTab("Details", "requirements")}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-            >
-              View Full Evidence Map →
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {report.requirement_coverage.slice(0, 6).map((req, idx) => (
-              <div key={idx} className="flex items-start justify-between gap-2 p-2 rounded-lg bg-slate-50/70 border border-slate-100 text-xs">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    {req.importance === "MUST_HAVE" && (
-                      <span className="text-[9px] font-bold uppercase px-1 py-0.2 rounded bg-amber-100 text-amber-800">Must-Have</span>
-                    )}
-                    <span className="font-semibold text-slate-800 line-clamp-1">{req.requirement}</span>
+      {/* ── JD REQUIREMENTS & SKILL VERIFICATION SECTION (Clean UI like Audio Report) ── */}
+      {isJdReport && report.requirement_coverage && report.requirement_coverage.length > 0 && (() => {
+        const mustHaves = report.requirement_coverage.filter((r) => r.importance === "MUST_HAVE");
+        const niceToHaves = report.requirement_coverage.filter((r) => r.importance === "NICE_TO_HAVE");
+        const hasResumeData = Boolean(
+          report.skill_breakdown?.unverified_spoken_claims !== undefined ||
+          report.requirement_coverage.some((r) => r.in_resume !== undefined)
+        );
+        const unverifiedClaims = report.skill_breakdown?.unverified_spoken_claims ||
+          (hasResumeData
+            ? report.requirement_coverage
+                .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
+                .map((r) => r.requirement)
+            : []);
+
+        const mustCoveredCount = mustHaves.filter((r) => r.status === "COVERED").length;
+        const niceCoveredCount = niceToHaves.filter((r) => r.status === "COVERED").length;
+        const mustBand = report.skill_breakdown?.must_have_band || (
+          mustHaves.length > 0
+            ? (mustCoveredCount / mustHaves.length > 0.8 ? "STRONG" : mustCoveredCount / mustHaves.length >= 0.5 ? "GOOD" : mustCoveredCount / mustHaves.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
+            : undefined
+        );
+        const niceBand = report.skill_breakdown?.nice_to_have_band || (
+          niceToHaves.length > 0
+            ? (niceCoveredCount / niceToHaves.length > 0.8 ? "STRONG" : niceCoveredCount / niceToHaves.length >= 0.5 ? "GOOD" : niceCoveredCount / niceToHaves.length >= 0.35 ? "NEEDS_POLISH" : "WEAK")
+            : undefined
+        );
+
+        return (
+          <div className="space-y-3.5">
+            {/* 1. MUST-HAVE REQUIREMENTS */}
+            <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <Target className="size-4" />
                   </div>
-                  {req.evidence && (
-                    <p className="text-[11px] text-slate-500 italic line-clamp-1">"{req.evidence}"</p>
-                  )}
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                      Must-Have Skills
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Core requirements verified against speech and resume
+                    </p>
+                  </div>
                 </div>
-                <QualitativeBadge status={req.status} size="sm" />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    {mustCoveredCount}/{mustHaves.length} Covered
+                  </span>
+                  <QualitativeBadge status={mustBand} size="sm" />
+                </div>
               </div>
-            ))}
+
+              {mustHaves.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {mustHaves.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm hover:border-blue-200 transition-colors space-y-2.5"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-bold text-slate-900 leading-tight">
+                            {item.requirement}
+                          </span>
+                          <QualitativeBadge status={item.status} size="sm" />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.category && (
+                            <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                              {item.category.replaceAll("_", " ")}
+                            </span>
+                          )}
+                          {item.status !== "NOT_MENTIONED" && item.in_resume === true && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              <Check size={10} className="stroke-[3]" /> Verified in Resume
+                            </span>
+                          )}
+                          {item.status === "NOT_MENTIONED" && item.in_resume === true && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                              In Resume (Not Spoken · 0 Credit)
+                            </span>
+                          )}
+                          {item.in_resume === false && (item.status === "COVERED" || item.status === "PARTIAL") && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                              <AlertTriangle size={10} /> Not in Resume
+                            </span>
+                          )}
+                        </div>
+
+                        {item.evidence && (
+                          <div className="rounded bg-emerald-50/50 p-2 border-l-2 border-emerald-500 text-[11px] text-slate-700 italic leading-snug">
+                            &ldquo;{item.evidence}&rdquo;
+                          </div>
+                        )}
+
+                        {item.resume_evidence && (
+                          <div className="rounded bg-blue-50/50 p-2 border-l-2 border-blue-400 text-[11px] text-slate-600 leading-snug">
+                            <span className="font-semibold text-blue-900 not-italic">Project / Resume: </span>
+                            &ldquo;{item.resume_evidence}&rdquo;
+                          </div>
+                        )}
+
+                        {item.note && !item.evidence && (
+                          <p className="text-[11px] text-slate-500 italic leading-snug">
+                            {item.note}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">No must-have requirements extracted for this JD.</p>
+              )}
+            </section>
+
+            {/* 2. NICE-TO-HAVE REQUIREMENTS */}
+            {niceToHaves.length > 0 && (
+              <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                      <Sparkles className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                        Nice-to-Have Skills
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Secondary skills & bonus capabilities
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-600">
+                      {niceCoveredCount}/{niceToHaves.length} Covered
+                    </span>
+                    <QualitativeBadge status={niceBand} size="sm" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {niceToHaves.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm hover:border-violet-200 transition-colors space-y-2.5"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-bold text-slate-900 leading-tight">
+                            {item.requirement}
+                          </span>
+                          <QualitativeBadge status={item.status} size="sm" />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.category && (
+                            <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                              {item.category.replaceAll("_", " ")}
+                            </span>
+                          )}
+                          {item.status !== "NOT_MENTIONED" && item.in_resume === true && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                              <Check size={10} className="stroke-[3]" /> Verified in Resume
+                            </span>
+                          )}
+                          {item.status === "NOT_MENTIONED" && item.in_resume === true && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                              In Resume (Not Spoken · 0 Credit)
+                            </span>
+                          )}
+                          {item.in_resume === false && (item.status === "COVERED" || item.status === "PARTIAL") && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                              <AlertTriangle size={10} /> Not in Resume
+                            </span>
+                          )}
+                        </div>
+
+                        {item.evidence && (
+                          <div className="rounded bg-emerald-50/50 p-2 border-l-2 border-emerald-500 text-[11px] text-slate-700 italic leading-snug">
+                            &ldquo;{item.evidence}&rdquo;
+                          </div>
+                        )}
+
+                        {item.resume_evidence && (
+                          <div className="rounded bg-blue-50/50 p-2 border-l-2 border-blue-400 text-[11px] text-slate-600 leading-snug">
+                            <span className="font-semibold text-blue-900 not-italic">Project / Resume: </span>
+                            &ldquo;{item.resume_evidence}&rdquo;
+                          </div>
+                        )}
+
+                        {item.note && !item.evidence && (
+                          <p className="text-[11px] text-slate-500 italic leading-snug">
+                            {item.note}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 3. RESUME CROSS-VERIFICATION & CLAIMS ANALYSIS */}
+            {hasResumeData && (
+            <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <ShieldCheck className="size-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                      Resume Cross-Verification & Project Claims
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Verification of spoken introduction statements against candidate resume and project points
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSelectTab("Details", "requirements")}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                >
+                  View Full Evidence Map →
+                </button>
+              </div>
+
+              {unverifiedClaims.length > 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm">
+                    <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                    <span>Unverified Spoken Claims Detected ({unverifiedClaims.length})</span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    The candidate mentioned the following skills during their spoken introduction, but they could not be found anywhere on their resume or project bullet points:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {unverifiedClaims.map((claim, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-amber-900 border border-amber-300 shadow-2xs"
+                      >
+                        <span className="size-1.5 rounded-full bg-amber-500" />
+                        {claim}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-amber-700 italic pt-1 border-t border-amber-200/60">
+                    Per evaluation policy, spoken claims that are not corroborated by project bullet points or work experience on the resume receive discounted credit to ensure objective qualification.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 flex items-start gap-2.5">
+                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-bold text-emerald-950">Full Resume Corroboration</p>
+                    <p className="text-emerald-800 leading-relaxed">
+                      All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate&apos;s resume and project bullet points.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </section>
+            )}
           </div>
-        </section>
-      )}
+        );
+      })()}
 
       {/* ── 3. RECORDING PLAYBACK ── */}
       {canShowRecording && effectivePlaybackUrl && (
@@ -2151,9 +2588,8 @@ function DetailSectionCard({
         </div>
         <ChevronDown
           size={15}
-          className={`text-slate-400 transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
+          className={`text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -2399,7 +2835,7 @@ export function DetailsContent({
       <TechnicalEvaluationView
         report={report}
         activeTab={activeTab || "Details"}
-        onSelectTab={onSelectTab || (() => {})}
+        onSelectTab={onSelectTab || (() => { })}
         seekTo={seekTo}
         videoRef={videoRef}
         assessmentId={String(report.assessment?.id || "")}
@@ -2468,6 +2904,7 @@ export function DetailsContent({
           {/* ── ACCORDION 1: JD REQUIREMENTS EVIDENCE MAP ── */}
           <JdRequirementsAccordion
             coverage={report.requirement_coverage || []}
+            skillBreakdown={report.skill_breakdown}
             isExpanded={Boolean(expandedSections.requirements)}
             onToggle={() => toggleSection("requirements")}
           />
@@ -3042,6 +3479,31 @@ function JobDescriptionModal({
                 </div>
               )}
 
+              {/* Tech Stack by Category */}
+              {report.jd_analysis.tech_stack && Object.keys(report.jd_analysis.tech_stack).length > 0 && (
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 space-y-2">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Required Tech Stack</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {Object.entries(report.jd_analysis.tech_stack).map(([category, techs]) => (
+                      Array.isArray(techs) && techs.length > 0 ? (
+                        <div key={category} className="rounded-lg bg-white p-2.5 border border-slate-200/70 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                            {category.replaceAll("_", " ")}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {techs.map((tech, idx) => (
+                              <span key={idx} className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-medium border border-blue-100">
+                                {tech}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Core Responsibilities */}
               {(report.jd_analysis.core_responsibilities?.length ?? 0) > 0 && (
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
@@ -3133,7 +3595,7 @@ export function getAssessmentsListUrl(): string {
       if (role === "employee" || role === "admin" || role === "instructor") {
         return "/avatar/assessments";
       }
-    } catch {}
+    } catch { }
   }
   return "/user_dashboard/ai-prep/assessments";
 }
@@ -3149,7 +3611,7 @@ export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
       sessionStorage.removeItem("aiprep_jd_filename");
       sessionStorage.removeItem("aiprep_jd_role");
       sessionStorage.removeItem("aiprep_jd_company");
-    } catch {}
+    } catch { }
 
     const searchParams = new URLSearchParams(window.location.search);
     const fromParam = searchParams.get("from");
@@ -3190,7 +3652,7 @@ export function navigateToAssessmentsList(router: ReturnType<typeof useRouter>) 
       sessionStorage.removeItem("aiprep_jd_filename");
       sessionStorage.removeItem("aiprep_jd_role");
       sessionStorage.removeItem("aiprep_jd_company");
-    } catch {}
+    } catch { }
 
     const targetUrl = getAssessmentsListUrl();
     router.replace(targetUrl);
@@ -3229,7 +3691,7 @@ export function ReportHeader({
             if (u?.name) return u.name;
             if (u?.first_name) return `${u.first_name} ${u.last_name || ""}`.trim();
           }
-        } catch {}
+        } catch { }
       }
       return null;
     })();
@@ -3250,24 +3712,24 @@ export function ReportHeader({
   const rawDate = assessment.completed_at || assessment.created_at;
   const completedDateStr = rawDate
     ? (() => {
-        let dateStr = String(rawDate).trim();
-        if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(dateStr)) {
-          dateStr = dateStr.replace(" ", "T") + "Z";
-        }
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return undefined;
-        const datePart = d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-        const timePart = d.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        });
-        return `${datePart} at ${timePart}`;
-      })()
+      let dateStr = String(rawDate).trim();
+      if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(dateStr)) {
+        dateStr = dateStr.replace(" ", "T") + "Z";
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return undefined;
+      const datePart = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const timePart = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      return `${datePart} at ${timePart}`;
+    })()
     : undefined;
 
   const durationStr = getTranscriptDuration(report, mediaDuration) || undefined;
@@ -3376,13 +3838,12 @@ export function ReportHeader({
                 type="button"
                 disabled={isDetailsDisabled}
                 onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
-                className={`pb-1.5 text-xs sm:text-sm transition-colors ${
-                  isDetailsDisabled
+                className={`pb-1.5 text-xs sm:text-sm transition-colors ${isDetailsDisabled
                     ? "text-slate-300 cursor-not-allowed select-none"
                     : isTabActive
-                    ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
-                    : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
-                }`}
+                      ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                      : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+                  }`}
               >
                 {tab.label}
               </button>
@@ -3503,7 +3964,7 @@ export default function AiPrepReport({
                 reportVal = cached.data?.report || cached.report;
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         }
 
         if (!reportVal && statusUpper === "COMPLETED") {
@@ -3540,20 +4001,46 @@ export default function AiPrepReport({
   // This page intentionally performs no polling or secondary stream requests.
 
   // ── Auto-Poll when assessment is in EVALUATING / isProcessing state ───────
+  const processPollAttemptsRef = useRef(0);
+  const ytPollAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    processPollAttemptsRef.current = 0;
+    ytPollAttemptsRef.current = 0;
+  }, [assessmentId]);
+
   useEffect(() => {
     if (!isProcessing || !assessmentId) return;
 
     let isMounted = true;
+    let consecutiveErrors = 0;
     const interval = setInterval(async () => {
       try {
+        processPollAttemptsRef.current += 1;
+        if (processPollAttemptsRef.current > 24) {
+          // Stop polling after 2 minutes max to prevent unwanted API calls
+          clearInterval(interval);
+          return;
+        }
         const fresh = await aiPrepApi.getAssessment(assessmentId);
+        consecutiveErrors = 0;
         const status = (fresh?.status || "").toUpperCase();
         if (isMounted && (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED" || fresh?.report)) {
           clearInterval(interval);
-          loadReport(true);
+          if (fresh?.report) {
+            setReport(normalizeReport(fresh, (fresh.data as any) || null, fresh.report as any));
+            setIsProcessing(false);
+          } else {
+            loadReport(true);
+          }
         }
-      } catch (_) {}
-    }, 3000);
+      } catch (_) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 3) {
+          clearInterval(interval);
+        }
+      }
+    }, 5000);
 
     return () => {
       isMounted = false;
@@ -3563,24 +4050,43 @@ export default function AiPrepReport({
 
   // ── Auto-Swap to YouTube when background upload completes ─────────────────
   useEffect(() => {
-    if (!report || report.youtube_url || isProcessing || !assessmentId) return;
+    const isTechAudio = report?.assessment?.assessment_type === "TECHNICAL" &&
+      ((report?.assessment?.media_type || "").toUpperCase() === "AUDIO" || (report?.assessment?.media_type || "").toUpperCase() === "AUDIO_ONLY");
+    // Technical audio streams authoritative assembled.webm directly from serverUrl — bypass YouTube polling
+    if (isTechAudio) return;
+
+    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
+    if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
 
     let isMounted = true;
+    let consecutiveErrors = 0;
     const interval = setInterval(async () => {
       try {
+        ytPollAttemptsRef.current += 1;
+        if (ytPollAttemptsRef.current > 12) {
+          // Cap at 12 checks (2 minutes with 10s interval) to prevent unwanted API calls
+          clearInterval(interval);
+          return;
+        }
         const fresh = await aiPrepApi.getAssessment(assessmentId);
+        consecutiveErrors = 0;
         if (isMounted && fresh?.youtube_url) {
           clearInterval(interval);
-          loadReport();
+          setReport((prev) => (prev ? { ...prev, youtube_url: fresh.youtube_url } : prev));
         }
-      } catch (_) {}
-    }, 5000);
+      } catch (_) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 3) {
+          clearInterval(interval);
+        }
+      }
+    }, 10000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [report, isProcessing, assessmentId, loadReport]);
+  }, [report?.youtube_url, isProcessing, assessmentId]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");

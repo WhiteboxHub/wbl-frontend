@@ -237,6 +237,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
   const [mediaType, setMediaType] = useState<MediaType>('AUDIO_ONLY');
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
+  // Hold technical questions out of rendered state until Start Assessment is clicked.
+  const pendingAssessmentQuestionsRef = useRef<QuestionBankItem[]>([]);
+  const pendingAudioUploadsRef = useRef<Promise<any>[]>([]);
+  const currentQuestionIndexRef = useRef<number>(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
   // Unique session ID per assessment attempt to avoid cross-attempt collisions in analytics (MEDIUM 2)
@@ -564,6 +568,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, []);
 
   const isIntroType = assessmentType === 'INTRO' || assessmentType === 'JD_INTRO';
+  const assessmentTitle = ({
+    INTRO: 'INTRO Assessment',
+    JD_INTRO: 'JD Walkthrough Assessment',
+    RECRUITER: 'RECRUITER Assessment',
+    HIRING_MANAGER: 'HIRING MANAGER Assessment',
+    TECHNICAL: 'TECHNICAL Assessment',
+    SYSTEM_DESIGN: 'SYSTEM DESIGN Assessment',
+  } as Record<string, string>)[assessmentType] || assessmentType.replace(/_/g, ' ') + ' Assessment';
+  const assessmentNoun = ({
+    INTRO: 'introductory',
+    JD_INTRO: 'job description walkthrough',
+    RECRUITER: 'recruiter',
+    HIRING_MANAGER: 'hiring manager',
+    TECHNICAL: 'technical',
+    SYSTEM_DESIGN: 'system design',
+  } as Record<string, string>)[assessmentType] || assessmentType.replace(/_/g, ' ').toLowerCase();
   const isAudioOnly = mediaType === 'AUDIO' || mediaType === 'AUDIO_ONLY';
 
   // ── Chunk Upload Queue Hook ────────────────────────────────────────────────
@@ -595,6 +615,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
   const localChunksRef = useRef<Blob[]>([]);
+
 
   // ── Audio Recorder Hook (Continuous Single-Upload for Audio Assessments) ──
   const {
@@ -863,8 +884,10 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
 
         // Failsafe: check server assessment status
+        let serverDetail: any = null;
         try {
           const detail = await aiprepApi.getAssessment(assessmentId);
+          serverDetail = detail;
           const status = (detail?.status || '').toUpperCase();
           if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
             if (typeof window !== 'undefined') {
@@ -892,11 +915,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         const finalType: AssessmentType = resolvedType || 'INTRO';
         const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
 
-        if (finalType === 'JD_INTRO' && typeof window !== 'undefined') {
-          const storedJd = window.sessionStorage.getItem('aiprep_jd_text');
-          const storedRole = window.sessionStorage.getItem('aiprep_jd_role');
-          const storedCompany = window.sessionStorage.getItem('aiprep_jd_company');
-          if (storedJd) setJobDescription((prev) => prev || storedJd);
+        if (finalType === 'JD_INTRO') {
+          const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
+          const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
+          const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
+          const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
+          const activeJd = storedJd || serverJd;
+          if (activeJd) setJobDescription((prev) => prev || activeJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
         } else {
@@ -908,8 +933,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Load questions from sessionStorage (cached during assessment creation)
-        if (typeof window !== 'undefined') {
+        // 2. Load cached questions immediately for non-technical tracks.
+        // For Technical tracks, read from cached session questions or restore from serverDetail on reload.
+        if (finalType === 'TECHNICAL') {
+          try {
+            const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
+            if (cachedQ) {
+              const parsed = JSON.parse(cachedQ);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                loadedQuestions = parsed as QuestionBankItem[];
+              }
+            }
+          } catch (_) {}
+          if (!loadedQuestions || loadedQuestions.length === 0) {
+            const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
+            if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
+              loadedQuestions = serverQuestions as QuestionBankItem[];
+            }
+          }
+        } else if (typeof window !== 'undefined') {
           try {
             const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
             if (cachedQ) {
@@ -934,15 +976,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        if (!loadedQuestions || loadedQuestions.length === 0) {
-          setErrorMsg(finalType === 'TECHNICAL'
-            ? 'No technical questions were saved for this assessment. Please return to setup and start a new assessment.'
-            : 'No interview questions found for this assessment session. Please return to the portal and try again.');
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
+          setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
         }
 
-        setQuestions(loadedQuestions);
+        // Keep real questions out of rendered state until Start Assessment is clicked.
+        // The instructions overlay can render using a blank placeholder without exposing a prompt.
+        pendingAssessmentQuestionsRef.current = Array.isArray(loadedQuestions) ? loadedQuestions : [];
+        setQuestions([{ id: 0, question_text: '', difficulty_level: 'MEDIUM', category: '', is_active: true }]);
         setCurrentQuestionIndex(0);
 
         // If intro track, trigger 7-second auto countdown to start practice smoothly
@@ -1180,9 +1223,30 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
     if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
-    setHasStartedQuestion(true); // Reveal the question page immediately on click.
+    // Reveal questions only after the candidate clicks Start Assessment.
+    let pendingQuestions = pendingAssessmentQuestionsRef.current ?? [];
+    if (pendingQuestions.length === 0) {
+      try {
+        const cachedQuestions = window.sessionStorage.getItem('aiprep_active_questions');
+        const parsedQuestions = cachedQuestions ? JSON.parse(cachedQuestions) : null;
+        if (Array.isArray(parsedQuestions)) {
+          pendingQuestions = parsedQuestions as QuestionBankItem[];
+        }
+      } catch (error) {
+        console.error('Unable to load assessment questions:', error);
+      }
+    }
+    if (pendingQuestions.length === 0) {
+      setErrorMsg('No questions were saved for this assessment. Please return to setup and start a new assessment.');
+      return;
+    }
+    setQuestions(pendingQuestions);
+    pendingAssessmentQuestionsRef.current = [];
+    setCurrentQuestionIndex(0);
+    setHasStartedQuestion(true);
     stopAiSpeech();
-    const activeQ = questions[currentQuestionIndex];
+    // Use the loaded question list directly; React state updates from setQuestions are asynchronous.
+    const activeQ = pendingQuestions[currentQuestionIndex] ?? pendingQuestions[0];
 
     // Narration and preparation happen while the question is visible, but
     // before recording and the question timer start.
@@ -1269,7 +1333,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         try {
           const audioRes = await stopAudioRecorder();
           if (audioRes?.blob && activeQ?.id) {
-            void aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
+            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
+            pendingAudioUploadsRef.current.push(uploadPromise);
           }
         } catch (e) {
           console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
@@ -1352,7 +1417,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Track question viewed (deduplicated by question ID to prevent duplicate view events on re-renders - MEDIUM 1)
   useEffect(() => {
-    if (questions.length > 0) {
+    // Do not log question views on the instructions screen.
+    if (hasStartedQuestion && questions.length > 0) {
       const activeQ = questions[currentQuestionIndex];
       const qId = activeQ?.id ?? currentQuestionIndex;
       if (lastViewedQuestionIdRef.current !== qId) {
@@ -1364,7 +1430,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         );
       }
     }
-  }, [currentQuestionIndex, questions, recordQuestionAction, lastViewedQuestionIdRef]);
+  }, [hasStartedQuestion, currentQuestionIndex, questions, recordQuestionAction, lastViewedQuestionIdRef]);
 
   // ── Complete Session & Submit Telemetry to Pure Engines ─────────────────────
   const handleEndSession = async () => {
@@ -1374,6 +1440,23 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       preparationCancelledRef.current = true;
       setPrepCountdown(null);
       setIsEnding(true);
+
+      // Stop browser speech recognition immediately on submit so Chrome releases
+      // its microphone-use indicator. The media recorder is stopped below to
+      // flush and preserve the final recording chunks before navigation.
+      isRecordingRef.current = false;
+      if (restartTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = null;
+      }
+      const activeRecognition = recognitionRef.current;
+      recognitionRef.current = null;
+      if (activeRecognition) {
+        try {
+          activeRecognition.onend = null;
+          activeRecognition.stop();
+        } catch (_) {}
+      }
       stopAiSpeech();
 
       // 1. Stop recording and flush final slice / audio blob
@@ -1381,11 +1464,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
+
         const activeQ = questions[currentQuestionIndex];
         if (finalAudioBlob && activeQ?.id) {
-          void aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+          try {
+            await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+          } catch (uploadErr) {
+            console.warn("[handleEndSession] Final audio chunk upload error:", uploadErr);
+          }
         }
-        if (audioRes?.url && assessmentId) {
+        // Flush and await any remaining in-flight question uploads
+        if (pendingAudioUploadsRef.current.length > 0) {
+          try {
+            await Promise.allSettled(pendingAudioUploadsRef.current);
+          } catch (_) {}
+          pendingAudioUploadsRef.current = [];
+        }
+
+        // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
+        // Multi-question technical assessments stream the complete stitched assembled.webm from the backend serverUrl.
+        if (audioRes?.url && assessmentId && (!questions || questions.length <= 1)) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
@@ -1774,7 +1872,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         .split(/[.!?]+/)
         .filter((s) => s.trim().length > 0).length
     : 0;
-  const isQuestionBlurred = isInactive && !isIntroType && !hasStartedQuestion;
+  // Keep the instructions screen visible for every non-intro assessment until Start Assessment is clicked.
+  // Do not let recordingStatus or microphone state reveal the question early.
+  const isQuestionBlurred = !isIntroType && !hasStartedQuestion;
   // Use the same countdown urgency styling for Intro, Technical, and JD assessments.
   const technicalTimerColors = questionTimeRemaining <= 5 && questionTimeRemaining > 0
     ? 'border-rose-400 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200'
@@ -1792,9 +1892,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
-          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{isIntroType ? 'INTRO Assessment' : 'TECHNICAL Assessment'}</span>
+          <span className="truncate text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
         </div>
-        <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${isRecording && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
+        {!isQuestionBlurred && <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors duration-300 ${technicalTimerColors} ${isRecording && questionTimeRemaining > 0 && questionTimeRemaining <= 5 ? "animate-pulse" : ""}`}>
           <IconClock size={14} />
           <span className="whitespace-nowrap text-[11px] font-extrabold tracking-wide sm:text-xs">Q{currentQuestionIndex + 1} TIME: {formatTime(questionTimeRemaining)}</span>
           {!isIntroType && questionTimeRemaining <= 30 && questionTimeRemaining >= 29 && (
@@ -1802,15 +1902,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               30 seconds left
             </span>
           )}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
+        </div>}
+        {!isQuestionBlurred && <div className="ml-auto flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400" title="Connection status"><IconWifi size={17} /></span>
           <button type="button" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen(); }} className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700" aria-label="Toggle fullscreen" title="Toggle fullscreen"><IconMaximize size={16} /></button>
-        </div>
+        </div>}
       </header>
       )}
       {/* 2. MAIN INTERVIEW STUDIO WORKSPACE */}
-      <div className={`flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto ${isIntroType ? 'pb-4' : 'pb-28'}`}>
+      <div className={`relative flex-1 min-h-0 p-2 sm:p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 items-start lg:items-stretch gap-3 lg:gap-4 max-w-[1600px] mx-auto w-full overflow-y-auto ${isIntroType ? 'pb-4' : 'pb-28'}`}>
         {/* LEFT COLUMN: Cinema Camera Stage & Floating Meeting Dock */}
         <div className={`${isQuestionBlurred ? 'hidden' : isIntroType ? 'lg:col-span-7' : 'lg:col-span-6'} flex flex-col min-h-0 gap-3 h-auto lg:h-full overflow-visible`}>
           {/* CINEMA CAMERA STAGE */}
@@ -2053,7 +2153,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       <span>{hasStartedQuestion ? 'Reading question…' : 'Start Assessment'}</span>
                     </button>
                   )
-                ) : isRecording || isEnding ? (
+                ) : (hasStartedQuestion || isRecording || isEnding) ? (
                   <div className="flex min-w-0 items-center justify-end gap-2">
                     <button
                       type="button"
@@ -2095,18 +2195,22 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               {/* Overlay when question is hidden in standby mode */}
               {isQuestionBlurred && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
-                  <div className="flex h-full w-full max-w-5xl flex-col justify-center gap-2.5">
+                  <div className="absolute left-6 top-6 flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
+                    <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
+                  </div>
+                  <div className="flex h-full w-full max-w-5xl translate-x-0 flex-col justify-center gap-2.5 sm:translate-x-4 lg:translate-x-8">
                     <div className="flex shrink-0 items-center gap-2.5 border-b border-indigo-100 pb-2.5 dark:border-slate-800">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconFileText size={22} /></div>
                       <div className="min-w-0">
                         <p className="text-lg font-bold tracking-tight text-slate-900 dark:text-white sm:text-xl">Before you begin</p>
-                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400 sm:text-sm">A quick guide to your technical assessment</p>
+                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400 sm:text-sm">A quick guide to your {assessmentNoun} assessment</p>
                       </div>
                     </div>
                     <div className="min-h-0 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-3 dark:divide-slate-100 dark:border-slate-200 dark:bg-white">
                       <div className="flex items-start gap-3 py-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white"><IconVolume size={19} /></span>
-                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">1. Listen to the question</p><p className="mt-1 text-xs leading-relaxed text-slate-600">The AI will read each technical question aloud. Listen carefully to the complete question before preparing your response.</p></div>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">1. Listen to the question</p><p className="mt-1 text-xs leading-relaxed text-slate-600">The AI will read each question aloud for your {assessmentNoun} assessment. Listen carefully to the complete question before preparing your response.</p></div>
                       </div>
                       <div className="flex items-start gap-3 py-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white"><IconClock size={19} /></span>
@@ -2114,7 +2218,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       </div>
                       <div className="flex items-start gap-3 py-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white"><IconMicrophone size={19} /></span>
-                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">3. Explain your technical answer</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Answer clearly using your own words. Explain the concept, how it works, and a practical example when relevant. Keep an eye on the question timer.</p></div>
+                        <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">3. Explain your {assessmentNoun} answer</p><p className="mt-1 text-xs leading-relaxed text-slate-600">Answer clearly using your own words. Explain the concept, how it works, and a practical example when relevant. Keep an eye on the question timer.</p></div>
                       </div>
                     </div>
                     {!isIntroType && (
@@ -2142,22 +2246,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => router.replace('/user_dashboard/ai-prep/practice')}
-                        className="h-11 shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                        title="Go back to assessment selection"
-                      >
-                        <IconChevronLeft size={17} />
-                        <span>Back</span>
-                      </button>
-                      <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your technical assessment.</p>
+                      <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your {assessmentNoun} assessment.</p>
                       <button
                         type="button"
                         onClick={handleStartAnswer}
                         disabled={hasStartedQuestion || prepCountdown !== null}
                         className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
-                        title="Start the technical assessment"
+                        title={`Start the ${assessmentNoun} assessment`}
                       >
                         {hasStartedQuestion ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlayerPlay size={16} fill="currentColor" />}
                         <span>{hasStartedQuestion ? 'Starting…' : 'Start Assessment'}</span>
@@ -2233,7 +2328,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
               </div>
 
               {/* Backend-provided metadata updates with the active question. */}
-              {(activeQuestion.subject || activeQuestion.concept || activeQuestion.scope) && (
+              {(activeQuestion.subject || activeQuestion.concept || activeQuestion.scope) && assessmentType !== 'JD_INTRO' && (
                 <div className={"flex flex-wrap items-center gap-2 shrink-0 transition-all duration-500 " + (isQuestionBlurred ? 'blur-sm select-none opacity-40' : '')}>
                   {activeQuestion.subject && (
                     <span className="inline-flex items-center rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-300">
