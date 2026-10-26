@@ -239,6 +239,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   // Hold technical questions out of rendered state until Start Assessment is clicked.
   const pendingAssessmentQuestionsRef = useRef<QuestionBankItem[]>([]);
+  const pendingAudioUploadsRef = useRef<Promise<any>[]>([]);
+  const currentQuestionIndexRef = useRef<number>(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
   // Unique session ID per assessment attempt to avoid cross-attempt collisions in analytics (MEDIUM 2)
@@ -614,6 +616,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Buffer of recorded raw chunks for instant zero-pause JavaScript playback
   const localChunksRef = useRef<Blob[]>([]);
 
+
   // ── Audio Recorder Hook (Continuous Single-Upload for Audio Assessments) ──
   const {
     status: audioRecordingStatus,
@@ -930,9 +933,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Load cached questions immediately for non-technical tracks only.
-        // Technical question data is deliberately deferred until Start Assessment is clicked.
-        if (finalType !== 'TECHNICAL' && typeof window !== 'undefined') {
+        // 2. Load cached questions immediately for non-technical tracks.
+        // For Technical tracks, read from cached session questions or restore from serverDetail on reload.
+        if (finalType === 'TECHNICAL') {
+          try {
+            const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
+            if (cachedQ) {
+              const parsed = JSON.parse(cachedQ);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                loadedQuestions = parsed as QuestionBankItem[];
+              }
+            }
+          } catch (_) {}
+          if (!loadedQuestions || loadedQuestions.length === 0) {
+            const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
+            if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
+              loadedQuestions = serverQuestions as QuestionBankItem[];
+            }
+          }
+        } else if (typeof window !== 'undefined') {
           try {
             const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
             if (cachedQ) {
@@ -1314,7 +1333,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         try {
           const audioRes = await stopAudioRecorder();
           if (audioRes?.blob && activeQ?.id) {
-            void aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
+            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
+            pendingAudioUploadsRef.current.push(uploadPromise);
           }
         } catch (e) {
           console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
@@ -1444,11 +1464,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
+
         const activeQ = questions[currentQuestionIndex];
         if (finalAudioBlob && activeQ?.id) {
-          void aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+          try {
+            await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+          } catch (uploadErr) {
+            console.warn("[handleEndSession] Final audio chunk upload error:", uploadErr);
+          }
         }
-        if (audioRes?.url && assessmentId) {
+        // Flush and await any remaining in-flight question uploads
+        if (pendingAudioUploadsRef.current.length > 0) {
+          try {
+            await Promise.allSettled(pendingAudioUploadsRef.current);
+          } catch (_) {}
+          pendingAudioUploadsRef.current = [];
+        }
+
+        // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
+        // Multi-question technical assessments stream the complete stitched assembled.webm from the backend serverUrl.
+        if (audioRes?.url && assessmentId && (!questions || questions.length <= 1)) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
@@ -2118,7 +2153,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       <span>{hasStartedQuestion ? 'Reading question…' : 'Start Assessment'}</span>
                     </button>
                   )
-                ) : isRecording || isEnding ? (
+                ) : (hasStartedQuestion || isRecording || isEnding) ? (
                   <div className="flex min-w-0 items-center justify-end gap-2">
                     <button
                       type="button"
