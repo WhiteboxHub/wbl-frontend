@@ -264,12 +264,13 @@ const RATING_CONFIG: Record<
 
 function getRatingMeta(rating?: string) {
   const raw = (rating ?? "").toUpperCase().trim();
+  if (RATING_CONFIG[raw]) return RATING_CONFIG[raw];
   if (["STRONG", "EXCELLENT", "HIGH"].includes(raw)) return RATING_CONFIG.STRONG;
   if (["GOOD", "ADEQUATE", "OPTIMAL"].includes(raw)) return RATING_CONFIG.GOOD;
   if (["NEEDS_POLISH", "AVERAGE", "MODERATE"].includes(raw)) return RATING_CONFIG.NEEDS_POLISH;
   if (["WEAK", "POOR", "NEEDS_WORK", "LOW"].includes(raw)) return RATING_CONFIG.WEAK;
   if (["NOT_TESTED", "NOT_APPLICABLE", "N/A"].includes(raw)) return RATING_CONFIG.NOT_TESTED;
-  return RATING_CONFIG[raw] ?? RATING_CONFIG.GOOD;
+  return RATING_CONFIG.GOOD;
 }
 
 function cleanPointText(text?: string): string {
