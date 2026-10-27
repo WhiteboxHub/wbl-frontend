@@ -260,13 +260,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   }, [assessmentId]);
 
-  // Observability & Telemetry Hook
-  const { recordQuestionAction, recordCompletion } = useAssessmentTelemetry({
-    assessmentId,
-    sessionId: attemptSessionId,
-    assessmentType,
-    totalQuestions: questions.length > 0 ? questions.length : undefined,
-  });
 
   // Maximum recording duration — 5 min for INTRO/JD_INTRO, 30 min for all other types
   // Derived via useMemo so it updates once assessmentType is resolved from the backend
@@ -1294,68 +1287,67 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const handleEndSessionRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const hasAutoEndedRef = useRef<boolean>(false);
   const [proctoringAlert, setProctoringAlert] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
-  const proctoringViolationsRef = useRef<number>(0);
 
-  // Test Security & Proctoring: 3-Strike Tab-Switch & Screenshot Auto-Submit
+  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT', count: number) => {
+    if (count >= 3) {
+      setProctoringAlert({
+        show: true,
+        message: 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
+      });
+      void handleEndSessionRef.current();
+    } else {
+      setProctoringAlert({
+        show: true,
+        message: `Security Warning (${count}/3): Tab switching or screenshot detected. 3 violations will automatically submit your assessment.`,
+      });
+      setTimeout(() => {
+        setProctoringAlert((prev) => ({ ...prev, show: false }));
+      }, 5000);
+    }
+  }, []);
+
+  // Observability & Telemetry Hook - synchronized monitoring active only during question answering
+  const isTelemetryMonitoringActive = Boolean(
+    hasStartedQuestion && !isEnding && !isSessionAlreadyEnded && !finishedAssessmentId
+  );
+
+  const {
+    recordQuestionAction,
+    recordCompletion,
+    recordProctoringViolation,
+  } = useAssessmentTelemetry({
+    assessmentId,
+    sessionId: attemptSessionId,
+    assessmentType,
+    totalQuestions: questions.length > 0 ? questions.length : undefined,
+    isMonitoringActive: isTelemetryMonitoringActive,
+    onViolation: handleProctoringViolation,
+  });
+
+  // Test Security & Proctoring: Screenshot Keydown Listener
   useEffect(() => {
     if (!hasStartedQuestion || isEnding || isSessionAlreadyEnded || finishedAssessmentId) {
       return;
     }
 
-    const recordViolation = (type: 'TAB_SWITCH' | 'SCREENSHOT') => {
-      proctoringViolationsRef.current += 1;
-      const count = proctoringViolationsRef.current;
-
-      try {
-        AIPrepTelemetry.trackProctoringViolation({
-          assessment_id: assessmentId,
-          assessment_uuid: attemptSessionId,
-          violation_type: type,
-          violation_count: count,
-          time_away_seconds: 1,
-        });
-      } catch (_) {}
-
-      if (count >= 3) {
-        setProctoringAlert({
-          show: true,
-          message: 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
-        });
-        void handleEndSessionRef.current();
-      } else {
-        setProctoringAlert({
-          show: true,
-          message: `Security Warning (${count}/3): Tab switching or screenshot detected. 3 violations will automatically submit your assessment.`,
-        });
-        setTimeout(() => {
-          setProctoringAlert((prev) => ({ ...prev, show: false }));
-        }, 5000);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        recordViolation('TAB_SWITCH');
-      }
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key;
       const isPrintScreen = key === 'PrintScreen';
-      const isSnippingTool = (e.metaKey || e.ctrlKey) && e.shiftKey && (key.toLowerCase() === 's' || key.toLowerCase() === '4' || key.toLowerCase() === '3');
+      const isSnippingTool =
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (key.toLowerCase() === 's' || key.toLowerCase() === '4' || key.toLowerCase() === '3');
       if (isPrintScreen || isSnippingTool) {
-        recordViolation('SCREENSHOT');
+        recordProctoringViolation('SCREENSHOT');
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [hasStartedQuestion, isEnding, isSessionAlreadyEnded, finishedAssessmentId, assessmentId, attemptSessionId]);
+  }, [hasStartedQuestion, isEnding, isSessionAlreadyEnded, finishedAssessmentId, recordProctoringViolation]);
 
   useEffect(() => {
     if (!isRecording || isEnding || isAiSpeaking || isQuestionPrepPaused) return;

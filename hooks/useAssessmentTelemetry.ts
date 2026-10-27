@@ -16,6 +16,7 @@ interface UseAssessmentTelemetryProps {
   candidateId?: number;
   totalQuestions?: number;
   isMonitoringActive?: boolean;
+  onViolation?: (type: 'TAB_SWITCH' | 'SCREENSHOT', violationCount: number) => void;
 }
 
 interface TelemetrySessionState {
@@ -36,8 +37,14 @@ export function useAssessmentTelemetry({
   candidateId,
   totalQuestions,
   isMonitoringActive = true,
+  onViolation,
 }: UseAssessmentTelemetryProps) {
   const effectiveUuid = assessmentUuid || sessionId || `assessment_${assessmentId}`;
+  const onViolationRef = useRef(onViolation);
+
+  useEffect(() => {
+    onViolationRef.current = onViolation;
+  }, [onViolation]);
 
   // Atomic mutable session state ref - updated synchronously on every event
   // without relying on asynchronous useReducer schedules or post-paint useEffect synchronization.
@@ -72,6 +79,7 @@ export function useAssessmentTelemetry({
       if (document.hidden) {
         sessionStateRef.current.blurStartTime = Date.now();
         sessionStateRef.current.violationCount += 1;
+        onViolationRef.current?.('TAB_SWITCH', sessionStateRef.current.violationCount);
       } else {
         const blurStart = sessionStateRef.current.blurStartTime;
         const awaySec = blurStart
@@ -95,6 +103,26 @@ export function useAssessmentTelemetry({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [assessmentId, effectiveUuid, candidateId, isMonitoringActive]);
+
+  const recordProctoringViolation = useCallback(
+    (type: 'TAB_SWITCH' | 'SCREENSHOT') => {
+      sessionStateRef.current.violationCount += 1;
+      const count = sessionStateRef.current.violationCount;
+
+      AIPrepTelemetry.trackProctoringViolation({
+        assessment_id: assessmentId,
+        assessment_uuid: effectiveUuid,
+        candidate_id: candidateId,
+        violation_type: type,
+        violation_count: count,
+        time_away_seconds: 1,
+      });
+
+      onViolationRef.current?.(type, count);
+      return count;
+    },
+    [assessmentId, effectiveUuid, candidateId]
+  );
 
   // Question transition callback
   const recordQuestionAction = useCallback(
@@ -225,5 +253,6 @@ export function useAssessmentTelemetry({
     recordQuestionAction,
     recordAudioChunkUpload,
     recordCompletion,
+    recordProctoringViolation,
   };
 }
