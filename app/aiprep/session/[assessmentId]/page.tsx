@@ -349,6 +349,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [hasStartedQuestion, setHasStartedQuestion] = useState<boolean>(false);
   const [prepCountdown, setPrepCountdown] = useState<number | null>(null);
   const elapsedTimeRef = useRef<number>(0);
+  const cumulativeRecordedSecondsRef = useRef<number>(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
 
   // Target Job Description State (for JD_INTRO track)
   const [jobDescription, setJobDescription] = useState<string>('');
@@ -641,14 +643,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     cleanup: cleanupVideoRecorder,
   } = useMediaRecorder({
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
-    chunkDurationMs: 30000,
+    chunkDurationMs: (questions && questions.length > 1) ? undefined : 30000,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       if (isAudioOnly) return;
-      console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
+      console.log(`[Media Pipeline] Produced slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
       if (blob && blob.size > 0) {
         localChunksRef.current.push(blob);
       }
-      enqueueChunk(blob, chunkIdx, isFinal);
+      if (!questions || questions.length <= 1) {
+        enqueueChunk(blob, chunkIdx, isFinal);
+      }
     },
     onError: (err) => {
       console.error('[MediaRecorder Error]:', err);
@@ -909,10 +913,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         // 1. Recover stored session track & mode directly from sessionStorage
         const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
         const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
+        const serverMode = (serverDetail?.assessment_mode || (serverDetail?.data as any)?.assessment_mode || (serverDetail?.data as any)?.media_type) as MediaType | undefined;
         let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
+        const finalMode: MediaType = (serverMode === 'VIDEO_AUDIO' || serverMode === 'VIDEO' || resolvedMode === 'VIDEO_AUDIO' || resolvedMode === 'VIDEO') ? 'VIDEO_AUDIO' : (serverMode || resolvedMode || 'AUDIO_ONLY');
 
         if (finalType === 'JD_INTRO') {
           const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
@@ -1259,6 +1264,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
     if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
+    if (!sessionStartedAtRef.current) {
+      sessionStartedAtRef.current = Date.now();
+    }
     // Reveal questions only after the candidate clicks Start Assessment.
     let pendingQuestions = pendingAssessmentQuestionsRef.current ?? [];
     if (pendingQuestions.length === 0) {
@@ -1446,19 +1454,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsQuestionPrepPaused(true);
       stopAiSpeech();
 
-      // Slice and upload completed question's audio in background (0ms UI lag)
-      const activeQ = questions[currentQuestionIndex];
-      if (isAudioOnly && isRecording) {
-        try {
-          const audioRes = await stopAudioRecorder();
-          const qId = activeQ?.id ?? (activeQ as any)?.question_id;
-          if (audioRes?.blob && qId) {
-            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
-            pendingAudioUploadsRef.current.push(uploadPromise);
-          }
+      // Accumulate recording time for this completed question into the session total
+      cumulativeRecordedSecondsRef.current += elapsedTimeRef.current;
 
+      // Slice and upload completed question's media in background (0ms UI lag)
+      const activeQ = questions[currentQuestionIndex];
+      const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+      if (isRecording) {
+        try {
+          if (isAudioOnly) {
+            const audioRes = await stopAudioRecorder();
+            if (audioRes?.blob && qId) {
+              const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
+              pendingAudioUploadsRef.current.push(uploadPromise);
+            }
+          } else {
+            const videoRes = await stopVideoRecorder(true); // keep camera stream active
+            if (videoRes?.blob && qId) {
+              const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, videoRes.blob, "VIDEO", true, undefined, qId);
+              pendingAudioUploadsRef.current.push(uploadPromise);
+            }
+          }
         } catch (e) {
-          console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
+          console.warn("[MultiQuestionMedia] Failed to slice question media:", e);
         }
       }
 
@@ -1595,28 +1613,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
       stopAiSpeech();
 
-      // 1. Stop recording and flush final slice / audio blob
+      // 1. Stop recording and flush final slice / media blob
+      const activeQ = questions[currentQuestionIndex];
+      const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+
       let finalAudioBlob: Blob | null = null;
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
 
-        const activeQ = questions[currentQuestionIndex];
-        const qId = activeQ?.id ?? (activeQ as any)?.question_id;
         if (finalAudioBlob && qId) {
           try {
             await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, qId);
           } catch (uploadErr) {
             console.warn("[handleEndSession] Final audio chunk upload error:", uploadErr);
           }
-        }
-
-        // Flush and await any remaining in-flight question uploads
-        if (pendingAudioUploadsRef.current.length > 0) {
-          try {
-            await Promise.allSettled(pendingAudioUploadsRef.current);
-          } catch (_) {}
-          pendingAudioUploadsRef.current = [];
         }
 
         // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
@@ -1629,9 +1640,25 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
       } else {
-        await stopVideoRecorder();
-        // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
-        if (localChunksRef.current.length > 0 && assessmentId) {
+        const videoRes = await stopVideoRecorder(false);
+        const finalVideoBlob = videoRes?.blob || null;
+
+        if (finalVideoBlob && qId) {
+          try {
+            await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
+          } catch (uploadErr) {
+            console.warn("[handleEndSession] Final video chunk upload error:", uploadErr);
+          }
+        }
+
+        // 1b. Create instant combined media blob for zero-gap playback if single-track or available
+        if (videoRes?.url && assessmentId && (!questions || questions.length <= 1)) {
+          if (typeof window !== 'undefined') {
+            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+            (window as any).__aiprep_local_preview[assessmentId] = videoRes.url;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, videoRes.url);
+          }
+        } else if (localChunksRef.current.length > 0 && assessmentId) {
           try {
             const mimeType = 'video/webm';
             const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
@@ -1645,8 +1672,17 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
           }
         }
-        // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
-        await waitForAllChunks(8000);
+        if (!questions || questions.length <= 1) {
+          await waitForAllChunks(8000);
+        }
+      }
+
+      // Flush and await any remaining in-flight question uploads (both audio and video)
+      if (pendingAudioUploadsRef.current.length > 0) {
+        try {
+          await Promise.allSettled(pendingAudioUploadsRef.current);
+        } catch (_) {}
+        pendingAudioUploadsRef.current = [];
       }
 
       // Commit any pending interim speech as a complete sentence before submitting
@@ -1699,12 +1735,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // The API resolves only after the backend sends a terminal COMPLETED event.
       setSubmissionProgress(0);
       setSubmissionStep("Submitting assessment…");
+
+      // Add final question elapsed time to cumulative total
+      cumulativeRecordedSecondsRef.current += elapsedTimeRef.current;
+      const totalInterviewDuration = cumulativeRecordedSecondsRef.current > 0
+        ? Math.round(cumulativeRecordedSecondsRef.current)
+        : (sessionStartedAtRef.current ? Math.floor((Date.now() - sessionStartedAtRef.current) / 1000) : elapsedTimeRef.current);
+
       await aiprepApi.submitAssessmentStream(
         assessmentId,
         {
           total_chunks_uploaded: isAudioOnly ? 0 : (totalChunks || 1),
           is_final: true,
-          client_duration_seconds: elapsedTimeRef.current,
+          client_duration_seconds: totalInterviewDuration,
           video_telemetry: isAudioOnly
             ? {}
             : {

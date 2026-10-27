@@ -1840,11 +1840,9 @@ export function EvaluationContent({
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
-  const isRealYouTube = Boolean(youtube_url && extractYoutubeId(youtube_url));
-
-  // Auto-cleanup local instant playback blob once verified YouTube URL is available
+  // Auto-cleanup local instant playback blob once YouTube URL is available
   useEffect(() => {
-    if (isRealYouTube && typeof window !== "undefined" && assessmentId) {
+    if (youtube_url && typeof window !== "undefined" && assessmentId) {
       if ((window as any).__aiprep_local_preview?.[assessmentId]) {
         try {
           URL.revokeObjectURL((window as any).__aiprep_local_preview[assessmentId]);
@@ -1855,16 +1853,22 @@ export function EvaluationContent({
         sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
       } catch (_) { }
     }
-  }, [isRealYouTube, assessmentId]);
+  }, [youtube_url, assessmentId]);
 
   // Playback hierarchy:
   // For Audio assessments: always play native audio via serverUrl (or localPreviewUrl)
   // For Video assessments:
   // 1. Verified YouTube URL (when real YouTube upload succeeded)
-  // 2. Instant Local Playback (0ms zero-latency preview while processing is pending)
-  // 3. Authoritative Persistent Server Storage Stream (when real recording exists on server)
+  // 2. Instant Local Playback (0ms zero-latency preview while YouTube/processing is pending)
+  // 3. Authoritative Persistent Server Storage Stream (when YouTube is unavailable, mock, or pending)
+  const hasValidYoutube = Boolean(
+    youtube_url &&
+    !youtube_url.includes("aiprep_rec_") &&
+    !youtube_url.includes("UF8uR6Z6KLc")
+  );
+  const isRealYouTube = Boolean(youtube_url && extractYoutubeId(youtube_url));
   const effectivePlaybackUrl = canShowRecording
-    ? (isRealYouTube ? youtube_url : (localPreviewUrl || (hasServerRecording ? serverUrl : undefined)))
+    ? ((isRealYouTube ? youtube_url : null) || localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
     : undefined;
 
   const durationSeconds =

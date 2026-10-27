@@ -11,6 +11,13 @@ export interface UseMediaRecorderOptions {
   onError?: (error: Error) => void;
 }
 
+export interface MediaRecordingResult {
+  blob: Blob;
+  url: string;
+  duration: number; // in seconds
+  mimeType: string;
+}
+
 export interface UseMediaRecorderReturn {
   status: RecordingStatus;
   stream: MediaStream | null;
@@ -20,7 +27,7 @@ export interface UseMediaRecorderReturn {
   startRecording: (customStream?: MediaStream) => Promise<void>;
   pauseRecording: () => void;
   resumeRecording: () => void;
-  stopRecording: () => Promise<void>;
+  stopRecording: (keepStream?: boolean) => Promise<MediaRecordingResult | null>;
   cleanup: () => void;
 }
 
@@ -78,8 +85,14 @@ export function useMediaRecorder({
   const chunkIndexRef = useRef<number>(0);
   const isFinalizingRef = useRef<boolean>(false);
   const streamRef = useRef<MediaStream | null>(null);
+  const recordedBlobsRef = useRef<Blob[]>([]);
+  const elapsedTimeRef = useRef<number>(0);
 
   const isVideoMode = mediaType !== 'AUDIO' && mediaType !== 'AUDIO_ONLY';
+
+  useEffect(() => {
+    elapsedTimeRef.current = elapsedTime;
+  }, [elapsedTime]);
 
   // Release stream tracks
   const cleanupStream = useCallback(() => {
@@ -107,6 +120,7 @@ export function useMediaRecorder({
       } catch (_) {}
     }
     cleanupStream();
+    recordedBlobsRef.current = [];
     setStatus('idle');
   }, [cleanupStream, stopTimer]);
 
@@ -124,14 +138,18 @@ export function useMediaRecorder({
     }, 1000);
   }, [stopTimer]);
 
-  // Start Recording with 30s chunks
+  // Start Recording (with optional chunkDurationMs or continuous question buffering)
   const startRecording = useCallback(
     async (customStream?: MediaStream) => {
       try {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          return;
+        }
+
         setError(null);
         let activeStream = customStream || streamRef.current;
 
-        // Obtain media stream if not provided
+        // Obtain media stream if not provided or inactive
         if (!activeStream || !activeStream.active) {
           const constraints: MediaStreamConstraints = isVideoMode
             ? {
@@ -167,11 +185,13 @@ export function useMediaRecorder({
         mediaRecorderRef.current = recorder;
         chunkIndexRef.current = 0;
         isFinalizingRef.current = false;
+        recordedBlobsRef.current = [];
         setChunkIndex(0);
         setElapsedTime(0);
 
         recorder.ondataavailable = (event: BlobEvent) => {
           if (event.data && event.data.size > 0) {
+            recordedBlobsRef.current.push(event.data);
             const currentIdx = chunkIndexRef.current;
             chunkIndexRef.current += 1;
             setChunkIndex(chunkIndexRef.current);
@@ -190,8 +210,11 @@ export function useMediaRecorder({
           if (onError) onError(err);
         };
 
-        // Start timeslice chunking every chunkDurationMs (30s)
-        recorder.start(chunkDurationMs);
+        if (chunkDurationMs && chunkDurationMs > 0) {
+          recorder.start(chunkDurationMs);
+        } else {
+          recorder.start();
+        }
         setStatus('recording');
         startTimer();
       } catch (err: any) {
@@ -224,35 +247,57 @@ export function useMediaRecorder({
   }, [startTimer]);
 
   // Stop Recording
-  const stopRecording = useCallback(async (): Promise<void> => {
-    return new Promise((resolve) => {
-      stopTimer();
-      isFinalizingRef.current = true;
+  const stopRecording = useCallback(
+    async (keepStream = false): Promise<MediaRecordingResult | null> => {
+      return new Promise((resolve) => {
+        stopTimer();
+        isFinalizingRef.current = true;
+        const recorder = mediaRecorderRef.current;
+        const durationSeconds = elapsedTimeRef.current;
 
-      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
-        setStatus('stopped');
-        cleanupStream();
-        resolve();
-        return;
-      }
+        const finishAndResolve = () => {
+          setStatus('stopped');
+          if (!keepStream) {
+            cleanupStream();
+          }
+          const effectiveMime = recorder?.mimeType || getSupportedMimeType(isVideoMode) || 'video/webm';
+          const finalBlob = new Blob(recordedBlobsRef.current, { type: effectiveMime });
+          recordedBlobsRef.current = [];
+          const localUrl = finalBlob.size > 0 ? URL.createObjectURL(finalBlob) : '';
+          resolve(
+            finalBlob.size > 0
+              ? {
+                  blob: finalBlob,
+                  url: localUrl,
+                  duration: durationSeconds,
+                  mimeType: effectiveMime,
+                }
+              : null
+          );
+        };
 
-      mediaRecorderRef.current.onstop = () => {
-        setStatus('stopped');
-        cleanupStream();
-        resolve();
-      };
+        if (!recorder || recorder.state === 'inactive') {
+          finishAndResolve();
+          return;
+        }
 
-      try {
-        // Requests any remaining buffer to fire in ondataavailable as final chunk
-        mediaRecorderRef.current.requestData();
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        setStatus('stopped');
-        cleanupStream();
-        resolve();
-      }
-    });
-  }, [stopTimer, cleanupStream]);
+        recorder.onstop = () => {
+          finishAndResolve();
+        };
+
+        try {
+          // Requests any remaining buffer to fire in ondataavailable as final chunk
+          if (typeof recorder.requestData === 'function') {
+            recorder.requestData();
+          }
+          recorder.stop();
+        } catch (e) {
+          finishAndResolve();
+        }
+      });
+    },
+    [stopTimer, cleanupStream, isVideoMode]
+  );
 
   return {
     status,

@@ -78,7 +78,7 @@ export default function VideoPlayer({
   onSeek,
   onDurationChange,
 }: Props) {
-  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || fallbackUrl || null);
+  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || fallbackUrl || fallbackUrl || null);
   const [isMounted, setIsMounted] = useState(false);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
 
@@ -317,8 +317,36 @@ export default function VideoPlayer({
     );
   }
 
-  // ── 2. Standard Video Mode (when media is Video and URL is present) ──────────
-  if (!isAudioOnly && currentMediaUrl) {
+  // ── 2. Standard Video Mode (when media is Video and has valid URL) ──────────
+  const isVideoFile =
+    !isAudioOnly &&
+    Boolean(currentMediaUrl || youtubeUrl || fallbackUrl) &&
+    (() => {
+      const testUrl = currentMediaUrl || youtubeUrl || fallbackUrl || "";
+      if (testUrl.startsWith("blob:") || testUrl.startsWith("data:")) {
+        return true;
+      }
+      try {
+        const pathname = new URL(testUrl).pathname.toLowerCase();
+        return (
+          pathname.endsWith(".mp4") ||
+          pathname.endsWith(".webm") ||
+          pathname.endsWith("/video") ||
+          pathname.includes("/playback")
+        );
+      } catch {
+        // Fallback for relative or non-standard URLs the URL constructor rejects
+        const lower = testUrl.toLowerCase();
+        return (
+          lower.startsWith("blob:") ||
+          lower.includes(".mp4") ||
+          lower.includes(".webm") ||
+          lower.includes("/video") ||
+          lower.includes("/playback")
+        );
+      }
+    })();
+  if (!isAudioOnly && currentMediaUrl && isVideoFile) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center border-2 border-slate-800 shadow-md ${className ?? ""}`}

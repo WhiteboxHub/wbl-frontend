@@ -371,8 +371,13 @@ export default function TechnicalEvaluationView({
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
+  const hasValidYoutube = Boolean(
+    report.youtube_url &&
+    !report.youtube_url.includes("aiprep_rec_") &&
+    !report.youtube_url.includes("UF8uR6Z6KLc")
+  );
   const effectivePlaybackUrl = canShowRecording
-    ? (report.youtube_url || serverUrl || localPreviewUrl)
+    ? ((hasValidYoutube ? report.youtube_url : null) || localPreviewUrl || serverUrl)
     : undefined;
 
   const durationSeconds =
