@@ -2077,24 +2077,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const getCandidateId = async (): Promise<number | undefined> => {
     if (propCandidateId) return propCandidateId;
     try {
+      if (typeof window !== 'undefined') {
+        const directCandidateId =
+          localStorage.getItem('candidate_id') ||
+          sessionStorage.getItem('aiprep_candidate_id') ||
+          sessionStorage.getItem('candidate_id');
+        if (directCandidateId && !isNaN(Number(directCandidateId))) return Number(directCandidateId);
+      }
       const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (userStr) {
         const parsed = JSON.parse(userStr);
-        if (parsed?.candidate_id || parsed?.id) return parsed.candidate_id || parsed.id;
+        if (parsed?.candidate_id) return Number(parsed.candidate_id);
+        if (parsed?.id) return Number(parsed.id);
       }
       const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null;
-      if (token) {
+      if (token && token.includes('.')) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload?.candidate_id) return payload.candidate_id;
+          if (payload?.candidate_id) return Number(payload.candidate_id);
+          if (payload?.id) return Number(payload.id);
         } catch {}
       }
-      const userResponse = await apiFetch("user_dashboard");
-      const resolvedId = userResponse?.candidate_id || userResponse?.id;
-      if (resolvedId && typeof window !== 'undefined') {
-        sessionStorage.setItem('aiprep_candidate_id', String(resolvedId));
-      }
-      if (resolvedId) return resolvedId;
     } catch (err) {
       console.warn("[DeviceCheckWizard] Could not resolve candidate profile:", err);
     }

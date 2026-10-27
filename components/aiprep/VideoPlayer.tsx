@@ -30,18 +30,23 @@ interface Props {
   onDurationChange?: (durationSeconds: number) => void;
 }
 
-function extractYoutubeId(url: string): string | null {
+export function extractYoutubeId(url?: string | null): string | null {
+  if (!url) return null;
   try {
     const parsed = new URL(url);
+    let id: string | null = null;
     if (parsed.hostname.includes("youtube.com") && parsed.searchParams.has("v")) {
-      return parsed.searchParams.get("v");
+      id = parsed.searchParams.get("v");
+    } else if (parsed.hostname === "youtu.be") {
+      id = parsed.pathname.replace(/^\//, "").split("/")[0] || null;
+    } else if (parsed.hostname.includes("youtube.com") && parsed.pathname.startsWith("/embed/")) {
+      id = parsed.pathname.replace("/embed/", "").split("/")[0] || null;
     }
-    if (parsed.hostname === "youtu.be") {
-      return parsed.pathname.replace(/^\//, "").split("/")[0] || null;
+    // Filter out dummy/mock placeholders from backend tests, quota-fallback, or staging
+    if (id && (id.startsWith("aiprep_rec_") || id.includes("mock") || id.includes("dummy") || id === "UF8uR6Z6KLc")) {
+      return null;
     }
-    if (parsed.hostname.includes("youtube.com") && parsed.pathname.startsWith("/embed/")) {
-      return parsed.pathname.replace("/embed/", "").split("/")[0] || null;
-    }
+    return id;
   } catch {
     // invalid URL
   }
@@ -126,7 +131,6 @@ export default function VideoPlayer({
 
   const handleMediaError = useCallback(() => {
     if (currentMediaUrl && fallbackUrl && currentMediaUrl !== fallbackUrl) {
-      console.warn("[VideoPlayer] Primary media source failed, falling back to server URL:", fallbackUrl);
       setCurrentMediaUrl(fallbackUrl);
       setHasMediaError(false);
     } else {
@@ -275,8 +279,8 @@ export default function VideoPlayer({
     }
   };
 
-  // ── 1. YouTube Embed Mode ──────────────────────────────────────────────────
-  if (ytId && !useServerFallback) {
+  // ── 1. YouTube Embed Mode (Only for video assessments with valid YouTube IDs) ──
+  if (!isAudioOnly && ytId && !useServerFallback) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
@@ -289,8 +293,11 @@ export default function VideoPlayer({
           allowFullScreen
         />
         {fallbackUrl && (
-          <div className="py-1.5 px-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Playback issues?</span>
+          <div className="py-2 px-3.5 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <AlertCircle size={14} className="text-amber-400 shrink-0" />
+              <span>Video still processing or playback issue on YouTube?</span>
+            </span>
             <button
               type="button"
               onClick={() => {
