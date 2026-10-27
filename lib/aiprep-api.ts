@@ -370,7 +370,8 @@ export const aiPrepApi = {
     payload: CandidateSubmitAssessmentRequest = {},
     onProgress?: (event: Record<string, any>) => void,
     candidateId?: string | number,
-    audioBlob?: Blob | null
+    audioBlob?: Blob | null,
+    videoBlob?: Blob | null
   ): Promise<Record<string, any>> => {
     const cid = resolveCandidateId(candidateId);
     const path = `aiprep/candidates/${cid}/assessments/${assessmentId}?stream=true`;
@@ -396,7 +397,13 @@ export const aiPrepApi = {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
-    if (audioBlob) {
+    if (videoBlob) {
+      const formData = new FormData();
+      const ext = (videoBlob.type && videoBlob.type.includes("mp4")) ? "mp4" : "webm";
+      formData.append("video", videoBlob, `assembled.${ext}`);
+      formData.append("assessment_data", JSON.stringify(payload));
+      body = formData;
+    } else if (audioBlob) {
       const formData = new FormData();
       const ext = (audioBlob.type && audioBlob.type.includes("mp4")) ? "mp4" : "webm";
       formData.append("audio", audioBlob, `assessment_audio.${ext}`);

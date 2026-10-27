@@ -569,6 +569,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, []);
 
   const isIntroType = assessmentType === 'INTRO' || assessmentType === 'JD_INTRO';
+  const isMultiQuestion =
+    assessmentType === 'TECHNICAL' ||
+    assessmentType === 'HIRING_MANAGER' ||
+    assessmentType === 'RECRUITER' ||
+    assessmentType === 'SYSTEM_DESIGN';
   const assessmentTitle = ({
     INTRO: 'INTRO Assessment',
     JD_INTRO: 'JD Walkthrough Assessment',
@@ -633,7 +638,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     },
   });
 
-  // ── Media Recorder Hook (30s slicing for Video Assessments) ────────────────
+  // ── Media Recorder Hook (Continuous Question Buffering for Video Assessments) ──
   const {
     status: videoRecordingStatus,
     stream: videoStream,
@@ -643,14 +648,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     cleanup: cleanupVideoRecorder,
   } = useMediaRecorder({
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
-    chunkDurationMs: (questions && questions.length > 1) ? undefined : 30000,
+    chunkDurationMs: 0,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       if (isAudioOnly) return;
       console.log(`[Media Pipeline] Produced slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
       if (blob && blob.size > 0) {
         localChunksRef.current.push(blob);
       }
-      if (!questions || questions.length <= 1) {
+      if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
         enqueueChunk(blob, chunkIdx, isFinal);
       }
     },
@@ -1618,6 +1623,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       const qId = activeQ?.id ?? (activeQ as any)?.question_id;
 
       let finalAudioBlob: Blob | null = null;
+      let finalVideoBlob: Blob | null = null;
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
@@ -1631,19 +1637,26 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         }
 
         // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
-        // Multi-question technical assessments stream the complete stitched assembled.webm from the backend serverUrl.
-        if (audioRes?.url && assessmentId && (!questions || questions.length <= 1)) {
+        // Multi-question assessments stream the complete stitched assembled.webm from the backend serverUrl.
+        if (audioRes?.url && assessmentId && !isMultiQuestion && isIntroType) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, audioRes.url);
           }
+        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
+          if ((window as any).__aiprep_local_preview) {
+            delete (window as any).__aiprep_local_preview[assessmentId];
+          }
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) {}
         }
       } else {
         const videoRes = await stopVideoRecorder(false);
-        const finalVideoBlob = videoRes?.blob || null;
+        finalVideoBlob = videoRes?.blob || null;
 
-        if (finalVideoBlob && qId) {
+        if (finalVideoBlob && qId && !isIntroType) {
           try {
             await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
           } catch (uploadErr) {
@@ -1651,28 +1664,24 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        // 1b. Create instant combined media blob for zero-gap playback if single-track or available
-        if (videoRes?.url && assessmentId && (!questions || questions.length <= 1)) {
+        // 1b. Create instant combined media blob for zero-gap playback ONLY if single-track intro assessment.
+        // Multi-question assessments (TECHNICAL, HIRING_MANAGER, RECRUITER, SYSTEM_DESIGN) must stream the
+        // continuous server-side assembled.webm to guarantee proper duration, monotonic timestamps, and seekability.
+        if (!isMultiQuestion && isIntroType && videoRes?.url && assessmentId) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = videoRes.url;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, videoRes.url);
           }
-        } else if (localChunksRef.current.length > 0 && assessmentId) {
-          try {
-            const mimeType = 'video/webm';
-            const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
-            const previewUrl = URL.createObjectURL(combinedBlob);
-            if (typeof window !== 'undefined') {
-              (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-              (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
-              sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
-            }
-          } catch (blobErr) {
-            console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
+          if ((window as any).__aiprep_local_preview) {
+            delete (window as any).__aiprep_local_preview[assessmentId];
           }
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) {}
         }
-        if (!questions || questions.length <= 1) {
+        if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
           await waitForAllChunks(8000);
         }
       }
@@ -1776,7 +1785,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         },
         undefined,
-        finalAudioBlob
+        isAudioOnly ? finalAudioBlob : null,
+        !isAudioOnly && isIntroType ? finalVideoBlob : null
       );
       setSubmissionProgress(100);
       setSubmissionStep("Evaluation complete. Opening report…");

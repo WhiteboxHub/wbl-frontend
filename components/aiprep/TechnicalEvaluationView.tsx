@@ -343,8 +343,15 @@ export default function TechnicalEvaluationView({
     true
   );
 
+  const isMultiQuestion = [
+    "TECHNICAL",
+    "HIRING_MANAGER",
+    "RECRUITER",
+    "SYSTEM_DESIGN",
+  ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
+
   const localPreviewUrl =
-    typeof window !== "undefined" && resolvedAssessmentId
+    !isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId
       ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
         (() => {
           try {
@@ -358,7 +365,14 @@ export default function TechnicalEvaluationView({
             return undefined;
           }
         })()
-      : undefined;
+      : (() => {
+          if (isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId) {
+            try {
+              sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+            } catch (_) {}
+          }
+          return undefined;
+        })();
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
   const backendOrigin = apiBase.startsWith("http")

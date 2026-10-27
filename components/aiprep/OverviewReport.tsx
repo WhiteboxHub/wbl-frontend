@@ -1800,8 +1800,15 @@ export function EvaluationContent({
     (report as any)?.save_recording ??
     true
   );
+  const isMultiQuestion = [
+    "TECHNICAL",
+    "HIRING_MANAGER",
+    "RECRUITER",
+    "SYSTEM_DESIGN",
+  ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
+
   const localPreviewUrl =
-    typeof window !== "undefined"
+    !isMultiQuestion && typeof window !== "undefined"
       ? (window as any).__aiprep_local_preview?.[assessmentId] ||
       (() => {
         const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
