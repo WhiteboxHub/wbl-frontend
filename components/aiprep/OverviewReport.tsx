@@ -4017,9 +4017,11 @@ export default function AiPrepReport({
 
   // ── Auto-Poll when assessment is in EVALUATING / isProcessing state ───────
   const processPollAttemptsRef = useRef(0);
+  const ytPollAttemptsRef = useRef(0);
 
   useEffect(() => {
     processPollAttemptsRef.current = 0;
+    ytPollAttemptsRef.current = 0;
   }, [assessmentId]);
 
   useEffect(() => {
@@ -4060,6 +4062,41 @@ export default function AiPrepReport({
       clearInterval(interval);
     };
   }, [isProcessing, assessmentId, loadReport]);
+
+  // ── Auto-Swap to YouTube when background upload completes ─────────────────
+  useEffect(() => {
+    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
+    if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+
+    let isMounted = true;
+    let consecutiveErrors = 0;
+    const interval = setInterval(async () => {
+      try {
+        ytPollAttemptsRef.current += 1;
+        if (ytPollAttemptsRef.current > 12) {
+          // Cap at 12 checks (2 minutes with 10s interval) to prevent unwanted API calls
+          clearInterval(interval);
+          return;
+        }
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        consecutiveErrors = 0;
+        if (isMounted && fresh?.youtube_url) {
+          clearInterval(interval);
+          setReport((prev) => (prev ? { ...prev, youtube_url: fresh.youtube_url } : prev));
+        }
+      } catch (_) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= 3) {
+          clearInterval(interval);
+        }
+      }
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [report?.youtube_url, isProcessing, assessmentId]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
