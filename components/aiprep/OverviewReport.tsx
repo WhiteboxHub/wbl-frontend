@@ -526,52 +526,43 @@ function hasRealSpeech(report: NormalizedReport): boolean {
 }
 
 export function extractAssessmentDurationSeconds(report: NormalizedReport, mediaDurationSec?: number | null): number {
-  const assessment = report.assessment as any;
-  const dataRec = assessment?.data as any;
-
-  const candidates = [
-    dataRec?.audio_telemetry?.duration_seconds,
-    dataRec?.audio_telemetry?.total_audio_duration_seconds,
-    dataRec?.audio_telemetry?.speaking_duration_sec,
-    dataRec?.audio_telemetry?.speaking_duration_seconds,
-    dataRec?.video_telemetry?.duration_seconds,
-    report.audio_telemetry?.duration_seconds,
-    report.audio_telemetry?.total_audio_duration_seconds,
-    report.audio_telemetry?.speaking_duration_sec,
-    report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
-    assessment?.duration_seconds,
-    assessment?.client_duration_seconds,
-    assessment?.total_duration_seconds,
-    report.audio?.recording_environment?.speaking_duration_seconds,
-    (report as any).audio_telemetry?.duration,
-    (report as any).duration_seconds,
-  ];
-
-  let telemetryDuration = 0;
-  for (const val of candidates) {
-    if (val != null) {
-      const num = Number(val);
-      if (!isNaN(num) && num > 0) {
-        telemetryDuration = Math.round(num);
-        break;
-      }
-    }
-  }
-
-  // If telemetry recorded a substantial duration (e.g. 5+ minutes), but mediaDurationSec is an anomalous partial slice,
-  // prioritize the authoritative telemetry duration to ensure consistent timestamps across all views.
-  if (telemetryDuration > 0 && mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
-    if (mediaDurationSec >= telemetryDuration * 0.8) {
-      return Math.round(mediaDurationSec);
-    }
-    return telemetryDuration;
-  }
-
+  // 1. If the media player has loaded the actual audio/video track duration, prioritize it directly
   if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
     return Math.round(mediaDurationSec);
   }
 
-  return telemetryDuration;
+  const assessment = report.assessment as any;
+  const dataRec = assessment?.data as any;
+
+  // 2. Prioritize active speaking/audio duration over full session wall-clock time
+  const candidates = [
+    dataRec?.audio_telemetry?.speaking_duration_sec,
+    dataRec?.audio_telemetry?.speaking_duration_seconds,
+    report.audio_telemetry?.speaking_duration_sec,
+    report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
+    dataRec?.audio_telemetry?.total_audio_duration_seconds,
+    report.audio_telemetry?.total_audio_duration_seconds,
+    report.audio?.recording_environment?.speaking_duration_seconds,
+    dataRec?.audio_telemetry?.duration_seconds,
+    report.audio_telemetry?.duration_seconds,
+    dataRec?.video_telemetry?.duration_seconds,
+    assessment?.duration_seconds,
+    assessment?.total_duration_seconds,
+    assessment?.client_duration_seconds,
+    (report as any).audio_telemetry?.duration,
+    (report as any).duration_seconds,
+  ];
+
+  for (const val of candidates) {
+    if (val != null) {
+      const num = Number(val);
+      if (!isNaN(num) && num > 0) {
+        return Math.round(num);
+      }
+    }
+  }
+
+  return 0;
 }
 
 function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: number | null): string {

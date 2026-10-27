@@ -333,6 +333,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   >([]);
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<any>(null);
+  // Guard: only reset transcript on very first recording start, not on question-transition restarts
+  const transcriptInitializedRef = useRef<boolean>(false);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Per-Question Time Tracking & Multi-Question Answers
@@ -1063,9 +1065,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (isRecording && SpeechRecognition) {
-      // Reset accumulated transcript when a fresh recording session begins
-      finalTranscriptRef.current = '';
-      setLiveTranscript('');
+      // Only reset transcript on the very first recording start.
+      // Question transitions cause isRecording to briefly toggle off/on — we must NOT wipe
+      // accumulated text in those cases or the display goes blank mid-session.
+      if (!transcriptInitializedRef.current) {
+        transcriptInitializedRef.current = true;
+        finalTranscriptRef.current = '';
+        accumulatedTranscriptRef.current = '';
+        setLiveTranscript('');
+      }
 
       try {
         const recognition = new SpeechRecognition();
@@ -1156,10 +1164,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         };
 
         recognition.onend = () => {
-          // Clear interim text on pause so stale unfinalized words don't hang or duplicate
+          // Commit any pending interim speech so words aren't dropped when silence triggers onend
+          if (currentInterimRef.current) {
+            const flushed = formatAsSentence(currentInterimRef.current);
+            if (flushed) {
+              accumulatedTranscriptRef.current = appendDeduplicated(
+                accumulatedTranscriptRef.current,
+                flushed
+              );
+              setLiveTranscript(cleanTechnicalSpeech(accumulatedTranscriptRef.current));
+            }
+          }
           currentInterimRef.current = '';
 
-          // Debounced restart across silent pauses to avoid rapid-fire restart loops
+          // Immediate restart across pauses to eliminate dead audio windows
           if (restartTimeoutRef.current && typeof window !== 'undefined') {
             window.clearTimeout(restartTimeoutRef.current);
           }
@@ -1170,7 +1188,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   recognition.start();
                 } catch (_) { }
               }
-            }, 300) : null;
+            }, 30) : null;
           }
         };
 
@@ -1210,6 +1228,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     transcriptSegmentsRef,
     restartTimeoutRef,
     isRecordingRef,
+    transcriptInitializedRef,
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
@@ -1254,6 +1273,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       for (let seconds = 5; seconds > 0; seconds -= 1) {
         if (preparationCancelledRef.current || isEnding) return;
         setPrepCountdown(seconds);
+        // Pre-warm STT engine on the last tick so it's hot when recording starts
+        if (seconds === 1) {
+          try {
+            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SR && !recognitionRef.current) {
+              const warm = new SR();
+              warm.continuous = false;
+              warm.interimResults = false;
+              warm.onresult = () => {};
+              warm.onend = () => {};
+              warm.start();
+              window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+            }
+          } catch (_) {}
+        }
         await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
       }
     }
@@ -1439,6 +1473,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         for (let seconds = 5; seconds > 0; seconds -= 1) {
           if (preparationCancelledRef.current || isEnding) return;
           setPrepCountdown(seconds);
+          // Pre-warm STT engine on the last tick so it's hot when recording starts
+          if (seconds === 1) {
+            try {
+              const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+              if (SR && !recognitionRef.current) {
+                const warm = new SR();
+                warm.continuous = false;
+                warm.interimResults = false;
+                warm.onresult = () => {};
+                warm.onend = () => {};
+                warm.start();
+                window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+              }
+            } catch (_) {}
+          }
           await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
         }
       }

@@ -348,12 +348,7 @@ export default function TechnicalEvaluationView({
       ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
         (() => {
           try {
-            const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-            if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
-              sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-              return undefined;
-            }
-            return stored || undefined;
+            return sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`) || undefined;
           } catch (_) {
             return undefined;
           }
@@ -372,7 +367,7 @@ export default function TechnicalEvaluationView({
     : undefined;
 
   const effectivePlaybackUrl = canShowRecording
-    ? (report.youtube_url || serverUrl)
+    ? (report.youtube_url || serverUrl || localPreviewUrl)
     : undefined;
 
   const durationSeconds =
@@ -816,7 +811,7 @@ export default function TechnicalEvaluationView({
                 <div className="w-full max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-xs">
                   <VideoPlayer
                     youtubeUrl={effectivePlaybackUrl}
-                    fallbackUrl={serverUrl}
+                    fallbackUrl={localPreviewUrl || serverUrl}
                     videoRef={activeVideoRef}
                     isAudioOnly={isAudioOnly}
                     candidateName={report.candidate_name ?? undefined}
