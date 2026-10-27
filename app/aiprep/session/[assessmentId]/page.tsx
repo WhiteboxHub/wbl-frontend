@@ -1286,9 +1286,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const handleNextQuestionRef = useRef<() => void>(() => { });
   const handleEndSessionRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const hasAutoEndedRef = useRef<boolean>(false);
+  const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [proctoringAlert, setProctoringAlert] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
 
   const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT', count: number) => {
+    if (alertTimerRef.current) {
+      clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = null;
+    }
     if (count >= 3) {
       setProctoringAlert({
         show: true,
@@ -1300,8 +1305,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         show: true,
         message: `Security Warning (${count}/3): Tab switching or screenshot detected. 3 violations will automatically submit your assessment.`,
       });
-      setTimeout(() => {
+      alertTimerRef.current = setTimeout(() => {
         setProctoringAlert((prev) => ({ ...prev, show: false }));
+        alertTimerRef.current = null;
       }, 5000);
     }
   }, []);
