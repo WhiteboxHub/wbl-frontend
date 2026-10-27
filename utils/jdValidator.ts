@@ -108,9 +108,9 @@ const QUALIFICATION_EXPRESSIONS = [
 ];
 
 const INJECTION_PATTERNS = [
-  /\\bignore\s+(all\s+)?(previous|prior)\s+instructions\b/i,
-  /\\bsystem\s+prompt\b/i,
-  /\\bgive\s+me\s+(a\s+)?(100|perfect|full)\s+score\b/i,
+  /\bignore\s+(all\s+)?(previous|prior)\s+instructions\b/i,
+  /\bsystem\s+prompt\b/i,
+  /\bgive\s+me\s+(a\s+)?(100|perfect|full)\s+score\b/i,
 ];
 
 const REPETITIVE_CHARS_REGEX = /([a-zA-Z0-9])\1{7,}/;
