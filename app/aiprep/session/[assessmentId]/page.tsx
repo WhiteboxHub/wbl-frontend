@@ -963,9 +963,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           } catch (_) {}
         }
 
-        // Technical assessments must use the exact question snapshot returned by POST.
-        // Never silently substitute unrelated catalog questions for a Technical attempt.
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
+        // For JD Walkthrough, recover question from server detail (GET /api/aiprep/candidates/{id}/assessments/{id})
+        // and strictly avoid calling unapproved Question Bank endpoints
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType === 'JD_INTRO') {
+          const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
+          if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
+            loadedQuestions = serverQuestions as QuestionBankItem[];
+          } else {
+            loadedQuestions = [
+              {
+                id: 1,
+                question_id: 1,
+                question_text: 'Please introduce yourself and walk through your professional background, highlighting the key experiences and technical skills that align with this job description.',
+                category: 'JD_INTRO',
+                difficulty_level: 'MEDIUM',
+                is_active: true,
+              } as QuestionBankItem,
+            ];
+          }
+        }
+
+        // Technical and JD_INTRO assessments must use the exact question snapshot returned by POST / GET assessment.
+        // Never query the general question catalog for JD_INTRO or TECHNICAL attempts.
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL' && finalType !== 'JD_INTRO') {
           try {
             const qBankRes = await aiprepApi.getQuestions(finalType);
             if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
@@ -976,7 +996,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL' && finalType !== 'JD_INTRO') {
           setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
