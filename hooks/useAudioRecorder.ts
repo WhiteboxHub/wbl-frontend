@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-export type AudioRecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped' | 'error';
+export type AudioRecordingStatus = 'idle' | 'recording' | 'paused' | 'interrupted' | 'stopped' | 'error';
 
 export interface UseAudioRecorderOptions {
   audioConstraints?: MediaTrackConstraints;
@@ -22,6 +22,7 @@ export interface UseAudioRecorderReturn {
   status: AudioRecordingStatus;
   isRecording: boolean;
   isPaused: boolean;
+  isInterrupted: boolean;
   stream: MediaStream | null;
   elapsedTime: number; // in seconds
   audioBlob: Blob | null;
@@ -85,6 +86,18 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
   const elapsedTimeRef = useRef<number>(0);
   const activeUrlRef = useRef<string | null>(null);
 
+  const ctxRef = useRef<AudioContext | null>(null);
+  const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const muteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectingRef = useRef<boolean>(false);
+  const statusRef = useRef<AudioRecordingStatus>('idle');
+
+  const updateStatus = useCallback((next: AudioRecordingStatus) => {
+    statusRef.current = next;
+    setStatus(next);
+  }, []);
+
   // Synchronize elapsed time ref
   useEffect(() => {
     elapsedTimeRef.current = elapsedTime;
@@ -118,8 +131,27 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
 
   // Clean up media stream tracks
   const cleanupStream = useCallback(() => {
+    if (muteTimerRef.current) {
+      clearTimeout(muteTimerRef.current);
+      muteTimerRef.current = null;
+    }
+    try {
+      sourceRef.current?.disconnect();
+    } catch (_) {}
+    sourceRef.current = null;
+    destRef.current = null;
+    if (ctxRef.current && ctxRef.current.state !== 'closed') {
+      try {
+        void ctxRef.current.close().catch(() => {});
+      } catch (_) {}
+    }
+    ctxRef.current = null;
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
+        track.onended = null;
+        track.onmute = null;
+        track.onunmute = null;
         try {
           track.stop();
         } catch (_) {}
@@ -158,8 +190,175 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     setAudioUrl(null);
     setElapsedTime(0);
     setError(null);
-    setStatus('idle');
-  }, [cleanupStream, revokeActiveUrl, stopTimer]);
+    updateStatus('idle');
+  }, [cleanupStream, revokeActiveUrl, stopTimer, updateStatus]);
+
+  // Handle unexpected microphone disconnection
+  const handleInterrupt = useCallback(() => {
+    if (statusRef.current !== 'recording') return;
+    updateStatus('interrupted');
+    stopTimer();
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      try {
+        recorder.requestData();
+        recorder.pause();
+      } catch (_) {}
+    }
+    if (muteTimerRef.current) {
+      clearTimeout(muteTimerRef.current);
+      muteTimerRef.current = null;
+    }
+    try {
+      sourceRef.current?.disconnect();
+    } catch (_) {}
+    sourceRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.onended = null;
+        track.onmute = null;
+        track.onunmute = null;
+        try {
+          track.stop();
+        } catch (_) {}
+      });
+      streamRef.current = null;
+      setStream(null);
+    }
+  }, [stopTimer, updateStatus]);
+
+  const setupTrackListeners = useCallback(
+    (track: MediaStreamTrack) => {
+      const onEnded = () => handleInterrupt();
+      const onMute = () => {
+        if (muteTimerRef.current) clearTimeout(muteTimerRef.current);
+        muteTimerRef.current = setTimeout(handleInterrupt, 1000);
+      };
+      const onUnmute = () => {
+        if (muteTimerRef.current) {
+          clearTimeout(muteTimerRef.current);
+          muteTimerRef.current = null;
+        }
+      };
+
+      track.onended = onEnded;
+      track.onmute = onMute;
+      track.onunmute = onUnmute;
+      try {
+        track.addEventListener('ended', onEnded);
+        track.addEventListener('mute', onMute);
+        track.addEventListener('unmute', onUnmute);
+      } catch (_) {}
+    },
+    [handleInterrupt]
+  );
+
+  const tryReconnect = useCallback(async () => {
+    if (reconnectingRef.current || statusRef.current !== 'interrupted') return;
+    reconnectingRef.current = true;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      if (!devices.some((d) => d.kind === 'audioinput')) return;
+
+      const defaultConstraints: MediaStreamConstraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          ...audioConstraints,
+        },
+        video: false,
+      };
+      const mic = await navigator.mediaDevices.getUserMedia(defaultConstraints);
+      const track = mic.getAudioTracks()[0];
+      if (!track || track.readyState !== 'live' || track.muted || statusRef.current !== 'interrupted') {
+        mic.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      const ctx = ctxRef.current;
+      const dest = destRef.current;
+      if (ctx && dest) {
+        await ctx.resume();
+        const source = ctx.createMediaStreamSource(mic);
+        source.connect(dest);
+        sourceRef.current = source;
+      }
+      streamRef.current = mic;
+      setStream(mic);
+      setupTrackListeners(track);
+
+      if (mediaRecorderRef.current?.state === 'paused') {
+        mediaRecorderRef.current.resume();
+      }
+      startTimer();
+      updateStatus('recording');
+    } catch (_) {
+    } finally {
+      reconnectingRef.current = false;
+    }
+  }, [audioConstraints, setupTrackListeners, startTimer, updateStatus]);
+
+  useEffect(() => {
+    if (status !== 'interrupted') return;
+    const md = navigator.mediaDevices;
+    if (!md) return;
+    md.addEventListener('devicechange', tryReconnect);
+    const id = setInterval(tryReconnect, 2000);
+    void tryReconnect();
+    return () => {
+      md.removeEventListener('devicechange', tryReconnect);
+      clearInterval(id);
+    };
+  }, [status, tryReconnect]);
+
+  useEffect(() => {
+    if (status !== 'recording') return;
+    const md = navigator.mediaDevices;
+    if (!md) return;
+
+    const checkInputStatus = async () => {
+      try {
+        const track = streamRef.current?.getAudioTracks()[0];
+        if (!track || track.readyState === 'ended' || track.muted) {
+          handleInterrupt();
+          return;
+        }
+        const devices = await md.enumerateDevices();
+        const inputs = devices.filter((d) => d.kind === 'audioinput');
+        if (inputs.length === 0) {
+          handleInterrupt();
+          return;
+        }
+        const activeLabel = track.label;
+        const activeId = track.getSettings().deviceId;
+        const deviceStillExists = inputs.some((d) => {
+          if (activeId && activeId !== 'default' && d.deviceId === activeId) return true;
+          if (activeLabel && d.label && d.label === activeLabel) return true;
+          return false;
+        });
+        if (!deviceStillExists && activeLabel) {
+          handleInterrupt();
+        }
+      } catch (_) {}
+    };
+
+    md.addEventListener('devicechange', checkInputStatus);
+
+    // Heartbeat check every 1s: detects if track ended or muted
+    const pollId = setInterval(() => {
+      const track = streamRef.current?.getAudioTracks()[0];
+      if (!track || track.readyState === 'ended' || track.muted) {
+        handleInterrupt();
+      }
+    }, 1000);
+
+    return () => {
+      md.removeEventListener('devicechange', checkInputStatus);
+      clearInterval(pollId);
+    };
+  }, [status, handleInterrupt]);
 
   // Start recording
   const startRecording = useCallback(
@@ -196,7 +395,25 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
           ? { mimeType: selectedMime, audioBitsPerSecond: 64000 }
           : { audioBitsPerSecond: 64000 };
 
-        const recorder = new MediaRecorder(activeStream, recorderOptions);
+        let streamToRecord = activeStream;
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          try {
+            const ctx = new AudioCtx();
+            await ctx.resume();
+            const dest = ctx.createMediaStreamDestination();
+            const source = ctx.createMediaStreamSource(activeStream);
+            source.connect(dest);
+            ctxRef.current = ctx;
+            destRef.current = dest;
+            sourceRef.current = source;
+            streamToRecord = dest.stream;
+          } catch (_) {}
+        }
+        const firstTrack = activeStream.getAudioTracks()[0];
+        if (firstTrack) setupTrackListeners(firstTrack);
+
+        const recorder = new MediaRecorder(streamToRecord, recorderOptions);
         mediaRecorderRef.current = recorder;
 
         recorder.ondataavailable = (event: BlobEvent) => {
@@ -222,17 +439,17 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
           recorder.start();
         }
 
-        setStatus('recording');
+        updateStatus('recording');
         startTimer();
       } catch (err: any) {
         const message = err?.message || 'Failed to start audio recording';
         setError(message);
-        setStatus('error');
+        updateStatus('error');
         if (onError) onError(err);
         cleanup();
       }
     },
-    [audioConstraints, timesliceMs, onDataAvailable, onError, startTimer, cleanup, revokeActiveUrl]
+    [audioConstraints, timesliceMs, onDataAvailable, onError, startTimer, cleanup, revokeActiveUrl, updateStatus]
   );
 
   // Pause recording
@@ -240,23 +457,28 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.pause();
       stopTimer();
-      setStatus('paused');
+      updateStatus('paused');
     }
-  }, [stopTimer]);
+  }, [stopTimer, updateStatus]);
 
   // Resume recording
   const resumeRecording = useCallback(() => {
+    if (statusRef.current === 'interrupted') {
+      void tryReconnect();
+      return;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
       mediaRecorderRef.current.resume();
       startTimer();
-      setStatus('recording');
+      updateStatus('recording');
     }
-  }, [startTimer]);
+  }, [tryReconnect, startTimer, updateStatus]);
 
   // Stop recording and generate 0ms instant playback ObjectURL
   const stopRecording = useCallback(async (): Promise<AudioRecordingResult> => {
     return new Promise((resolve, reject) => {
       stopTimer();
+      if (statusRef.current === 'interrupted') updateStatus('stopped');
       const recorder = mediaRecorderRef.current;
       const durationSeconds = elapsedTimeRef.current;
 
@@ -269,7 +491,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         activeUrlRef.current = localUrl;
         setAudioBlob(finalBlob);
         setAudioUrl(localUrl);
-        setStatus('stopped');
+        updateStatus('stopped');
 
         resolve({
           blob: finalBlob,
@@ -298,12 +520,13 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         finishAndResolve();
       }
     });
-  }, [cleanupStream, mimeType, stopTimer]);
+  }, [cleanupStream, mimeType, stopTimer, updateStatus]);
 
   return {
     status,
     isRecording: status === 'recording',
     isPaused: status === 'paused',
+    isInterrupted: status === 'interrupted',
     stream,
     elapsedTime,
     audioBlob,
