@@ -1793,7 +1793,7 @@ export function EvaluationContent({
       ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
       : "";
 
-  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
+  const rawMediaType = ((report as any).media_type || report.assessment?.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
 
   const mediaPath = isAudioOnly ? "audio" : "video";
@@ -1820,14 +1820,25 @@ export function EvaluationContent({
       : undefined;
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
-  const backendOrigin = apiBase.startsWith("http")
-    ? apiBase.replace(/\/api\/?$/, "")
-    : "http://127.0.0.1:8000";
+  let backendOrigin = "";
+  if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+    backendOrigin = apiBase.replace(/\/api\/?$/, "");
+  } else if (typeof window !== "undefined" && window.location.origin) {
+    backendOrigin = window.location.origin;
+  }
+
+  const hasServerRecording = Boolean(
+    (report as any)?.has_recording ||
+    (report as any)?.recording_url ||
+    (report.assessment as any)?.has_recording ||
+    (report.assessment?.data as any)?.has_recording ||
+    (report.assessment as any)?.recording_url
+  );
 
   const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
   const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   // Persistent server recording stream URL directly from server storage
-  const serverUrl = assessmentId
+  const serverUrl = (assessmentId && serverPath)
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
@@ -1852,20 +1863,10 @@ export function EvaluationContent({
   // For Audio assessments: always play native audio via serverUrl (or localPreviewUrl)
   // For Video assessments:
   // 1. Verified YouTube URL (when real YouTube upload succeeded)
-  // 2. Instant Local Playback (0ms zero-latency preview while YouTube/processing is pending)
-  // 3. Authoritative Persistent Server Storage Stream (when YouTube is unavailable, mock, or pending)
-  const hasServerRecording = Boolean(
-    (report as any)?.has_recording ??
-    (report as any)?.recording_url ??
-    (report.assessment as any)?.has_recording ??
-    (report.assessment?.data as any)?.has_recording ??
-    (report.assessment as any)?.recording_url ??
-    true
-  );
+  // 2. Instant Local Playback (0ms zero-latency preview while processing is pending)
+  // 3. Authoritative Persistent Server Storage Stream (when real recording exists on server)
   const effectivePlaybackUrl = canShowRecording
-    ? (isAudioOnly
-        ? (localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
-        : (isRealYouTube ? youtube_url : (localPreviewUrl || (hasServerRecording ? serverUrl : undefined))))
+    ? (isRealYouTube ? youtube_url : (localPreviewUrl || serverUrl))
     : undefined;
 
   const durationSeconds =
@@ -2493,7 +2494,7 @@ export function EvaluationContent({
       })()}
 
       {/* ── 3. RECORDING PLAYBACK ── */}
-      {canShowRecording && effectivePlaybackUrl && (
+      {canShowRecording && (
         <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
           <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
             {isAudioOnly ? (
@@ -4016,11 +4017,9 @@ export default function AiPrepReport({
 
   // ── Auto-Poll when assessment is in EVALUATING / isProcessing state ───────
   const processPollAttemptsRef = useRef(0);
-  const ytPollAttemptsRef = useRef(0);
 
   useEffect(() => {
     processPollAttemptsRef.current = 0;
-    ytPollAttemptsRef.current = 0;
   }, [assessmentId]);
 
   useEffect(() => {
@@ -4061,46 +4060,6 @@ export default function AiPrepReport({
       clearInterval(interval);
     };
   }, [isProcessing, assessmentId, loadReport]);
-
-  // ── Auto-Swap to YouTube when background upload completes ─────────────────
-  useEffect(() => {
-    const isTechAudio = report?.assessment?.assessment_type === "TECHNICAL" &&
-      ((report?.assessment?.media_type || "").toUpperCase() === "AUDIO" || (report?.assessment?.media_type || "").toUpperCase() === "AUDIO_ONLY");
-    // Technical audio streams authoritative assembled.webm directly from serverUrl — bypass YouTube polling
-    if (isTechAudio) return;
-
-    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
-
-    let isMounted = true;
-    let consecutiveErrors = 0;
-    const interval = setInterval(async () => {
-      try {
-        ytPollAttemptsRef.current += 1;
-        if (ytPollAttemptsRef.current > 12) {
-          // Cap at 12 checks (2 minutes with 10s interval) to prevent unwanted API calls
-          clearInterval(interval);
-          return;
-        }
-        const fresh = await aiPrepApi.getAssessment(assessmentId);
-        consecutiveErrors = 0;
-        if (isMounted && fresh?.youtube_url) {
-          clearInterval(interval);
-          setReport((prev) => (prev ? { ...prev, youtube_url: fresh.youtube_url } : prev));
-        }
-      } catch (_) {
-        consecutiveErrors += 1;
-        if (consecutiveErrors >= 3) {
-          clearInterval(interval);
-        }
-      }
-    }, 10000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [report?.youtube_url, isProcessing, assessmentId]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
