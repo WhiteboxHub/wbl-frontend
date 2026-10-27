@@ -75,7 +75,7 @@ const COVER_LETTER_PATTERNS = [
 ];
 
 const BUSINESS_DOC_PATTERNS = [
-  /\b(invoice\s*#|billing statement|balance due|payment terms\s*[:-]|terms of service|privacy policy|non-disclosure agreement|lease agreement|landlord|tenant)\b/i,
+  /\b(invoice\s*#|billing statement|balance due|amount due|payment terms\s*[:-]|wire transfer|non-disclosure agreement|lease agreement|landlord shall|tenant shall)\b/i,
 ];
 
 const MEETING_NOTES_PATTERNS = [
@@ -89,7 +89,7 @@ const FILENAME_DISQUALIFIERS = [
   { regex: /cover[-_ ]*letter/i, type: 'COVER_LETTER', label: 'Cover Letter' },
   { regex: /assignment|homework|lab[-_ ]*report|syllabus|thesis|dissertation/i, type: 'ACADEMIC', label: 'Academic Assignment or Coursework' },
   { regex: /readme|changelog|license/i, type: 'DOCS', label: 'Technical Documentation or README' },
-  { regex: /invoice|receipt|contract|agreement|nda|billing/i, type: 'BUSINESS', label: 'Business Contract or Invoice' },
+  { regex: /(?:^|[._ -])(?:invoice|receipt|\bnda\b|billing)(?:[._ -]|$)/i, type: 'BUSINESS', label: 'Business Contract or Invoice' },
 ];
 
 // ─── Affirmative JD Structural Patterns ────────────────────────────────────────
@@ -271,6 +271,74 @@ export function validateJobDescription(rawText: string | null | undefined, fileN
     };
   }
 
+  // Disqualifier: Academic Papers & Homework
+  if (ACADEMIC_PATTERNS.some((p) => p.test(text))) {
+    details.detectedDisqualifier = 'ACADEMIC';
+    return {
+      isValid: false,
+      error: 'This document appears to be an academic paper, homework assignment, or syllabus rather than a Job Description.',
+      guidance: [
+        'Please provide a professional job posting for the position you are targeting.',
+      ],
+      details,
+    };
+  }
+
+  // Disqualifier: Cover Letters
+  if (COVER_LETTER_PATTERNS.some((p) => p.test(text))) {
+    details.detectedDisqualifier = 'COVER_LETTER';
+    return {
+      isValid: false,
+      error: 'This document appears to be a Cover Letter or candidate application note rather than a Job Description.',
+      guidance: [
+        'Please upload the employer job posting with requirements and responsibilities.',
+      ],
+      details,
+    };
+  }
+
+  // Disqualifier: Invoices, Contracts, Business Agreements
+  if (BUSINESS_DOC_PATTERNS.some((p) => p.test(text))) {
+    details.detectedDisqualifier = 'BUSINESS_DOC';
+    return {
+      isValid: false,
+      error: 'This document appears to be a financial, legal, or administrative document rather than a Job Description.',
+      guidance: [
+        'Please upload the job opening description for this assessment.',
+      ],
+      details,
+    };
+  }
+
+  // ── 7. Affirmative Job Description Structural Verification ──────────────────
+  const hasResp = RESP_REGEX.test(text);
+  const hasReq = REQ_REGEX.test(text);
+  const hasAboutRole = HEADER_ABOUT_ROLE.test(text);
+  const hasReqFields = HEADER_REQ_FIELDS.test(text);
+  const hasHiringContext = HIRING_CONTEXT_PATTERNS.some((p) => p.test(text));
+  const hasQualExpr = QUALIFICATION_EXPRESSIONS.some((p) => p.test(text));
+
+  details.hasResponsibilitySignals = hasResp;
+  details.hasRequirementSignals = hasReq || hasQualExpr;
+  details.hasRoleSignals = hasAboutRole || hasReqFields || hasHiringContext;
+
+  // A genuine Job Description MUST have at least one of these structural compositions:
+  // 1) Both standard section headers (Responsibilities AND Requirements)
+  // 2) At least one standard header (Responsibilities OR Requirements) PLUS explicit Hiring Context / Requisition fields
+  // 3) Strong Hiring Context (e.g. "We are looking for...") AND explicit candidate qualification expressions
+  const hasStandardHeaders = hasResp && (hasReq || hasQualExpr);
+  const hasHeaderPlusHiring = (hasResp || hasReq) && (hasHiringContext || hasAboutRole || hasReqFields);
+  const hasStrongHiringFormat = hasHiringContext && hasQualExpr && (hasAboutRole || hasReqFields);
+
+  if (hasStandardHeaders || hasHeaderPlusHiring || hasStrongHiringFormat) {
+    return {
+      isValid: true,
+      details,
+    };
+  }
+
+  // ── 8. Non-JD Document Heuristics (for documents lacking JD structure) ──────
+
   // Disqualifier: Study Guides, Handbooks, Courseware
   if (STUDY_GUIDE_PATTERNS.some((p) => p.test(text))) {
     details.detectedDisqualifier = 'STUDY_GUIDE';
@@ -311,45 +379,6 @@ export function validateJobDescription(rawText: string | null | undefined, fileN
     };
   }
 
-  // Disqualifier: Academic Papers & Homework
-  if (ACADEMIC_PATTERNS.some((p) => p.test(text))) {
-    details.detectedDisqualifier = 'ACADEMIC';
-    return {
-      isValid: false,
-      error: 'This document appears to be an academic paper, homework assignment, or syllabus rather than a Job Description.',
-      guidance: [
-        'Please provide a professional job posting for the position you are targeting.',
-      ],
-      details,
-    };
-  }
-
-  // Disqualifier: Cover Letters
-  if (COVER_LETTER_PATTERNS.some((p) => p.test(text))) {
-    details.detectedDisqualifier = 'COVER_LETTER';
-    return {
-      isValid: false,
-      error: 'This document appears to be a Cover Letter or candidate application note rather than a Job Description.',
-      guidance: [
-        'Please upload the employer job posting with requirements and responsibilities.',
-      ],
-      details,
-    };
-  }
-
-  // Disqualifier: Invoices, Contracts, Business Agreements
-  if (BUSINESS_DOC_PATTERNS.some((p) => p.test(text))) {
-    details.detectedDisqualifier = 'BUSINESS_DOC';
-    return {
-      isValid: false,
-      error: 'This document appears to be a financial, legal, or administrative document rather than a Job Description.',
-      guidance: [
-        'Please upload the job opening description for this assessment.',
-      ],
-      details,
-    };
-  }
-
   // Disqualifier: Meeting Notes & Retrospectives
   if (MEETING_NOTES_PATTERNS.some((p) => p.test(text))) {
     details.detectedDisqualifier = 'MEETING_NOTES';
@@ -359,33 +388,6 @@ export function validateJobDescription(rawText: string | null | undefined, fileN
       guidance: [
         'Please provide an authentic employer job description.',
       ],
-      details,
-    };
-  }
-
-  // ── 7. Affirmative Job Description Structural Verification ──────────────────
-  const hasResp = RESP_REGEX.test(text);
-  const hasReq = REQ_REGEX.test(text);
-  const hasAboutRole = HEADER_ABOUT_ROLE.test(text);
-  const hasReqFields = HEADER_REQ_FIELDS.test(text);
-  const hasHiringContext = HIRING_CONTEXT_PATTERNS.some((p) => p.test(text));
-  const hasQualExpr = QUALIFICATION_EXPRESSIONS.some((p) => p.test(text));
-
-  details.hasResponsibilitySignals = hasResp;
-  details.hasRequirementSignals = hasReq || hasQualExpr;
-  details.hasRoleSignals = hasAboutRole || hasReqFields || hasHiringContext;
-
-  // A genuine Job Description MUST have at least one of these structural compositions:
-  // 1) Both standard section headers (Responsibilities AND Requirements)
-  // 2) At least one standard header (Responsibilities OR Requirements) PLUS explicit Hiring Context / Requisition fields
-  // 3) Strong Hiring Context (e.g. "We are looking for...") AND explicit candidate qualification expressions
-  const hasStandardHeaders = hasResp && (hasReq || hasQualExpr);
-  const hasHeaderPlusHiring = (hasResp || hasReq) && (hasHiringContext || hasAboutRole || hasReqFields);
-  const hasStrongHiringFormat = hasHiringContext && hasQualExpr && (hasAboutRole || hasReqFields);
-
-  if (hasStandardHeaders || hasHeaderPlusHiring || hasStrongHiringFormat) {
-    return {
-      isValid: true,
       details,
     };
   }

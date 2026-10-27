@@ -186,4 +186,61 @@ References cited in this report include Tanenbaum Modern Operating Systems and S
       expect(res.details.detectedDisqualifier).toBe(f.disq);
     }
   });
+
+  it('accepts authentic JDs with careers-page footer (Privacy Policy / Terms of Service)', () => {
+    const jdWithFooter = BASE_JD + '\n\n© 2026 TechCorp Inc. All rights reserved. | Privacy Policy | Terms of Service';
+    const res = validateJobDescription(jdWithFooter);
+    expect(res.isValid).toBe(true);
+    expect(res.error).toBeUndefined();
+  });
+
+  it('accepts authentic JDs mentioning multi-tenant SaaS without flagging tenant', () => {
+    const jdMultiTenant = BASE_JD + '\nYou will architect multi-tenant SaaS systems and manage database isolation across customers.';
+    const res = validateJobDescription(jdMultiTenant);
+    expect(res.isValid).toBe(true);
+    expect(res.error).toBeUndefined();
+  });
+
+  it('accepts authentic JDs mentioning technical tools like docker run and npm install', () => {
+    const jdWithTools = BASE_JD + '\nRequirements include: Proficiency with containerization (docker run, docker-compose) and npm install workflows.';
+    const res = validateJobDescription(jdWithTools);
+    expect(res.isValid).toBe(true);
+    expect(res.error).toBeUndefined();
+  });
+
+  it('accepts authentic JDs mentioning company employee handbook', () => {
+    const jdWithHandbook = BASE_JD + '\nWe are an open-first company; please review our public employee handbook for details on our culture.';
+    const res = validateJobDescription(jdWithHandbook);
+    expect(res.isValid).toBe(true);
+    expect(res.error).toBeUndefined();
+  });
+
+  it('does NOT reject files named Standard_Backend_Engineer_JD.docx as nda', () => {
+    const res = validateJobDescription(BASE_JD, 'Standard_Backend_Engineer_JD.docx');
+    expect(res.isValid).toBe(true);
+  });
+
+  it('does NOT reject files named Backend_Engineer_Contract_Role.pdf as business invoice', () => {
+    const res = validateJobDescription(BASE_JD, 'Backend_Engineer_Contract_Role.pdf');
+    expect(res.isValid).toBe(true);
+  });
+
+  it('strictly rejects genuine invoices and billing statements', () => {
+    const invoiceText = `
+INVOICE #INV-2026-8891
+Billing Statement for Consulting Services
+Date: October 27, 2026
+Customer Account: ACME-Corp-4412
+Description: Professional enterprise software development and consulting services for the month of October 2026.
+Amount Due: $14,500.00
+Balance Due: $14,500.00
+Payment terms: Net 30 days upon receipt of invoice.
+Please send wire transfer to Silicon Valley Bank, Routing 121000358, Account 99882211.
+Remit payment inquiries to billing@consulting-services.example.com.
+`;
+    const res = validateJobDescription(invoiceText);
+    expect(res.isValid).toBe(false);
+    expect(res.error).toContain('financial');
+    expect(res.details.detectedDisqualifier).toBe('BUSINESS_DOC');
+  });
 });
