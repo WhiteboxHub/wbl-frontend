@@ -34,6 +34,9 @@ import {
   ArrowLeft,
   VolumeX,
   AlertCircle,
+  AlertTriangle,
+  ShieldAlert,
+  X,
   Loader2,
 } from 'lucide-react';
 
@@ -72,6 +75,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState<boolean>(false);
+  const [showProctoringRulesModal, setShowProctoringRulesModal] = useState<boolean>(false);
 
   const recordTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -535,6 +539,15 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
     }
   };
 
+  const handleConfirmStartAssessment = async () => {
+    setShowProctoringRulesModal(false);
+    if (testAudioUrl) {
+      await handleLaunchAssessment();
+    } else {
+      await handleSkipPractice();
+    }
+  };
+
   return (
     <div className="practice-step-root flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-50 text-slate-900 animate-in fade-in duration-300 dark:bg-slate-950 dark:text-white">
       <style>{`
@@ -710,8 +723,36 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
               Back
             </button>
             <p className="justify-self-center text-center text-[10px] text-slate-500 dark:text-slate-400 sm:text-xs">Optional practice · No timer pressure</p>
-            <button type="button" onClick={testAudioUrl ? handleLaunchAssessment : handleSkipPractice} disabled={isRecording || isLaunching} className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm">
-              {isLaunching ? <><Loader2 className="h-4 w-4 animate-spin" /> Starting…</> : testAudioUrl ? <>Start Assessment <ChevronRight className="h-4 w-4" /></> : isRecording ? <>Recording practice…</> : <>Skip Practice <ChevronRight className="h-4 w-4" /></>}
+            <button
+              type="button"
+              onClick={() => {
+                const isIntro = assessmentType === 'INTRO' || assessmentType === 'JD_INTRO';
+                if (isIntro) {
+                  setShowProctoringRulesModal(true);
+                } else if (testAudioUrl) {
+                  void handleLaunchAssessment();
+                } else {
+                  void handleSkipPractice();
+                }
+              }}
+              disabled={isRecording || isLaunching}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-500/20 transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm cursor-pointer"
+            >
+              {isLaunching ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Starting…
+                </>
+              ) : testAudioUrl ? (
+                <>
+                  Start Assessment <ChevronRight className="h-4 w-4" />
+                </>
+              ) : isRecording ? (
+                <>Recording practice…</>
+              ) : (
+                <>
+                  Skip Practice <ChevronRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </footer>
           <style>{`
@@ -722,6 +763,96 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           `}</style>
         </section>
       </main>
+
+      {/* Proctoring Instructions & Anti-Cheat Rules Modal */}
+      {showProctoringRulesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl border-2 border-violet-200 bg-white p-6 shadow-2xl dark:border-violet-900/60 dark:bg-slate-900 sm:p-7 space-y-4">
+            
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowProctoringRulesModal(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors cursor-pointer"
+              aria-label="Close rules"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Header Icon + Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 flex items-center justify-center shrink-0 border border-violet-200 dark:border-violet-800 shadow-sm">
+                <ShieldAlert size={26} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/50 px-2 py-0.5 rounded-full border border-violet-200/80 dark:border-violet-800/80 mb-1">
+                  Proctoring & Test Integrity
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+                  Assessment Security Rules
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Before beginning your real assessment, please read and agree to the following mandatory test room restrictions:
+            </p>
+
+            {/* Restriction Guidelines Cards */}
+            <div className="space-y-2.5 text-xs">
+              
+              {/* Rule 1: No Tab Switching */}
+              <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5">
+                <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[11px]">
+                  1
+                </span>
+                <div>
+                  <h4 className="font-bold text-amber-900 dark:text-amber-300 text-xs">
+                    No Tab Switching or Window Minimizing
+                  </h4>
+                  <p className="text-[11px] text-amber-800/90 dark:text-amber-400/90 mt-0.5 leading-snug">
+                    You must remain in the assessment window at all times. Switching to other browser tabs or applications is recorded as a violation.
+                  </p>
+                </div>
+              </div>
+
+              {/* Rule 2: No Screenshots */}
+              <div className="p-3 rounded-2xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 flex items-start gap-2.5">
+                <span className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 flex items-center justify-center shrink-0 mt-0.5 font-bold text-[11px]">
+                  2
+                </span>
+                <div>
+                  <h4 className="font-bold text-rose-900 dark:text-rose-300 text-xs">
+                    Screenshots & Snipping Tools Are Blocked
+                  </h4>
+                  <p className="text-[11px] text-rose-800/90 dark:text-rose-400/90 mt-0.5 leading-snug">
+                    Taking screenshots is strictly prohibited and immediately flagged.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowProctoringRulesModal(false)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel & Review Practice
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmStartAssessment}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-violet-500/25 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>I Understand & Start Assessment</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

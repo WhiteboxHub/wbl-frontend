@@ -25,6 +25,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
 import { ChunkedUploader } from '@/components/aiprep/ChunkedUploader';
 import { useAssessmentTelemetry } from '@/hooks/useAssessmentTelemetry';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 import { QuestionAction, SessionLifecycleStatus } from '@/types/telemetry';
 import {
   IconMicrophone,
@@ -259,13 +260,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   }, [assessmentId]);
 
-  // Observability & Telemetry Hook
-  const { recordQuestionAction, recordCompletion } = useAssessmentTelemetry({
-    assessmentId,
-    sessionId: attemptSessionId,
-    assessmentType,
-    totalQuestions: questions.length > 0 ? questions.length : undefined,
-  });
 
   // Maximum recording duration — 5 min for INTRO/JD_INTRO, 30 min for all other types
   // Derived via useMemo so it updates once assessmentType is resolved from the backend
@@ -1292,6 +1286,74 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const handleNextQuestionRef = useRef<() => void>(() => { });
   const handleEndSessionRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const hasAutoEndedRef = useRef<boolean>(false);
+  const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [proctoringAlert, setProctoringAlert] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+
+  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT', count: number) => {
+    if (alertTimerRef.current) {
+      clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = null;
+    }
+    if (count >= 3) {
+      setProctoringAlert({
+        show: true,
+        message: 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
+      });
+      void handleEndSessionRef.current();
+    } else {
+      setProctoringAlert({
+        show: true,
+        message: `Security Warning (${count}/3): Tab switching or screenshot detected. 3 violations will automatically submit your assessment.`,
+      });
+      alertTimerRef.current = setTimeout(() => {
+        setProctoringAlert((prev) => ({ ...prev, show: false }));
+        alertTimerRef.current = null;
+      }, 5000);
+    }
+  }, []);
+
+  // Observability & Telemetry Hook - synchronized monitoring active only during question answering
+  const isTelemetryMonitoringActive = Boolean(
+    hasStartedQuestion && !isEnding && !isSessionAlreadyEnded && !finishedAssessmentId
+  );
+
+  const {
+    recordQuestionAction,
+    recordCompletion,
+    recordProctoringViolation,
+  } = useAssessmentTelemetry({
+    assessmentId,
+    sessionId: attemptSessionId,
+    assessmentType,
+    totalQuestions: questions.length > 0 ? questions.length : undefined,
+    isMonitoringActive: isTelemetryMonitoringActive,
+    onViolation: handleProctoringViolation,
+  });
+
+  // Test Security & Proctoring: Screenshot Keydown Listener
+  useEffect(() => {
+    if (!hasStartedQuestion || isEnding || isSessionAlreadyEnded || finishedAssessmentId) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key;
+      const isPrintScreen = key === 'PrintScreen';
+      const isSnippingTool =
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (key.toLowerCase() === 's' || key.toLowerCase() === '4' || key.toLowerCase() === '3');
+      if (isPrintScreen || isSnippingTool) {
+        recordProctoringViolation('SCREENSHOT');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [hasStartedQuestion, isEnding, isSessionAlreadyEnded, finishedAssessmentId, recordProctoringViolation]);
 
   useEffect(() => {
     if (!isRecording || isEnding || isAiSpeaking || isQuestionPrepPaused) return;
@@ -1892,6 +1954,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   return (
     <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+      {/* Floating Proctoring Alert Toast */}
+      {proctoringAlert.show && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 animate-in fade-in slide-in-from-top-2 duration-200">
+          <IconAlertTriangle size={16} className="shrink-0" />
+          <span>{proctoringAlert.message}</span>
+        </div>
+      )}
       {(isIntroType || hasStartedQuestion) && (
       <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -2247,6 +2316,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       <div className="min-w-0 text-xs leading-relaxed text-rose-800 dark:text-rose-200">
                         <p className="font-semibold">Important: Before submitting</p>
                         <p className="mt-0.5">Once you click <strong>Submit Assessment</strong>, your assessment will be finalized and you will be redirected to the evaluation/report page. You cannot continue answering after submission. To try again, restart the assessment from the beginning.</p>
+                        <p className="mt-1 border-t border-rose-200/80 pt-1 text-[11px] leading-snug text-rose-700 dark:border-rose-900/50 dark:text-rose-300">
+                          • <strong>Security Rule:</strong> Tab switching and taking screenshots are prohibited. Reaching 3 violations will automatically end and submit your assessment for evaluation.
+                        </p>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
