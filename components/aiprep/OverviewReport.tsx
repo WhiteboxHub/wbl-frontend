@@ -1873,7 +1873,6 @@ export function EvaluationContent({
     !youtube_url.includes("aiprep_rec_") &&
     !youtube_url.includes("UF8uR6Z6KLc")
   );
-  const isRealYouTube = Boolean(youtube_url && extractYoutubeId(youtube_url));
   const effectivePlaybackUrl = canShowRecording
     ? ((isRealYouTube ? youtube_url : null) || localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
     : undefined;
