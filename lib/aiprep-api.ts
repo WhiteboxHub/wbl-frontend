@@ -39,37 +39,37 @@ export const getStoredCandidateId = (fallback: string | number = "me"): string |
         if (parsed?.id) return String(parsed.id);
       } catch {}
     }
+
+    // 3. Authenticated JWT Token payload extraction
+    const token =
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("token") ||
+      localStorage.getItem("auth_token") ||
+      localStorage.getItem("bearer_token");
+    if (token && token.includes(".")) {
+      try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const parsed = JSON.parse(jsonPayload);
+        if (parsed?.candidate_id) return String(parsed.candidate_id);
+        if (parsed?.id && !isNaN(Number(parsed.id))) return String(parsed.id);
+      } catch {}
+    }
   } catch {}
   return fallback;
 };
-
-let _userDashboardPromise: Promise<string | number | null> | null = null;
 
 export const fetchAndCacheCandidateId = async (): Promise<string | number | null> => {
   if (typeof window === "undefined") return null;
   const stored = getStoredCandidateId("");
   if (stored && stored !== "me") return stored;
-
-  if (_userDashboardPromise) return _userDashboardPromise;
-
-  _userDashboardPromise = (async () => {
-    try {
-      const userResponse = await apiFetch("user_dashboard");
-      const cid = userResponse?.candidate_id || userResponse?.id;
-      if (cid) {
-        localStorage.setItem("candidate_id", String(cid));
-        sessionStorage.setItem("aiprep_candidate_id", String(cid));
-        return cid;
-      }
-    } catch (e) {
-      console.warn("[aiPrepApi] Could not fetch user_dashboard for candidate ID:", e);
-    } finally {
-      _userDashboardPromise = null;
-    }
-    return getStoredCandidateId("") || null;
-  })();
-
-  return _userDashboardPromise;
+  return null;
 };
 
 export const resolveCandidateId = (candidateId?: string | number, fallback: string | number = "me"): string | number => {
