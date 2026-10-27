@@ -2494,7 +2494,7 @@ export function EvaluationContent({
       })()}
 
       {/* ── 3. RECORDING PLAYBACK ── */}
-      {canShowRecording && (
+      {canShowRecording && (effectivePlaybackUrl || serverUrl) && (
         <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
           <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
             {isAudioOnly ? (

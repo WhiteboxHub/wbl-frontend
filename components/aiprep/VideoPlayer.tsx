@@ -317,39 +317,8 @@ export default function VideoPlayer({
     );
   }
 
-  // ── 2. Standard Video Mode (when media is Video and has valid URL) ──────────
-  const mediaToCheck = currentMediaUrl || youtubeUrl || fallbackUrl || "";
-  const isVideoFile =
-    !isAudioOnly &&
-    Boolean(mediaToCheck) &&
-    (() => {
-      if (mediaToCheck.startsWith("blob:") || mediaToCheck.startsWith("data:")) {
-        return true;
-      }
-      try {
-        const parsed = mediaToCheck.startsWith("http")
-          ? new URL(mediaToCheck)
-          : new URL(mediaToCheck, "http://localhost");
-        const pathname = parsed.pathname.toLowerCase();
-        return (
-          pathname.endsWith(".mp4") ||
-          pathname.endsWith(".webm") ||
-          pathname.endsWith("/video") ||
-          pathname.includes("/playback")
-        );
-      } catch {
-        const lower = mediaToCheck.toLowerCase();
-        return (
-          lower.startsWith("blob:") ||
-          lower.includes(".mp4") ||
-          lower.includes(".webm") ||
-          lower.includes("/video") ||
-          lower.includes("/playback")
-        );
-      }
-    })();
-
-  if (!isAudioOnly && currentMediaUrl && isVideoFile) {
+  // ── 2. Standard Video Mode (when media is Video and URL is present) ──────────
+  if (!isAudioOnly && currentMediaUrl) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex items-center justify-center border-2 border-slate-800 shadow-md ${className ?? ""}`}
@@ -397,7 +366,23 @@ export default function VideoPlayer({
     );
   }
 
-  // ── 3. Rich Audio Recording Playback Player ────────────────────────────────
+  // ── 3. Audio Unavailable Mode (when media is Audio but no URL available) ───
+  if (isAudioOnly && !currentMediaUrl) {
+    return (
+      <div
+        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
+      >
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <AudioWaveform size={36} className="text-slate-500 mb-3 z-10" />
+        <h3 className="text-base font-bold text-slate-100 z-10">Audio Recording Unavailable</h3>
+        <p className="text-xs text-slate-400 max-w-sm mt-1.5 z-10">
+          No audio recording was captured or saved for this session.
+        </p>
+      </div>
+    );
+  }
+
+  // ── 3b. Rich Audio Recording Playback Player ────────────────────────────────
   // Shown for AUDIO assessments or when video recording is audio-only
   const isMediaAvailable = Boolean(currentMediaUrl && !hasMediaError);
   const effectiveDuration = duration > 0 ? duration : (durationSeconds > 0 ? durationSeconds : 0);
