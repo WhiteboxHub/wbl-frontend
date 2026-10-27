@@ -113,6 +113,15 @@ const INJECTION_PATTERNS = [
   /\bgive\s+me\s+(a\s+)?(100|perfect|full)\s+score\b/i,
 ];
 
+export function normalizeText(text: string): string {
+  return (text || '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u00A0/g, ' ')
+    .trim();
+}
+
 const REPETITIVE_CHARS_REGEX = /([a-zA-Z0-9])\1{7,}/;
 
 /**
@@ -121,7 +130,7 @@ const REPETITIVE_CHARS_REGEX = /([a-zA-Z0-9])\1{7,}/;
  * @param fileName Optional file name if the text was extracted from an uploaded document.
  */
 export function validateJobDescription(rawText: string | null | undefined, fileName?: string): JDValidationResult {
-  const text = (rawText || '').trim();
+  const text = normalizeText(rawText || '');
 
   // Basic counters
   const charCount = text.length;

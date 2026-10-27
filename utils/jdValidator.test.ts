@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateJobDescription } from './jdValidator';
+import { validateJobDescription, normalizeText } from './jdValidator';
 
 const BASE_JD = `
 Job Title: Senior Backend Engineer
@@ -25,6 +25,33 @@ describe('validateJobDescription - Strict PR #1069 Validator Suite', () => {
     expect(res.isValid).toBe(true);
     expect(res.error).toBeUndefined();
     expect(res.details.hasRoleSignals).toBe(true);
+    expect(res.details.hasResponsibilitySignals).toBe(true);
+    expect(res.details.hasRequirementSignals).toBe(true);
+  });
+
+  it('normalizes curly apostrophes, smart quotes, dashes, and non-breaking spaces', () => {
+    const raw = 'What you’ll do: “Lead engineering” – 5+ years\u00A0experience';
+    const norm = normalizeText(raw);
+    expect(norm).toBe('What you\'ll do: "Lead engineering" - 5+ years experience');
+  });
+
+  it('accepts job descriptions formatted with curly apostrophes in section headers', () => {
+    const curlyJd = `
+Job Title: Senior Frontend Engineer
+Location: San Francisco, CA
+About the Role:
+We’re looking for a Senior Frontend Engineer to build web apps.
+
+What you’ll do:
+- Build accessible UI components with React and Next.js.
+- Collaborate with backend engineers to consume APIs.
+
+What you’ll need:
+- 4+ years of hands-on software development experience.
+- Bachelor’s degree in Computer Science or equivalent.
+`;
+    const res = validateJobDescription(curlyJd);
+    expect(res.isValid).toBe(true);
     expect(res.details.hasResponsibilitySignals).toBe(true);
     expect(res.details.hasRequirementSignals).toBe(true);
   });
