@@ -101,8 +101,17 @@ export default function AIPrepPage() {
 
       let candidateId: number | undefined = undefined;
       try {
-        const userResponse = await apiFetch("user_dashboard");
-        if (userResponse?.candidate_id) candidateId = userResponse.candidate_id;
+        const stored = typeof window !== 'undefined' ? (localStorage.getItem('candidate_id') || sessionStorage.getItem('aiprep_candidate_id')) : null;
+        if (stored && !isNaN(Number(stored))) {
+          candidateId = Number(stored);
+        } else {
+          const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+          if (userStr) {
+            const parsed = JSON.parse(userStr);
+            if (parsed?.candidate_id) candidateId = Number(parsed.candidate_id);
+            else if (parsed?.id) candidateId = Number(parsed.id);
+          }
+        }
       } catch (err) {
         console.error("Failed to retrieve candidate profile details:", err);
       }
