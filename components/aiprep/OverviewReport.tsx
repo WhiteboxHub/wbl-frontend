@@ -1800,6 +1800,8 @@ export function EvaluationContent({
   const canShowRecording = Boolean(
     consent?.save_recording ??
     (report.assessment as any)?.consent?.save_recording ??
+    (report.assessment?.data as any)?.consent?.save_recording ??
+    (report as any)?.save_recording ??
     true
   );
   const localPreviewUrl =
@@ -1866,7 +1868,7 @@ export function EvaluationContent({
   // 2. Instant Local Playback (0ms zero-latency preview while processing is pending)
   // 3. Authoritative Persistent Server Storage Stream (when real recording exists on server)
   const effectivePlaybackUrl = canShowRecording
-    ? (isRealYouTube ? youtube_url : (localPreviewUrl || serverUrl))
+    ? (isRealYouTube ? youtube_url : (localPreviewUrl || (hasServerRecording ? serverUrl : undefined)))
     : undefined;
 
   const durationSeconds =
@@ -2494,7 +2496,7 @@ export function EvaluationContent({
       })()}
 
       {/* ── 3. RECORDING PLAYBACK ── */}
-      {canShowRecording && (effectivePlaybackUrl || serverUrl) && (
+      {canShowRecording && (effectivePlaybackUrl || (hasServerRecording && serverUrl)) && (
         <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
           <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
             {isAudioOnly ? (
@@ -2509,7 +2511,7 @@ export function EvaluationContent({
           <div className="w-full max-w-3xl mx-auto">
             <VideoPlayer
               youtubeUrl={effectivePlaybackUrl}
-              fallbackUrl={serverUrl}
+              fallbackUrl={hasServerRecording ? serverUrl : undefined}
               videoRef={videoRef}
               isAudioOnly={isAudioOnly}
               candidateName={report.candidate_name}
