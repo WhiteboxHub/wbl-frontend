@@ -529,20 +529,21 @@ export function extractAssessmentDurationSeconds(report: NormalizedReport, media
   const assessment = report.assessment as any;
   const dataRec = assessment?.data as any;
 
+  // 1. Resolve authoritative speaking/audio telemetry duration
   const candidates = [
-    dataRec?.audio_telemetry?.duration_seconds,
-    dataRec?.audio_telemetry?.total_audio_duration_seconds,
     dataRec?.audio_telemetry?.speaking_duration_sec,
     dataRec?.audio_telemetry?.speaking_duration_seconds,
-    dataRec?.video_telemetry?.duration_seconds,
-    report.audio_telemetry?.duration_seconds,
-    report.audio_telemetry?.total_audio_duration_seconds,
     report.audio_telemetry?.speaking_duration_sec,
     report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
-    assessment?.duration_seconds,
-    assessment?.client_duration_seconds,
-    assessment?.total_duration_seconds,
+    dataRec?.audio_telemetry?.total_audio_duration_seconds,
+    report.audio_telemetry?.total_audio_duration_seconds,
     report.audio?.recording_environment?.speaking_duration_seconds,
+    dataRec?.audio_telemetry?.duration_seconds,
+    report.audio_telemetry?.duration_seconds,
+    dataRec?.video_telemetry?.duration_seconds,
+    assessment?.duration_seconds,
+    assessment?.total_duration_seconds,
+    assessment?.client_duration_seconds,
     (report as any).audio_telemetry?.duration,
     (report as any).duration_seconds,
   ];
@@ -558,16 +559,11 @@ export function extractAssessmentDurationSeconds(report: NormalizedReport, media
     }
   }
 
-  // If telemetry recorded a substantial duration (e.g. 5+ minutes), but mediaDurationSec is an anomalous partial slice,
-  // prioritize the authoritative telemetry duration to ensure consistent timestamps across all views.
-  if (telemetryDuration > 0 && mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
-    if (mediaDurationSec >= telemetryDuration * 0.8) {
-      return Math.round(mediaDurationSec);
-    }
-    return telemetryDuration;
-  }
-
+  // 2. Validate media track duration with guard against anomalous partial buffer slices
   if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    if (telemetryDuration > 0 && mediaDurationSec < telemetryDuration * 0.5) {
+      return telemetryDuration;
+    }
     return Math.round(mediaDurationSec);
   }
 
