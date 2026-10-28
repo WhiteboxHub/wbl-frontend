@@ -372,7 +372,7 @@ export default function TechnicalEvaluationView({
     : undefined;
 
   const effectivePlaybackUrl = canShowRecording
-    ? (report.youtube_url || serverUrl)
+    ? (report.youtube_url || serverUrl || localPreviewUrl)
     : undefined;
 
   const durationSeconds =
@@ -816,7 +816,7 @@ export default function TechnicalEvaluationView({
                 <div className="w-full max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-xs">
                   <VideoPlayer
                     youtubeUrl={effectivePlaybackUrl}
-                    fallbackUrl={serverUrl}
+                    fallbackUrl={localPreviewUrl || serverUrl}
                     videoRef={activeVideoRef}
                     isAudioOnly={isAudioOnly}
                     candidateName={report.candidate_name ?? undefined}

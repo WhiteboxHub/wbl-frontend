@@ -1823,39 +1823,79 @@ export function normalizeReport(
         hard: asStr(rawDA.hard) ?? "—",
         observation: asStr(rawDA.observation) ?? "",
       },
-      concept_evaluations: rawSEs.map((s: unknown) => {
-        const se = asRecord(s);
-        const title = asStr(se.title) ?? asStr(se.category_id) ?? "";
-        const catId = asStr(se.category_id) ?? "";
-        const explicitQIds = Array.isArray(se.question_ids) ? (se.question_ids as unknown[]).map(Number).filter(Boolean) : [];
+      concept_evaluations: (() => {
+        // Build a unique partition mapping of question_id -> primary category to prevent inflated total counts
+        const assignedQuestionsBySection = new Map<string, number[]>();
+        const claimedQIds = new Set<number>();
 
-        const matchedQuestions = rawQEs.filter((q: unknown) => {
-          const qe = asRecord(q);
-          const qId = Number(qe.question_id);
-          const qCat = asStr(qe.category_id) ?? "";
-          const qConcept = asStr(qe.concept) ?? "";
-          return (
-            explicitQIds.includes(qId) ||
-            (catId && qCat.toLowerCase() === catId.toLowerCase()) ||
-            (title && qConcept.toLowerCase() === title.toLowerCase())
-          );
+        const getSectionKey = (se: Record<string, unknown>, idx: number): string => {
+          const catId = (asStr(se.category_id) ?? "").toLowerCase();
+          const title = (asStr(se.title) ?? "").toLowerCase();
+          return catId || title || `section_${idx}`;
+        };
+
+        // Pass 1: Questions with an exact category_id match
+        rawSEs.forEach((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const catId = (asStr(se.category_id) ?? "").toLowerCase();
+          const key = getSectionKey(se, idx);
+          const matched: number[] = [];
+          if (catId) {
+            for (const q of rawQEs) {
+              const qe = asRecord(q);
+              const qId = Number(qe.question_id);
+              const qCat = (asStr(qe.category_id) ?? "").toLowerCase();
+              if (qId && qCat && qCat === catId && !claimedQIds.has(qId)) {
+                matched.push(qId);
+                claimedQIds.add(qId);
+              }
+            }
+          }
+          assignedQuestionsBySection.set(key, matched);
         });
 
-        const allQIds = Array.from(new Set([...explicitQIds, ...matchedQuestions.map((q: any) => Number(q.question_id)).filter(Boolean)]));
+        // Pass 2: Any unclaimed questions matched via explicit question_ids or title
+        rawSEs.forEach((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const title = (asStr(se.title) ?? "").toLowerCase();
+          const key = getSectionKey(se, idx);
+          const explicitQIds = Array.isArray(se.question_ids) ? (se.question_ids as unknown[]).map(Number).filter(Boolean) : [];
+          const currentList = assignedQuestionsBySection.get(key) || [];
 
-        return {
-          concept: title,
-          subject: title,
-          questions_count: allQIds.length,
-          question_ids: allQIds,
-          rating: asStr(se.rating) ?? "AVERAGE",
-          strengths: asStrArray(se.strengths),
-          gaps: asStrArray(se.improvement_areas),
-          terminology_gaps: [],
-          what_to_work_on: asStrArray(se.improvement_areas),
-          data_note: null,
-        };
-      }),
+          for (const q of rawQEs) {
+            const qe = asRecord(q);
+            const qId = Number(qe.question_id);
+            const qConcept = (asStr(qe.concept) ?? "").toLowerCase();
+            if (qId && !claimedQIds.has(qId)) {
+              if (explicitQIds.includes(qId) || (title && qConcept === title)) {
+                currentList.push(qId);
+                claimedQIds.add(qId);
+              }
+            }
+          }
+          assignedQuestionsBySection.set(key, currentList);
+        });
+
+        return rawSEs.map((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const title = asStr(se.title) ?? asStr(se.category_id) ?? "";
+          const key = getSectionKey(se, idx);
+          const uniqueQIds = assignedQuestionsBySection.get(key) || [];
+
+          return {
+            concept: title,
+            subject: title,
+            questions_count: uniqueQIds.length,
+            question_ids: uniqueQIds,
+            rating: asStr(se.rating) ?? "AVERAGE",
+            strengths: asStrArray(se.strengths),
+            gaps: asStrArray(se.improvement_areas),
+            terminology_gaps: [],
+            what_to_work_on: asStrArray(se.improvement_areas),
+            data_note: null,
+          };
+        });
+      })(),
       question_evaluations: rawQEs.map((q: unknown) => {
         const qe = asRecord(q);
         const qId = typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);

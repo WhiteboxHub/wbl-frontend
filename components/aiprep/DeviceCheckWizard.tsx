@@ -83,8 +83,6 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
   const [jdError, setJdError] = useState<string>('');
   const [jdGuidance, setJdGuidance] = useState<string[]>([]);
   const [jdParsing, setJdParsing] = useState<boolean>(false);
-  const [jdWarningAccepted, setJdWarningAccepted] = useState<boolean>(false);
-  const [isWarning, setIsWarning] = useState<boolean>(false);
 
   const persistJd = (text: string, filename: string) => {
     if (typeof window === 'undefined') return;
@@ -119,30 +117,25 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
       const extractedText = await extractDocumentText(file);
       if (extractedText && extractedText.trim()) {
         const validation = validateJobDescription(extractedText, file.name);
-        if (!validation.isValid && validation.isHardBlock) {
+        if (!validation.isValid) {
           setJdError(validation.error || 'The uploaded file does not contain an acceptable job description.');
           setJdGuidance(validation.guidance || []);
-          setIsWarning(false);
-          setJdWarningAccepted(false);
+          setJdText('');
+          setJdFileName('');
+          persistJd('', '');
           return;
         }
         setJdText(extractedText);
         setJdFileName(file.name);
-        setJdWarningAccepted(false);
-        if (!validation.isValid && validation.isWarning) {
-          setIsWarning(true);
-          setJdError(validation.error || 'Please review this job description.');
-          setJdGuidance(validation.guidance || []);
-        } else {
-          setIsWarning(false);
-          setJdError('');
-          setJdGuidance([]);
-        }
+        setJdError('');
+        setJdGuidance([]);
         persistJd(extractedText, file.name);
       } else {
         setJdError('Could not extract readable text from this file. It may be a scanned image or empty. Please copy and paste the JD text directly.');
         setJdGuidance([]);
-        setIsWarning(false);
+        setJdText('');
+        setJdFileName('');
+        persistJd('', '');
       }
     } catch (err: any) {
       console.error('Document extraction error:', err);
@@ -184,8 +177,6 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     setJdFileName('');
     setJdError('');
     setJdGuidance([]);
-    setJdWarningAccepted(false);
-    setIsWarning(false);
     persistJd('', '');
   };
 
@@ -193,8 +184,6 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     const val = e.target.value;
     setJdText(val);
     setJdFileName('');
-    setJdWarningAccepted(false);
-    setIsWarning(false);
     if (val.trim()) {
       setJdError('');
       setJdGuidance([]);
@@ -202,27 +191,12 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     persistJd(val, '');
   };
 
-  const handleUseAnyway = () => {
-    setJdWarningAccepted(true);
-    setJdError('');
-    setJdGuidance([]);
-  };
-
   const handleNextClick = () => {
     const validation = validateJobDescription(jdText, jdFileName || undefined);
     if (!validation.isValid) {
-      if (validation.isHardBlock) {
-        setIsWarning(false);
-        setJdError(validation.error || 'Please provide an acceptable job description to continue.');
-        setJdGuidance(validation.guidance || []);
-        return;
-      }
-      if (validation.isWarning && !jdWarningAccepted) {
-        setIsWarning(true);
-        setJdError(validation.error || 'Please review this job description before continuing.');
-        setJdGuidance(validation.guidance || []);
-        return;
-      }
+      setJdError(validation.error || 'Please provide an acceptable job description to continue.');
+      setJdGuidance(validation.guidance || []);
+      return;
     }
     setJdError('');
     setJdGuidance([]);
@@ -428,28 +402,18 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
         </div>
       </div>
 
-      {/* Validation error or warning with actionable guidance & override option */}
+      {/* Validation error with actionable guidance */}
       {jdError && (
-        <div className={`mt-2.5 p-3 sm:p-3.5 rounded-xl border animate-in fade-in duration-150 ${
-          isWarning
-            ? 'bg-amber-50/90 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60'
-            : 'bg-red-50/90 dark:bg-red-950/30 border-red-200 dark:border-red-900/60'
-        }`}>
+        <div className="mt-2.5 p-3 sm:p-3.5 rounded-xl bg-red-50/90 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 animate-in fade-in duration-150">
           <div className="flex items-start gap-2.5">
-            <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
-              isWarning ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
-            }`} />
+            <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className={`text-xs font-semibold leading-snug ${
-                isWarning ? 'text-amber-800 dark:text-amber-200' : 'text-red-700 dark:text-red-300'
-              }`}>
+              <p className="text-xs font-semibold text-red-700 dark:text-red-300 leading-snug">
                 {jdError}
               </p>
               {jdGuidance && jdGuidance.length > 0 && (
-                <div className={`mt-2 text-[11px] ${
-                  isWarning ? 'text-amber-700 dark:text-amber-300' : 'text-red-600 dark:text-red-300'
-                }`}>
-                  <p className="font-semibold text-[11px] mb-1">Tips for an acceptable Job Description:</p>
+                <div className="mt-2 text-[11px] text-red-600 dark:text-red-300">
+                  <p className="font-semibold text-[11px] mb-1">What to provide in an acceptable Job Description:</p>
                   <ul className="space-y-1 list-disc list-inside">
                     {jdGuidance.map((tip, idx) => (
                       <li key={idx} className="leading-relaxed">{tip}</li>
@@ -457,27 +421,8 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
                   </ul>
                 </div>
               )}
-              {isWarning && (
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleUseAnyway}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Use this description anyway</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      )}
-
-      {jdWarningAccepted && !jdError && (
-        <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300 animate-in fade-in duration-150">
-          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span>Custom description confirmed. You can now click &ldquo;Next&rdquo; to continue.</span>
         </div>
       )}
 
@@ -632,13 +577,25 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return window.sessionStorage?.getItem('aiprep_jd_text') || '';
+      const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
+      const storedFn = window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+      if (stored && !validateJobDescription(stored, storedFn || undefined).isValid) {
+        window.sessionStorage?.removeItem('aiprep_jd_text');
+        window.sessionStorage?.removeItem('aiprep_jd_filename');
+        return '';
+      }
+      return stored;
     }
     return '';
   });
   const [jdFileName, setJdFileName] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+      const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
+      const storedFn = window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+      if (stored && !validateJobDescription(stored, storedFn || undefined).isValid) {
+        return '';
+      }
+      return storedFn;
     }
     return '';
   });
@@ -2077,27 +2034,24 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const getCandidateId = async (): Promise<number | undefined> => {
     if (propCandidateId) return propCandidateId;
     try {
-      if (typeof window !== 'undefined') {
-        const directCandidateId =
-          localStorage.getItem('candidate_id') ||
-          sessionStorage.getItem('aiprep_candidate_id') ||
-          sessionStorage.getItem('candidate_id');
-        if (directCandidateId && !isNaN(Number(directCandidateId))) return Number(directCandidateId);
-      }
       const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (userStr) {
         const parsed = JSON.parse(userStr);
-        if (parsed?.candidate_id) return Number(parsed.candidate_id);
-        if (parsed?.id) return Number(parsed.id);
+        if (parsed?.candidate_id || parsed?.id) return parsed.candidate_id || parsed.id;
       }
       const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null;
-      if (token && token.includes('.')) {
+      if (token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload?.candidate_id) return Number(payload.candidate_id);
-          if (payload?.id) return Number(payload.id);
+          if (payload?.candidate_id) return payload.candidate_id;
         } catch {}
       }
+      const userResponse = await apiFetch("user_dashboard");
+      const resolvedId = userResponse?.candidate_id || userResponse?.id;
+      if (resolvedId && typeof window !== 'undefined') {
+        sessionStorage.setItem('aiprep_candidate_id', String(resolvedId));
+      }
+      if (resolvedId) return resolvedId;
     } catch (err) {
       console.warn("[DeviceCheckWizard] Could not resolve candidate profile:", err);
     }
@@ -2135,8 +2089,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
         if (targetType === 'JD_INTRO') {
           const jdVal = validateJobDescription(jdText, jdFileName || undefined);
-          if (!jdVal.isValid && jdVal.isHardBlock) {
+          if (!jdVal.isValid) {
             setStep('JD_UPLOAD');
+            alert(jdVal.error || 'Please provide an acceptable job description before starting the assessment.');
             return;
           }
         }
