@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import ScrollToTop from "@/components/ScrollToTop";
 import { SessionProvider } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Providers } from "./providers";
 import { AuthProvider } from "@/utils/AuthContext";
 import { useState, useEffect } from "react";
@@ -29,6 +29,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "";
+  const searchParams = useSearchParams();
+  // The assessment-type selection page uses the regular dashboard shell
+  // (top navigation + sidebar). Only the actual setup/instructions routes are standalone.
+  const isAssessmentTypeSelectionPage = pathname === "/aiprep/start";
+  const isAssessmentSetupPage =
+    pathname === "/aiprep/start" ||
+    pathname.startsWith("/aiprep/session/start") ||
+    (pathname === "/aiprep" && searchParams.get("start") === "true");
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
   const isAiPrepReport = pathname.startsWith("/aiprep/reports");
@@ -40,6 +48,15 @@ export default function RootLayout({
 
   const [isAssessmentLayout, setIsAssessmentLayout] = useState(false);
   const [activeTabFromEvent, setActiveTabFromEvent] = useState("");
+
+  // Clear wizard/fullscreen state when returning to the dashboard or
+  // assessment-type selection so the normal header and sidebar are restored.
+  useEffect(() => {
+    if (pathname === "/aiprep/start" || pathname === "/aiprep") {
+      setHeaderCollapsed(false);
+      setIsAssessmentLayout(false);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const handleLayoutMode = (e: any) => {
@@ -76,7 +93,12 @@ export default function RootLayout({
         (activeTabFromEvent.startsWith("ai-prep") ||
           activeTabFromEvent.startsWith("aiprep") ||
           activeTabFromEvent === "wbl-smartprep")));
-  const isAssessment = !isAiPrepReport && (isAssessmentLayout || isAiprepRoute);
+  // Do not apply the fullscreen assessment layout to the assessment-type
+  // selection page; it must retain the site's standard top navigation.
+  const isAssessment =
+    !isAssessmentTypeSelectionPage &&
+    !isAiPrepReport &&
+    (isAssessmentLayout || isAiprepRoute);
 
   // Single, unified scroll-lock effect — avoids multi-layer style + class mutations fighting React reconciliation.
   useEffect(() => {
@@ -133,13 +155,13 @@ export default function RootLayout({
           <AuthProvider>
             <Providers>
               <GlobalServiceWorker />
-              {isAvatarSection || isCoderpad || isAiPrepReport || isSessionRoom ? (
+              {isAvatarSection || isCoderpad || isAiPrepReport || isSessionRoom || isAssessmentSetupPage ? (
                 <>{children}</>
               ) : (
                 <>
                   <div
-                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${headerCollapsed
-                        ? "max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
+                    className={`relative z-40 transition-all duration-300 ease-in-out shrink-0 ${headerCollapsed && !isAssessmentTypeSelectionPage
+                        ? "h-0 max-h-0 -translate-y-full opacity-0 pointer-events-none overflow-hidden"
                         : "max-h-[100px] translate-y-0 opacity-100"
                       }`}
                   >

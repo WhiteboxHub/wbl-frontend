@@ -16,7 +16,7 @@ interface UseAssessmentTelemetryProps {
   candidateId?: number;
   totalQuestions?: number;
   isMonitoringActive?: boolean;
-  onViolation?: (type: 'TAB_SWITCH' | 'SCREENSHOT', violationCount: number) => void;
+  onViolation?: (type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT', violationCount: number) => void;
 }
 
 interface TelemetrySessionState {
@@ -27,6 +27,7 @@ interface TelemetrySessionState {
   skippedQuestionsCount: number;
   blurStartTime: number | null;
   violationCount: number;
+  lastFocusViolationAt: number;
 }
 
 export function useAssessmentTelemetry({
@@ -56,6 +57,7 @@ export function useAssessmentTelemetry({
     skippedQuestionsCount: 0,
     blurStartTime: null,
     violationCount: 0,
+    lastFocusViolationAt: 0,
   });
 
   // Reset session metrics synchronously whenever assessmentId changes
@@ -68,44 +70,159 @@ export function useAssessmentTelemetry({
       skippedQuestionsCount: 0,
       blurStartTime: null,
       violationCount: 0,
+      lastFocusViolationAt: 0,
     };
   }, [assessmentId, sessionStateRef]);
 
-  // Tab switch / Blur detection (Proctoring alerts) - only active when session has begun
+  // Tab switch, window focus, fullscreen and split-screen monitoring.
+  // Deduplicate visibilitychange + blur events caused by the same tab switch.
   useEffect(() => {
     if (!isMonitoringActive) return;
 
+    const registerFocusViolation = (type: 'TAB_SWITCH' | 'WINDOW_BLUR') => {
+      const now = Date.now();
+      const state = sessionStateRef.current;
+      if (now - state.lastFocusViolationAt < 1200) return;
+      state.lastFocusViolationAt = now;
+      if (type === 'TAB_SWITCH') state.blurStartTime = now;
+      state.violationCount += 1;
+      const count = state.violationCount;
+      AIPrepTelemetry.trackProctoringViolation({
+        assessment_id: assessmentId,
+        assessment_uuid: effectiveUuid,
+        candidate_id: candidateId,
+        violation_type: type,
+        violation_count: count,
+        time_away_seconds: 1,
+      });
+      onViolationRef.current?.(type, count);
+    };
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        sessionStateRef.current.blurStartTime = Date.now();
-        sessionStateRef.current.violationCount += 1;
-        onViolationRef.current?.('TAB_SWITCH', sessionStateRef.current.violationCount);
+        registerFocusViolation('TAB_SWITCH');
       } else {
         const blurStart = sessionStateRef.current.blurStartTime;
-        const awaySec = blurStart
-          ? Math.round((Date.now() - blurStart) / 1000)
-          : 1;
+        const awaySec = blurStart ? Math.round((Date.now() - blurStart) / 1000) : 1;
         sessionStateRef.current.blurStartTime = null;
-
         AIPrepTelemetry.trackProctoringViolation({
           assessment_id: assessmentId,
           assessment_uuid: effectiveUuid,
           candidate_id: candidateId,
-          violation_type: 'TAB_SWITCH',
+          violation_type: 'TAB_SWITCH_RETURN',
           violation_count: sessionStateRef.current.violationCount,
           time_away_seconds: Math.max(1, awaySec),
         });
       }
     };
+    const handleBlur = () => {
+      if (!document.hidden) registerFocusViolation('WINDOW_BLUR');
+    };
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        const now = Date.now();
+        if (now - sessionStateRef.current.lastFocusViolationAt < 1200) return;
+        sessionStateRef.current.lastFocusViolationAt = now;
+        sessionStateRef.current.violationCount += 1;
+        const count = sessionStateRef.current.violationCount;
+        AIPrepTelemetry.trackProctoringViolation({
+          assessment_id: assessmentId,
+          assessment_uuid: effectiveUuid,
+          candidate_id: candidateId,
+          violation_type: 'FULLSCREEN_EXIT',
+          violation_count: count,
+          time_away_seconds: 0,
+        });
+        onViolationRef.current?.('FULLSCREEN_EXIT', count);
+      }
+    };
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    let splitScreenTimer: ReturnType<typeof setTimeout> | undefined;
+    let splitScreenActive = false;
+    let splitScreenReported = false;
+
+    const isLikelySplitScreen = () => {
+      const screenWidth = window.screen?.availWidth ?? window.innerWidth;
+      const measuredWidth = Math.min(window.innerWidth, window.outerWidth || window.innerWidth);
+      // A snapped half-screen browser is typically below 70% of the available display width.
+      return screenWidth >= 1000 && measuredWidth <= screenWidth * 0.7;
+    };
+
+    const finishSustainedSplitScreen = () => {
+      splitScreenTimer = undefined;
+      if (!isMonitoringActive || !splitScreenActive || !isLikelySplitScreen() || splitScreenReported) return;
+
+      splitScreenReported = true;
+      const count = sessionStateRef.current.violationCount;
+      AIPrepTelemetry.trackProctoringViolation({
+        assessment_id: assessmentId,
+        assessment_uuid: effectiveUuid,
+        candidate_id: candidateId,
+        violation_type: 'SPLIT_SCREEN_TIMEOUT',
+        violation_count: count,
+        time_away_seconds: 10,
+      });
+      // Reuse the count reported when split-screen began; timeout ends the assessment
+      // without counting the same sustained split-screen episode as a second violation.
+      onViolationRef.current?.('SPLIT_SCREEN_TIMEOUT', count);
+    };
+
+    const checkSplitScreen = () => {
+      const currentlySplit = isLikelySplitScreen();
+      if (!currentlySplit) {
+        splitScreenActive = false;
+        splitScreenReported = false;
+        if (splitScreenTimer) clearTimeout(splitScreenTimer);
+        splitScreenTimer = undefined;
+        return;
+      }
+
+      if (splitScreenActive || splitScreenReported) return;
+      splitScreenActive = true;
+
+      // Count and display the violation immediately so the candidate sees the warning
+      // throughout the 10-second grace period.
+      const state = sessionStateRef.current;
+      state.violationCount += 1;
+      const count = state.violationCount;
+      state.lastFocusViolationAt = Date.now();
+      AIPrepTelemetry.trackProctoringViolation({
+        assessment_id: assessmentId,
+        assessment_uuid: effectiveUuid,
+        candidate_id: candidateId,
+        violation_type: 'SPLIT_SCREEN',
+        violation_count: count,
+        time_away_seconds: 0,
+      });
+      onViolationRef.current?.('SPLIT_SCREEN', count);
+
+      // Give the candidate 10 seconds to restore the assessment to a normal window.
+      splitScreenTimer = setTimeout(finishSustainedSplitScreen, 10_000);
+    };
+
+    const handleResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(checkSplitScreen, 300);
+    };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('resize', handleResize);
+    // Check once after monitoring starts, in case the room is already snapped.
+    handleResize();
     return () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      if (splitScreenTimer) clearTimeout(splitScreenTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('resize', handleResize);
     };
   }, [assessmentId, effectiveUuid, candidateId, isMonitoringActive]);
 
   const recordProctoringViolation = useCallback(
-    (type: 'TAB_SWITCH' | 'SCREENSHOT') => {
+    (type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT') => {
       sessionStateRef.current.violationCount += 1;
       const count = sessionStateRef.current.violationCount;
 

@@ -2083,8 +2083,31 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (onComplete) {
       await onComplete(results);
     } else {
-      let cid: string | number | undefined = undefined;
       let targetType: string = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+      const normalizedType = targetType.trim().toUpperCase().replace(/ +/g, '_').replace(/-/g, '_');
+      const deferredTypeAliases: Record<string, string> = {
+        TECHNICAL_ASSESSMENT: 'TECHNICAL',
+        RECRUITER_ASSESSMENT: 'RECRUITER',
+        HIRING_MANAGER_ASSESSMENT: 'HIRING_MANAGER',
+        SYSTEM_DESIGN_ASSESSMENT: 'SYSTEM_DESIGN',
+      };
+      targetType = deferredTypeAliases[normalizedType] || normalizedType;
+
+      // Fail-safe: never create these assessment sessions from the setup wizard.
+      // Creation happens only from Start Assessment inside the Before You Begin room.
+      if (['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(targetType)) {
+        sessionStorage.setItem('aiprep_pending_setup_results', JSON.stringify(results));
+        sessionStorage.setItem('aiprep_active_type', targetType);
+        sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+        sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+        sessionStorage.removeItem('aiprep_active_id');
+        sessionStorage.removeItem('aiprep_active_questions');
+        sessionStorage.removeItem('aiprep_wizard_step');
+        router.replace('/aiprep/session/start');
+        return;
+      }
+
+      let cid: string | number | undefined = undefined;
       try {
         cid = await getCandidateId();
         if (cid && typeof window !== 'undefined') {
