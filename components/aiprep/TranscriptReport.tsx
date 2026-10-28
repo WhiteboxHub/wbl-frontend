@@ -146,11 +146,13 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
           !youtube_url.includes("aiprep_rec_") &&
           !youtube_url.includes("UF8uR6Z6KLc")
         );
+        const assembledMedia = (report as any)?.assembled_media || (report as any)?.data?.assembled_media || (report.assessment as any)?.assembled_media;
         const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url;
         const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
         const backendOrigin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : "http://127.0.0.1:8000";
         const serverUrl = serverPath ? (serverPath.startsWith("http") ? serverPath : `${backendOrigin}${serverPath.startsWith("/") ? "" : "/"}${serverPath}`) : undefined;
-        const canShowPlayer = hasValidYoutube || Boolean(serverUrl);
+        const fallback = assembledMedia || serverUrl;
+        const canShowPlayer = hasValidYoutube || Boolean(fallback);
 
         if (!canShowPlayer) return null;
 
@@ -161,7 +163,7 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
             </p>
             <VideoPlayer
               youtubeUrl={hasValidYoutube ? youtube_url : null}
-              fallbackUrl={serverUrl}
+              fallbackUrl={fallback}
               videoRef={videoRef}
             />
           </section>

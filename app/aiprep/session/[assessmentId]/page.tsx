@@ -876,7 +876,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     async function initSession() {
       try {
-        // Guard against previously exited or completed session
+        // Guard against previously exited or completed session (Double-Attempt Guard via POST session lifecycle)
         if (typeof window !== 'undefined') {
           const wasExited = Boolean(
             localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
@@ -885,52 +885,37 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           );
           if (wasExited) {
             setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : `/aiprep/reports/${assessmentId}`;
+            router.replace(targetUrl);
+            return;
+          }
+
+          // Double-Attempt & URL Tampering Guard:
+          // Ensure the user entered from an authorized POST creation flow for this exact assessment ID
+          const activeSessionId = sessionStorage.getItem('aiprep_active_id');
+          if (activeSessionId && String(activeSessionId) !== String(assessmentId)) {
+            setIsSessionAlreadyEnded(true);
             const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
             router.replace(targetUrl);
             return;
           }
         }
 
-        // Failsafe: check server assessment status
-        let serverDetail: any = null;
-        try {
-          const detail = await aiprepApi.getAssessment(assessmentId);
-          serverDetail = detail;
-          const status = (detail?.status || '').toUpperCase();
-          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
-              localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
-            }
-            setIsSessionAlreadyEnded(true);
-            const targetUrl = isEmbedded
-              ? '/user_dashboard/ai-prep?embed=true'
-              : (status === 'COMPLETED' || status === 'EVALUATING' || status === 'SUBMITTED' || status === 'EVALUATED')
-                ? `/aiprep/reports/${assessmentId}`
-                : '/user_dashboard/ai-prep';
-            router.replace(targetUrl);
-            return;
-          }
-        } catch (_) {}
-
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode directly from sessionStorage
+        // 1. Recover stored session track & mode directly from sessionStorage (populated via POST /assessments)
         const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
         const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
-        const serverMode = (serverDetail?.assessment_mode || (serverDetail?.data as any)?.assessment_mode || (serverDetail?.data as any)?.media_type) as MediaType | undefined;
         let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = (serverMode === 'VIDEO_AUDIO' || serverMode === 'VIDEO' || resolvedMode === 'VIDEO_AUDIO' || resolvedMode === 'VIDEO') ? 'VIDEO_AUDIO' : (serverMode || resolvedMode || 'AUDIO_ONLY');
+        const finalMode: MediaType = (resolvedMode === 'VIDEO_AUDIO' || resolvedMode === 'VIDEO') ? 'VIDEO_AUDIO' : (resolvedMode || 'AUDIO_ONLY');
 
         if (finalType === 'JD_INTRO') {
           const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
           const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
           const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
-          const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
-          const activeJd = storedJd || serverJd;
-          if (activeJd) setJobDescription((prev) => prev || activeJd);
+          if (storedJd) setJobDescription((prev) => prev || storedJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
         } else {
@@ -942,70 +927,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Load cached questions immediately for non-technical tracks.
-        // For Technical tracks, read from cached session questions or restore from serverDetail on reload.
-        if (finalType === 'TECHNICAL') {
-          try {
-            const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
-            if (cachedQ) {
-              const parsed = JSON.parse(cachedQ);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loadedQuestions = parsed as QuestionBankItem[];
-              }
-            }
-          } catch (_) {}
-          if (!loadedQuestions || loadedQuestions.length === 0) {
-            const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
-            if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
-              loadedQuestions = serverQuestions as QuestionBankItem[];
+        // 2. Load cached questions directly from sessionStorage (populated via POST /assessments)
+        try {
+          const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
+          if (cachedQ) {
+            const parsed = JSON.parse(cachedQ);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              loadedQuestions = parsed as QuestionBankItem[];
             }
           }
-        } else if (typeof window !== 'undefined') {
-          try {
-            const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
-            if (cachedQ) {
-              const parsed = JSON.parse(cachedQ);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loadedQuestions = parsed as QuestionBankItem[];
-              }
-            }
-          } catch (_) {}
-        }
+        } catch (_) {}
 
-        // For JD Walkthrough, recover question from server detail (GET /api/aiprep/candidates/{id}/assessments/{id})
-        // and strictly avoid calling unapproved Question Bank endpoints
+        // For JD Walkthrough fallback if session storage is unavailable
         if ((!loadedQuestions || loadedQuestions.length === 0) && finalType === 'JD_INTRO') {
-          const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
-          if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
-            loadedQuestions = serverQuestions as QuestionBankItem[];
-          } else {
-            loadedQuestions = [
-              {
-                id: 1,
-                question_id: 1,
-                question_text: 'Please introduce yourself and walk through your professional background, highlighting the key experiences and technical skills that align with this job description.',
-                category: 'JD_INTRO',
-                difficulty_level: 'MEDIUM',
-                is_active: true,
-              } as QuestionBankItem,
-            ];
-          }
+          loadedQuestions = [
+            {
+              id: 1,
+              question_id: 1,
+              question_text: 'Please introduce yourself and walk through your professional background, highlighting the key experiences and technical skills that align with this job description.',
+              category: 'JD_INTRO',
+              difficulty_level: 'MEDIUM',
+              is_active: true,
+            } as QuestionBankItem,
+          ];
         }
 
-        // Technical and JD_INTRO assessments must use the exact question snapshot returned by POST / GET assessment.
-        // Never query the general question catalog for JD_INTRO or TECHNICAL attempts.
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL' && finalType !== 'JD_INTRO') {
-          try {
-            const qBankRes = await aiprepApi.getQuestions(finalType);
-            if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
-              loadedQuestions = qBankRes.items;
-            }
-          } catch (qErr) {
-            console.warn('Question Bank Catalog API fallback failed:', qErr);
-          }
-        }
-
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL' && finalType !== 'JD_INTRO') {
+        // Assessments strictly use the question snapshot returned by the POST creation endpoint.
+        // No GET question bank endpoint is called.
+        if (!loadedQuestions || loadedQuestions.length === 0) {
           setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;

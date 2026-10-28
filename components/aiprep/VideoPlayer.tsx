@@ -78,13 +78,21 @@ export default function VideoPlayer({
   onSeek,
   onDurationChange,
 }: Props) {
-  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || fallbackUrl || fallbackUrl || null);
+  const rawUrl = youtubeUrl || fallbackUrl || null;
+  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(rawUrl);
   const [isMounted, setIsMounted] = useState(false);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    const nextUrl = youtubeUrl || fallbackUrl || null;
+    if (nextUrl !== currentMediaUrl) {
+      setCurrentMediaUrl(nextUrl);
+    }
+  }, [youtubeUrl, fallbackUrl, currentMediaUrl]);
 
   const resolveBackendUrl = useCallback((url: string | null | undefined): string | null => {
     if (!url) return null;
@@ -109,6 +117,92 @@ export default function VideoPlayer({
   }, []);
 
   const resolvedMediaUrl = isMounted ? resolveBackendUrl(currentMediaUrl) : null;
+
+  // Single-call media buffering: loads full video in a single GET request and creates a blob URL
+  const [singleCallBlobUrl, setSingleCallBlobUrl] = useState<string | null>(null);
+  const lastFetchedUrlRef = useRef<string | null>(null);
+  const activeBlobUrlRef = useRef<string | null>(null);
+  const isFetchingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!resolvedMediaUrl) {
+      setSingleCallBlobUrl(null);
+      return;
+    }
+
+    // Direct playback for existing blobs, data URLs, or YouTube
+    if (
+      resolvedMediaUrl.startsWith("blob:") ||
+      resolvedMediaUrl.startsWith("data:") ||
+      Boolean(ytId)
+    ) {
+      setSingleCallBlobUrl(resolvedMediaUrl);
+      return;
+    }
+
+    // Prevent duplicate fetches if already fetched or currently in-flight for this exact URL
+    if (lastFetchedUrlRef.current === resolvedMediaUrl && (singleCallBlobUrl || isFetchingRef.current)) {
+      return;
+    }
+    lastFetchedUrlRef.current = resolvedMediaUrl;
+    isFetchingRef.current = true;
+
+    let isAborted = false;
+
+    // Execute single GET request to retrieve full media stream without 206 chunking
+    fetch(resolvedMediaUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        isFetchingRef.current = false;
+        if (isAborted) return;
+        const localBlobUrl = URL.createObjectURL(blob);
+        const oldBlob = activeBlobUrlRef.current;
+        activeBlobUrlRef.current = localBlobUrl;
+        setSingleCallBlobUrl(localBlobUrl);
+        if (oldBlob && oldBlob !== localBlobUrl) {
+          try {
+            URL.revokeObjectURL(oldBlob);
+          } catch (_) {}
+        }
+      })
+      .catch((err) => {
+        isFetchingRef.current = false;
+        if (isAborted) return;
+        console.warn("Single-call media fetch fallback:", err);
+        // Fallback to direct URL only if fetch fails completely
+        setSingleCallBlobUrl(resolvedMediaUrl);
+      });
+
+    return () => {
+      isAborted = true;
+    };
+  }, [resolvedMediaUrl, ytId]);
+
+  // Clean up blob URL on unmount (only for locally created blob: URLs)
+  useEffect(() => {
+    return () => {
+      if (activeBlobUrlRef.current && activeBlobUrlRef.current.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+        } catch (_) {}
+        activeBlobUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const isDirectPlayable = Boolean(
+    resolvedMediaUrl &&
+      (resolvedMediaUrl.startsWith("blob:") ||
+        resolvedMediaUrl.startsWith("data:") ||
+        Boolean(ytId))
+  );
+  // Never give raw HTTP URL to the media element until blob is ready, preventing 206 range chunking
+  const effectiveMediaSrc = isDirectPlayable
+    ? resolvedMediaUrl
+    : (singleCallBlobUrl || undefined);
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -361,13 +455,18 @@ export default function VideoPlayer({
               The video asset could not be accessed or has expired.
             </span>
           </div>
+        ) : !effectiveMediaSrc ? (
+          <div className="h-[320px] sm:h-[360px] w-full flex flex-col items-center justify-center gap-2 text-center p-6 bg-slate-950">
+            <Loader2 size={28} className="text-blue-500 animate-spin" />
+            <span className="text-xs font-medium text-slate-400">Loading recording...</span>
+          </div>
         ) : (
           <video
             ref={setCombinedRef as any}
-            src={resolvedMediaUrl || undefined}
+            src={effectiveMediaSrc}
             controls
             playsInline
-            preload="metadata"
+            preload="auto"
             onError={handleMediaError}
             className="w-full h-[320px] sm:h-[360px] rounded-2xl bg-black object-contain"
           >
@@ -427,11 +526,11 @@ export default function VideoPlayer({
       <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Hidden audio/media element for native audio playback */}
-      {isAudioOnly && resolvedMediaUrl && !hasMediaError && (
+      {isAudioOnly && effectiveMediaSrc && !hasMediaError && (
         <audio
           ref={setCombinedRef as any}
-          src={resolvedMediaUrl}
-          preload="metadata"
+          src={effectiveMediaSrc}
+          preload="auto"
           onError={handleMediaError}
           className="hidden"
         />

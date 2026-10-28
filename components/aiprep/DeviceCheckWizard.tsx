@@ -2131,8 +2131,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
+          sessionStorage.setItem('aiprep_active_type', targetType);
+          sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
+          }
+          if (targetType === 'JD_INTRO' && jdText) {
+            sessionStorage.setItem('aiprep_jd_text', jdText);
           }
           // Retain aiprep_jd_* in sessionStorage for Target JD modal inside session room
         }
@@ -2147,6 +2152,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           success: false,
           error_message: err?.message || 'Failed to start assessment',
         });
+
         alert(err?.message || 'Failed to start assessment. Please try again.');
         throw err;
       }
