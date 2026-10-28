@@ -97,9 +97,12 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
   };
 
   const handleSelectVideoAudio = () => {
-    if (typeof window !== 'undefined') {
-      alert("Video mode is currently disabled. Please proceed with Audio-only mode.");
-    }
+    setVideoEnabled(true);
+    if (setConsentMic) setConsentMic(true);
+    if (setConsentCamera) setConsentCamera(true);
+    if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(true);
+    syncConsentToSessionStorage({ videoEnabled: true, consentMic: true, consentCamera: true, videoAnalyticsEnabled: true, consentSaveRecording, consentSaveTranscript });
+    AIPrepTelemetry.trackConsentModeSelected(AIPrepTelemetry.getResolvedCandidateId(), 'VIDEO_AUDIO');
   };
 
   const openInfoModal = (type: ConsentInfoModalType) => {
@@ -117,13 +120,14 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
   const handleNextClick = () => {
     try {
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
-        sessionStorage.setItem('aiprep_video_enabled', 'false');
+        const activeMode = videoEnabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY';
+        sessionStorage.setItem('aiprep_active_mode', activeMode);
+        sessionStorage.setItem('aiprep_video_enabled', videoEnabled ? 'true' : 'false');
         syncConsentToSessionStorage({
-          videoEnabled: false,
+          videoEnabled,
           consentMic: true,
-          consentCamera: false,
-          videoAnalyticsEnabled: false,
+          consentCamera: videoEnabled,
+          videoAnalyticsEnabled: videoEnabled ? videoAnalyticsEnabled : false,
           consentSaveRecording,
           consentSaveTranscript,
         });
@@ -156,12 +160,12 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               Assessment Format
             </span>
             <span className="text-[10.5px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-              Audio-only mode enforced
+              {videoEnabled ? 'Video & Audio mode active' : 'Audio-only mode active'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
-            {/* Card 1: Audio Only (Active) */}
+            {/* Card 1: Audio Only */}
             <div
               onClick={handleSelectAudioOnly}
               className={`relative flex items-center justify-between py-3 px-4 sm:py-3.5 sm:px-4.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[60px] sm:min-h-[64px] ${
@@ -171,7 +175,11 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
               }`}
             >
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-purple-100/80 dark:bg-purple-950/50 text-[#7C3AED] shrink-0">
+                <div className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  !videoEnabled
+                    ? 'bg-purple-100/80 dark:bg-purple-950/50 text-[#7C3AED]'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
                   <Mic className="w-4.5 h-4.5 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
@@ -179,9 +187,11 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                     <h3 className="text-xs sm:text-[13.5px] font-bold text-slate-900 dark:text-white leading-tight">
                       Audio Only
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold bg-purple-100 text-[#7C3AED] dark:bg-purple-900/50 dark:text-purple-300">
-                      Active
-                    </span>
+                    {!videoEnabled && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold bg-purple-100 text-[#7C3AED] dark:bg-purple-900/50 dark:text-purple-300">
+                        Active
+                      </span>
+                    )}
                   </div>
                   <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
                     Voice-based interview with AI. No webcam required.
@@ -191,40 +201,59 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
 
               {/* Radio Indicator */}
               <div className="shrink-0 pl-2">
-                <div className="w-4.5 h-4.5 rounded-full border-2 border-[#7C3AED] flex items-center justify-center bg-white dark:bg-slate-900">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" />
+                <div className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+                  !videoEnabled
+                    ? 'border-[#7C3AED] bg-white dark:bg-slate-900'
+                    : 'border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80'
+                }`}>
+                  {!videoEnabled && <div className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" />}
                 </div>
               </div>
             </div>
 
-            {/* Card 2: Video + Audio (Disabled) */}
+            {/* Card 2: Video + Audio */}
             <div
-              aria-disabled="true"
-              className="relative flex items-center justify-between py-3 px-4 sm:py-3.5 sm:px-4.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 opacity-60 cursor-not-allowed min-h-[60px] sm:min-h-[64px] select-none"
-              title="Video assessment is temporarily disabled. Please proceed with Audio Only."
+              onClick={handleSelectVideoAudio}
+              className={`relative flex items-center justify-between py-3 px-4 sm:py-3.5 sm:px-4.5 rounded-xl border-2 transition-all duration-200 cursor-pointer min-h-[60px] sm:min-h-[64px] ${
+                videoEnabled
+                  ? 'border-[#7C3AED] bg-purple-50/30 dark:bg-purple-950/20 shadow-xs ring-1 ring-[#7C3AED]/20'
+                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700'
+              }`}
             >
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 shrink-0">
-                  <Video className="w-4.5 h-4.5 stroke-[2]" />
+                <div className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  videoEnabled
+                    ? 'bg-purple-100/80 dark:bg-purple-950/50 text-[#7C3AED]'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
+                  <Video className="w-4.5 h-4.5 stroke-[2.2]" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs sm:text-[13.5px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">
+                    <h3 className="text-xs sm:text-[13.5px] font-bold text-slate-900 dark:text-white leading-tight">
                       Video + Audio
                     </h3>
-                    <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                      Disabled
-                    </span>
+                    {videoEnabled && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold bg-purple-100 text-[#7C3AED] dark:bg-purple-900/50 dark:text-purple-300">
+                        Active
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[10.5px] sm:text-[11px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5 truncate">
-                    Temporarily unavailable. Please use Audio Only.
+                  <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5 truncate">
+                    Interactive video interview. Webcam and microphone required.
                   </p>
                 </div>
               </div>
 
-              {/* Radio Indicator (Disabled) */}
+              {/* Radio Indicator */}
               <div className="shrink-0 pl-2">
-                <div className="w-4.5 h-4.5 rounded-full border-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80" />
+                <div className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center ${
+                  videoEnabled
+                    ? 'border-[#7C3AED] bg-white dark:bg-slate-900'
+                    : 'border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80'
+                }`}>
+                  {videoEnabled && <div className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" />}
+                </div>
               </div>
             </div>
           </div>
@@ -327,7 +356,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                     </button>
                   </div>
                   <p className="text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                    Store audio recording securely in your account to replay responses and review feedback.
+                    Store {videoEnabled ? 'video and audio' : 'audio'} recording securely in your account to replay responses and review feedback.
                   </p>
                 </div>
               </label>

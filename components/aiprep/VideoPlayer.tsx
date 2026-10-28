@@ -42,11 +42,11 @@ export function extractYoutubeId(url?: string | null): string | null {
     } else if (parsed.hostname.includes("youtube.com") && parsed.pathname.startsWith("/embed/")) {
       id = parsed.pathname.replace("/embed/", "").split("/")[0] || null;
     }
-    // Filter out dummy/mock placeholders from backend tests, quota-fallback, or staging
-    if (id && (id.startsWith("aiprep_rec_") || id.includes("mock") || id.includes("dummy") || id === "UF8uR6Z6KLc")) {
-      return null;
+    // Genuine YouTube video IDs are strictly 11 base64url characters
+    if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      return id;
     }
-    return id;
+    return null;
   } catch {
     // invalid URL
   }
@@ -78,7 +78,8 @@ export default function VideoPlayer({
   onSeek,
   onDurationChange,
 }: Props) {
-  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(youtubeUrl || null);
+  const rawUrl = youtubeUrl || fallbackUrl || null;
+  const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(rawUrl);
   const [isMounted, setIsMounted] = useState(false);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
 
@@ -86,15 +87,25 @@ export default function VideoPlayer({
     setIsMounted(true);
   }, []);
 
+  useEffect(() => {
+    const nextUrl = youtubeUrl || fallbackUrl || null;
+    if (nextUrl !== currentMediaUrl) {
+      setCurrentMediaUrl(nextUrl);
+    }
+  }, [youtubeUrl, fallbackUrl, currentMediaUrl]);
+
   const resolveBackendUrl = useCallback((url: string | null | undefined): string | null => {
     if (!url) return null;
     let finalUrl = url;
     if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("blob:") && !url.startsWith("data:")) {
       const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
-      const backendOrigin = apiBase.startsWith("http")
-        ? apiBase.replace(/\/api\/?$/, "")
-        : "http://127.0.0.1:8000";
-      finalUrl = `${backendOrigin}${url.startsWith("/") ? "" : "/"}${url}`;
+      let backendOrigin = "";
+      if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+        backendOrigin = apiBase.replace(/\/api\/?$/, "");
+      } else if (typeof window !== "undefined" && window.location.origin) {
+        backendOrigin = window.location.origin;
+      }
+      finalUrl = backendOrigin ? `${backendOrigin}${url.startsWith("/") ? "" : "/"}${url}` : url;
     }
     if (typeof window !== "undefined" && finalUrl.includes("/api/aiprep/assessments/") && !finalUrl.includes("token=")) {
       const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
@@ -106,6 +117,92 @@ export default function VideoPlayer({
   }, []);
 
   const resolvedMediaUrl = isMounted ? resolveBackendUrl(currentMediaUrl) : null;
+
+  // Single-call media buffering: loads full video in a single GET request and creates a blob URL
+  const [singleCallBlobUrl, setSingleCallBlobUrl] = useState<string | null>(null);
+  const lastFetchedUrlRef = useRef<string | null>(null);
+  const activeBlobUrlRef = useRef<string | null>(null);
+  const isFetchingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!resolvedMediaUrl) {
+      setSingleCallBlobUrl(null);
+      return;
+    }
+
+    // Direct playback for existing blobs, data URLs, or YouTube
+    if (
+      resolvedMediaUrl.startsWith("blob:") ||
+      resolvedMediaUrl.startsWith("data:") ||
+      Boolean(ytId)
+    ) {
+      setSingleCallBlobUrl(resolvedMediaUrl);
+      return;
+    }
+
+    // Prevent duplicate fetches if already fetched or currently in-flight for this exact URL
+    if (lastFetchedUrlRef.current === resolvedMediaUrl && (singleCallBlobUrl || isFetchingRef.current)) {
+      return;
+    }
+    lastFetchedUrlRef.current = resolvedMediaUrl;
+    isFetchingRef.current = true;
+
+    let isAborted = false;
+
+    // Execute single GET request to retrieve full media stream without 206 chunking
+    fetch(resolvedMediaUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        isFetchingRef.current = false;
+        if (isAborted) return;
+        const localBlobUrl = URL.createObjectURL(blob);
+        const oldBlob = activeBlobUrlRef.current;
+        activeBlobUrlRef.current = localBlobUrl;
+        setSingleCallBlobUrl(localBlobUrl);
+        if (oldBlob && oldBlob !== localBlobUrl) {
+          try {
+            URL.revokeObjectURL(oldBlob);
+          } catch (_) {}
+        }
+      })
+      .catch((err) => {
+        isFetchingRef.current = false;
+        if (isAborted) return;
+        console.warn("Single-call media fetch fallback:", err);
+        // Fallback to direct URL only if fetch fails completely
+        setSingleCallBlobUrl(resolvedMediaUrl);
+      });
+
+    return () => {
+      isAborted = true;
+    };
+  }, [resolvedMediaUrl, ytId]);
+
+  // Clean up blob URL on unmount (only for locally created blob: URLs)
+  useEffect(() => {
+    return () => {
+      if (activeBlobUrlRef.current && activeBlobUrlRef.current.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+        } catch (_) {}
+        activeBlobUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const isDirectPlayable = Boolean(
+    resolvedMediaUrl &&
+      (resolvedMediaUrl.startsWith("blob:") ||
+        resolvedMediaUrl.startsWith("data:") ||
+        Boolean(ytId))
+  );
+  // Never give raw HTTP URL to the media element until blob is ready, preventing 206 range chunking
+  const effectiveMediaSrc = isDirectPlayable
+    ? resolvedMediaUrl
+    : (singleCallBlobUrl || undefined);
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -122,12 +219,12 @@ export default function VideoPlayer({
 
   // Reset playback and error states when media URL changes
   useEffect(() => {
-    setCurrentMediaUrl(youtubeUrl || null);
+    setCurrentMediaUrl(youtubeUrl || fallbackUrl || null);
     setUseServerFallback(false);
     setHasMediaError(false);
     setCurrentTime(0);
     setIsPlaying(false);
-  }, [youtubeUrl]);
+  }, [youtubeUrl, fallbackUrl]);
 
   const handleMediaError = useCallback(() => {
     if (currentMediaUrl && fallbackUrl && currentMediaUrl !== fallbackUrl) {
@@ -280,7 +377,7 @@ export default function VideoPlayer({
   };
 
   // ── 1. YouTube Embed Mode (Only for video assessments with valid YouTube IDs) ──
-  if (!isAudioOnly && ytId && !useServerFallback) {
+  if (ytId && !useServerFallback) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
@@ -317,13 +414,14 @@ export default function VideoPlayer({
   // ── 2. Standard Video Mode (when media is Video and has valid URL) ──────────
   const isVideoFile =
     !isAudioOnly &&
-    youtubeUrl &&
+    Boolean(currentMediaUrl || youtubeUrl || fallbackUrl) &&
     (() => {
-      if (youtubeUrl.startsWith("blob:") || youtubeUrl.startsWith("data:")) {
+      const testUrl = currentMediaUrl || youtubeUrl || fallbackUrl || "";
+      if (testUrl.startsWith("blob:") || testUrl.startsWith("data:")) {
         return true;
       }
       try {
-        const pathname = new URL(youtubeUrl).pathname.toLowerCase();
+        const pathname = new URL(testUrl).pathname.toLowerCase();
         return (
           pathname.endsWith(".mp4") ||
           pathname.endsWith(".webm") ||
@@ -332,7 +430,7 @@ export default function VideoPlayer({
         );
       } catch {
         // Fallback for relative or non-standard URLs the URL constructor rejects
-        const lower = youtubeUrl.toLowerCase();
+        const lower = testUrl.toLowerCase();
         return (
           lower.startsWith("blob:") ||
           lower.includes(".mp4") ||
@@ -357,13 +455,18 @@ export default function VideoPlayer({
               The video asset could not be accessed or has expired.
             </span>
           </div>
+        ) : !effectiveMediaSrc ? (
+          <div className="h-[320px] sm:h-[360px] w-full flex flex-col items-center justify-center gap-2 text-center p-6 bg-slate-950">
+            <Loader2 size={28} className="text-blue-500 animate-spin" />
+            <span className="text-xs font-medium text-slate-400">Loading recording...</span>
+          </div>
         ) : (
           <video
             ref={setCombinedRef as any}
-            src={resolvedMediaUrl || undefined}
+            src={effectiveMediaSrc}
             controls
             playsInline
-            preload="metadata"
+            preload="auto"
             onError={handleMediaError}
             className="w-full h-[320px] sm:h-[360px] rounded-2xl bg-black object-contain"
           >
@@ -374,27 +477,39 @@ export default function VideoPlayer({
     );
   }
 
-  // ── 2b. Video Processing Mode (when media is Video but URL not yet ready) ───
-  if (!isAudioOnly && !currentMediaUrl) {
+  // ── 2b. Video Unavailable Mode (when media is Video but valid URL not available) ───
+  if (!isAudioOnly) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
       >
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-amber-950/80 border border-amber-700/60 z-10">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-xs font-mono font-semibold text-amber-300">PROCESSING</span>
-        </div>
-        <Video size={40} className="text-blue-400 mb-3 animate-pulse z-10" />
-        <h3 className="text-base font-bold text-slate-100 z-10">Video recording is processing</h3>
+        <VideoOff size={36} className="text-slate-500 mb-3 z-10" />
+        <h3 className="text-base font-bold text-slate-100 z-10">Video Recording Unavailable</h3>
         <p className="text-xs text-slate-400 max-w-sm mt-1.5 z-10">
-          Your interview video is currently being uploaded and will be available for playback shortly.
+          No video recording was captured or saved for this session.
         </p>
       </div>
     );
   }
 
-  // ── 3. Rich Audio Recording Playback Player ────────────────────────────────
+  // ── 3. Audio Unavailable Mode (when media is Audio but no URL available) ───
+  if (isAudioOnly && !currentMediaUrl) {
+    return (
+      <div
+        className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-slate-950 flex flex-col items-center justify-center border-2 border-slate-800 shadow-md min-h-[300px] sm:min-h-[340px] p-6 text-center select-none ${className ?? ""}`}
+      >
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <AudioWaveform size={36} className="text-slate-500 mb-3 z-10" />
+        <h3 className="text-base font-bold text-slate-100 z-10">Audio Recording Unavailable</h3>
+        <p className="text-xs text-slate-400 max-w-sm mt-1.5 z-10">
+          No audio recording was captured or saved for this session.
+        </p>
+      </div>
+    );
+  }
+
+  // ── 3b. Rich Audio Recording Playback Player ────────────────────────────────
   // Shown for AUDIO assessments or when video recording is audio-only
   const isMediaAvailable = Boolean(currentMediaUrl && !hasMediaError);
   const effectiveDuration = duration > 0 ? duration : (durationSeconds > 0 ? durationSeconds : 0);
@@ -411,10 +526,10 @@ export default function VideoPlayer({
       <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Hidden audio/media element for native audio playback */}
-      {resolvedMediaUrl && (
+      {isAudioOnly && effectiveMediaSrc && !hasMediaError && (
         <audio
           ref={setCombinedRef as any}
-          src={resolvedMediaUrl}
+          src={effectiveMediaSrc}
           preload="auto"
           onError={handleMediaError}
           className="hidden"
