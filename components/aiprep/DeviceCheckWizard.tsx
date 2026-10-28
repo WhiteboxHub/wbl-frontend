@@ -183,6 +183,7 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setJdText(val);
+    setJdFileName('');
     if (val.trim()) {
       setJdError('');
       setJdGuidance([]);
