@@ -140,14 +140,35 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
       </div>
 
       {/* ── Player ── */}
-      {youtube_url && (
-        <section className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
-          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Recording Playback
-          </p>
-          <VideoPlayer youtubeUrl={youtube_url} videoRef={videoRef} />
-        </section>
-      )}
+      {(() => {
+        const hasValidYoutube = Boolean(
+          youtube_url &&
+          !youtube_url.includes("aiprep_rec_") &&
+          !youtube_url.includes("UF8uR6Z6KLc")
+        );
+        const assembledMedia = (report as any)?.assembled_media || (report as any)?.data?.assembled_media || (report.assessment as any)?.assembled_media;
+        const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url;
+        const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+        const backendOrigin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : "http://127.0.0.1:8000";
+        const serverUrl = serverPath ? (serverPath.startsWith("http") ? serverPath : `${backendOrigin}${serverPath.startsWith("/") ? "" : "/"}${serverPath}`) : undefined;
+        const fallback = assembledMedia || serverUrl;
+        const canShowPlayer = hasValidYoutube || Boolean(fallback);
+
+        if (!canShowPlayer) return null;
+
+        return (
+          <section className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Recording Playback
+            </p>
+            <VideoPlayer
+              youtubeUrl={hasValidYoutube ? youtube_url : null}
+              fallbackUrl={fallback}
+              videoRef={videoRef}
+            />
+          </section>
+        );
+      })()}
 
       {/* ── 2. Sub-Tabs [ Transcript ] [ Key Moments ] ── */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">

@@ -1800,8 +1800,15 @@ export function EvaluationContent({
     (report as any)?.save_recording ??
     true
   );
+  const isMultiQuestion = [
+    "TECHNICAL",
+    "HIRING_MANAGER",
+    "RECRUITER",
+    "SYSTEM_DESIGN",
+  ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
+
   const localPreviewUrl =
-    typeof window !== "undefined"
+    !isMultiQuestion && typeof window !== "undefined"
       ? (window as any).__aiprep_local_preview?.[assessmentId] ||
       (() => {
         const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
@@ -1840,11 +1847,9 @@ export function EvaluationContent({
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
-  const isRealYouTube = Boolean(youtube_url && extractYoutubeId(youtube_url));
-
-  // Auto-cleanup local instant playback blob once verified YouTube URL is available
+  // Auto-cleanup local instant playback blob once YouTube URL is available
   useEffect(() => {
-    if (isRealYouTube && typeof window !== "undefined" && assessmentId) {
+    if (youtube_url && typeof window !== "undefined" && assessmentId) {
       if ((window as any).__aiprep_local_preview?.[assessmentId]) {
         try {
           URL.revokeObjectURL((window as any).__aiprep_local_preview[assessmentId]);
@@ -1855,16 +1860,26 @@ export function EvaluationContent({
         sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
       } catch (_) { }
     }
-  }, [isRealYouTube, assessmentId]);
+  }, [youtube_url, assessmentId]);
 
   // Playback hierarchy:
   // For Audio assessments: always play native audio via serverUrl (or localPreviewUrl)
   // For Video assessments:
   // 1. Verified YouTube URL (when real YouTube upload succeeded)
-  // 2. Instant Local Playback (0ms zero-latency preview while processing is pending)
-  // 3. Authoritative Persistent Server Storage Stream (when real recording exists on server)
+  // 2. Instant Local Playback (0ms zero-latency preview while YouTube/processing is pending)
+  // 3. Authoritative Persistent Server Storage Stream (when YouTube is unavailable, mock, or pending)
+  const hasValidYoutube = Boolean(
+    youtube_url &&
+    !youtube_url.includes("aiprep_rec_") &&
+    !youtube_url.includes("UF8uR6Z6KLc") &&
+    extractYoutubeId(youtube_url)
+  );
+  const assembledMedia =
+    (report as any)?.assembled_media ||
+    (report as any)?.data?.assembled_media ||
+    (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? (isRealYouTube ? youtube_url : (localPreviewUrl || (hasServerRecording ? serverUrl : undefined)))
+    ? ((hasValidYoutube ? youtube_url : null) || assembledMedia || localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
     : undefined;
 
   const durationSeconds =
@@ -2229,8 +2244,8 @@ export function EvaluationContent({
         const unverifiedClaims = report.skill_breakdown?.unverified_spoken_claims ||
           (hasResumeData
             ? report.requirement_coverage
-                .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
-                .map((r) => r.requirement)
+              .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
+              .map((r) => r.requirement)
             : []);
 
         const mustCoveredCount = mustHaves.filter((r) => r.status === "COVERED").length;
@@ -2426,66 +2441,66 @@ export function EvaluationContent({
 
             {/* 3. RESUME CROSS-VERIFICATION & CLAIMS ANALYSIS */}
             {hasResumeData && (
-            <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                    <ShieldCheck className="size-4" />
+              <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                      <ShieldCheck className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                        Resume Cross-Verification & Project Claims
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Verification of spoken introduction statements against candidate resume and project points
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                      Resume Cross-Verification & Project Claims
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Verification of spoken introduction statements against candidate resume and project points
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab("Details", "requirements")}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    View Full Evidence Map →
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectTab("Details", "requirements")}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-                >
-                  View Full Evidence Map →
-                </button>
-              </div>
 
-              {unverifiedClaims.length > 0 ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm">
-                    <AlertTriangle className="size-4 text-amber-600 shrink-0" />
-                    <span>Unverified Spoken Claims Detected ({unverifiedClaims.length})</span>
-                  </div>
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    The candidate mentioned the following skills during their spoken introduction, but they could not be found anywhere on their resume or project bullet points:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {unverifiedClaims.map((claim, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-amber-900 border border-amber-300 shadow-2xs"
-                      >
-                        <span className="size-1.5 rounded-full bg-amber-500" />
-                        {claim}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-amber-700 italic pt-1 border-t border-amber-200/60">
-                    Per evaluation policy, spoken claims that are not corroborated by project bullet points or work experience on the resume receive discounted credit to ensure objective qualification.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 flex items-start gap-2.5">
-                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5 text-xs">
-                    <p className="font-bold text-emerald-950">Full Resume Corroboration</p>
-                    <p className="text-emerald-800 leading-relaxed">
-                      All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate&apos;s resume and project bullet points.
+                {unverifiedClaims.length > 0 ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm">
+                      <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                      <span>Unverified Spoken Claims Detected ({unverifiedClaims.length})</span>
+                    </div>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      The candidate mentioned the following skills during their spoken introduction, but they could not be found anywhere on their resume or project bullet points:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {unverifiedClaims.map((claim, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-amber-900 border border-amber-300 shadow-2xs"
+                        >
+                          <span className="size-1.5 rounded-full bg-amber-500" />
+                          {claim}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-amber-700 italic pt-1 border-t border-amber-200/60">
+                      Per evaluation policy, spoken claims that are not corroborated by project bullet points or work experience on the resume receive discounted credit to ensure objective qualification.
                     </p>
                   </div>
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 flex items-start gap-2.5">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 text-xs">
+                      <p className="font-bold text-emerald-950">Full Resume Corroboration</p>
+                      <p className="text-emerald-800 leading-relaxed">
+                        All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate&apos;s resume and project bullet points.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </section>
             )}
           </div>
         );
@@ -3852,10 +3867,10 @@ export function ReportHeader({
                 disabled={isDetailsDisabled}
                 onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
                 className={`pb-1.5 text-xs sm:text-sm transition-colors ${isDetailsDisabled
-                    ? "text-slate-300 cursor-not-allowed select-none"
-                    : isTabActive
-                      ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
-                      : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+                  ? "text-slate-300 cursor-not-allowed select-none"
+                  : isTabActive
+                    ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                    : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
                   }`}
               >
                 {tab.label}

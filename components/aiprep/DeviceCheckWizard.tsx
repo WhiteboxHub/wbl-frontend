@@ -554,27 +554,28 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
     return 'INTRO';
   });
-  // 2. Consent State (Centralized in ConsentModal module - Video disabled as of now)
-  const isAudioOnlyMode = true;
+  // 2. Consent State (Centralized in ConsentModal module)
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(true);
-  }, []);
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
-  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(false);
+    let savedVideo = false;
+    if (typeof window !== 'undefined') {
+      const storedVideo = window.sessionStorage?.getItem('aiprep_video_enabled');
+      const storedMode = window.sessionStorage?.getItem('aiprep_active_mode');
+      if (storedVideo !== null) {
+        savedVideo = storedVideo === 'true';
+      } else if (storedMode) {
+        savedVideo = storedMode === 'VIDEO_AUDIO' || storedMode === 'VIDEO';
+      } else if (initialMode) {
+        savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
+      }
+    }
+    return getInitialConsentState(!savedVideo);
+  }, [initialMode]);
+  const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
+  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
-  const [consentCamera, setConsentCamera] = useState<boolean>(false);
+  const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
-
-  // Enforce Audio Only mode across session storage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setVideoEnabled(false);
-    setConsentCamera(false);
-    setVideoAnalyticsEnabled(false);
-    window.sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
-    window.sessionStorage.setItem('aiprep_video_enabled', 'false');
-  }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
@@ -676,10 +677,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
     if (step === 'CONFIGURATION' && initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
-      setVideoEnabled(false);
-      setConsentCamera(false);
-      setVideoAnalyticsEnabled(false);
-      syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
+      const storedVideo = typeof window !== 'undefined' && window.sessionStorage?.getItem('aiprep_video_enabled') === 'true';
+      if (!storedVideo) {
+        setVideoEnabled(false);
+        setConsentCamera(false);
+        setVideoAnalyticsEnabled(false);
+        syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
+      }
     }
   }, [step, initialMode]);
 
@@ -2127,8 +2131,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
+          sessionStorage.setItem('aiprep_active_type', targetType);
+          sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
+          }
+          if (targetType === 'JD_INTRO' && jdText) {
+            sessionStorage.setItem('aiprep_jd_text', jdText);
           }
           // Retain aiprep_jd_* in sessionStorage for Target JD modal inside session room
         }
@@ -2143,6 +2152,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           success: false,
           error_message: err?.message || 'Failed to start assessment',
         });
+
         alert(err?.message || 'Failed to start assessment. Please try again.');
         throw err;
       }

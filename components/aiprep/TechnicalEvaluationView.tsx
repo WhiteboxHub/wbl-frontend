@@ -343,22 +343,36 @@ export default function TechnicalEvaluationView({
     true
   );
 
+  const isMultiQuestion = [
+    "TECHNICAL",
+    "HIRING_MANAGER",
+    "RECRUITER",
+    "SYSTEM_DESIGN",
+  ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
+
   const localPreviewUrl =
-    typeof window !== "undefined" && resolvedAssessmentId
+    !isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId
       ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
-        (() => {
-          try {
-            const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-            if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
-              sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-              return undefined;
-            }
-            return stored || undefined;
-          } catch (_) {
+      (() => {
+        try {
+          const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
+            sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
             return undefined;
           }
-        })()
-      : undefined;
+          return stored || undefined;
+        } catch (_) {
+          return undefined;
+        }
+      })()
+      : (() => {
+        if (isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId) {
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+          } catch (_) { }
+        }
+        return undefined;
+      })();
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
   const backendOrigin = apiBase.startsWith("http")
@@ -371,8 +385,17 @@ export default function TechnicalEvaluationView({
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
+  const hasValidYoutube = Boolean(
+    report.youtube_url &&
+    !report.youtube_url.includes("aiprep_rec_") &&
+    !report.youtube_url.includes("UF8uR6Z6KLc")
+  );
+  const assembledMedia =
+    (report as any)?.assembled_media ||
+    (report as any)?.data?.assembled_media ||
+    (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? (report.youtube_url || serverUrl || localPreviewUrl)
+    ? ((hasValidYoutube ? report.youtube_url : null) || assembledMedia || localPreviewUrl || serverUrl)
     : undefined;
 
   const durationSeconds =
@@ -409,16 +432,18 @@ export default function TechnicalEvaluationView({
   const isRecruiter =
     (report.assessment?.assessment_type || "").toUpperCase() === "RECRUITER";
 
-  const selectedConceptSlug = searchParams.get("concept");
-  const selectedQuestionIdStr = searchParams.get("q");
-
+  // ── Active concept and question state (static URL, 0 network calls, 0 page refresh) ────
+  const [selectedConceptSlug, setSelectedConceptSlug] = useState<string | null>(() => {
+    return searchParams.get("concept") || null;
+  });
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(() => {
-    return selectedQuestionIdStr ? Number(selectedQuestionIdStr) : null;
+    const qStr = searchParams.get("q");
+    return qStr ? Number(qStr) : null;
   });
   const [questionTabs, setQuestionTabs] = useState<Record<number, "answer" | "improve">>({});
   const [filterMode, setFilterMode] = useState<"all" | "needs_work">("all");
 
-  // ── Active concept (driven by URL) ──────────────────────────────────────────
+  // ── Active concept (driven by local state, falls back to first concept) ─────
   const activeConcept: TechnicalConceptEval = useMemo(() => {
     const concepts = techEval.concept_evaluations;
     if (selectedConceptSlug) {
@@ -432,35 +457,27 @@ export default function TechnicalEvaluationView({
     return concepts[0] ?? ({} as TechnicalConceptEval);
   }, [techEval.concept_evaluations, selectedConceptSlug]);
 
-  // ── Sync expanded question from URL ─────────────────────────────────────────
+  // ── Sync initial expanded question from URL if present ─────────────────────
   useEffect(() => {
-    if (selectedQuestionIdStr) {
-      const qId = Number(selectedQuestionIdStr);
-      setExpandedQuestionId(qId);
+    const qStr = searchParams.get("q");
+    if (qStr) {
+      setExpandedQuestionId(Number(qStr));
     }
-  }, [selectedQuestionIdStr]);
+    const cSlug = searchParams.get("concept");
+    if (cSlug) {
+      setSelectedConceptSlug(cSlug);
+    }
+  }, [searchParams]);
 
-  // ── Navigation helpers ─────────────────────────────────────────────────────
+  // ── Navigation helpers (Zero network calls, static URL, instantaneous UI update) ─
   const selectConcept = (concept: TechnicalConceptEval) => {
     const slug = concept.concept.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "details");
-    params.set("concept", slug);
-    params.delete("q");
-    router.push(`?${params.toString()}`, { scroll: false });
+    setSelectedConceptSlug(slug);
+    setExpandedQuestionId(null);
   };
 
   const toggleExpandQuestion = (questionId: number) => {
-    const isCurrentlyExpanded = expandedQuestionId === questionId;
-    const next = isCurrentlyExpanded ? null : questionId;
-    setExpandedQuestionId(next);
-    const params = new URLSearchParams(searchParams.toString());
-    if (next) {
-      params.set("q", String(next));
-    } else {
-      params.delete("q");
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
+    setExpandedQuestionId((prev) => (prev === questionId ? null : questionId));
   };
 
   const openQuestionFromHeatmap = (question: TechnicalQuestionEval) => {
@@ -468,14 +485,10 @@ export default function TechnicalEvaluationView({
     const parentConcept = techEval.concept_evaluations.find(
       (c) => c.concept.toLowerCase() === question.concept.toLowerCase()
     );
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "details");
     if (parentConcept) {
       const slug = parentConcept.concept.toLowerCase().replace(/[^a-z0-9]/g, "-");
-      params.set("concept", slug);
+      setSelectedConceptSlug(slug);
     }
-    params.set("q", String(question.question_id));
-    router.push(`?${params.toString()}`, { scroll: false });
     setExpandedQuestionId(question.question_id);
     setTimeout(() => {
       document
@@ -499,16 +512,16 @@ export default function TechnicalEvaluationView({
       testedSubjects.length > 0
         ? `Comprehensive evaluation across ${testedSubjects.join(", ")}`
         : isHiringManager
-        ? "Comprehensive evaluation across tested leadership and behavioral competencies"
-        : isRecruiter
-        ? "Comprehensive evaluation across recruiter screening sections"
-        : "Comprehensive evaluation across tested technical domains";
+          ? "Comprehensive evaluation across tested leadership and behavioral competencies"
+          : isRecruiter
+            ? "Comprehensive evaluation across recruiter screening sections"
+            : "Comprehensive evaluation across tested technical domains";
 
     const dynamicTitle = isHiringManager
       ? "Hiring Manager Performance Evaluation"
       : isRecruiter
-      ? "Recruiter Screening Performance Evaluation"
-      : "Technical Performance Evaluation";
+        ? "Recruiter Screening Performance Evaluation"
+        : "Technical Performance Evaluation";
 
     return (
       <div className="space-y-3">
@@ -563,14 +576,14 @@ export default function TechnicalEvaluationView({
               const SubjIcon = subj.subject.includes("AI")
                 ? Cpu
                 : subj.subject.includes("Software")
-                ? Code2
-                : subj.subject.includes("Owner") || subj.subject.includes("Leader")
-                ? Users
-                : subj.subject.includes("Conflict") || subj.subject.includes("Collaborat")
-                ? Target
-                : subj.subject.includes("Roadblock") || subj.subject.includes("Delivery") || subj.subject.includes("Deadline")
-                ? ShieldCheck
-                : GitBranch;
+                  ? Code2
+                  : subj.subject.includes("Owner") || subj.subject.includes("Leader")
+                    ? Users
+                    : subj.subject.includes("Conflict") || subj.subject.includes("Collaborat")
+                      ? Target
+                      : subj.subject.includes("Roadblock") || subj.subject.includes("Delivery") || subj.subject.includes("Deadline")
+                        ? ShieldCheck
+                        : GitBranch;
 
               return (
                 <div
@@ -1073,11 +1086,10 @@ export default function TechnicalEvaluationView({
               {/* Readiness pill (audio only, hide for video) */}
               {delivery.type === "audio" && delivery.readiness && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
-                    delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
                       ? "bg-slate-100 text-slate-700 border-slate-300"
                       : "bg-teal-50 text-teal-800 border-teal-200"
-                  }`}
+                    }`}
                 >
                   {delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
                     ? "Status: Insufficient Data"
@@ -1288,9 +1300,9 @@ export default function TechnicalEvaluationView({
   const displayedQuestions =
     filterMode === "needs_work"
       ? conceptQuestions.filter((q) => {
-          const r = (q.rating ?? "").toUpperCase().trim();
-          return ["AVERAGE", "POOR", "NEEDS_POLISH", "WEAK"].includes(r);
-        })
+        const r = (q.rating ?? "").toUpperCase().trim();
+        return ["AVERAGE", "POOR", "NEEDS_POLISH", "WEAK"].includes(r);
+      })
       : conceptQuestions;
 
   const activeConceptMeta = getRatingMeta(activeConcept.rating);
@@ -1336,11 +1348,10 @@ export default function TechnicalEvaluationView({
                           key={c.concept}
                           type="button"
                           onClick={() => selectConcept(c)}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all cursor-pointer ${
-                            isSelected
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all cursor-pointer ${isSelected
                               ? "bg-blue-50 text-blue-900 border border-blue-200/80 shadow-2xs font-semibold"
                               : "text-slate-700 hover:bg-slate-50 border border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2 truncate pr-2">
                             <span className={`size-2 rounded-full shrink-0 ${cmeta.dotClass}`} />
@@ -1455,8 +1466,8 @@ export default function TechnicalEvaluationView({
                       activeConcept.what_to_work_on && activeConcept.what_to_work_on.length > 0
                         ? activeConcept.what_to_work_on
                         : activeConcept.gaps && activeConcept.gaps.length > 0
-                        ? activeConcept.gaps
-                        : [];
+                          ? activeConcept.gaps
+                          : [];
                     if (focusItems.length === 0) {
                       return (
                         <li className="text-[11px] text-slate-400 italic">
@@ -1489,20 +1500,18 @@ export default function TechnicalEvaluationView({
                 <button
                   type="button"
                   onClick={() => setFilterMode("all")}
-                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                    filterMode === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500"
-                  }`}
+                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${filterMode === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500"
+                    }`}
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterMode("needs_work")}
-                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                    filterMode === "needs_work"
+                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${filterMode === "needs_work"
                       ? "bg-white text-rose-700 shadow-2xs"
                       : "text-slate-500"
-                  }`}
+                    }`}
                 >
                   Needs Work
                 </button>
@@ -1528,11 +1537,10 @@ export default function TechnicalEvaluationView({
                   <div
                     key={q.question_id}
                     id={`question-${q.question_id}`}
-                    className={`rounded-xl border transition-all ${
-                      isExpanded
+                    className={`rounded-xl border transition-all ${isExpanded
                         ? "border-blue-400 bg-white shadow-xs ring-1 ring-blue-100"
                         : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-                    }`}
+                      }`}
                   >
                     {/* ── Question Header Row (Clickable) ─────────────────── */}
                     <div
@@ -1614,11 +1622,10 @@ export default function TechnicalEvaluationView({
                               e.stopPropagation();
                               setQuestionTabs((prev) => ({ ...prev, [q.question_id]: "answer" }));
                             }}
-                            className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
-                              activeQTab === "answer"
+                            className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${activeQTab === "answer"
                                 ? "border-blue-600 text-blue-600 bg-white rounded-t border-t border-x border-slate-200 -mb-px"
                                 : "border-transparent text-slate-500 hover:text-slate-800"
-                            }`}
+                              }`}
                           >
                             Your Spoken Answer
                           </button>
@@ -1629,11 +1636,10 @@ export default function TechnicalEvaluationView({
                                 e.stopPropagation();
                                 setQuestionTabs((prev) => ({ ...prev, [q.question_id]: "improve" }));
                               }}
-                              className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-                                activeQTab === "improve"
+                              className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${activeQTab === "improve"
                                   ? "border-blue-600 text-blue-600 bg-white rounded-t border-t border-x border-slate-200 -mb-px"
                                   : "border-transparent text-slate-500 hover:text-slate-800"
-                              }`}
+                                }`}
                             >
                               <GraduationCap size={13} />
                               How to Improve &amp; Model Answer

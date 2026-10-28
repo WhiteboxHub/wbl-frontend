@@ -349,6 +349,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [hasStartedQuestion, setHasStartedQuestion] = useState<boolean>(false);
   const [prepCountdown, setPrepCountdown] = useState<number | null>(null);
   const elapsedTimeRef = useRef<number>(0);
+  const cumulativeRecordedSecondsRef = useRef<number>(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
 
   // Target Job Description State (for JD_INTRO track)
   const [jobDescription, setJobDescription] = useState<string>('');
@@ -567,6 +569,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, []);
 
   const isIntroType = assessmentType === 'INTRO' || assessmentType === 'JD_INTRO';
+  const isMultiQuestion =
+    assessmentType === 'TECHNICAL' ||
+    assessmentType === 'HIRING_MANAGER' ||
+    assessmentType === 'RECRUITER' ||
+    assessmentType === 'SYSTEM_DESIGN';
   const assessmentTitle = ({
     INTRO: 'INTRO Assessment',
     JD_INTRO: 'JD Walkthrough Assessment',
@@ -631,7 +638,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     },
   });
 
-  // ── Media Recorder Hook (30s slicing for Video Assessments) ────────────────
+  // ── Media Recorder Hook (Continuous Question Buffering for Video Assessments) ──
   const {
     status: videoRecordingStatus,
     stream: videoStream,
@@ -641,14 +648,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     cleanup: cleanupVideoRecorder,
   } = useMediaRecorder({
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
-    chunkDurationMs: 30000,
+    chunkDurationMs: 0,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       if (isAudioOnly) return;
-      console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
+      console.log(`[Media Pipeline] Produced slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
       if (blob && blob.size > 0) {
         localChunksRef.current.push(blob);
       }
-      enqueueChunk(blob, chunkIdx, isFinal);
+      if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
+        enqueueChunk(blob, chunkIdx, isFinal);
+      }
     },
     onError: (err) => {
       console.error('[MediaRecorder Error]:', err);
@@ -867,7 +876,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     async function initSession() {
       try {
-        // Guard against previously exited or completed session
+        // Guard against previously exited or completed session (Double-Attempt Guard via POST session lifecycle)
         if (typeof window !== 'undefined') {
           const wasExited = Boolean(
             localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
@@ -876,51 +885,37 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           );
           if (wasExited) {
             setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : `/aiprep/reports/${assessmentId}`;
+            router.replace(targetUrl);
+            return;
+          }
+
+          // Double-Attempt & URL Tampering Guard:
+          // Ensure the user entered from an authorized POST creation flow for this exact assessment ID
+          const activeSessionId = sessionStorage.getItem('aiprep_active_id');
+          if (activeSessionId && String(activeSessionId) !== String(assessmentId)) {
+            setIsSessionAlreadyEnded(true);
             const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
             router.replace(targetUrl);
             return;
           }
         }
 
-        // Failsafe: check server assessment status
-        let serverDetail: any = null;
-        try {
-          const detail = await aiprepApi.getAssessment(assessmentId);
-          serverDetail = detail;
-          const status = (detail?.status || '').toUpperCase();
-          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
-              localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
-            }
-            setIsSessionAlreadyEnded(true);
-            const targetUrl = isEmbedded
-              ? '/user_dashboard/ai-prep?embed=true'
-              : (status === 'COMPLETED' || status === 'EVALUATING' || status === 'SUBMITTED' || status === 'EVALUATED')
-                ? `/aiprep/reports/${assessmentId}`
-                : '/user_dashboard/ai-prep';
-            router.replace(targetUrl);
-            return;
-          }
-        } catch (_) {}
-
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode directly from sessionStorage
+        // 1. Recover stored session track & mode directly from sessionStorage (populated via POST /assessments)
         const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
         const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
         let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
+        const finalMode: MediaType = (resolvedMode === 'VIDEO_AUDIO' || resolvedMode === 'VIDEO') ? 'VIDEO_AUDIO' : (resolvedMode || 'AUDIO_ONLY');
 
         if (finalType === 'JD_INTRO') {
           const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
           const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
           const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
-          const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
-          const activeJd = storedJd || serverJd;
-          if (activeJd) setJobDescription((prev) => prev || activeJd);
+          if (storedJd) setJobDescription((prev) => prev || storedJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
         } else {
@@ -932,70 +927,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Load cached questions immediately for non-technical tracks.
-        // For Technical tracks, read from cached session questions or restore from serverDetail on reload.
-        if (finalType === 'TECHNICAL') {
-          try {
-            const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
-            if (cachedQ) {
-              const parsed = JSON.parse(cachedQ);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loadedQuestions = parsed as QuestionBankItem[];
-              }
-            }
-          } catch (_) {}
-          if (!loadedQuestions || loadedQuestions.length === 0) {
-            const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
-            if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
-              loadedQuestions = serverQuestions as QuestionBankItem[];
+        // 2. Load cached questions directly from sessionStorage (populated via POST /assessments)
+        try {
+          const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
+          if (cachedQ) {
+            const parsed = JSON.parse(cachedQ);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              loadedQuestions = parsed as QuestionBankItem[];
             }
           }
-        } else if (typeof window !== 'undefined') {
-          try {
-            const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
-            if (cachedQ) {
-              const parsed = JSON.parse(cachedQ);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loadedQuestions = parsed as QuestionBankItem[];
-              }
-            }
-          } catch (_) {}
-        }
+        } catch (_) {}
 
-        // For JD Walkthrough, recover question from server detail (GET /api/aiprep/candidates/{id}/assessments/{id})
-        // and strictly avoid calling unapproved Question Bank endpoints
+        // For JD Walkthrough fallback if session storage is unavailable
         if ((!loadedQuestions || loadedQuestions.length === 0) && finalType === 'JD_INTRO') {
-          const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
-          if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
-            loadedQuestions = serverQuestions as QuestionBankItem[];
-          } else {
-            loadedQuestions = [
-              {
-                id: 1,
-                question_id: 1,
-                question_text: 'Please introduce yourself and walk through your professional background, highlighting the key experiences and technical skills that align with this job description.',
-                category: 'JD_INTRO',
-                difficulty_level: 'MEDIUM',
-                is_active: true,
-              } as QuestionBankItem,
-            ];
-          }
+          loadedQuestions = [
+            {
+              id: 1,
+              question_id: 1,
+              question_text: 'Please introduce yourself and walk through your professional background, highlighting the key experiences and technical skills that align with this job description.',
+              category: 'JD_INTRO',
+              difficulty_level: 'MEDIUM',
+              is_active: true,
+            } as QuestionBankItem,
+          ];
         }
 
-        // Technical and JD_INTRO assessments must use the exact question snapshot returned by POST / GET assessment.
-        // Never query the general question catalog for JD_INTRO or TECHNICAL attempts.
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL' && finalType !== 'JD_INTRO') {
-          try {
-            const qBankRes = await aiprepApi.getQuestions(finalType);
-            if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
-              loadedQuestions = qBankRes.items;
-            }
-          } catch (qErr) {
-            console.warn('Question Bank Catalog API fallback failed:', qErr);
-          }
-        }
-
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL' && finalType !== 'JD_INTRO') {
+        // Assessments strictly use the question snapshot returned by the POST creation endpoint.
+        // No GET question bank endpoint is called.
+        if (!loadedQuestions || loadedQuestions.length === 0) {
           setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
@@ -1259,6 +1218,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
     if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
+    if (!sessionStartedAtRef.current) {
+      sessionStartedAtRef.current = Date.now();
+    }
     // Reveal questions only after the candidate clicks Start Assessment.
     let pendingQuestions = pendingAssessmentQuestionsRef.current ?? [];
     if (pendingQuestions.length === 0) {
@@ -1446,19 +1408,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsQuestionPrepPaused(true);
       stopAiSpeech();
 
-      // Slice and upload completed question's audio in background (0ms UI lag)
-      const activeQ = questions[currentQuestionIndex];
-      if (isAudioOnly && isRecording) {
-        try {
-          const audioRes = await stopAudioRecorder();
-          const qId = activeQ?.id ?? (activeQ as any)?.question_id;
-          if (audioRes?.blob && qId) {
-            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
-            pendingAudioUploadsRef.current.push(uploadPromise);
-          }
+      // Accumulate recording time for this completed question into the session total
+      cumulativeRecordedSecondsRef.current += elapsedTimeRef.current;
 
+      // Slice and upload completed question's media in background (0ms UI lag)
+      const activeQ = questions[currentQuestionIndex];
+      const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+      if (isRecording) {
+        try {
+          if (isAudioOnly) {
+            const audioRes = await stopAudioRecorder();
+            if (audioRes?.blob && qId) {
+              const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
+              pendingAudioUploadsRef.current.push(uploadPromise);
+            }
+          } else {
+            const videoRes = await stopVideoRecorder(true); // keep camera stream active
+            if (videoRes?.blob && qId) {
+              const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, videoRes.blob, "VIDEO", true, undefined, qId);
+              pendingAudioUploadsRef.current.push(uploadPromise);
+            }
+          }
         } catch (e) {
-          console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
+          console.warn("[MultiQuestionMedia] Failed to slice question media:", e);
         }
       }
 
@@ -1595,14 +1567,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
       stopAiSpeech();
 
-      // 1. Stop recording and flush final slice / audio blob
+      // 1. Stop recording and flush final slice / media blob
+      const activeQ = questions[currentQuestionIndex];
+      const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+
       let finalAudioBlob: Blob | null = null;
+      let finalVideoBlob: Blob | null = null;
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
 
-        const activeQ = questions[currentQuestionIndex];
-        const qId = activeQ?.id ?? (activeQ as any)?.question_id;
         if (finalAudioBlob && qId) {
           try {
             await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, qId);
@@ -1611,42 +1585,62 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         }
 
-        // Flush and await any remaining in-flight question uploads
-        if (pendingAudioUploadsRef.current.length > 0) {
-          try {
-            await Promise.allSettled(pendingAudioUploadsRef.current);
-          } catch (_) {}
-          pendingAudioUploadsRef.current = [];
-        }
-
         // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
-        // Multi-question technical assessments stream the complete stitched assembled.webm from the backend serverUrl.
-        if (audioRes?.url && assessmentId && (!questions || questions.length <= 1)) {
+        // Multi-question assessments stream the complete stitched assembled.webm from the backend serverUrl.
+        if (audioRes?.url && assessmentId && !isMultiQuestion && isIntroType) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, audioRes.url);
           }
+        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
+          if ((window as any).__aiprep_local_preview) {
+            delete (window as any).__aiprep_local_preview[assessmentId];
+          }
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) {}
         }
       } else {
-        await stopVideoRecorder();
-        // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
-        if (localChunksRef.current.length > 0 && assessmentId) {
+        const videoRes = await stopVideoRecorder(false);
+        finalVideoBlob = videoRes?.blob || null;
+
+        if (finalVideoBlob && qId && !isIntroType) {
           try {
-            const mimeType = 'video/webm';
-            const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
-            const previewUrl = URL.createObjectURL(combinedBlob);
-            if (typeof window !== 'undefined') {
-              (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-              (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
-              sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
-            }
-          } catch (blobErr) {
-            console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+            await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
+          } catch (uploadErr) {
+            console.warn("[handleEndSession] Final video chunk upload error:", uploadErr);
           }
         }
-        // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
-        await waitForAllChunks(8000);
+
+        // 1b. Create instant combined media blob for zero-gap playback ONLY if single-track intro assessment.
+        // Multi-question assessments (TECHNICAL, HIRING_MANAGER, RECRUITER, SYSTEM_DESIGN) must stream the
+        // continuous server-side assembled.webm to guarantee proper duration, monotonic timestamps, and seekability.
+        if (!isMultiQuestion && isIntroType && videoRes?.url && assessmentId) {
+          if (typeof window !== 'undefined') {
+            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+            (window as any).__aiprep_local_preview[assessmentId] = videoRes.url;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, videoRes.url);
+          }
+        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
+          if ((window as any).__aiprep_local_preview) {
+            delete (window as any).__aiprep_local_preview[assessmentId];
+          }
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) {}
+        }
+        if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
+          await waitForAllChunks(8000);
+        }
+      }
+
+      // Flush and await any remaining in-flight question uploads (both audio and video)
+      if (pendingAudioUploadsRef.current.length > 0) {
+        try {
+          await Promise.allSettled(pendingAudioUploadsRef.current);
+        } catch (_) {}
+        pendingAudioUploadsRef.current = [];
       }
 
       // Commit any pending interim speech as a complete sentence before submitting
@@ -1699,12 +1693,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // The API resolves only after the backend sends a terminal COMPLETED event.
       setSubmissionProgress(0);
       setSubmissionStep("Submitting assessment…");
+
+      // Add final question elapsed time to cumulative total
+      cumulativeRecordedSecondsRef.current += elapsedTimeRef.current;
+      const totalInterviewDuration = cumulativeRecordedSecondsRef.current > 0
+        ? Math.round(cumulativeRecordedSecondsRef.current)
+        : (sessionStartedAtRef.current ? Math.floor((Date.now() - sessionStartedAtRef.current) / 1000) : elapsedTimeRef.current);
+
       await aiprepApi.submitAssessmentStream(
         assessmentId,
         {
           total_chunks_uploaded: isAudioOnly ? 0 : (totalChunks || 1),
           is_final: true,
-          client_duration_seconds: elapsedTimeRef.current,
+          client_duration_seconds: totalInterviewDuration,
           video_telemetry: isAudioOnly
             ? {}
             : {
@@ -1733,7 +1734,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         },
         undefined,
-        finalAudioBlob
+        isAudioOnly ? finalAudioBlob : null,
+        !isAudioOnly && isIntroType ? finalVideoBlob : null
       );
       setSubmissionProgress(100);
       setSubmissionStep("Evaluation complete. Opening report…");
