@@ -207,7 +207,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-export function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: { assessmentIdProp?: number; onStartPendingAssessment?: () => Promise<number> } = {}) {
+function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: { assessmentIdProp?: number; onStartPendingAssessment?: () => Promise<number> } = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
