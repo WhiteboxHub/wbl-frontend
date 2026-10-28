@@ -348,7 +348,12 @@ export default function TechnicalEvaluationView({
       ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
         (() => {
           try {
-            return sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`) || undefined;
+            const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+            if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
+              sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+              return undefined;
+            }
+            return stored || undefined;
           } catch (_) {
             return undefined;
           }

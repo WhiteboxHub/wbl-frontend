@@ -10,14 +10,20 @@ export const TECH_TERMS_REPLACEMENTS: [RegExp, string][] = [
   [/\bm\s*l\s*ops\b/gi, 'MLOps'],
   [/\bml\s*ops\b/gi, 'MLOps'],
   [/\bgen\s*ai\b/gi, 'GenAI'],
+  [/\bchain\s*ai\b/gi, 'GenAI'],
   [/\bagentic\s*ai\b/gi, 'Agentic AI'],
   [/\bl\s*l\s*m\s*s?\b/gi, 'LLMs'],
   [/\bn\s*l\s*p\b/gi, 'NLP'],
   [/\br\s*a\s*g\b/gi, 'RAG'],
+  [/\ba\s*rack\s+system\b/gi, 'a RAG system'],
   [/\ba\s*p\s*i\s*s?\b/gi, 'APIs'],
   [/\bci\s*\/?\s*cd\b/gi, 'CI/CD'],
   [/\bproof\s+of\s+concept\b/gi, 'proof-of-concept'],
   [/\bvector\s+data\s*base\b/gi, 'vector database'],
+  [/\bcoiry\s+pipeline\b/gi, 'query pipeline'],
+  [/\binjection\s+pipeline\b/gi, 'ingestion pipeline'],
+  [/\binjition\s+pipeline\b/gi, 'ingestion pipeline'],
+  [/\bchanking\b/gi, 'chunking'],
 ];
 
 export function cleanTechnicalSpeech(text: string): string {

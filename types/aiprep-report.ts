@@ -1828,30 +1828,39 @@ export function normalizeReport(
         const assignedQuestionsBySection = new Map<string, number[]>();
         const claimedQIds = new Set<number>();
 
-        // Pass 1: Questions with an exact category_id match
-        for (const s of rawSEs) {
-          const se = asRecord(s);
-          const catId = (asStr(se.category_id) ?? "").toLowerCase();
-          const matched: number[] = [];
-          for (const q of rawQEs) {
-            const qe = asRecord(q);
-            const qId = Number(qe.question_id);
-            const qCat = (asStr(qe.category_id) ?? "").toLowerCase();
-            if (qId && qCat && qCat === catId && !claimedQIds.has(qId)) {
-              matched.push(qId);
-              claimedQIds.add(qId);
-            }
-          }
-          if (catId) assignedQuestionsBySection.set(catId, matched);
-        }
-
-        // Pass 2: Any unclaimed questions matched via explicit question_ids or title
-        for (const s of rawSEs) {
-          const se = asRecord(s);
+        const getSectionKey = (se: Record<string, unknown>, idx: number): string => {
           const catId = (asStr(se.category_id) ?? "").toLowerCase();
           const title = (asStr(se.title) ?? "").toLowerCase();
+          return catId || title || `section_${idx}`;
+        };
+
+        // Pass 1: Questions with an exact category_id match
+        rawSEs.forEach((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const catId = (asStr(se.category_id) ?? "").toLowerCase();
+          const key = getSectionKey(se, idx);
+          const matched: number[] = [];
+          if (catId) {
+            for (const q of rawQEs) {
+              const qe = asRecord(q);
+              const qId = Number(qe.question_id);
+              const qCat = (asStr(qe.category_id) ?? "").toLowerCase();
+              if (qId && qCat && qCat === catId && !claimedQIds.has(qId)) {
+                matched.push(qId);
+                claimedQIds.add(qId);
+              }
+            }
+          }
+          assignedQuestionsBySection.set(key, matched);
+        });
+
+        // Pass 2: Any unclaimed questions matched via explicit question_ids or title
+        rawSEs.forEach((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const title = (asStr(se.title) ?? "").toLowerCase();
+          const key = getSectionKey(se, idx);
           const explicitQIds = Array.isArray(se.question_ids) ? (se.question_ids as unknown[]).map(Number).filter(Boolean) : [];
-          const currentList = assignedQuestionsBySection.get(catId) || [];
+          const currentList = assignedQuestionsBySection.get(key) || [];
 
           for (const q of rawQEs) {
             const qe = asRecord(q);
@@ -1864,14 +1873,14 @@ export function normalizeReport(
               }
             }
           }
-          if (catId) assignedQuestionsBySection.set(catId, currentList);
-        }
+          assignedQuestionsBySection.set(key, currentList);
+        });
 
-        return rawSEs.map((s: unknown) => {
+        return rawSEs.map((s: unknown, idx: number) => {
           const se = asRecord(s);
           const title = asStr(se.title) ?? asStr(se.category_id) ?? "";
-          const catId = (asStr(se.category_id) ?? "").toLowerCase();
-          const uniqueQIds = assignedQuestionsBySection.get(catId) || [];
+          const key = getSectionKey(se, idx);
+          const uniqueQIds = assignedQuestionsBySection.get(key) || [];
 
           return {
             concept: title,

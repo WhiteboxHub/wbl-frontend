@@ -335,6 +335,9 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const restartTimeoutRef = useRef<any>(null);
   // Guard: only reset transcript on very first recording start, not on question-transition restarts
   const transcriptInitializedRef = useRef<boolean>(false);
+  useEffect(() => {
+    transcriptInitializedRef.current = false;
+  }, [assessmentId]);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Per-Question Time Tracking & Multi-Question Answers
@@ -1188,7 +1191,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   recognition.start();
                 } catch (_) { }
               }
-            }, 30) : null;
+            }, 100) : null;
           }
         };
 

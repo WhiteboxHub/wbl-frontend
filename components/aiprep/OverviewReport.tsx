@@ -526,15 +526,10 @@ function hasRealSpeech(report: NormalizedReport): boolean {
 }
 
 export function extractAssessmentDurationSeconds(report: NormalizedReport, mediaDurationSec?: number | null): number {
-  // 1. If the media player has loaded the actual audio/video track duration, prioritize it directly
-  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
-    return Math.round(mediaDurationSec);
-  }
-
   const assessment = report.assessment as any;
   const dataRec = assessment?.data as any;
 
-  // 2. Prioritize active speaking/audio duration over full session wall-clock time
+  // 1. Resolve authoritative speaking/audio telemetry duration
   const candidates = [
     dataRec?.audio_telemetry?.speaking_duration_sec,
     dataRec?.audio_telemetry?.speaking_duration_seconds,
@@ -553,16 +548,26 @@ export function extractAssessmentDurationSeconds(report: NormalizedReport, media
     (report as any).duration_seconds,
   ];
 
+  let telemetryDuration = 0;
   for (const val of candidates) {
     if (val != null) {
       const num = Number(val);
       if (!isNaN(num) && num > 0) {
-        return Math.round(num);
+        telemetryDuration = Math.round(num);
+        break;
       }
     }
   }
 
-  return 0;
+  // 2. Validate media track duration with guard against anomalous partial buffer slices
+  if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    if (telemetryDuration > 0 && mediaDurationSec < telemetryDuration * 0.5) {
+      return telemetryDuration;
+    }
+    return Math.round(mediaDurationSec);
+  }
+
+  return telemetryDuration;
 }
 
 function getTranscriptDuration(report: NormalizedReport, mediaDurationSec?: number | null): string {
