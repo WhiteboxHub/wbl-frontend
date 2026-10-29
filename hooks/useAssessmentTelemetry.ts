@@ -84,7 +84,7 @@ export function useAssessmentTelemetry({
       const state = sessionStateRef.current;
       if (now - state.lastFocusViolationAt < 1200) return;
       state.lastFocusViolationAt = now;
-      if (type === 'TAB_SWITCH') state.blurStartTime = now;
+      if (type === 'TAB_SWITCH' || type === 'WINDOW_BLUR') state.blurStartTime = now;
       state.violationCount += 1;
       const count = state.violationCount;
       AIPrepTelemetry.trackProctoringViolation({
