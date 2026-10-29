@@ -74,6 +74,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [activeView, setActiveView] = useState<'LIVE' | 'PLAYBACK'>('LIVE');
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [isLivePreviewReady, setIsLivePreviewReady] = useState<boolean>(false);
   const [isLaunching, setIsLaunching] = useState<boolean>(false);
   const [showProctoringRulesModal, setShowProctoringRulesModal] = useState<boolean>(false);
 
@@ -252,9 +253,10 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
       // 1. Acquire & verify live microphone audio track
       let audioTrack: MediaStreamTrack | null = null;
+      let recordingSourceStream: MediaStream | null = null;
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioTrack = audioStream.getAudioTracks().find((t) => t.readyState === 'live') || null;
+        recordingSourceStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: videoEnabled ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false });
+        audioTrack = recordingSourceStream.getAudioTracks().find((t) => t.readyState === 'live') || null;
       } catch (aErr) {
         console.warn('Microphone stream acquire error:', aErr);
       }
@@ -273,10 +275,12 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
           cameraStream.getVideoTracks()[0].readyState === 'live'
         ) {
           // Clone the track so stopping activeStream later won't stop the live camera stream
-          vidTrack = cameraStream.getVideoTracks()[0].clone();
+          // Use a fresh camera track for recording; some browser/device combinations
+          // produce black frames when a cloned preview track is passed to MediaRecorder.
+          vidTrack = recordingSourceStream?.getVideoTracks().find((track) => track.readyState === 'live') || null;
         } else {
           try {
-            const freshVidStream = await navigator.mediaDevices.getUserMedia({
+            const freshVidStream = recordingSourceStream ?? await navigator.mediaDevices.getUserMedia({
               video: { width: 1280, height: 720 },
             });
             vidTrack = freshVidStream.getVideoTracks().find((t) => t.readyState === 'live') || null;
@@ -293,15 +297,23 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
 
       const tracks: MediaStreamTrack[] = [audioTrack];
       if (vidTrack) {
-        tracks.push(vidTrack);
+        const videoTrackForRecording = vidTrack;
+        if (!videoTrackForRecording) {
+          recordingSourceStream?.getTracks().forEach((track) => track.stop());
+          setDeviceError('Camera video is unavailable. Please retest your camera and try again.');
+          return;
+        }
+        tracks.push(videoTrackForRecording);
       }
 
-      const activeStream = new MediaStream(tracks);
+      // MediaRecorder must use the original combined stream, not a newly assembled
+      // stream of tracks acquired through separate getUserMedia calls.
+      const activeStream = recordingSourceStream ?? new MediaStream(tracks);
 
       recordedChunksRef.current = [];
       const getSupportedMimeType = (video: boolean) => {
         const videoTypes = [
-          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
           'video/webm;codecs=vp8,opus',
           'video/webm',
           'video/mp4',
@@ -334,12 +346,21 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, mimeType ? { type: mimeType } : undefined);
+        const actualMimeType = recorder.mimeType || mimeType || (videoEnabled ? 'video/webm' : 'audio/webm');
+        const blob = new Blob(recordedChunksRef.current, { type: actualMimeType });
+        if (blob.size === 0) {
+          setDeviceError('No practice recording data was captured. Please record again.');
+          setIsRecording(false);
+          setActiveView('LIVE');
+          activeStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
         const url = URL.createObjectURL(blob);
         setTestAudioUrl(url);
         setIsRecording(false);
         setActiveView('PLAYBACK');
         activeStream.getTracks().forEach((t) => t.stop());
+        recordingSourceStream?.getTracks().filter((track) => track !== audioTrack).forEach((track) => track.stop());
       };
 
       recorder.start(500);
@@ -626,8 +647,12 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                 <div className="flex min-h-0 flex-1 flex-col items-center justify-evenly overflow-hidden py-1 text-center">
                   {videoEnabled ? (
                     <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-slate-950 aspect-video">
-                      <video ref={liveVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
-                      {!cameraStream && (
+                      {activeView === 'PLAYBACK' && testAudioUrl ? (
+                        <video key={testAudioUrl} ref={videoPlaybackRef} src={testAudioUrl} playsInline preload="auto" className="h-full w-full object-cover" onTimeUpdate={handleTimeUpdate} onLoadedMetadata={handleLoadedMetadata} onLoadedData={() => setDeviceError(null)} onError={() => setDeviceError("Could not play the recorded video. Please record again and check camera permissions.")} onEnded={() => setIsPlaying(false)} />
+                      ) : (
+                        <video ref={liveVideoRef} autoPlay muted playsInline onLoadedData={() => setIsLivePreviewReady(true)} onError={() => setIsLivePreviewReady(false)} className="h-full w-full object-cover" />
+                      )}
+                      {activeView !== 'PLAYBACK' && !cameraStream && !isLivePreviewReady && (
                         <div className="absolute inset-0 flex items-center justify-center text-sm text-white/80">
                           <Camera className="mr-2 h-5 w-5" /> Camera preview unavailable
                         </div>
@@ -668,13 +693,13 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                         <span className="h-2.5 w-2.5 rounded-sm bg-white" /> Stop recording ({30 - recordTime}s)
                       </button>
                     )}
-                    {testAudioUrl && !videoEnabled && (
+                    {testAudioUrl && (
                       <button type="button" onClick={togglePlayback} disabled={isRecording} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:text-sm">
                         {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />} {isPlaying ? 'Pause sample' : 'Listen to sample'}
                       </button>
                     )}
                   </div>
-                  {testAudioUrl && !videoEnabled && (
+                  {testAudioUrl && (
                     <div className="mt-1 flex w-full max-w-lg items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-800/60">
                       <span className="text-xs font-mono text-slate-500">{formatSeconds(playbackTime)} / {formatSeconds(totalDuration)}</span>
                       <input type="range" min={0} max={totalDuration || 30} step={0.5} value={playbackTime} onChange={handleSeek} disabled={isRecording} className="h-1.5 flex-1 cursor-pointer accent-violet-600" aria-label="Practice playback position" />
