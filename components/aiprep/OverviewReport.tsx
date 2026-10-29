@@ -1357,12 +1357,12 @@ function JdRoleAlignmentAccordion({
             <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1.5">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
               {roleAlignment?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {roleAlignment.observation}
                 </p>
               )}
               {careerStory?.observation && careerStory.observation !== roleAlignment?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {careerStory.observation}
                 </p>
               )}
@@ -1528,12 +1528,12 @@ function JdCurrentProjectAccordion({
             <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
               {project?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {project.observation}
                 </p>
               )}
               {techAlign?.observation && techAlign.observation !== project?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {techAlign.observation}
                 </p>
               )}
@@ -1656,12 +1656,12 @@ function JdTailoringAccordion({
             <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
               {tailoring?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {tailoring.observation}
                 </p>
               )}
               {valueProp?.observation && valueProp.observation !== tailoring?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {valueProp.observation}
                 </p>
               )}
@@ -1722,7 +1722,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Career Story Relevance
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.career_story_relevance}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.career_story_relevance}</p>
           </div>
         )}
         {finalAssessment.current_project_clarity && (
@@ -1730,7 +1730,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Current Project Clarity
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.current_project_clarity}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.current_project_clarity}</p>
           </div>
         )}
         {finalAssessment.technical_alignment_depth && (
@@ -1738,7 +1738,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Technical Depth
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.technical_alignment_depth}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.technical_alignment_depth}</p>
           </div>
         )}
         {finalAssessment.seniority_match && (
@@ -1746,7 +1746,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Seniority Calibration
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.seniority_match}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.seniority_match}</p>
           </div>
         )}
         {finalAssessment.most_important_improvement && (
@@ -1754,7 +1754,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
               Top Actionable Improvement
             </span>
-            <p className="text-amber-950 font-medium leading-snug">{finalAssessment.most_important_improvement}</p>
+            <p className="text-amber-950 font-medium leading-snug text-justify-pretty">{finalAssessment.most_important_improvement}</p>
           </div>
         )}
       </div>
@@ -2064,7 +2064,7 @@ export function EvaluationContent({
           {/* Summary */}
           <div className="lg:col-span-1 space-y-1 border-b lg:border-b-0 lg:border-r border-slate-100 pb-3 lg:pb-0 lg:pr-4">
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Summary</h3>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
               {summaryText}
             </p>
           </div>
@@ -2075,7 +2075,7 @@ export function EvaluationContent({
               <Star size={14} className="fill-emerald-500/20" />
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Strongest Signal</h3>
             </div>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
               {strongestSignalText}
             </p>
           </div>
@@ -2086,7 +2086,7 @@ export function EvaluationContent({
               <AlertTriangle size={14} className="fill-amber-500/20" />
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Biggest Gap</h3>
             </div>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
               {biggestGapText}
             </p>
           </div>
@@ -2622,7 +2622,7 @@ function DetailSectionCard({
       {isExpanded && (
         <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-2 sm:space-y-2.5">
           {subtitle && (
-            <p className="text-xs text-slate-600 leading-snug">
+            <p className="text-xs text-slate-600 leading-snug text-justify-pretty">
               {subtitle}
             </p>
           )}
@@ -2720,7 +2720,7 @@ function DetailSectionCard({
                         <div>
                           <span className="font-bold text-slate-900 text-xs">{rec.topic}</span>
                           {rec.guidance && (
-                            <p className="text-slate-700 text-xs mt-0.5 leading-snug">
+                            <p className="text-slate-700 text-xs mt-0.5 leading-snug text-justify-pretty">
                               {rec.guidance}
                             </p>
                           )}
@@ -3069,19 +3069,19 @@ export function DetailsContent({
                     )}
                   </div>
                   {gap.what_is_missing && (
-                    <p className="text-slate-700 text-xs leading-snug">
+                    <p className="text-slate-700 text-xs leading-snug text-justify-pretty">
                       <span className="font-semibold text-slate-800">What's missing: </span>
                       {gap.what_is_missing}
                     </p>
                   )}
                   {gap.why_it_matters && (
-                    <p className="text-slate-600 text-xs leading-snug">
+                    <p className="text-slate-600 text-xs leading-snug text-justify-pretty">
                       <span className="font-semibold text-slate-700">Why it matters: </span>
                       {gap.why_it_matters}
                     </p>
                   )}
                   {gap.suggested_addition && (
-                    <p className="text-emerald-900 text-xs leading-snug bg-emerald-50/70 p-1.5 rounded border border-emerald-200/70 italic">
+                    <p className="text-emerald-900 text-xs leading-snug bg-emerald-50/70 p-1.5 rounded border border-emerald-200/70 italic text-justify-pretty">
                       <span className="font-semibold not-italic text-emerald-800">Suggested addition: </span>
                       "{gap.suggested_addition}"
                     </p>
@@ -3114,12 +3114,12 @@ export function DetailsContent({
                   </h4>
                 </div>
                 {imp.guidance && (
-                  <p className="text-xs text-slate-600 leading-snug">
+                  <p className="text-xs text-slate-600 leading-snug text-justify-pretty">
                     {imp.guidance}
                   </p>
                 )}
                 {imp.example && (
-                  <p className="text-[11px] text-indigo-900 leading-snug italic bg-indigo-50/60 p-1.5 rounded border border-indigo-100/70">
+                  <p className="text-[11px] text-indigo-900 leading-snug italic bg-indigo-50/60 p-1.5 rounded border border-indigo-100/70 text-justify-pretty">
                     "{imp.example}"
                   </p>
                 )}
@@ -3227,7 +3227,7 @@ function TranscriptModal({
           </div>
 
           <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text">
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text text-justify-pretty">
               {fullParagraphText || "No transcript recorded for this assessment."}
             </p>
           </div>
@@ -4245,7 +4245,7 @@ export default function AiPrepReport({
           onOpenJd={() => setIsJdModalOpen(true)}
         />
 
-        <main>
+        <main className="evaluation-report-container">
           {/* Keep both tabs mounted in the DOM to preserve audio/video playback and prevent unmount errors */}
           <div className={isOverviewTab ? "block" : "hidden"}>
             <EvaluationContent
