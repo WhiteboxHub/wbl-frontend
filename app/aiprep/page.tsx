@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/utils/AuthContext';
 import { aiPrepApi } from '@/lib/aiprep-api';
@@ -22,6 +22,8 @@ export default function AIPrepPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Prevent duplicate assessment creation before React can render the saving state.
+  const setupSubmissionInFlightRef = useRef(false);
 
   const isUserAuthenticated = isAuthenticated;
 
@@ -105,6 +107,8 @@ export default function AIPrepPage() {
   // TECHNICAL, RECRUITER, HIRING_MANAGER and SYSTEM_DESIGN are created only
   // after the candidate clicks Start Assessment on the Before You Begin screen.
   const handleCheckComplete = async (results: HardwareCheckResults) => {
+    if (setupSubmissionInFlightRef.current) return;
+    setupSubmissionInFlightRef.current = true;
     try {
       setIsSaving(true);
       setErrorMsg(null);
@@ -134,6 +138,7 @@ export default function AIPrepPage() {
         sessionStorage.removeItem('aiprep_active_questions');
         sessionStorage.removeItem('aiprep_wizard_step');
         setActiveAssessmentId(0);
+        setupSubmissionInFlightRef.current = false;
         setIsSaving(false);
         return;
       }
@@ -153,7 +158,7 @@ export default function AIPrepPage() {
           }
         }
       } catch (err) {
-        console.error('Failed to retrieve candidate profile details:', err);
+        // Candidate ID lookup is optional; continue with the authenticated session fallback.
       }
 
       const assessment = await aiPrepApi.createAssessment({
@@ -165,6 +170,13 @@ export default function AIPrepPage() {
 
       if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
       const targetId = Number(assessment.id);
+      // Clear stale terminal markers when local/dev data reuses an assessment ID.
+      localStorage.removeItem(`aiprep_reload_cancelled_${targetId}`);
+      localStorage.removeItem(`aiprep_exited_${targetId}`);
+      localStorage.removeItem(`aiprep_finished_${targetId}`);
+      sessionStorage.removeItem(`aiprep_exited_${targetId}`);
+      sessionStorage.removeItem(`aiprep_started_${targetId}`);
+      sessionStorage.removeItem(`aiprep_autostart_assessment_${targetId}`);
       const returnedQuestions = Array.isArray(assessment.questions) ? assessment.questions : [];
       if (returnedQuestions.length === 0) {
         throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
@@ -178,12 +190,13 @@ export default function AIPrepPage() {
       sessionStorage.removeItem('aiprep_pending_setup_results');
       sessionStorage.removeItem('aiprep_wizard_step');
       setActiveAssessmentId(targetId);
+      setupSubmissionInFlightRef.current = false;
       setIsSaving(false);
     } catch (err: any) {
-      console.error('[Session Setup Error] Creation pipeline failed:', err);
+      // Surface setup failures in the UI instead of producing an unhandled rejection.
       setErrorMsg(err?.message || 'Setup pipeline failed. Please try again.');
       setIsSaving(false);
-      throw err;
+      setupSubmissionInFlightRef.current = false;
     }
   };
 
@@ -234,7 +247,13 @@ export default function AIPrepPage() {
       throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
     }
 
-    sessionStorage.setItem('aiprep_active_id', String(targetId));
+    // Remove stale end/cancel state before navigating into a newly created attempt.
+      localStorage.removeItem(`aiprep_reload_cancelled_${targetId}`);
+      localStorage.removeItem(`aiprep_exited_${targetId}`);
+      localStorage.removeItem(`aiprep_finished_${targetId}`);
+      sessionStorage.removeItem(`aiprep_exited_${targetId}`);
+      sessionStorage.removeItem(`aiprep_started_${targetId}`);
+      sessionStorage.setItem('aiprep_active_id', String(targetId));
     sessionStorage.setItem('aiprep_active_type', targetType);
     sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
     sessionStorage.setItem('aiprep_active_questions', JSON.stringify(returnedQuestions));

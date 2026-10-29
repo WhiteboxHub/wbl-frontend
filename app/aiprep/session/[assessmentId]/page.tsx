@@ -242,9 +242,17 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     const isStartRoute = window.location.pathname === '/aiprep/session/start';
     const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
     const previouslyLoadedRoomId = window.sessionStorage.getItem('aiprep_room_loaded_session_id');
-    // Only a browser-level reload of the same room counts as a reload.
-    // Do not use beforeunload markers: they also fire for tab close and navigation.
-    if (navigationEntry?.type === 'reload' && previouslyLoadedRoomId === String(assessmentId)) return;
+    let loadedDocumentPath = '';
+    try {
+      loadedDocumentPath = navigationEntry?.name ? new URL(navigationEntry.name, window.location.origin).pathname : '';
+    } catch (_) {}
+    // Only treat it as a room reload when the document itself originally loaded
+    // at this room URL; SPA navigation from /aiprep/start is not a reload.
+    if (
+      navigationEntry?.type === 'reload' &&
+      loadedDocumentPath === `/aiprep/session/${assessmentId}` &&
+      previouslyLoadedRoomId === String(assessmentId)
+    ) return;
     const hasStarted = window.sessionStorage.getItem(`aiprep_started_${assessmentId}`) === 'true';
     const isAutoStarting = window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true';
     // A Start Assessment click from the instructions page has already authorized
@@ -666,7 +674,7 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     cleanup: cleanupAudioRecorder,
   } = useAudioRecorder({
     onError: (err) => {
-      console.error('[AudioRecorder Error]:', err);
+      console.warn('[AudioRecorder] Recording could not start:', err.message);
       setErrorMsg(err.message || 'Audio recording failed.');
     },
   });
@@ -693,7 +701,7 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
       }
     },
     onError: (err) => {
-      console.error('[MediaRecorder Error]:', err);
+      console.warn('[MediaRecorder] Recording could not start:', err.message);
       setErrorMsg(err.message || 'Media recording failed.');
     },
   });
@@ -719,6 +727,14 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
   cleanupRecorderRef.current = cleanupRecorder;
   const startAnswerRef = useRef<() => void>(() => { });
   const preparationCancelledRef = useRef(false);
+  const startAnswerInFlightRef = useRef(false);
+
+  // Allow an explicit retry if browser permissions or MediaRecorder startup fails.
+  useEffect(() => {
+    if (recordingStatus === 'error') {
+      startAnswerInFlightRef.current = false;
+    }
+  }, [recordingStatus]);
 
   // ── AI Voice Synthesis Methods ─────────────────────────────────────────────
   const stopAiSpeech = useCallback(() => {
@@ -745,9 +761,14 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
 
       return new Promise<void>((resolve) => {
         let settled = false;
+        let speechStarted = false;
         const finishSpeech = () => {
           if (settled) return;
           settled = true;
+          if (speechTimeoutRef.current) {
+            clearTimeout(speechTimeoutRef.current);
+            speechTimeoutRef.current = null;
+          }
           speechUtteranceRef.current = null;
           setIsAiSpeaking(false);
           resolve();
@@ -769,10 +790,24 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
           utterance.rate = 0.95;
 
           setIsAiSpeaking(true);
-          utterance.onstart = () => setIsAiSpeaking(true);
+          utterance.onstart = () => {
+            speechStarted = true;
+            setIsAiSpeaking(true);
+            if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+            speechTimeoutRef.current = setTimeout(() => {
+              try { window.speechSynthesis.cancel(); } catch (_) {}
+              finishSpeech();
+            }, 45_000);
+          };
           utterance.onend = finishSpeech;
           utterance.onerror = finishSpeech;
 
+          // Some browsers never fire onend/onerror; prevent a permanent standby state.
+          speechTimeoutRef.current = setTimeout(() => {
+            if (!speechStarted) console.warn('AI narration did not start; continuing assessment startup.');
+            try { window.speechSynthesis.cancel(); } catch (_) {}
+            finishSpeech();
+          }, 10_000);
           window.speechSynthesis.speak(utterance);
         } catch (err) {
           console.warn('Speech synthesis error:', err);
@@ -869,8 +904,17 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
 
     const previousRoomSessionId = sessionStorage.getItem('aiprep_room_loaded_session_id');
     const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    // The Navigation Timing entry describes the document's original load, not the
+    // current Next.js route. A reload of /aiprep/start followed by client navigation
+    // must not be mistaken for reloading this assessment room.
+    let loadedDocumentPath = '';
+    try {
+      loadedDocumentPath = navigationEntry?.name ? new URL(navigationEntry.name, window.location.origin).pathname : '';
+    } catch (_) {}
     const isReloadOfThisSession =
-      navigationEntry?.type === 'reload' && previousRoomSessionId === String(assessmentId);
+      navigationEntry?.type === 'reload' &&
+      loadedDocumentPath === `/aiprep/session/${assessmentId}` &&
+      previousRoomSessionId === String(assessmentId);
 
     // Clear legacy markers written by the old beforeunload implementation. They must
     // never cause a cancellation because they may represent navigation or tab closing.
@@ -1315,14 +1359,21 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
   // Read the first question aloud from the Start Answer gesture, then start recording.
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
-    if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
+    if (startAnswerInFlightRef.current || hasStartedQuestion || isEnding) return;
+    // A deliberate start action begins a fresh preparation lifecycle.
+    preparationCancelledRef.current = false;
+    startAnswerInFlightRef.current = true;
     if (!assessmentId && onStartPendingAssessment) {
       try {
         setIsLoading(true);
         const createdId = await onStartPendingAssessment();
+        // Release the per-page lock before navigation; the destination route
+        // must be able to run its own auto-start lifecycle.
+        startAnswerInFlightRef.current = false;
         router.push(`/aiprep/session/${createdId}`);
       } catch (error: any) {
-        setErrorMsg(error?.message || 'Unable to start the assessment. Please try again.');
+        setErrorMsg(error instanceof Error ? error.message : 'Unable to start the assessment. Please try again.');
+        startAnswerInFlightRef.current = false;
       } finally {
         setIsLoading(false);
       }
@@ -1332,6 +1383,12 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     if (typeof window !== 'undefined' && assessmentId) {
       const activeType = window.sessionStorage.getItem('aiprep_active_type');
       if (['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '')) {
+        // A deliberate Start Assessment action begins a valid attempt; clear stale
+        // cancellation flags if local/dev data has reused this assessment ID.
+        window.localStorage.removeItem(`aiprep_reload_cancelled_${assessmentId}`);
+        window.localStorage.removeItem(`aiprep_exited_${assessmentId}`);
+        window.localStorage.removeItem(`aiprep_finished_${assessmentId}`);
+        window.sessionStorage.removeItem(`aiprep_exited_${assessmentId}`);
         window.sessionStorage.setItem(`aiprep_started_${assessmentId}`, 'true');
         window.sessionStorage.removeItem('aiprep_pending_assessment_id');
         if (window.location.pathname !== `/aiprep/session/${assessmentId}`) {
@@ -1339,6 +1396,9 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
           // The latter leaves the instructions component mounted while the
           // question countdown runs, making the transition appear delayed.
           window.sessionStorage.setItem(`aiprep_autostart_assessment_${assessmentId}`, 'true');
+          // This route transition re-enters the start handler on the room page.
+          // Release the current lock so the destination can start recording.
+          startAnswerInFlightRef.current = false;
           router.push(`/aiprep/session/${assessmentId}`);
           return;
         }
@@ -1357,12 +1417,13 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
           pendingQuestions = parsedQuestions as QuestionBankItem[];
         }
       } catch (error) {
-        console.error('Unable to load assessment questions:', error);
+        console.warn('Unable to load cached assessment questions:', error);
       }
     }
     if (pendingQuestions.length === 0) {
       setIsAutoStarting(false);
       setErrorMsg('No questions were saved for this assessment. Please return to setup and start a new assessment.');
+      startAnswerInFlightRef.current = false;
       return;
     }
     setIsAutoStarting(false);
@@ -1427,7 +1488,9 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     }
     if (preparationCancelledRef.current || isEnding) return;
     setPrepCountdown(null);
-    startRecorderCore();
+    // Await getUserMedia and MediaRecorder initialization so this startup path
+    // does not finish before camera/microphone capture has actually been requested.
+    await startRecorderRef.current();
   };
   startAnswerRef.current = handleStartAnswer;
 
