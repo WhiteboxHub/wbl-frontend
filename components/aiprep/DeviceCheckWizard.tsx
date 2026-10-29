@@ -567,27 +567,32 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
     return 'INTRO';
   });
-  // 2. Consent State (Centralized in ConsentModal module - Video disabled as of now)
-  const isAudioOnlyMode = true;
+  // 2. Consent State (Centralized in ConsentModal module)
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(true);
-  }, []);
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
-  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(false);
+    let savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
+    if (typeof window !== 'undefined') {
+      const storedVideo = window.sessionStorage?.getItem('aiprep_video_enabled');
+      const storedMode = window.sessionStorage?.getItem('aiprep_active_mode');
+      if (initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO') {
+        savedVideo = true;
+      } else if (initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO') {
+        savedVideo = false;
+      } else if (storedMode) {
+        savedVideo = storedMode === 'VIDEO_AUDIO' || storedMode === 'VIDEO';
+      } else if (storedVideo !== null) {
+        savedVideo = storedVideo === 'true';
+      } else if (initialMode) {
+        savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
+      }
+    }
+    return getInitialConsentState(!savedVideo);
+  }, [initialMode]);
+  const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
+  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
-  const [consentCamera, setConsentCamera] = useState<boolean>(false);
+  const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
-
-  // Enforce Audio Only mode across session storage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setVideoEnabled(false);
-    setConsentCamera(false);
-    setVideoAnalyticsEnabled(false);
-    window.sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
-    window.sessionStorage.setItem('aiprep_video_enabled', 'false');
-  }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
@@ -2176,7 +2181,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
         router.replace(targetSessionUrl);
       } catch (err: any) {
-        console.error('[DeviceCheckWizard] Failed to start assessment:', err);
+        // The actionable failure is shown to the candidate below; avoid duplicate console noise.
         AIPrepTelemetry.trackAssessmentCreation({
           candidate_id: typeof cid === 'number' ? cid : Number(cid) || undefined,
           assessment_type: targetType,
@@ -2270,7 +2275,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           }
         }
       } catch (err) {
-        console.error('[handleNext] Hardware pre-flight error:', err);
+        console.warn('[handleNext] Hardware pre-flight could not complete:', err);
         setMicOk(false);
         setMicTested(true);
         return;
@@ -2283,7 +2288,9 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
       setStep('PRACTICE_START');
     } else if (step === 'PRACTICE_START') {
-      handleCompleteAssessment();
+      void handleCompleteAssessment().catch(() => {
+        // handleCompleteAssessment already reports actionable failures to the user.
+      });
     }
   };
 
@@ -2430,11 +2437,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
                       {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
                       <div className={`grid grid-cols-1 lg:grid-cols-12 ${isCompact ? 'gap-2.5 lg:gap-3.5' : 'gap-3 lg:gap-4'} items-stretch w-full mx-auto flex-1 min-h-0`}>
-                      <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col justify-between h-full min-h-0 ${isCompact ? 'gap-1.5' : 'gap-2'}`}>
+                      <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col justify-start h-full min-h-0 ${isCompact ? 'gap-1.5' : 'gap-2'}`}>
                         {/* Video Viewport Frame */}
                         <div
                           ref={videoContainerRef}
-                          className="relative w-full flex-1 min-h-[175px] sm:min-h-[195px] max-h-[300px] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-slate-950"
+                          className="relative w-full flex-1 min-h-[175px] sm:min-h-[195px] lg:min-h-[260px] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-slate-950"
                         >
                           <video
                             ref={videoRef}
@@ -3212,7 +3219,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
                   {/* Main Workspace Grid (Responsive 1-col on mobile/tablet, 2-col on desktop) */}
                   <div className={`grid grid-cols-1 lg:grid-cols-12 ${isCompact ? 'gap-2.5 lg:gap-3.5' : 'gap-3 lg:gap-4'} items-stretch w-full mx-auto flex-1 min-h-0`}>
                         {/* Left Column: Audio-Only Viewport + Troubleshooting Alerts + Hardware Selectors */}
-                        <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col justify-between h-full min-h-0 ${isCompact ? 'gap-1.5' : 'gap-2'}`}>
+                        <div className={`col-span-1 lg:col-span-8 xl:col-span-8 flex flex-col justify-start h-full min-h-0 ${isCompact ? 'gap-1.5' : 'gap-2'}`}>
                           {/* Audio-Only Card */}
                           <div
                             className="relative w-full flex-1 min-h-[160px] rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-all duration-300 bg-[#F7F9FE] dark:bg-slate-900/90"
