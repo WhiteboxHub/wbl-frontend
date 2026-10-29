@@ -95,6 +95,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   }, [sidebarOpen, isAuthenticated]);
 
   // Sidebar disabled completely
+
+
+  // Keep the legacy sidebar disabled; the AI Prep dashboard provides its own navigation.
   return null;
 
   const getCandidateName = (interview) => interview.candidate?.full_name || "Unknown Candidate";
