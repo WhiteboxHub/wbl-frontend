@@ -207,7 +207,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
+function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: { assessmentIdProp?: number; onStartPendingAssessment?: () => Promise<number> } = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -228,8 +228,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Extract assessmentId from route params or prop
   const assessmentIdStr = params?.assessmentId;
-  const assessmentId = assessmentIdProp ? Number(assessmentIdProp) : (assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0);
+  const assessmentId = assessmentIdProp !== undefined ? Number(assessmentIdProp) : (assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0);
   const [finishedAssessmentId, setFinishedAssessmentId] = useState<number | null>(null);
+
+  // Keep the session ID hidden before Start Assessment only for the four requested tracks.
+  // INTRO and JD_INTRO retain their existing URL/navigation behavior.
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+    const activeType = window.sessionStorage.getItem('aiprep_active_type');
+    if (!['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '')) return;
+    // Keep the canonical Before You Begin URL stable on reload.
+    if (window.location.pathname === '/aiprep/start') return;
+    const isStartRoute = window.location.pathname === '/aiprep/session/start';
+    const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const previouslyLoadedRoomId = window.sessionStorage.getItem('aiprep_room_loaded_session_id');
+    // Only a browser-level reload of the same room counts as a reload.
+    // Do not use beforeunload markers: they also fire for tab close and navigation.
+    if (navigationEntry?.type === 'reload' && previouslyLoadedRoomId === String(assessmentId)) return;
+    const hasStarted = window.sessionStorage.getItem(`aiprep_started_${assessmentId}`) === 'true';
+    const isAutoStarting = window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true';
+    // A Start Assessment click from the instructions page has already authorized
+    // the transition. Do not rewrite the destination URL back to the instructions route.
+    if (!hasStarted && !isAutoStarting) {
+      window.sessionStorage.setItem('aiprep_pending_assessment_id', String(assessmentId));
+      if (!isStartRoute) window.history.replaceState(null, '', '/aiprep/session/start');
+    } else if (isStartRoute) {
+      window.history.replaceState(null, '', `/aiprep/session/${assessmentId}`);
+    }
+  }, [assessmentId]);
 
   const isEmbedded = searchParams?.get('embed') === 'true';
 
@@ -319,6 +345,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
+  const [isInitialQuestionCountdown, setIsInitialQuestionCountdown] = useState(false);
   const hasAutoStartedRef = useRef<boolean>(false);
   const countdownIntervalRef = useRef<any>(null);
   const sessionInitializedRef = useRef<boolean>(false);
@@ -347,6 +374,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [isTransitioningQuestion, setIsTransitioningQuestion] = useState<boolean>(false);
   const [isQuestionPrepPaused, setIsQuestionPrepPaused] = useState<boolean>(false);
   const [hasStartedQuestion, setHasStartedQuestion] = useState<boolean>(false);
+  // On a direct transition from Before You Begin, hide the instructions immediately
+  // while the session restores its questions and starts the countdown.
+  const [isAutoStarting, setIsAutoStarting] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    return window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true';
+  });
   const [prepCountdown, setPrepCountdown] = useState<number | null>(null);
   const elapsedTimeRef = useRef<number>(0);
   const cumulativeRecordedSecondsRef = useRef<number>(0);
@@ -822,6 +855,53 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     router.replace(targetUrl);
   }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
 
+  // Cancel only when the browser reports a real reload of the same assessment room.
+  // beforeunload is intentionally not used because it also fires for tab close/navigation.
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+
+    const cancelledByReloadKey = `aiprep_reload_cancelled_${assessmentId}`;
+    if (localStorage.getItem(cancelledByReloadKey) === 'true') {
+      setIsSessionAlreadyEnded(true);
+      router.replace(`/aiprep/reports/${assessmentId}`);
+      return;
+    }
+
+    const previousRoomSessionId = sessionStorage.getItem('aiprep_room_loaded_session_id');
+    const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const isReloadOfThisSession =
+      navigationEntry?.type === 'reload' && previousRoomSessionId === String(assessmentId);
+
+    // Clear legacy markers written by the old beforeunload implementation. They must
+    // never cause a cancellation because they may represent navigation or tab closing.
+    sessionStorage.removeItem(`aiprep_reload_pending_${assessmentId}`);
+
+    // Record the room currently being opened. A different ID means a fresh attempt.
+    sessionStorage.setItem('aiprep_room_loaded_session_id', String(assessmentId));
+    if (!isReloadOfThisSession) return;
+
+    localStorage.setItem(cancelledByReloadKey, 'true');
+    localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+    sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+    localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+    sessionStorage.removeItem('aiprep_active_id');
+    sessionStorage.removeItem('aiprep_active_questions');
+    sessionStorage.removeItem(`aiprep_autostart_assessment_${assessmentId}`);
+
+    preparationCancelledRef.current = true;
+    setIsSessionAlreadyEnded(true);
+    stopAiSpeech();
+    cleanupRecorder();
+    clearQueue();
+    void aiprepApi.cancelAssessment(assessmentId)
+      .catch((error) => console.warn('Failed to cancel assessment after reload:', error))
+      .finally(() => {
+        // Show the cancellation/evaluation page for this attempt instead of rendering
+        // Before You Begin again. The user can return to AI Prep from there.
+        router.replace(`/aiprep/reports/${assessmentId}`);
+      });
+  }, [assessmentId, router, stopAiSpeech, cleanupRecorder, clearQueue]);
+
   // Immediate redirect & history check if this session was already exited or finished
   useEffect(() => {
     if (!assessmentId || typeof window === 'undefined') return;
@@ -830,7 +910,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
       localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
     );
-    if (isEnded) {
+    if (isEnded && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) !== 'true') {
       setIsSessionAlreadyEnded(true);
       const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
       try {
@@ -866,6 +946,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
+    if (!assessmentId && onStartPendingAssessment) {
+      const pendingType = (typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_type') : null) as AssessmentType | null;
+      const pendingMode = (typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_mode') : null) as MediaType | null;
+      if (pendingType) setAssessmentType(pendingType);
+      if (pendingMode) setMediaType(pendingMode);
+      setQuestions([{ id: 0, question_text: '', difficulty_level: 'MEDIUM', category: '', is_active: true }]);
+      setIsLoading(false);
+      return;
+    }
     if (!assessmentId) {
       setErrorMsg('No assessment ID provided. Please start from the assessment portal.');
       setIsLoading(false);
@@ -965,6 +1054,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         pendingAssessmentQuestionsRef.current = Array.isArray(loadedQuestions) ? loadedQuestions : [];
         setQuestions([{ id: 0, question_text: '', difficulty_level: 'MEDIUM', category: '', is_active: true }]);
         setCurrentQuestionIndex(0);
+        if (typeof window !== 'undefined' && window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true') {
+          setIsAutoStarting(true);
+          window.sessionStorage.removeItem(`aiprep_autostart_assessment_${assessmentId}`);
+          // Start synchronously in this effect instead of scheduling a zero-delay
+          // timeout. The timeout allowed one paint of the Before You Begin screen
+          // after navigation, even though the candidate had already clicked Start.
+          void startAnswerRef.current();
+        }
 
         // If intro track, trigger 7-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
@@ -1002,6 +1099,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     };
   }, [
     assessmentId,
+    onStartPendingAssessment,
     stopAiSpeech,
     retryCount,
     setIsLoading,
@@ -1218,6 +1316,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
     if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
+    if (!assessmentId && onStartPendingAssessment) {
+      try {
+        setIsLoading(true);
+        const createdId = await onStartPendingAssessment();
+        router.push(`/aiprep/session/${createdId}`);
+      } catch (error: any) {
+        setErrorMsg(error?.message || 'Unable to start the assessment. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    // Only these four tracks use the deferred-start URL behavior.
+    if (typeof window !== 'undefined' && assessmentId) {
+      const activeType = window.sessionStorage.getItem('aiprep_active_type');
+      if (['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '')) {
+        window.sessionStorage.setItem(`aiprep_started_${assessmentId}`, 'true');
+        window.sessionStorage.removeItem('aiprep_pending_assessment_id');
+        if (window.location.pathname !== `/aiprep/session/${assessmentId}`) {
+          // Use Next.js navigation instead of changing the address bar only.
+          // The latter leaves the instructions component mounted while the
+          // question countdown runs, making the transition appear delayed.
+          window.sessionStorage.setItem(`aiprep_autostart_assessment_${assessmentId}`, 'true');
+          router.push(`/aiprep/session/${assessmentId}`);
+          return;
+        }
+      }
+    }
     if (!sessionStartedAtRef.current) {
       sessionStartedAtRef.current = Date.now();
     }
@@ -1235,19 +1361,42 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
     }
     if (pendingQuestions.length === 0) {
+      setIsAutoStarting(false);
       setErrorMsg('No questions were saved for this assessment. Please return to setup and start a new assessment.');
       return;
     }
+    setIsAutoStarting(false);
     setQuestions(pendingQuestions);
     pendingAssessmentQuestionsRef.current = [];
     setCurrentQuestionIndex(0);
     setHasStartedQuestion(true);
     stopAiSpeech();
-    // Use the loaded question list directly; React state updates from setQuestions are asynchronous.
-    const activeQ = pendingQuestions[currentQuestionIndex] ?? pendingQuestions[0];
 
-    // Narration and preparation happen while the question is visible, but
-    // before recording and the question timer start.
+    // For Technical, Recruiter, Hiring Manager and System Design, show a
+    // five-second countdown before the first question is narrated. Intro/JD
+    // retain their existing start flow.
+    const activeType = typeof window !== 'undefined'
+      ? window.sessionStorage.getItem('aiprep_active_type')
+      : null;
+    const needsInitialQuestionCountdown = ['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '');
+    if (needsInitialQuestionCountdown) {
+      // Keep the question hidden in the right pane until the initial countdown ends.
+      setIsInitialQuestionCountdown(true);
+      // Reuse the existing large countdown overlay so the first-question
+      // countdown looks identical to the Intro/JD start countdown.
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        if (preparationCancelledRef.current || isEnding) return;
+        setCountdownValue(seconds);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      }
+      setCountdownValue(null);
+      setIsInitialQuestionCountdown(false);
+    }
+
+    // Use the loaded question list directly; React state updates from setQuestions are asynchronous.
+    const activeQ = pendingQuestions[0] ?? pendingQuestions[currentQuestionIndex];
+
+    // Narration happens after the initial countdown and before the answer countdown.
     if (activeQ?.question_text && !isSpeechMuted) {
       await speakAiText(activeQ.question_text);
     }
@@ -1308,26 +1457,28 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [proctoringAlert, setProctoringAlert] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
 
-  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT', count: number) => {
+  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT', count: number) => {
     if (alertTimerRef.current) {
       clearTimeout(alertTimerRef.current);
       alertTimerRef.current = null;
     }
-    if (count >= 3) {
+    if (count >= 3 || type === 'SPLIT_SCREEN_TIMEOUT') {
       setProctoringAlert({
         show: true,
-        message: 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
+        message: type === 'SPLIT_SCREEN_TIMEOUT' ? 'Security Notice: Split-screen remained active for 10 seconds. Your assessment is being automatically submitted for evaluation.' : 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
       });
       void handleEndSessionRef.current();
     } else {
       setProctoringAlert({
         show: true,
-        message: `Security Warning (${count}/3): Tab switching or screenshot detected. 3 violations will automatically submit your assessment.`,
+        message: type === 'SPLIT_SCREEN'
+          ? `Security Warning (${count}/3): Split-screen detected. Restore the assessment window within 10 seconds or your assessment will be submitted for evaluation.`
+          : `Security Warning (${count}/3): ${type === 'TAB_SWITCH' ? 'Tab switch' : type === 'SCREENSHOT' ? 'Screenshot shortcut' : type === 'WINDOW_BLUR' ? 'Assessment window lost focus' : type === 'FULLSCREEN_EXIT' ? 'Fullscreen exited' : type === 'SPLIT_SCREEN_TIMEOUT' ? 'Split-screen persisted' : 'Possible split-screen'} detected. 3 violations will automatically submit your assessment.`,
       });
       alertTimerRef.current = setTimeout(() => {
         setProctoringAlert((prev) => ({ ...prev, show: false }));
         alertTimerRef.current = null;
-      }, 5000);
+      }, type === 'SPLIT_SCREEN' ? 10_000 : 5000);
     }
   }, []);
 
@@ -1339,7 +1490,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const {
     recordQuestionAction,
     recordCompletion,
-    recordProctoringViolation,
   } = useAssessmentTelemetry({
     assessmentId,
     sessionId: attemptSessionId,
@@ -1348,31 +1498,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     isMonitoringActive: isTelemetryMonitoringActive,
     onViolation: handleProctoringViolation,
   });
-
-  // Test Security & Proctoring: Screenshot Keydown Listener
-  useEffect(() => {
-    if (!hasStartedQuestion || isEnding || isSessionAlreadyEnded || finishedAssessmentId) {
-      return;
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key;
-      const isPrintScreen = key === 'PrintScreen';
-      const isSnippingTool =
-        (e.metaKey || e.ctrlKey) &&
-        e.shiftKey &&
-        (key.toLowerCase() === 's' || key.toLowerCase() === '4' || key.toLowerCase() === '3');
-      if (isPrintScreen || isSnippingTool) {
-        recordProctoringViolation('SCREENSHOT');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [hasStartedQuestion, isEnding, isSessionAlreadyEnded, finishedAssessmentId, recordProctoringViolation]);
 
   useEffect(() => {
     if (!isRecording || isEnding || isAiSpeaking || isQuestionPrepPaused) return;
@@ -1465,7 +1590,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // Intro should start recording immediately after narration; other types
       // retain the existing 5-second preparation countdown.
       if (assessmentType !== 'INTRO') {
-        for (let seconds = 5; seconds > 0; seconds -= 1) {
+          for (let seconds = 5; seconds > 0; seconds -= 1) {
           if (preparationCancelledRef.current || isEnding) return;
           setPrepCountdown(seconds);
           // Pre-warm STT engine on the last tick so it's hot when recording starts
@@ -1488,7 +1613,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
       if (preparationCancelledRef.current || isEnding) return;
       setPrepCountdown(null);
-      setIsQuestionPrepPaused(false);
+        setIsQuestionPrepPaused(false);
       setIsTransitioningQuestion(false);
       startRecorderCore();
     }
@@ -1837,15 +1962,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // ── Session Ended / Exited View ────────────────────────────────────────────
   if (isSessionAlreadyEnded) {
+    const wasCancelledByReload = typeof window !== 'undefined' && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) === 'true';
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden">
         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col items-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
           <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
             <IconAlertTriangle size={28} />
           </div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Assessment Session Closed</h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">{typeof window !== 'undefined' && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) === 'true' ? 'Assessment Cancelled' : 'Assessment Session Closed'}</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            This assessment session (#{assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.
+            {typeof window !== 'undefined' && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) === 'true'
+              ? 'You reloaded the assessment room, so this attempt was cancelled. No evaluation report is available. Return to AI Prep to start a new session.'
+              : `This assessment session (#${assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.`}
           </p>
           <button
             type="button"
@@ -2014,7 +2142,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     : 0;
   // Keep the instructions screen visible for every non-intro assessment until Start Assessment is clicked.
   // Do not let recordingStatus or microphone state reveal the question early.
-  const isQuestionBlurred = !isIntroType && !hasStartedQuestion;
+  const isQuestionBlurred = !isIntroType && !hasStartedQuestion && !isAutoStarting;
   // Use the same countdown urgency styling for Intro, Technical, and JD assessments.
   const technicalTimerColors = questionTimeRemaining <= 5 && questionTimeRemaining > 0
     ? 'border-rose-400 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200'
@@ -2341,12 +2469,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[420px] flex-1 space-y-4 overflow-hidden">
               {/* Overlay when question is hidden in standby mode */}
               {isQuestionBlurred && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
-                  <div className="absolute left-6 top-6 flex items-center gap-2">
+                <div className="absolute inset-0 z-20 flex items-stretch justify-start overflow-y-auto overflow-x-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
+                  <div className="absolute left-6 top-6 z-10 flex max-w-[min(280px,calc(100%-3rem))] items-center gap-2">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
-                    <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
+                    <span className="min-w-0 whitespace-nowrap text-sm font-extrabold leading-tight tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
                   </div>
-                  <div className="flex h-full w-full max-w-5xl translate-x-0 flex-col justify-center gap-2.5 sm:translate-x-4 lg:translate-x-8">
+                  <div className="mx-auto mt-14 mb-2 flex w-full max-w-5xl min-w-0 flex-col justify-center gap-2.5 sm:mt-16">
                     <div className="flex shrink-0 items-center gap-2.5 border-b border-indigo-100 pb-2.5 dark:border-slate-800">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconFileText size={22} /></div>
                       <div className="min-w-0">
@@ -2391,12 +2519,23 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                         <p className="font-semibold">Important: Before submitting</p>
                         <p className="mt-0.5">Once you click <strong>Submit Assessment</strong>, your assessment will be finalized and you will be redirected to the evaluation/report page. You cannot continue answering after submission. To try again, restart the assessment from the beginning.</p>
                         <p className="mt-1 border-t border-rose-200/80 pt-1 text-[11px] leading-snug text-rose-700 dark:border-rose-900/50 dark:text-rose-300">
-                          • <strong>Security Rule:</strong> Tab switching and taking screenshots are prohibited. Reaching 3 violations will automatically end and submit your assessment for evaluation.
+                          • <strong>Security Rule:</strong> Tab switching is prohibited. Reaching 3 violations will automatically end and submit your assessment for evaluation.
                         </p>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
-                      <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your {assessmentNoun} assessment.</p>
+                      <div className="flex min-w-0 flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => router.back()}
+                          className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                          title="Go back"
+                        >
+                          <IconChevronLeft size={16} />
+                          <span>Back</span>
+                        </button>
+                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your {assessmentNoun} assessment.</p>
+                      </div>
                       <button
                         type="button"
                         onClick={handleStartAnswer}
@@ -2494,7 +2633,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 </div>
               )}
 
-              {/* Highlight the active question while AI voice narration is playing (Intro and Technical). */}
+              {/* Keep the question area blank during the initial countdown. */}
+              {!isInitialQuestionCountdown && (
               <div className={`flex-1 min-h-0 overflow-y-auto py-1 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-md select-none pointer-events-none opacity-30' : ''}`}>
                 {isAiSpeaking && (
                   <div
@@ -2520,6 +2660,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   </h2>
                 </div>
               </div>
+              )}
 
               {/* Per-Question Elapsed Progress Bar */}
               {isRecording && (
@@ -2725,3 +2866,5 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     </div>
   );
 }
+
+export default AssessmentSessionPage;
