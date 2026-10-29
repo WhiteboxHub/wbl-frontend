@@ -83,21 +83,49 @@ export default function VideoPlayer({
   const [isMounted, setIsMounted] = useState(false);
   const [useServerFallback, setUseServerFallback] = useState(false);
   const [hasMediaError, setHasMediaError] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(durationSeconds > 0 ? durationSeconds : 0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [speed, setSpeed] = useState(1);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
+
+  // Track previous prop URLs to detect when parent passes new media (e.g. YouTube polling completes or assessment changes)
+  const prevPropsUrlRef = useRef<{ youtubeUrl?: string | null; fallbackUrl?: string | null }>({
+    youtubeUrl,
+    fallbackUrl,
+  });
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Update media URL when props change, respecting active fallback
+  // Update media URL when props change, resetting fallback when fresh props arrive
   useEffect(() => {
-    if (!useServerFallback) {
-      setCurrentMediaUrl(youtubeUrl || fallbackUrl || null);
+    const prev = prevPropsUrlRef.current;
+    const propsChanged = prev.youtubeUrl !== youtubeUrl || prev.fallbackUrl !== fallbackUrl;
+
+    if (propsChanged) {
+      prevPropsUrlRef.current = { youtubeUrl, fallbackUrl };
+      setUseServerFallback(false);
       setHasMediaError(false);
+      setCurrentMediaUrl(youtubeUrl || fallbackUrl || null);
       setCurrentTime(0);
       setIsPlaying(false);
+      return;
     }
-  }, [youtubeUrl, fallbackUrl, useServerFallback]);
+
+    if (!useServerFallback) {
+      const nextUrl = youtubeUrl || fallbackUrl || null;
+      if (nextUrl !== currentMediaUrl) {
+        setCurrentMediaUrl(nextUrl);
+        setHasMediaError(false);
+        setCurrentTime(0);
+        setIsPlaying(false);
+      }
+    }
+  }, [youtubeUrl, fallbackUrl, useServerFallback, currentMediaUrl]);
 
   const resolveBackendUrl = useCallback((url: string | null | undefined): string | null => {
     if (!url) return null;
@@ -130,12 +158,6 @@ export default function VideoPlayer({
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
   // mediaEl as state ensures the event-listener effect re-runs after the element mounts
   const [mediaEl, setMediaEl] = useState<HTMLMediaElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(durationSeconds > 0 ? durationSeconds : 0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [speed, setSpeed] = useState(1);
 
   const handleMediaError = useCallback(() => {
     if (fallbackUrl && currentMediaUrl !== fallbackUrl) {
