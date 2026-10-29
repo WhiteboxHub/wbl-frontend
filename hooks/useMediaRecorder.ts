@@ -179,9 +179,13 @@ export function useMediaRecorder({
         }
 
         const mimeType = getSupportedMimeType(isVideoMode);
-        const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+        const recorderOptions: MediaRecorderOptions = {
+          ...(mimeType ? { mimeType } : {}),
+          videoBitsPerSecond: 1_200_000, // ~1.2 Mbps, good for 720p30 talking-head
+          audioBitsPerSecond: 64_000,    // 64 kbps Opus, fine for voice
+        };
 
-        const recorder = new MediaRecorder(activeStream, options);
+        const recorder = new MediaRecorder(activeStream, recorderOptions);
         mediaRecorderRef.current = recorder;
         chunkIndexRef.current = 0;
         isFinalizingRef.current = false;
