@@ -221,15 +221,15 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
         </p>
       </div>
 
-      {/* ── Two-column: JD Box (left) + Tips panel (right) matching 6-card grid height ── */}
-      <div className="flex gap-2.5 sm:gap-3 flex-1 min-h-[330px] sm:min-h-[350px]">
+      {/* ── Two-column: JD Box (left) + Tips panel (right) ── */}
+      <div className={`flex gap-2.5 sm:gap-3 transition-all duration-150 ${jdError ? 'h-[200px] sm:h-[210px]' : 'h-[330px] sm:h-[350px]'}`}>
 
         {/* ── Left: Unified JD input box ── */}
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative flex flex-col flex-1 rounded-xl border-2 transition-all duration-200 overflow-hidden min-h-[330px] sm:min-h-[350px] ${
+          className={`relative flex flex-col flex-1 rounded-xl border-2 transition-all duration-200 overflow-hidden ${
             jdDragActive
               ? 'border-purple-400 shadow-lg shadow-purple-100 dark:shadow-purple-900/20 bg-purple-50 dark:bg-purple-950/20'
               : jdError && isEmpty
@@ -251,53 +251,53 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
           {/* Drag overlay */}
           {jdDragActive && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-purple-50/90 dark:bg-purple-950/80 backdrop-blur-sm pointer-events-none rounded-xl">
-              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/60 rounded-2xl flex items-center justify-center mb-3 shadow-md">
-                <Upload className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/60 rounded-2xl flex items-center justify-center mb-2 shadow-md">
+                <Upload className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
-              <p className="text-sm font-bold text-purple-700 dark:text-purple-300">Drop your file here</p>
-              <p className="text-[11px] text-purple-500 dark:text-purple-400 mt-1">PDF, DOC, DOCX, TXT supported</p>
+              <p className="text-xs font-bold text-purple-700 dark:text-purple-300">Drop your file here</p>
+              <p className="text-[10.5px] text-purple-500 dark:text-purple-400 mt-0.5">PDF, DOC, DOCX, TXT supported</p>
             </div>
           )}
 
           {/* File parsing state */}
           {jdParsing ? (
-            <div className="flex flex-col items-center justify-center p-6 flex-1 gap-3 min-h-[330px] sm:min-h-[350px]">
-              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
-                <Loader2 className="w-7 h-7 text-purple-600 dark:text-purple-400 animate-spin" />
+            <div className="flex flex-col items-center justify-center p-4 flex-1 gap-2.5">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
+                <Loader2 className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-spin" />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-sm font-bold text-slate-900 dark:text-white">Extracting text from document...</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs font-bold text-slate-900 dark:text-white">Extracting text from document...</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Parsing your file directly in your browser. This takes just a moment.
                 </p>
               </div>
             </div>
           ) : hasFile ? (
-            <div className="flex flex-col items-center justify-center p-6 flex-1 gap-3 min-h-[330px] sm:min-h-[350px]">
-              <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
-                <FileText className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+            <div className="flex flex-col items-center justify-center p-4 flex-1 gap-2">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-2xl flex items-center justify-center shadow-xs">
+                <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{jdFileName}</p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center justify-center gap-1 font-medium">
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{jdFileName}</p>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 flex items-center justify-center gap-1 font-medium">
                   <Check className="w-3.5 h-3.5 shrink-0" /> File loaded successfully
                 </p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                   {(jdText.length).toLocaleString()} characters extracted &bull; Verified job description
                 </p>
               </div>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-1.5">
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="text-xs font-semibold text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-950/20 inline-flex items-center gap-1.5"
+                  className="text-xs font-semibold text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-950/20 inline-flex items-center gap-1"
                 >
                   <X className="w-3.5 h-3.5" /> Remove file
                 </button>
                 <button
                   type="button"
                   onClick={() => jdFileInputRef.current?.click()}
-                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 transition-colors cursor-pointer px-3 py-1.5 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/20 inline-flex items-center gap-1.5"
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 transition-colors cursor-pointer px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/20 inline-flex items-center gap-1"
                 >
                   <Upload className="w-3.5 h-3.5" /> Replace file
                 </button>
@@ -305,26 +305,26 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
             </div>
           ) : (
             <>
-              {/* Textarea — taller to match 6-card grid height */}
+              {/* Textarea */}
               <div className="relative flex-1 flex flex-col min-h-0">
                 <textarea
                   value={jdText}
                   onChange={handleTextChange}
                   placeholder="Paste your job description here — include the role title, responsibilities, required skills and qualifications…"
-                  className="w-full flex-1 min-h-[260px] sm:min-h-[280px] px-4 sm:px-5 pt-4 sm:pt-5 pb-3 text-[11.5px] sm:text-xs leading-relaxed bg-transparent border-0 resize-none focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  className="w-full flex-1 px-4 sm:px-5 pt-3 sm:pt-3.5 pb-2 text-[11.5px] sm:text-xs leading-relaxed bg-transparent border-0 resize-none focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 overflow-y-auto"
                 />
                 {jdText.trim().length > 0 && (
-                  <div className="absolute bottom-2 right-3 text-[9.5px] text-slate-300 dark:text-slate-600 select-none pointer-events-none">
+                  <div className="absolute bottom-1.5 right-3 text-[9.5px] text-slate-400 dark:text-slate-500 select-none pointer-events-none bg-white/80 dark:bg-slate-950/80 px-1.5 py-0.5 rounded shadow-2xs">
                     {jdText.trim().length.toLocaleString()} chars
                   </div>
                 )}
               </div>
 
-              {/* Action strip at bottom of box — enlarged to match target size */}
-              <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 px-4 sm:px-6 py-3.5 sm:py-4.5 min-h-[68px] sm:min-h-[76px] flex items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/50">
+              {/* Action strip at bottom of box */}
+              <div className="shrink-0 border-t border-slate-100 dark:border-slate-800 px-3.5 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/50">
                 <div className="flex items-center gap-2.5 sm:gap-3 select-none min-w-0">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/60 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
-                    <Upload className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/60 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
+                    <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs sm:text-[13px] font-bold text-slate-800 dark:text-slate-200 truncate">
@@ -336,12 +336,12 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {jdText.trim().length > 0 && (
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="text-xs font-semibold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                      className="text-xs font-semibold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                       <X className="w-3.5 h-3.5" /> Clear
                     </button>
@@ -349,9 +349,9 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
                   <button
                     type="button"
                     onClick={() => jdFileInputRef.current?.click()}
-                    className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-bold border-2 border-purple-200 hover:border-purple-300 dark:border-purple-800 dark:hover:border-purple-700 text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-50/80 dark:hover:bg-purple-950/40 transition-all duration-200 cursor-pointer shadow-xs active:scale-98"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] font-bold border-2 border-purple-200 hover:border-purple-300 dark:border-purple-800 dark:hover:border-purple-700 text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-900 hover:bg-purple-50/80 dark:hover:bg-purple-950/40 transition-all duration-200 cursor-pointer shadow-xs active:scale-98"
                   >
-                    <Upload className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <Upload className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                     <span>Browse files</span>
                   </button>
                 </div>
@@ -360,51 +360,51 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
           )}
         </div>
 
-        {/* ── Right: Tips panel matching project stylesheet and height ── */}
-        <div className="hidden md:flex flex-col gap-2.5 sm:gap-3 w-56 xl:w-60 shrink-0 min-h-[330px] sm:min-h-[350px]">
+        {/* ── Right: Tips panel ── */}
+        <div className="hidden md:flex flex-col gap-2.5 sm:gap-3 w-56 xl:w-60 shrink-0 h-full">
           {/* What to include */}
-          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/40 rounded-xl p-3.5 sm:p-4 flex-1 flex flex-col justify-center">
-            <p className="text-[11px] sm:text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 sm:mb-2.5 flex items-center gap-1.5">
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/40 rounded-xl p-3 sm:p-3.5 flex-1 flex flex-col justify-center min-h-0 overflow-hidden">
+            <p className="text-xs sm:text-[13px] font-bold text-amber-700 dark:text-amber-400 mb-1.5 sm:mb-2 flex items-center gap-1.5 shrink-0">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               Tips for a better result
             </p>
-            <ul className="space-y-1.5 sm:space-y-2 text-[10.5px] sm:text-[11px] text-slate-600 dark:text-slate-400">
+            <ul className="space-y-1 sm:space-y-1.5 text-[10.5px] sm:text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
               <li className="flex items-start gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-amber-400 mt-[5px] shrink-0" />
-                Include role title, responsibilities and required skills
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
+                <span>Include role title, responsibilities and required skills</span>
               </li>
               <li className="flex items-start gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-amber-400 mt-[5px] shrink-0" />
-                Use PDF or DOCX for best results. Plain text also works.
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
+                <span>Use PDF or DOCX for best results. Plain text also works.</span>
               </li>
               <li className="flex items-start gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-amber-400 mt-[5px] shrink-0" />
-                Keep files under 10 MB
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
+                <span>Keep files under 10 MB</span>
               </li>
             </ul>
           </div>
 
           {/* Supported formats */}
-          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 sm:p-4 shrink-0">
-            <p className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 sm:p-3 shrink-0">
+            <p className="text-xs sm:text-[13px] font-bold text-slate-700 dark:text-slate-300 mb-1 sm:mb-1.5 flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 shrink-0" />
               Supported formats
             </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1 sm:gap-1.5">
               {['PDF', 'DOC', 'DOCX', 'TXT'].map((fmt) => (
-                <span key={fmt} className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 dark:text-slate-400 shadow-2xs">
+                <span key={fmt} className="px-1.5 sm:px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] sm:text-[10.5px] font-bold text-slate-500 dark:text-slate-400 shadow-2xs">
                   {fmt}
                 </span>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">Or simply paste raw text</p>
+            <p className="text-[10px] sm:text-[10.5px] text-slate-400 dark:text-slate-500 mt-1 sm:mt-1.5">Or simply paste raw text</p>
           </div>
         </div>
       </div>
 
       {/* Validation error with actionable guidance */}
       {jdError && (
-        <div className="mt-2.5 p-3 sm:p-3.5 rounded-xl bg-red-50/90 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 animate-in fade-in duration-150">
+        <div className="mt-2 p-2.5 sm:p-3 rounded-xl bg-red-50/90 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 animate-in fade-in duration-150">
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
@@ -412,16 +412,29 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
                 {jdError}
               </p>
               {jdGuidance && jdGuidance.length > 0 && (
-                <div className="mt-2 text-[11px] text-red-600 dark:text-red-300">
-                  <p className="font-semibold text-[11px] mb-1">What to provide in an acceptable Job Description:</p>
-                  <ul className="space-y-1 list-disc list-inside">
+                <div className="mt-2 text-[11px] sm:text-xs text-red-700 dark:text-red-300">
+                  <p className="font-semibold mb-1 text-red-800 dark:text-red-200">
+                    What to provide in an acceptable Job Description:
+                  </p>
+                  <ul className="space-y-1">
                     {jdGuidance.map((tip, idx) => (
-                      <li key={idx} className="leading-relaxed">{tip}</li>
+                      <li key={idx} className="flex items-start gap-2 leading-snug">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0" />
+                        <span>{tip}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => { setJdError(''); setJdGuidance([]); }}
+              className="p-1 text-red-400 hover:text-red-600 dark:hover:text-red-200 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0 -mt-0.5 -mr-0.5 cursor-pointer"
+              title="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}
@@ -554,28 +567,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
     return 'INTRO';
   });
-  // 2. Consent State (Centralized in ConsentModal module)
+  // 2. Consent State (Centralized in ConsentModal module - Video disabled as of now)
+  const isAudioOnlyMode = true;
   const initialConsent = useMemo(() => {
-    let savedVideo = false;
-    if (typeof window !== 'undefined') {
-      const storedVideo = window.sessionStorage?.getItem('aiprep_video_enabled');
-      const storedMode = window.sessionStorage?.getItem('aiprep_active_mode');
-      if (storedVideo !== null) {
-        savedVideo = storedVideo === 'true';
-      } else if (storedMode) {
-        savedVideo = storedMode === 'VIDEO_AUDIO' || storedMode === 'VIDEO';
-      } else if (initialMode) {
-        savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
-      }
-    }
-    return getInitialConsentState(!savedVideo);
-  }, [initialMode]);
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
-  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
+    return getInitialConsentState(true);
+  }, []);
+  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
+  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(false);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
-  const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
+  const [consentCamera, setConsentCamera] = useState<boolean>(false);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
+
+  // Enforce Audio Only mode across session storage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setVideoEnabled(false);
+    setConsentCamera(false);
+    setVideoAnalyticsEnabled(false);
+    window.sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
+    window.sessionStorage.setItem('aiprep_video_enabled', 'false');
+  }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
@@ -677,13 +689,10 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
     if (step === 'CONFIGURATION' && initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
-      const storedVideo = typeof window !== 'undefined' && window.sessionStorage?.getItem('aiprep_video_enabled') === 'true';
-      if (!storedVideo) {
-        setVideoEnabled(false);
-        setConsentCamera(false);
-        setVideoAnalyticsEnabled(false);
-        syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
-      }
+      setVideoEnabled(false);
+      setConsentCamera(false);
+      setVideoAnalyticsEnabled(false);
+      syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
     }
   }, [step, initialMode]);
 
@@ -2175,7 +2184,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           success: false,
           error_message: err?.message || 'Failed to start assessment',
         });
-
         alert(err?.message || 'Failed to start assessment. Please try again.');
         throw err;
       }
