@@ -385,6 +385,14 @@ export default function TechnicalEvaluationView({
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
+  const hasServerRecording = Boolean(
+    (report as any)?.has_recording ||
+    (report as any)?.recording_url ||
+    (report.assessment as any)?.has_recording ||
+    (report.assessment?.data as any)?.has_recording ||
+    (report.assessment as any)?.recording_url
+  );
+
   const hasValidYoutube = Boolean(
     report.youtube_url &&
     !report.youtube_url.includes("aiprep_rec_") &&
@@ -395,7 +403,7 @@ export default function TechnicalEvaluationView({
     (report as any)?.data?.assembled_media ||
     (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? ((hasValidYoutube ? report.youtube_url : null) || assembledMedia || localPreviewUrl || serverUrl)
+    ? ((hasValidYoutube ? report.youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
     : undefined;
 
   const durationSeconds =
@@ -829,7 +837,7 @@ export default function TechnicalEvaluationView({
                 <div className="w-full max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-xs">
                   <VideoPlayer
                     youtubeUrl={effectivePlaybackUrl}
-                    fallbackUrl={localPreviewUrl || serverUrl}
+                    fallbackUrl={hasServerRecording ? serverUrl : undefined}
                     videoRef={activeVideoRef}
                     isAudioOnly={isAudioOnly}
                     candidateName={report.candidate_name ?? undefined}
