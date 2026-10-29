@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation';
 import { Mic, MicOff, Volume2, VolumeX, Check, ChevronRight, ShieldCheck, CheckCircle2, XCircle, Wifi, WifiOff, Video, VideoOff, AlertTriangle, RefreshCw, Eye, Lock, ShieldAlert, X, ChevronDown, Globe, ArrowDown, Activity, ArrowLeft, Upload, FileText, ArrowRight, Loader2 } from 'lucide-react';
 import { extractDocumentText } from '@/utils/documentTextExtractor';
+import { validateJobDescription } from '@/utils/jdValidator';
 import { AssessmentConfig } from './Assessmentselection';
 import { ConsentStep, getInitialConsentState, syncConsentToSessionStorage } from './ConsentModal';
 import PracticeStep from './PracticeStep';
@@ -80,6 +81,7 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
   onNext,
 }) => {
   const [jdError, setJdError] = useState<string>('');
+  const [jdGuidance, setJdGuidance] = useState<string[]>([]);
   const [jdParsing, setJdParsing] = useState<boolean>(false);
 
   const persistJd = (text: string, filename: string) => {
@@ -114,16 +116,31 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     try {
       const extractedText = await extractDocumentText(file);
       if (extractedText && extractedText.trim()) {
+        const validation = validateJobDescription(extractedText, file.name);
+        if (!validation.isValid) {
+          setJdError(validation.error || 'The uploaded file does not contain an acceptable job description.');
+          setJdGuidance(validation.guidance || []);
+          setJdText('');
+          setJdFileName('');
+          persistJd('', '');
+          return;
+        }
         setJdText(extractedText);
         setJdFileName(file.name);
         setJdError('');
+        setJdGuidance([]);
         persistJd(extractedText, file.name);
       } else {
         setJdError('Could not extract readable text from this file. It may be a scanned image or empty. Please copy and paste the JD text directly.');
+        setJdGuidance([]);
+        setJdText('');
+        setJdFileName('');
+        persistJd('', '');
       }
     } catch (err: any) {
       console.error('Document extraction error:', err);
       setJdError(err?.message || 'Failed to read the file. Please try again or paste the JD text directly.');
+      setJdGuidance([]);
     } finally {
       setJdParsing(false);
     }
@@ -159,22 +176,30 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
     setJdText('');
     setJdFileName('');
     setJdError('');
+    setJdGuidance([]);
     persistJd('', '');
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setJdText(val);
-    if (val.trim()) setJdError('');
+    setJdFileName('');
+    if (val.trim()) {
+      setJdError('');
+      setJdGuidance([]);
+    }
     persistJd(val, '');
   };
 
   const handleNextClick = () => {
-    if (!jdText.trim()) {
-      setJdError('Please provide a job description to continue.');
+    const validation = validateJobDescription(jdText, jdFileName || undefined);
+    if (!validation.isValid) {
+      setJdError(validation.error || 'Please provide an acceptable job description to continue.');
+      setJdGuidance(validation.guidance || []);
       return;
     }
     setJdError('');
+    setJdGuidance([]);
     AIPrepTelemetry.trackJdAttached(AIPrepTelemetry.getResolvedCandidateId(), jdText.trim().length);
     onNext();
   };
@@ -258,7 +283,7 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
                   <Check className="w-3.5 h-3.5 shrink-0" /> File loaded successfully
                 </p>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  {(jdText.length).toLocaleString()} characters extracted &bull; Ready for assessment
+                  {(jdText.length).toLocaleString()} characters extracted &bull; Verified job description
                 </p>
               </div>
               <div className="flex items-center gap-2 mt-2">
@@ -377,12 +402,28 @@ const JDUploadStep: React.FC<JDUploadStepProps> = ({
         </div>
       </div>
 
-      {/* Validation error */}
+      {/* Validation error with actionable guidance */}
       {jdError && (
-        <p className="text-xs text-red-500 dark:text-red-400 font-medium flex items-center gap-1.5 animate-in fade-in duration-150 mt-1">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          {jdError}
-        </p>
+        <div className="mt-2.5 p-3 sm:p-3.5 rounded-xl bg-red-50/90 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 animate-in fade-in duration-150">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-red-700 dark:text-red-300 leading-snug">
+                {jdError}
+              </p>
+              {jdGuidance && jdGuidance.length > 0 && (
+                <div className="mt-2 text-[11px] text-red-600 dark:text-red-300">
+                  <p className="font-semibold text-[11px] mb-1">What to provide in an acceptable Job Description:</p>
+                  <ul className="space-y-1 list-disc list-inside">
+                    {jdGuidance.map((tip, idx) => (
+                      <li key={idx} className="leading-relaxed">{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Bottom Action Bar — matching Assessment Type page */}
@@ -513,33 +554,50 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     }
     return 'INTRO';
   });
-  // 2. Consent State (Centralized in ConsentModal module - Video disabled as of now)
-  const isAudioOnlyMode = true;
+  // 2. Consent State (Centralized in ConsentModal module)
   const initialConsent = useMemo(() => {
-    return getInitialConsentState(true);
-  }, []);
-  const [videoEnabled, setVideoEnabled] = useState<boolean>(false);
-  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(false);
+    let savedVideo = false;
+    if (typeof window !== 'undefined') {
+      const storedVideo = window.sessionStorage?.getItem('aiprep_video_enabled');
+      const storedMode = window.sessionStorage?.getItem('aiprep_active_mode');
+      if (storedVideo !== null) {
+        savedVideo = storedVideo === 'true';
+      } else if (storedMode) {
+        savedVideo = storedMode === 'VIDEO_AUDIO' || storedMode === 'VIDEO';
+      } else if (initialMode) {
+        savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
+      }
+    }
+    return getInitialConsentState(!savedVideo);
+  }, [initialMode]);
+  const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
+  const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
-  const [consentCamera, setConsentCamera] = useState<boolean>(false);
+  const [consentCamera, setConsentCamera] = useState<boolean>(initialConsent.consentCamera);
   const [consentSaveRecording, setConsentSaveRecording] = useState<boolean>(initialConsent.consentSaveRecording);
   const [consentSaveTranscript, setConsentSaveTranscript] = useState<boolean>(initialConsent.consentSaveTranscript);
-
-  // Enforce Audio Only mode across session storage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setVideoEnabled(false);
-    setConsentCamera(false);
-    setVideoAnalyticsEnabled(false);
-    window.sessionStorage.setItem('aiprep_active_mode', 'AUDIO_ONLY');
-    window.sessionStorage.setItem('aiprep_video_enabled', 'false');
-  }, [setVideoEnabled, setConsentCamera, setVideoAnalyticsEnabled]);
   const [jdText, setJdText] = useState<string>(() => {
-    if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_text') || '';
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
+      const storedFn = window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+      if (stored && !validateJobDescription(stored, storedFn || undefined).isValid) {
+        window.sessionStorage?.removeItem('aiprep_jd_text');
+        window.sessionStorage?.removeItem('aiprep_jd_filename');
+        return '';
+      }
+      return stored;
+    }
     return '';
   });
   const [jdFileName, setJdFileName] = useState<string>(() => {
-    if (typeof window !== 'undefined') return window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage?.getItem('aiprep_jd_text') || '';
+      const storedFn = window.sessionStorage?.getItem('aiprep_jd_filename') || '';
+      if (stored && !validateJobDescription(stored, storedFn || undefined).isValid) {
+        return '';
+      }
+      return storedFn;
+    }
     return '';
   });
   const [jdDragActive, setJdDragActive] = useState<boolean>(false);
@@ -619,10 +677,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
   useEffect(() => {
     if (step === 'CONFIGURATION' && initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
-      setVideoEnabled(false);
-      setConsentCamera(false);
-      setVideoAnalyticsEnabled(false);
-      syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
+      const storedVideo = typeof window !== 'undefined' && window.sessionStorage?.getItem('aiprep_video_enabled') === 'true';
+      if (!storedVideo) {
+        setVideoEnabled(false);
+        setConsentCamera(false);
+        setVideoAnalyticsEnabled(false);
+        syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
+      }
     }
   }, [step, initialMode]);
 
@@ -2022,14 +2083,45 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (onComplete) {
       await onComplete(results);
     } else {
-      let cid: string | number | undefined = undefined;
       let targetType: string = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+      const normalizedType = targetType.trim().toUpperCase().replace(/ +/g, '_').replace(/-/g, '_');
+      const deferredTypeAliases: Record<string, string> = {
+        TECHNICAL_ASSESSMENT: 'TECHNICAL',
+        RECRUITER_ASSESSMENT: 'RECRUITER',
+        HIRING_MANAGER_ASSESSMENT: 'HIRING_MANAGER',
+        SYSTEM_DESIGN_ASSESSMENT: 'SYSTEM_DESIGN',
+      };
+      targetType = deferredTypeAliases[normalizedType] || normalizedType;
+
+      // Fail-safe: never create these assessment sessions from the setup wizard.
+      // Creation happens only from Start Assessment inside the Before You Begin room.
+      if (['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(targetType)) {
+        sessionStorage.setItem('aiprep_pending_setup_results', JSON.stringify(results));
+        sessionStorage.setItem('aiprep_active_type', targetType);
+        sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+        sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+        sessionStorage.removeItem('aiprep_active_id');
+        sessionStorage.removeItem('aiprep_active_questions');
+        sessionStorage.removeItem('aiprep_wizard_step');
+        router.replace('/aiprep/session/start');
+        return;
+      }
+
+      let cid: string | number | undefined = undefined;
       try {
         cid = await getCandidateId();
         if (cid && typeof window !== 'undefined') {
           sessionStorage.setItem('aiprep_candidate_id', String(cid));
         }
         targetType = assessmentType || (sessionStorage.getItem('aiprep_active_type') as any) || 'INTRO';
+        if (targetType === 'JD_INTRO') {
+          const jdVal = validateJobDescription(jdText, jdFileName || undefined);
+          if (!jdVal.isValid) {
+            setStep('JD_UPLOAD');
+            alert(jdVal.error || 'Please provide an acceptable job description before starting the assessment.');
+            return;
+          }
+        }
         const assessment = await aiPrepApi.createAssessment({
           assessment_type: targetType,
           assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
@@ -2062,8 +2154,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
+          sessionStorage.setItem('aiprep_active_type', targetType);
+          sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
+          }
+          if (targetType === 'JD_INTRO' && jdText) {
+            sessionStorage.setItem('aiprep_jd_text', jdText);
           }
           // Retain aiprep_jd_* in sessionStorage for Target JD modal inside session room
         }
@@ -2078,6 +2175,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           success: false,
           error_message: err?.message || 'Failed to start assessment',
         });
+
         alert(err?.message || 'Failed to start assessment. Please try again.');
         throw err;
       }

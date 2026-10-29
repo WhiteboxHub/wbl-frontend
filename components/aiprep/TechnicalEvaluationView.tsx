@@ -30,6 +30,9 @@ import {
   Eye,
   Monitor,
   ScanFace,
+  Users,
+  Target,
+  ShieldCheck,
 } from "lucide-react";
 import VideoPlayer from "./VideoPlayer";
 import type {
@@ -201,6 +204,13 @@ const RATING_CONFIG: Record<
   string,
   { label: string; dotClass: string; bgClass: string; textClass: string; borderClass: string }
 > = {
+  STRONG: {
+    label: "Strong",
+    dotClass: "bg-emerald-500",
+    bgClass: "bg-emerald-50",
+    textClass: "text-emerald-700",
+    borderClass: "border-emerald-200",
+  },
   EXCELLENT: {
     label: "Excellent",
     dotClass: "bg-emerald-500",
@@ -215,12 +225,26 @@ const RATING_CONFIG: Record<
     textClass: "text-blue-700",
     borderClass: "border-blue-200",
   },
+  NEEDS_POLISH: {
+    label: "Needs Polish",
+    dotClass: "bg-amber-500",
+    bgClass: "bg-amber-50",
+    textClass: "text-amber-700",
+    borderClass: "border-amber-200",
+  },
   AVERAGE: {
     label: "Average",
     dotClass: "bg-amber-500",
     bgClass: "bg-amber-50",
     textClass: "text-amber-700",
     borderClass: "border-amber-200",
+  },
+  WEAK: {
+    label: "Needs Work",
+    dotClass: "bg-rose-500",
+    bgClass: "bg-rose-50",
+    textClass: "text-rose-700",
+    borderClass: "border-rose-200",
   },
   POOR: {
     label: "Needs Work",
@@ -239,8 +263,14 @@ const RATING_CONFIG: Record<
 };
 
 function getRatingMeta(rating?: string) {
-  const key = (rating ?? "").toUpperCase();
-  return RATING_CONFIG[key] ?? RATING_CONFIG.GOOD;
+  const raw = (rating ?? "").toUpperCase().trim();
+  if (RATING_CONFIG[raw]) return RATING_CONFIG[raw];
+  if (["STRONG", "EXCELLENT", "HIGH"].includes(raw)) return RATING_CONFIG.STRONG;
+  if (["GOOD", "ADEQUATE", "OPTIMAL"].includes(raw)) return RATING_CONFIG.GOOD;
+  if (["NEEDS_POLISH", "AVERAGE", "MODERATE"].includes(raw)) return RATING_CONFIG.NEEDS_POLISH;
+  if (["WEAK", "POOR", "NEEDS_WORK", "LOW"].includes(raw)) return RATING_CONFIG.WEAK;
+  if (["NOT_TESTED", "NOT_APPLICABLE", "N/A"].includes(raw)) return RATING_CONFIG.NOT_TESTED;
+  return RATING_CONFIG.GOOD;
 }
 
 function cleanPointText(text?: string): string {
@@ -313,22 +343,36 @@ export default function TechnicalEvaluationView({
     true
   );
 
+  const isMultiQuestion = [
+    "TECHNICAL",
+    "HIRING_MANAGER",
+    "RECRUITER",
+    "SYSTEM_DESIGN",
+  ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
+
   const localPreviewUrl =
-    typeof window !== "undefined" && resolvedAssessmentId
+    !isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId
       ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
-        (() => {
-          try {
-            const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-            if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
-              sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-              return undefined;
-            }
-            return stored || undefined;
-          } catch (_) {
+      (() => {
+        try {
+          const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
+            sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
             return undefined;
           }
-        })()
-      : undefined;
+          return stored || undefined;
+        } catch (_) {
+          return undefined;
+        }
+      })()
+      : (() => {
+        if (isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId) {
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
+          } catch (_) { }
+        }
+        return undefined;
+      })();
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
   const backendOrigin = apiBase.startsWith("http")
@@ -341,8 +385,25 @@ export default function TechnicalEvaluationView({
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
+  const hasServerRecording = Boolean(
+    (report as any)?.has_recording ||
+    (report as any)?.recording_url ||
+    (report.assessment as any)?.has_recording ||
+    (report.assessment?.data as any)?.has_recording ||
+    (report.assessment as any)?.recording_url
+  );
+
+  const hasValidYoutube = Boolean(
+    report.youtube_url &&
+    !report.youtube_url.includes("aiprep_rec_") &&
+    !report.youtube_url.includes("UF8uR6Z6KLc")
+  );
+  const assembledMedia =
+    (report as any)?.assembled_media ||
+    (report as any)?.data?.assembled_media ||
+    (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? (report.youtube_url || serverUrl)
+    ? ((hasValidYoutube ? report.youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
     : undefined;
 
   const durationSeconds =
@@ -374,16 +435,23 @@ export default function TechnicalEvaluationView({
   const techEval: TechnicalEvaluation =
     report.technical_evaluation ?? EMPTY_TECHNICAL_EVALUATION;
 
-  const selectedConceptSlug = searchParams.get("concept");
-  const selectedQuestionIdStr = searchParams.get("q");
+  const isHiringManager =
+    (report.assessment?.assessment_type || "").toUpperCase() === "HIRING_MANAGER";
+  const isRecruiter =
+    (report.assessment?.assessment_type || "").toUpperCase() === "RECRUITER";
 
+  // ── Active concept and question state (static URL, 0 network calls, 0 page refresh) ────
+  const [selectedConceptSlug, setSelectedConceptSlug] = useState<string | null>(() => {
+    return searchParams.get("concept") || null;
+  });
   const [expandedQuestionId, setExpandedQuestionId] = useState<number | null>(() => {
-    return selectedQuestionIdStr ? Number(selectedQuestionIdStr) : null;
+    const qStr = searchParams.get("q");
+    return qStr ? Number(qStr) : null;
   });
   const [questionTabs, setQuestionTabs] = useState<Record<number, "answer" | "improve">>({});
   const [filterMode, setFilterMode] = useState<"all" | "needs_work">("all");
 
-  // ── Active concept (driven by URL) ──────────────────────────────────────────
+  // ── Active concept (driven by local state, falls back to first concept) ─────
   const activeConcept: TechnicalConceptEval = useMemo(() => {
     const concepts = techEval.concept_evaluations;
     if (selectedConceptSlug) {
@@ -397,35 +465,27 @@ export default function TechnicalEvaluationView({
     return concepts[0] ?? ({} as TechnicalConceptEval);
   }, [techEval.concept_evaluations, selectedConceptSlug]);
 
-  // ── Sync expanded question from URL ─────────────────────────────────────────
+  // ── Sync initial expanded question from URL if present ─────────────────────
   useEffect(() => {
-    if (selectedQuestionIdStr) {
-      const qId = Number(selectedQuestionIdStr);
-      setExpandedQuestionId(qId);
+    const qStr = searchParams.get("q");
+    if (qStr) {
+      setExpandedQuestionId(Number(qStr));
     }
-  }, [selectedQuestionIdStr]);
+    const cSlug = searchParams.get("concept");
+    if (cSlug) {
+      setSelectedConceptSlug(cSlug);
+    }
+  }, [searchParams]);
 
-  // ── Navigation helpers ─────────────────────────────────────────────────────
+  // ── Navigation helpers (Zero network calls, static URL, instantaneous UI update) ─
   const selectConcept = (concept: TechnicalConceptEval) => {
     const slug = concept.concept.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "details");
-    params.set("concept", slug);
-    params.delete("q");
-    router.push(`?${params.toString()}`, { scroll: false });
+    setSelectedConceptSlug(slug);
+    setExpandedQuestionId(null);
   };
 
   const toggleExpandQuestion = (questionId: number) => {
-    const isCurrentlyExpanded = expandedQuestionId === questionId;
-    const next = isCurrentlyExpanded ? null : questionId;
-    setExpandedQuestionId(next);
-    const params = new URLSearchParams(searchParams.toString());
-    if (next) {
-      params.set("q", String(next));
-    } else {
-      params.delete("q");
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
+    setExpandedQuestionId((prev) => (prev === questionId ? null : questionId));
   };
 
   const openQuestionFromHeatmap = (question: TechnicalQuestionEval) => {
@@ -433,14 +493,10 @@ export default function TechnicalEvaluationView({
     const parentConcept = techEval.concept_evaluations.find(
       (c) => c.concept.toLowerCase() === question.concept.toLowerCase()
     );
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "details");
     if (parentConcept) {
       const slug = parentConcept.concept.toLowerCase().replace(/[^a-z0-9]/g, "-");
-      params.set("concept", slug);
+      setSelectedConceptSlug(slug);
     }
-    params.set("q", String(question.question_id));
-    router.push(`?${params.toString()}`, { scroll: false });
     setExpandedQuestionId(question.question_id);
     setTimeout(() => {
       document
@@ -463,7 +519,17 @@ export default function TechnicalEvaluationView({
     const dynamicSubtitle =
       testedSubjects.length > 0
         ? `Comprehensive evaluation across ${testedSubjects.join(", ")}`
-        : "Comprehensive evaluation across tested technical domains";
+        : isHiringManager
+          ? "Comprehensive evaluation across tested leadership and behavioral competencies"
+          : isRecruiter
+            ? "Comprehensive evaluation across recruiter screening sections"
+            : "Comprehensive evaluation across tested technical domains";
+
+    const dynamicTitle = isHiringManager
+      ? "Hiring Manager Performance Evaluation"
+      : isRecruiter
+        ? "Recruiter Screening Performance Evaluation"
+        : "Technical Performance Evaluation";
 
     return (
       <div className="space-y-3">
@@ -476,7 +542,7 @@ export default function TechnicalEvaluationView({
               </span>
               <div>
                 <h1 className="text-sm font-bold text-slate-900 leading-tight">
-                  Technical Performance Evaluation
+                  {dynamicTitle}
                 </h1>
                 <p className="text-[11px] text-slate-500">
                   {dynamicSubtitle}
@@ -518,8 +584,14 @@ export default function TechnicalEvaluationView({
               const SubjIcon = subj.subject.includes("AI")
                 ? Cpu
                 : subj.subject.includes("Software")
-                ? Code2
-                : GitBranch;
+                  ? Code2
+                  : subj.subject.includes("Owner") || subj.subject.includes("Leader")
+                    ? Users
+                    : subj.subject.includes("Conflict") || subj.subject.includes("Collaborat")
+                      ? Target
+                      : subj.subject.includes("Roadblock") || subj.subject.includes("Delivery") || subj.subject.includes("Deadline")
+                        ? ShieldCheck
+                        : GitBranch;
 
               return (
                 <div
@@ -607,13 +679,13 @@ export default function TechnicalEvaluationView({
 
               <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-slate-500 font-medium">
                 <span className="flex items-center gap-1">
-                  <span className="size-2 rounded bg-emerald-500" /> Excellent
+                  <span className="size-2 rounded bg-emerald-500" /> {isHiringManager ? "Strong" : "Excellent"}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded bg-blue-500" /> Good
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="size-2 rounded bg-amber-500" /> Average
+                  <span className="size-2 rounded bg-amber-500" /> {isHiringManager ? "Needs Polish" : "Average"}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded bg-rose-500" /> Needs Work
@@ -765,7 +837,7 @@ export default function TechnicalEvaluationView({
                 <div className="w-full max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-xs">
                   <VideoPlayer
                     youtubeUrl={effectivePlaybackUrl}
-                    fallbackUrl={serverUrl}
+                    fallbackUrl={hasServerRecording ? serverUrl : undefined}
                     videoRef={activeVideoRef}
                     isAudioOnly={isAudioOnly}
                     candidateName={report.candidate_name ?? undefined}
@@ -1022,11 +1094,10 @@ export default function TechnicalEvaluationView({
               {/* Readiness pill (audio only, hide for video) */}
               {delivery.type === "audio" && delivery.readiness && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
-                    delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
                       ? "bg-slate-100 text-slate-700 border-slate-300"
                       : "bg-teal-50 text-teal-800 border-teal-200"
-                  }`}
+                    }`}
                 >
                   {delivery.readiness.toUpperCase() === "INSUFFICIENT_DATA"
                     ? "Status: Insufficient Data"
@@ -1236,7 +1307,10 @@ export default function TechnicalEvaluationView({
 
   const displayedQuestions =
     filterMode === "needs_work"
-      ? conceptQuestions.filter((q) => q.rating === "AVERAGE" || q.rating === "POOR")
+      ? conceptQuestions.filter((q) => {
+        const r = (q.rating ?? "").toUpperCase().trim();
+        return ["AVERAGE", "POOR", "NEEDS_POLISH", "WEAK"].includes(r);
+      })
       : conceptQuestions;
 
   const activeConceptMeta = getRatingMeta(activeConcept.rating);
@@ -1248,7 +1322,7 @@ export default function TechnicalEvaluationView({
         <div className="md:col-span-4 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Discipline Navigator
+              {isHiringManager ? "Competency Navigator" : isRecruiter ? "Section Navigator" : "Discipline Navigator"}
             </h2>
             <span className="text-[10px] text-slate-400 font-semibold">
               {techEval.concept_evaluations.length} Topics
@@ -1282,11 +1356,10 @@ export default function TechnicalEvaluationView({
                           key={c.concept}
                           type="button"
                           onClick={() => selectConcept(c)}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all cursor-pointer ${
-                            isSelected
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left text-xs font-medium transition-all cursor-pointer ${isSelected
                               ? "bg-blue-50 text-blue-900 border border-blue-200/80 shadow-2xs font-semibold"
                               : "text-slate-700 hover:bg-slate-50 border border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2 truncate pr-2">
                             <span className={`size-2 rounded-full shrink-0 ${cmeta.dotClass}`} />
@@ -1325,7 +1398,7 @@ export default function TechnicalEvaluationView({
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">
-                      Discipline Evaluation:
+                      {isHiringManager ? "Competency Evaluation:" : isRecruiter ? "Section Evaluation:" : "Discipline Evaluation:"}
                     </span>
                     <span className="text-xs font-bold text-slate-900">
                       {activeSubject.subject}
@@ -1401,8 +1474,8 @@ export default function TechnicalEvaluationView({
                       activeConcept.what_to_work_on && activeConcept.what_to_work_on.length > 0
                         ? activeConcept.what_to_work_on
                         : activeConcept.gaps && activeConcept.gaps.length > 0
-                        ? activeConcept.gaps
-                        : [];
+                          ? activeConcept.gaps
+                          : [];
                     if (focusItems.length === 0) {
                       return (
                         <li className="text-[11px] text-slate-400 italic">
@@ -1435,20 +1508,18 @@ export default function TechnicalEvaluationView({
                 <button
                   type="button"
                   onClick={() => setFilterMode("all")}
-                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                    filterMode === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500"
-                  }`}
+                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${filterMode === "all" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500"
+                    }`}
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterMode("needs_work")}
-                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                    filterMode === "needs_work"
+                  className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${filterMode === "needs_work"
                       ? "bg-white text-rose-700 shadow-2xs"
                       : "text-slate-500"
-                  }`}
+                    }`}
                 >
                   Needs Work
                 </button>
@@ -1474,11 +1545,10 @@ export default function TechnicalEvaluationView({
                   <div
                     key={q.question_id}
                     id={`question-${q.question_id}`}
-                    className={`rounded-xl border transition-all ${
-                      isExpanded
+                    className={`rounded-xl border transition-all ${isExpanded
                         ? "border-blue-400 bg-white shadow-xs ring-1 ring-blue-100"
                         : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50"
-                    }`}
+                      }`}
                   >
                     {/* ── Question Header Row (Clickable) ─────────────────── */}
                     <div
@@ -1499,6 +1569,11 @@ export default function TechnicalEvaluationView({
                           >
                             {qmeta.label}
                           </span>
+                          {q.response_state === "UNANSWERED" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              Unanswered / Skipped
+                            </span>
+                          )}
                         </div>
 
                         <h3 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
@@ -1555,11 +1630,10 @@ export default function TechnicalEvaluationView({
                               e.stopPropagation();
                               setQuestionTabs((prev) => ({ ...prev, [q.question_id]: "answer" }));
                             }}
-                            className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
-                              activeQTab === "answer"
+                            className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer ${activeQTab === "answer"
                                 ? "border-blue-600 text-blue-600 bg-white rounded-t border-t border-x border-slate-200 -mb-px"
                                 : "border-transparent text-slate-500 hover:text-slate-800"
-                            }`}
+                              }`}
                           >
                             Your Spoken Answer
                           </button>
@@ -1570,11 +1644,10 @@ export default function TechnicalEvaluationView({
                                 e.stopPropagation();
                                 setQuestionTabs((prev) => ({ ...prev, [q.question_id]: "improve" }));
                               }}
-                              className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-                                activeQTab === "improve"
+                              className={`py-1.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${activeQTab === "improve"
                                   ? "border-blue-600 text-blue-600 bg-white rounded-t border-t border-x border-slate-200 -mb-px"
                                   : "border-transparent text-slate-500 hover:text-slate-800"
-                              }`}
+                                }`}
                             >
                               <GraduationCap size={13} />
                               How to Improve &amp; Model Answer
@@ -1645,11 +1718,11 @@ export default function TechnicalEvaluationView({
                               </div>
                             )}
 
-                            {/* Terminology chips */}
+                            {/* Terminology / Signals chips */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
                               <div className="p-2.5 rounded-lg bg-white border border-slate-200/80">
                                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">
-                                  Accurate Terminology Used
+                                  {isHiringManager || isRecruiter ? "Key Signals Demonstrated" : "Accurate Terminology Used"}
                                 </span>
                                 {q.terms_used_well && q.terms_used_well.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -1669,7 +1742,7 @@ export default function TechnicalEvaluationView({
 
                               <div className="p-2.5 rounded-lg bg-white border border-slate-200/80">
                                 <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-1">
-                                  Key Terms to Add
+                                  {isHiringManager || isRecruiter ? "Signals / Evidence to Add" : "Key Terms to Add"}
                                 </span>
                                 {q.terms_to_add && q.terms_to_add.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
@@ -1738,7 +1811,7 @@ export default function TechnicalEvaluationView({
                               <>
                                 <div className="p-3 rounded-lg bg-indigo-50/50 border border-indigo-100 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-indigo-900 tracking-wider flex items-center gap-1">
-                                    <BookOpen size={13} /> Recommended Study Topics
+                                    <BookOpen size={13} /> {isHiringManager ? "Stronger Version" : isRecruiter ? "Model Response & What to Improve" : "Recommended Study Topics"}
                                   </span>
                                   <ul className="space-y-1.5">
                                     {q.study_guidance.what_to_study.map((item, i) => (
@@ -1756,7 +1829,7 @@ export default function TechnicalEvaluationView({
                                 <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-2">
                                   <span className="text-[11px] font-extrabold uppercase text-slate-900 tracking-wider flex items-center gap-1">
                                     <GraduationCap size={14} className="text-blue-600" />
-                                    Recommended Answer Framing
+                                    {isHiringManager || isRecruiter ? "How to Structure Your Answer" : "Recommended Answer Framing"}
                                   </span>
                                   <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                                     {q.study_guidance.how_to_answer}

@@ -54,7 +54,7 @@ import {
   type ReportTab,
 } from "./report-tabs";
 import { getUserTeamRole } from "@/utils/auth";
-import VideoPlayer from "./VideoPlayer";
+import VideoPlayer, { extractYoutubeId } from "./VideoPlayer";
 import TechnicalEvaluationView from "./TechnicalEvaluationView";
 
 export type { ReportTab };
@@ -529,20 +529,21 @@ export function extractAssessmentDurationSeconds(report: NormalizedReport, media
   const assessment = report.assessment as any;
   const dataRec = assessment?.data as any;
 
+  // 1. Resolve authoritative speaking/audio telemetry duration
   const candidates = [
-    dataRec?.audio_telemetry?.duration_seconds,
-    dataRec?.audio_telemetry?.total_audio_duration_seconds,
     dataRec?.audio_telemetry?.speaking_duration_sec,
     dataRec?.audio_telemetry?.speaking_duration_seconds,
-    dataRec?.video_telemetry?.duration_seconds,
-    report.audio_telemetry?.duration_seconds,
-    report.audio_telemetry?.total_audio_duration_seconds,
     report.audio_telemetry?.speaking_duration_sec,
     report.delivery_analysis?.rawMetrics?.speaking_duration_seconds,
-    assessment?.duration_seconds,
-    assessment?.client_duration_seconds,
-    assessment?.total_duration_seconds,
+    dataRec?.audio_telemetry?.total_audio_duration_seconds,
+    report.audio_telemetry?.total_audio_duration_seconds,
     report.audio?.recording_environment?.speaking_duration_seconds,
+    dataRec?.audio_telemetry?.duration_seconds,
+    report.audio_telemetry?.duration_seconds,
+    dataRec?.video_telemetry?.duration_seconds,
+    assessment?.duration_seconds,
+    assessment?.total_duration_seconds,
+    assessment?.client_duration_seconds,
     (report as any).audio_telemetry?.duration,
     (report as any).duration_seconds,
   ];
@@ -558,16 +559,11 @@ export function extractAssessmentDurationSeconds(report: NormalizedReport, media
     }
   }
 
-  // If telemetry recorded a substantial duration (e.g. 5+ minutes), but mediaDurationSec is an anomalous partial slice,
-  // prioritize the authoritative telemetry duration to ensure consistent timestamps across all views.
-  if (telemetryDuration > 0 && mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
-    if (mediaDurationSec >= telemetryDuration * 0.8) {
-      return Math.round(mediaDurationSec);
-    }
-    return telemetryDuration;
-  }
-
+  // 2. Validate media track duration with guard against anomalous partial buffer slices
   if (mediaDurationSec != null && mediaDurationSec > 0 && !isNaN(mediaDurationSec) && isFinite(mediaDurationSec)) {
+    if (telemetryDuration > 0 && mediaDurationSec < telemetryDuration * 0.5) {
+      return telemetryDuration;
+    }
     return Math.round(mediaDurationSec);
   }
 
@@ -1793,17 +1789,26 @@ export function EvaluationContent({
       ? localStorage.getItem("access_token") || localStorage.getItem("token") || ""
       : "";
 
-  const rawMediaType = (report.assessment.media_type || "").toUpperCase();
+  const rawMediaType = ((report as any).media_type || report.assessment?.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
 
   const mediaPath = isAudioOnly ? "audio" : "video";
   const canShowRecording = Boolean(
     consent?.save_recording ??
     (report.assessment as any)?.consent?.save_recording ??
+    (report.assessment?.data as any)?.consent?.save_recording ??
+    (report as any)?.save_recording ??
     true
   );
+  const isMultiQuestion = [
+    "TECHNICAL",
+    "HIRING_MANAGER",
+    "RECRUITER",
+    "SYSTEM_DESIGN",
+  ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
+
   const localPreviewUrl =
-    typeof window !== "undefined"
+    !isMultiQuestion && typeof window !== "undefined"
       ? (window as any).__aiprep_local_preview?.[assessmentId] ||
       (() => {
         const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
@@ -1820,13 +1825,25 @@ export function EvaluationContent({
       : undefined;
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
-  const backendOrigin = apiBase.startsWith("http")
-    ? apiBase.replace(/\/api\/?$/, "")
-    : "http://127.0.0.1:8000";
+  let backendOrigin = "";
+  if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+    backendOrigin = apiBase.replace(/\/api\/?$/, "");
+  } else if (typeof window !== "undefined" && window.location.origin) {
+    backendOrigin = window.location.origin;
+  }
+
+  const hasServerRecording = Boolean(
+    (report as any)?.has_recording ||
+    (report as any)?.recording_url ||
+    (report.assessment as any)?.has_recording ||
+    (report.assessment?.data as any)?.has_recording ||
+    (report.assessment as any)?.recording_url
+  );
 
   const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
   const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
-  const serverUrl = assessmentId
+  // Persistent server recording stream URL directly from server storage
+  const serverUrl = (assessmentId && serverPath)
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
     : undefined;
 
@@ -1846,19 +1863,23 @@ export function EvaluationContent({
   }, [youtube_url, assessmentId]);
 
   // Playback hierarchy:
-  // 1. YouTube (once upload is done)
-  // 2. Instant Local Playback (0ms zero-latency preview while YouTube is pending)
-  // 3. Persistent Server Stream (when reopening a closed assessment with saved media)
-  const hasServerRecording = Boolean(
-    (report as any)?.has_recording ??
-    (report as any)?.recording_url ??
-    (report.assessment as any)?.has_recording ??
-    (report.assessment?.data as any)?.has_recording ??
-    (report.assessment as any)?.recording_url ??
-    false
+  // For Audio assessments: always play native audio via serverUrl (or localPreviewUrl)
+  // For Video assessments:
+  // 1. Verified YouTube URL (when real YouTube upload succeeded)
+  // 2. Instant Local Playback (0ms zero-latency preview while YouTube/processing is pending)
+  // 3. Authoritative Persistent Server Storage Stream (when YouTube is unavailable, mock, or pending)
+  const hasValidYoutube = Boolean(
+    youtube_url &&
+    !youtube_url.includes("aiprep_rec_") &&
+    !youtube_url.includes("UF8uR6Z6KLc") &&
+    extractYoutubeId(youtube_url)
   );
+  const assembledMedia =
+    (report as any)?.assembled_media ||
+    (report as any)?.data?.assembled_media ||
+    (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? (youtube_url || localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
+    ? ((hasValidYoutube ? youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
     : undefined;
 
   const durationSeconds =
@@ -1880,8 +1901,13 @@ export function EvaluationContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical Assessment: delegate to dedicated view ─────────────────────
-  if (report.technical_evaluation || report.assessment?.assessment_type === "TECHNICAL") {
+  // ── Technical, Hiring Manager & Recruiter Assessment: delegate to dedicated view ────
+  if (
+    report.technical_evaluation ||
+    report.assessment?.assessment_type === "TECHNICAL" ||
+    report.assessment?.assessment_type === "HIRING_MANAGER" ||
+    report.assessment?.assessment_type === "RECRUITER"
+  ) {
     return (
       <TechnicalEvaluationView
         report={report}
@@ -2218,8 +2244,8 @@ export function EvaluationContent({
         const unverifiedClaims = report.skill_breakdown?.unverified_spoken_claims ||
           (hasResumeData
             ? report.requirement_coverage
-                .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
-                .map((r) => r.requirement)
+              .filter((r) => (r.status === "COVERED" || r.status === "PARTIAL") && r.in_resume === false)
+              .map((r) => r.requirement)
             : []);
 
         const mustCoveredCount = mustHaves.filter((r) => r.status === "COVERED").length;
@@ -2415,73 +2441,73 @@ export function EvaluationContent({
 
             {/* 3. RESUME CROSS-VERIFICATION & CLAIMS ANALYSIS */}
             {hasResumeData && (
-            <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                    <ShieldCheck className="size-4" />
+              <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                      <ShieldCheck className="size-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                        Resume Cross-Verification & Project Claims
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Verification of spoken introduction statements against candidate resume and project points
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                      Resume Cross-Verification & Project Claims
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Verification of spoken introduction statements against candidate resume and project points
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectTab("Details", "requirements")}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    View Full Evidence Map →
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectTab("Details", "requirements")}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
-                >
-                  View Full Evidence Map →
-                </button>
-              </div>
 
-              {unverifiedClaims.length > 0 ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
-                  <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm">
-                    <AlertTriangle className="size-4 text-amber-600 shrink-0" />
-                    <span>Unverified Spoken Claims Detected ({unverifiedClaims.length})</span>
-                  </div>
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    The candidate mentioned the following skills during their spoken introduction, but they could not be found anywhere on their resume or project bullet points:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {unverifiedClaims.map((claim, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-amber-900 border border-amber-300 shadow-2xs"
-                      >
-                        <span className="size-1.5 rounded-full bg-amber-500" />
-                        {claim}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-amber-700 italic pt-1 border-t border-amber-200/60">
-                    Per evaluation policy, spoken claims that are not corroborated by project bullet points or work experience on the resume receive discounted credit to ensure objective qualification.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 flex items-start gap-2.5">
-                  <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5 text-xs">
-                    <p className="font-bold text-emerald-950">Full Resume Corroboration</p>
-                    <p className="text-emerald-800 leading-relaxed">
-                      All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate&apos;s resume and project bullet points.
+                {unverifiedClaims.length > 0 ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs sm:text-sm">
+                      <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                      <span>Unverified Spoken Claims Detected ({unverifiedClaims.length})</span>
+                    </div>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      The candidate mentioned the following skills during their spoken introduction, but they could not be found anywhere on their resume or project bullet points:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {unverifiedClaims.map((claim, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-amber-900 border border-amber-300 shadow-2xs"
+                        >
+                          <span className="size-1.5 rounded-full bg-amber-500" />
+                          {claim}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-amber-700 italic pt-1 border-t border-amber-200/60">
+                      Per evaluation policy, spoken claims that are not corroborated by project bullet points or work experience on the resume receive discounted credit to ensure objective qualification.
                     </p>
                   </div>
-                </div>
-              )}
-            </section>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 flex items-start gap-2.5">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 text-xs">
+                      <p className="font-bold text-emerald-950">Full Resume Corroboration</p>
+                      <p className="text-emerald-800 leading-relaxed">
+                        All skills, technologies, and competencies mentioned during the spoken introduction are verified and documented across the candidate&apos;s resume and project bullet points.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </section>
             )}
           </div>
         );
       })()}
 
       {/* ── 3. RECORDING PLAYBACK ── */}
-      {canShowRecording && effectivePlaybackUrl && (
+      {canShowRecording && (effectivePlaybackUrl || (hasServerRecording && serverUrl)) && (
         <section className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs">
           <div className="mb-2 flex items-center gap-2 text-slate-800 border-b border-slate-100 pb-2">
             {isAudioOnly ? (
@@ -2496,7 +2522,7 @@ export function EvaluationContent({
           <div className="w-full max-w-3xl mx-auto">
             <VideoPlayer
               youtubeUrl={effectivePlaybackUrl}
-              fallbackUrl={serverUrl}
+              fallbackUrl={hasServerRecording ? serverUrl : undefined}
               videoRef={videoRef}
               isAudioOnly={isAudioOnly}
               candidateName={report.candidate_name}
@@ -2824,10 +2850,12 @@ export function DetailsContent({
     return <EmptyEvaluationCard />;
   }
 
-  // ── Technical Assessment or Delivery Analysis: delegate to dedicated view ──
+  // ── Technical, Hiring Manager, Recruiter, or Delivery Analysis: delegate to dedicated view ──
   if (
     report.technical_evaluation ||
     report.assessment?.assessment_type === "TECHNICAL" ||
+    report.assessment?.assessment_type === "HIRING_MANAGER" ||
+    report.assessment?.assessment_type === "RECRUITER" ||
     activeTab === "Audio Analysis" ||
     activeTab === "Video Analysis"
   ) {
@@ -3839,10 +3867,10 @@ export function ReportHeader({
                 disabled={isDetailsDisabled}
                 onClick={() => !isDetailsDisabled && onSelectTab(tab.label)}
                 className={`pb-1.5 text-xs sm:text-sm transition-colors ${isDetailsDisabled
-                    ? "text-slate-300 cursor-not-allowed select-none"
-                    : isTabActive
-                      ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
-                      : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
+                  ? "text-slate-300 cursor-not-allowed select-none"
+                  : isTabActive
+                    ? "border-b-2 border-blue-600 font-bold text-blue-600 cursor-pointer"
+                    : "font-medium text-slate-500 hover:text-slate-900 cursor-pointer"
                   }`}
               >
                 {tab.label}
@@ -4050,11 +4078,6 @@ export default function AiPrepReport({
 
   // ── Auto-Swap to YouTube when background upload completes ─────────────────
   useEffect(() => {
-    const isTechAudio = report?.assessment?.assessment_type === "TECHNICAL" &&
-      ((report?.assessment?.media_type || "").toUpperCase() === "AUDIO" || (report?.assessment?.media_type || "").toUpperCase() === "AUDIO_ONLY");
-    // Technical audio streams authoritative assembled.webm directly from serverUrl — bypass YouTube polling
-    if (isTechAudio) return;
-
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
     if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
 
@@ -4063,8 +4086,8 @@ export default function AiPrepReport({
     const interval = setInterval(async () => {
       try {
         ytPollAttemptsRef.current += 1;
-        if (ytPollAttemptsRef.current > 12) {
-          // Cap at 12 checks (2 minutes with 10s interval) to prevent unwanted API calls
+        if (ytPollAttemptsRef.current > 5) {
+          // Cap at 5 checks (5 minutes with 60s interval) to prevent unwanted API calls
           clearInterval(interval);
           return;
         }
@@ -4080,7 +4103,7 @@ export default function AiPrepReport({
           clearInterval(interval);
         }
       }
-    }, 10000);
+    }, 60000);
 
     return () => {
       isMounted = false;

@@ -11,6 +11,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [authToken, setAuthToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null); // admin | employee | candidate | null
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -35,12 +36,23 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       // Validate the role with the backend on a fresh page load so the request is visible in DevTools.
-      _checkToken(token, true);
+      _checkToken(token, true)
+        .catch((error) => {
+          if (process.env.NODE_ENV === "development") {
+            console.error("Initial auth validation failed:", error);
+          }
+          setIsAuthenticated(false);
+          setAuthToken(null);
+          setUserRole(null);
+        })
+        .finally(() => setLoading(false));
     } else {
       setIsAuthenticated(false);
       setAuthToken(null);
       setUserRole(null);
     }
+
+    if (!token) setLoading(false);
 
     // periodic check — also detects if SSO cookie was cleared by another service
     const interval = setInterval(() => {
@@ -259,6 +271,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         isAuthenticated,
+        loading,
         authToken,
         login,
         logout,

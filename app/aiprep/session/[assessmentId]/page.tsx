@@ -25,6 +25,7 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { useChunkUploadQueue } from '@/hooks/useChunkUploadQueue';
 import { ChunkedUploader } from '@/components/aiprep/ChunkedUploader';
 import { useAssessmentTelemetry } from '@/hooks/useAssessmentTelemetry';
+import { AIPrepTelemetry } from '@/lib/telemetry';
 import { QuestionAction, SessionLifecycleStatus } from '@/types/telemetry';
 import {
   IconMicrophone,
@@ -206,7 +207,7 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-export default function AssessmentSessionPage({ assessmentIdProp }: { assessmentIdProp?: number } = {}) {
+function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: { assessmentIdProp?: number; onStartPendingAssessment?: () => Promise<number> } = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -227,8 +228,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Extract assessmentId from route params or prop
   const assessmentIdStr = params?.assessmentId;
-  const assessmentId = assessmentIdProp ? Number(assessmentIdProp) : (assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0);
+  const assessmentId = assessmentIdProp !== undefined ? Number(assessmentIdProp) : (assessmentIdStr ? parseInt(assessmentIdStr as string, 10) : 0);
   const [finishedAssessmentId, setFinishedAssessmentId] = useState<number | null>(null);
+
+  // Keep the session ID hidden before Start Assessment only for the four requested tracks.
+  // INTRO and JD_INTRO retain their existing URL/navigation behavior.
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+    const activeType = window.sessionStorage.getItem('aiprep_active_type');
+    if (!['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '')) return;
+    // Keep the canonical Before You Begin URL stable on reload.
+    if (window.location.pathname === '/aiprep/start') return;
+    const isStartRoute = window.location.pathname === '/aiprep/session/start';
+    const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const previouslyLoadedRoomId = window.sessionStorage.getItem('aiprep_room_loaded_session_id');
+    // Only a browser-level reload of the same room counts as a reload.
+    // Do not use beforeunload markers: they also fire for tab close and navigation.
+    if (navigationEntry?.type === 'reload' && previouslyLoadedRoomId === String(assessmentId)) return;
+    const hasStarted = window.sessionStorage.getItem(`aiprep_started_${assessmentId}`) === 'true';
+    const isAutoStarting = window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true';
+    // A Start Assessment click from the instructions page has already authorized
+    // the transition. Do not rewrite the destination URL back to the instructions route.
+    if (!hasStarted && !isAutoStarting) {
+      window.sessionStorage.setItem('aiprep_pending_assessment_id', String(assessmentId));
+      if (!isStartRoute) window.history.replaceState(null, '', '/aiprep/session/start');
+    } else if (isStartRoute) {
+      window.history.replaceState(null, '', `/aiprep/session/${assessmentId}`);
+    }
+  }, [assessmentId]);
 
   const isEmbedded = searchParams?.get('embed') === 'true';
 
@@ -259,13 +286,6 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     }
   }, [assessmentId]);
 
-  // Observability & Telemetry Hook
-  const { recordQuestionAction, recordCompletion } = useAssessmentTelemetry({
-    assessmentId,
-    sessionId: attemptSessionId,
-    assessmentType,
-    totalQuestions: questions.length > 0 ? questions.length : undefined,
-  });
 
   // Maximum recording duration — 5 min for INTRO/JD_INTRO, 30 min for all other types
   // Derived via useMemo so it updates once assessmentType is resolved from the backend
@@ -325,6 +345,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // Countdown overlay before recording starts
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
+  const [isInitialQuestionCountdown, setIsInitialQuestionCountdown] = useState(false);
   const hasAutoStartedRef = useRef<boolean>(false);
   const countdownIntervalRef = useRef<any>(null);
   const sessionInitializedRef = useRef<boolean>(false);
@@ -339,6 +360,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   >([]);
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<any>(null);
+  // Guard: only reset transcript on very first recording start, not on question-transition restarts
+  const transcriptInitializedRef = useRef<boolean>(false);
+  useEffect(() => {
+    transcriptInitializedRef.current = false;
+  }, [assessmentId]);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Per-Question Time Tracking & Multi-Question Answers
@@ -348,8 +374,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const [isTransitioningQuestion, setIsTransitioningQuestion] = useState<boolean>(false);
   const [isQuestionPrepPaused, setIsQuestionPrepPaused] = useState<boolean>(false);
   const [hasStartedQuestion, setHasStartedQuestion] = useState<boolean>(false);
+  // On a direct transition from Before You Begin, hide the instructions immediately
+  // while the session restores its questions and starts the countdown.
+  const [isAutoStarting, setIsAutoStarting] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !assessmentId) return false;
+    return window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true';
+  });
   const [prepCountdown, setPrepCountdown] = useState<number | null>(null);
   const elapsedTimeRef = useRef<number>(0);
+  const cumulativeRecordedSecondsRef = useRef<number>(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
 
   // Target Job Description State (for JD_INTRO track)
   const [jobDescription, setJobDescription] = useState<string>('');
@@ -568,6 +602,11 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   }, []);
 
   const isIntroType = assessmentType === 'INTRO' || assessmentType === 'JD_INTRO';
+  const isMultiQuestion =
+    assessmentType === 'TECHNICAL' ||
+    assessmentType === 'HIRING_MANAGER' ||
+    assessmentType === 'RECRUITER' ||
+    assessmentType === 'SYSTEM_DESIGN';
   const assessmentTitle = ({
     INTRO: 'INTRO Assessment',
     JD_INTRO: 'JD Walkthrough Assessment',
@@ -632,7 +671,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     },
   });
 
-  // ── Media Recorder Hook (30s slicing for Video Assessments) ────────────────
+  // ── Media Recorder Hook (Continuous Question Buffering for Video Assessments) ──
   const {
     status: videoRecordingStatus,
     stream: videoStream,
@@ -642,14 +681,16 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     cleanup: cleanupVideoRecorder,
   } = useMediaRecorder({
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
-    chunkDurationMs: 30000,
+    chunkDurationMs: 0,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       if (isAudioOnly) return;
-      console.log(`[Media Pipeline] Produced 30s slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
+      console.log(`[Media Pipeline] Produced slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
       if (blob && blob.size > 0) {
         localChunksRef.current.push(blob);
       }
-      enqueueChunk(blob, chunkIdx, isFinal);
+      if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
+        enqueueChunk(blob, chunkIdx, isFinal);
+      }
     },
     onError: (err) => {
       console.error('[MediaRecorder Error]:', err);
@@ -814,6 +855,53 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     router.replace(targetUrl);
   }, [assessmentId, isEmbedded, router, stopAiSpeech, cleanupRecorder, clearQueue, setIsSessionAlreadyEnded, setShowExitModal]);
 
+  // Cancel only when the browser reports a real reload of the same assessment room.
+  // beforeunload is intentionally not used because it also fires for tab close/navigation.
+  useEffect(() => {
+    if (!assessmentId || typeof window === 'undefined') return;
+
+    const cancelledByReloadKey = `aiprep_reload_cancelled_${assessmentId}`;
+    if (localStorage.getItem(cancelledByReloadKey) === 'true') {
+      setIsSessionAlreadyEnded(true);
+      router.replace(`/aiprep/reports/${assessmentId}`);
+      return;
+    }
+
+    const previousRoomSessionId = sessionStorage.getItem('aiprep_room_loaded_session_id');
+    const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    const isReloadOfThisSession =
+      navigationEntry?.type === 'reload' && previousRoomSessionId === String(assessmentId);
+
+    // Clear legacy markers written by the old beforeunload implementation. They must
+    // never cause a cancellation because they may represent navigation or tab closing.
+    sessionStorage.removeItem(`aiprep_reload_pending_${assessmentId}`);
+
+    // Record the room currently being opened. A different ID means a fresh attempt.
+    sessionStorage.setItem('aiprep_room_loaded_session_id', String(assessmentId));
+    if (!isReloadOfThisSession) return;
+
+    localStorage.setItem(cancelledByReloadKey, 'true');
+    localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+    sessionStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
+    localStorage.removeItem(`aiprep_active_session_${assessmentId}`);
+    sessionStorage.removeItem('aiprep_active_id');
+    sessionStorage.removeItem('aiprep_active_questions');
+    sessionStorage.removeItem(`aiprep_autostart_assessment_${assessmentId}`);
+
+    preparationCancelledRef.current = true;
+    setIsSessionAlreadyEnded(true);
+    stopAiSpeech();
+    cleanupRecorder();
+    clearQueue();
+    void aiprepApi.cancelAssessment(assessmentId)
+      .catch((error) => console.warn('Failed to cancel assessment after reload:', error))
+      .finally(() => {
+        // Show the cancellation/evaluation page for this attempt instead of rendering
+        // Before You Begin again. The user can return to AI Prep from there.
+        router.replace(`/aiprep/reports/${assessmentId}`);
+      });
+  }, [assessmentId, router, stopAiSpeech, cleanupRecorder, clearQueue]);
+
   // Immediate redirect & history check if this session was already exited or finished
   useEffect(() => {
     if (!assessmentId || typeof window === 'undefined') return;
@@ -822,7 +910,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       sessionStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
       localStorage.getItem(`aiprep_finished_${assessmentId}`) === 'true'
     );
-    if (isEnded) {
+    if (isEnded && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) !== 'true') {
       setIsSessionAlreadyEnded(true);
       const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
       try {
@@ -858,6 +946,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
+    if (!assessmentId && onStartPendingAssessment) {
+      const pendingType = (typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_type') : null) as AssessmentType | null;
+      const pendingMode = (typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_mode') : null) as MediaType | null;
+      if (pendingType) setAssessmentType(pendingType);
+      if (pendingMode) setMediaType(pendingMode);
+      setQuestions([{ id: 0, question_text: '', difficulty_level: 'MEDIUM', category: '', is_active: true }]);
+      setIsLoading(false);
+      return;
+    }
     if (!assessmentId) {
       setErrorMsg('No assessment ID provided. Please start from the assessment portal.');
       setIsLoading(false);
@@ -868,7 +965,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
     async function initSession() {
       try {
-        // Guard against previously exited or completed session
+        // Guard against previously exited or completed session (Double-Attempt Guard via POST session lifecycle)
         if (typeof window !== 'undefined') {
           const wasExited = Boolean(
             localStorage.getItem(`aiprep_exited_${assessmentId}`) === 'true' ||
@@ -877,51 +974,37 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           );
           if (wasExited) {
             setIsSessionAlreadyEnded(true);
+            const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : `/aiprep/reports/${assessmentId}`;
+            router.replace(targetUrl);
+            return;
+          }
+
+          // Double-Attempt & URL Tampering Guard:
+          // Ensure the user entered from an authorized POST creation flow for this exact assessment ID
+          const activeSessionId = sessionStorage.getItem('aiprep_active_id');
+          if (activeSessionId && String(activeSessionId) !== String(assessmentId)) {
+            setIsSessionAlreadyEnded(true);
             const targetUrl = isEmbedded ? '/user_dashboard/ai-prep?embed=true' : '/user_dashboard/ai-prep';
             router.replace(targetUrl);
             return;
           }
         }
 
-        // Failsafe: check server assessment status
-        let serverDetail: any = null;
-        try {
-          const detail = await aiprepApi.getAssessment(assessmentId);
-          serverDetail = detail;
-          const status = (detail?.status || '').toUpperCase();
-          if (status === 'CANCELLED' || status === 'COMPLETED' || status === 'EVALUATED' || status === 'SUBMITTED' || status === 'FAILED' || status === 'EVALUATING') {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(`aiprep_exited_${assessmentId}`, 'true');
-              localStorage.setItem(`aiprep_finished_${assessmentId}`, 'true');
-            }
-            setIsSessionAlreadyEnded(true);
-            const targetUrl = isEmbedded
-              ? '/user_dashboard/ai-prep?embed=true'
-              : (status === 'COMPLETED' || status === 'EVALUATING' || status === 'SUBMITTED' || status === 'EVALUATED')
-                ? `/aiprep/reports/${assessmentId}`
-                : '/user_dashboard/ai-prep';
-            router.replace(targetUrl);
-            return;
-          }
-        } catch (_) {}
-
         setIsLoading(true);
 
-        // 1. Recover stored session track & mode directly from sessionStorage
+        // 1. Recover stored session track & mode directly from sessionStorage (populated via POST /assessments)
         const resolvedType: AssessmentType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_type') as AssessmentType) || 'INTRO') : 'INTRO';
         const resolvedMode: MediaType = typeof window !== 'undefined' ? ((window.sessionStorage.getItem('aiprep_active_mode') as MediaType) || 'AUDIO_ONLY') : 'AUDIO_ONLY';
         let loadedQuestions: QuestionBankItem[] = [];
 
         const finalType: AssessmentType = resolvedType || 'INTRO';
-        const finalMode: MediaType = resolvedMode || 'AUDIO_ONLY';
+        const finalMode: MediaType = (resolvedMode === 'VIDEO_AUDIO' || resolvedMode === 'VIDEO') ? 'VIDEO_AUDIO' : (resolvedMode || 'AUDIO_ONLY');
 
         if (finalType === 'JD_INTRO') {
           const storedJd = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_text') : null;
           const storedRole = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_role') : null;
           const storedCompany = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_jd_company') : null;
-          const serverJd = serverDetail?.job_description || (serverDetail?.data as any)?.job_description || (serverDetail?.data as any)?.jd_text || '';
-          const activeJd = storedJd || serverJd;
-          if (activeJd) setJobDescription((prev) => prev || activeJd);
+          if (storedJd) setJobDescription((prev) => prev || storedJd);
           if (storedRole) setTargetRole(storedRole);
           if (storedCompany) setTargetCompany(storedCompany);
         } else {
@@ -933,50 +1016,34 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         setAssessmentType(finalType);
         setMediaType(finalMode);
 
-        // 2. Load cached questions immediately for non-technical tracks.
-        // For Technical tracks, read from cached session questions or restore from serverDetail on reload.
-        if (finalType === 'TECHNICAL') {
-          try {
-            const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
-            if (cachedQ) {
-              const parsed = JSON.parse(cachedQ);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loadedQuestions = parsed as QuestionBankItem[];
-              }
-            }
-          } catch (_) {}
-          if (!loadedQuestions || loadedQuestions.length === 0) {
-            const serverQuestions = serverDetail?.questions || (serverDetail?.data as any)?.questions;
-            if (Array.isArray(serverQuestions) && serverQuestions.length > 0) {
-              loadedQuestions = serverQuestions as QuestionBankItem[];
+        // 2. Load cached questions directly from sessionStorage (populated via POST /assessments)
+        try {
+          const cachedQ = typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_questions') : null;
+          if (cachedQ) {
+            const parsed = JSON.parse(cachedQ);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              loadedQuestions = parsed as QuestionBankItem[];
             }
           }
-        } else if (typeof window !== 'undefined') {
-          try {
-            const cachedQ = window.sessionStorage.getItem('aiprep_active_questions');
-            if (cachedQ) {
-              const parsed = JSON.parse(cachedQ);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loadedQuestions = parsed as QuestionBankItem[];
-              }
-            }
-          } catch (_) {}
+        } catch (_) {}
+
+        // For JD Walkthrough fallback if session storage is unavailable
+        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType === 'JD_INTRO') {
+          loadedQuestions = [
+            {
+              id: 1,
+              question_id: 1,
+              question_text: 'Please introduce yourself and walk through your professional background, highlighting the key experiences and technical skills that align with this job description.',
+              category: 'JD_INTRO',
+              difficulty_level: 'MEDIUM',
+              is_active: true,
+            } as QuestionBankItem,
+          ];
         }
 
-        // Technical assessments must use the exact question snapshot returned by POST.
-        // Never silently substitute unrelated catalog questions for a Technical attempt.
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
-          try {
-            const qBankRes = await aiprepApi.getQuestions(finalType);
-            if (qBankRes?.items && Array.isArray(qBankRes.items) && qBankRes.items.length > 0) {
-              loadedQuestions = qBankRes.items;
-            }
-          } catch (qErr) {
-            console.warn('Question Bank Catalog API fallback failed:', qErr);
-          }
-        }
-
-        if ((!loadedQuestions || loadedQuestions.length === 0) && finalType !== 'TECHNICAL') {
+        // Assessments strictly use the question snapshot returned by the POST creation endpoint.
+        // No GET question bank endpoint is called.
+        if (!loadedQuestions || loadedQuestions.length === 0) {
           setErrorMsg('No interview questions found for this assessment session. Please return to the portal and try again.');
           setIsLoading(false);
           return;
@@ -987,6 +1054,14 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         pendingAssessmentQuestionsRef.current = Array.isArray(loadedQuestions) ? loadedQuestions : [];
         setQuestions([{ id: 0, question_text: '', difficulty_level: 'MEDIUM', category: '', is_active: true }]);
         setCurrentQuestionIndex(0);
+        if (typeof window !== 'undefined' && window.sessionStorage.getItem(`aiprep_autostart_assessment_${assessmentId}`) === 'true') {
+          setIsAutoStarting(true);
+          window.sessionStorage.removeItem(`aiprep_autostart_assessment_${assessmentId}`);
+          // Start synchronously in this effect instead of scheduling a zero-delay
+          // timeout. The timeout allowed one paint of the Before You Begin screen
+          // after navigation, even though the candidate had already clicked Start.
+          void startAnswerRef.current();
+        }
 
         // If intro track, trigger 7-second auto countdown to start practice smoothly
         if (NO_PAUSE_ASSESSMENT_TYPES.includes(finalType) && !hasAutoStartedRef.current) {
@@ -1024,6 +1099,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     };
   }, [
     assessmentId,
+    onStartPendingAssessment,
     stopAiSpeech,
     retryCount,
     setIsLoading,
@@ -1069,9 +1145,15 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (isRecording && SpeechRecognition) {
-      // Reset accumulated transcript when a fresh recording session begins
-      finalTranscriptRef.current = '';
-      setLiveTranscript('');
+      // Only reset transcript on the very first recording start.
+      // Question transitions cause isRecording to briefly toggle off/on — we must NOT wipe
+      // accumulated text in those cases or the display goes blank mid-session.
+      if (!transcriptInitializedRef.current) {
+        transcriptInitializedRef.current = true;
+        finalTranscriptRef.current = '';
+        accumulatedTranscriptRef.current = '';
+        setLiveTranscript('');
+      }
 
       try {
         const recognition = new SpeechRecognition();
@@ -1162,10 +1244,20 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
         };
 
         recognition.onend = () => {
-          // Clear interim text on pause so stale unfinalized words don't hang or duplicate
+          // Commit any pending interim speech so words aren't dropped when silence triggers onend
+          if (currentInterimRef.current) {
+            const flushed = formatAsSentence(currentInterimRef.current);
+            if (flushed) {
+              accumulatedTranscriptRef.current = appendDeduplicated(
+                accumulatedTranscriptRef.current,
+                flushed
+              );
+              setLiveTranscript(cleanTechnicalSpeech(accumulatedTranscriptRef.current));
+            }
+          }
           currentInterimRef.current = '';
 
-          // Debounced restart across silent pauses to avoid rapid-fire restart loops
+          // Immediate restart across pauses to eliminate dead audio windows
           if (restartTimeoutRef.current && typeof window !== 'undefined') {
             window.clearTimeout(restartTimeoutRef.current);
           }
@@ -1176,7 +1268,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   recognition.start();
                 } catch (_) { }
               }
-            }, 300) : null;
+            }, 100) : null;
           }
         };
 
@@ -1216,6 +1308,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     transcriptSegmentsRef,
     restartTimeoutRef,
     isRecordingRef,
+    transcriptInitializedRef,
   ]);
 
   // ── Start Recording Control ────────────────────────────────────────────────
@@ -1223,6 +1316,37 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
   const handleStartAnswer = async () => {
     if (hasStartedQuestion || preparationCancelledRef.current || isEnding) return;
+    if (!assessmentId && onStartPendingAssessment) {
+      try {
+        setIsLoading(true);
+        const createdId = await onStartPendingAssessment();
+        router.push(`/aiprep/session/${createdId}`);
+      } catch (error: any) {
+        setErrorMsg(error?.message || 'Unable to start the assessment. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    // Only these four tracks use the deferred-start URL behavior.
+    if (typeof window !== 'undefined' && assessmentId) {
+      const activeType = window.sessionStorage.getItem('aiprep_active_type');
+      if (['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '')) {
+        window.sessionStorage.setItem(`aiprep_started_${assessmentId}`, 'true');
+        window.sessionStorage.removeItem('aiprep_pending_assessment_id');
+        if (window.location.pathname !== `/aiprep/session/${assessmentId}`) {
+          // Use Next.js navigation instead of changing the address bar only.
+          // The latter leaves the instructions component mounted while the
+          // question countdown runs, making the transition appear delayed.
+          window.sessionStorage.setItem(`aiprep_autostart_assessment_${assessmentId}`, 'true');
+          router.push(`/aiprep/session/${assessmentId}`);
+          return;
+        }
+      }
+    }
+    if (!sessionStartedAtRef.current) {
+      sessionStartedAtRef.current = Date.now();
+    }
     // Reveal questions only after the candidate clicks Start Assessment.
     let pendingQuestions = pendingAssessmentQuestionsRef.current ?? [];
     if (pendingQuestions.length === 0) {
@@ -1237,19 +1361,42 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
     }
     if (pendingQuestions.length === 0) {
+      setIsAutoStarting(false);
       setErrorMsg('No questions were saved for this assessment. Please return to setup and start a new assessment.');
       return;
     }
+    setIsAutoStarting(false);
     setQuestions(pendingQuestions);
     pendingAssessmentQuestionsRef.current = [];
     setCurrentQuestionIndex(0);
     setHasStartedQuestion(true);
     stopAiSpeech();
-    // Use the loaded question list directly; React state updates from setQuestions are asynchronous.
-    const activeQ = pendingQuestions[currentQuestionIndex] ?? pendingQuestions[0];
 
-    // Narration and preparation happen while the question is visible, but
-    // before recording and the question timer start.
+    // For Technical, Recruiter, Hiring Manager and System Design, show a
+    // five-second countdown before the first question is narrated. Intro/JD
+    // retain their existing start flow.
+    const activeType = typeof window !== 'undefined'
+      ? window.sessionStorage.getItem('aiprep_active_type')
+      : null;
+    const needsInitialQuestionCountdown = ['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'].includes(activeType || '');
+    if (needsInitialQuestionCountdown) {
+      // Keep the question hidden in the right pane until the initial countdown ends.
+      setIsInitialQuestionCountdown(true);
+      // Reuse the existing large countdown overlay so the first-question
+      // countdown looks identical to the Intro/JD start countdown.
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        if (preparationCancelledRef.current || isEnding) return;
+        setCountdownValue(seconds);
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      }
+      setCountdownValue(null);
+      setIsInitialQuestionCountdown(false);
+    }
+
+    // Use the loaded question list directly; React state updates from setQuestions are asynchronous.
+    const activeQ = pendingQuestions[0] ?? pendingQuestions[currentQuestionIndex];
+
+    // Narration happens after the initial countdown and before the answer countdown.
     if (activeQ?.question_text && !isSpeechMuted) {
       await speakAiText(activeQ.question_text);
     }
@@ -1260,6 +1407,21 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       for (let seconds = 5; seconds > 0; seconds -= 1) {
         if (preparationCancelledRef.current || isEnding) return;
         setPrepCountdown(seconds);
+        // Pre-warm STT engine on the last tick so it's hot when recording starts
+        if (seconds === 1) {
+          try {
+            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SR && !recognitionRef.current) {
+              const warm = new SR();
+              warm.continuous = false;
+              warm.interimResults = false;
+              warm.onresult = () => {};
+              warm.onend = () => {};
+              warm.start();
+              window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+            }
+          } catch (_) {}
+        }
         await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
       }
     }
@@ -1292,6 +1454,50 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
   const handleNextQuestionRef = useRef<() => void>(() => { });
   const handleEndSessionRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const hasAutoEndedRef = useRef<boolean>(false);
+  const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [proctoringAlert, setProctoringAlert] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+
+  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT', count: number) => {
+    if (alertTimerRef.current) {
+      clearTimeout(alertTimerRef.current);
+      alertTimerRef.current = null;
+    }
+    if (count >= 3 || type === 'SPLIT_SCREEN_TIMEOUT') {
+      setProctoringAlert({
+        show: true,
+        message: type === 'SPLIT_SCREEN_TIMEOUT' ? 'Security Notice: Split-screen remained active for 10 seconds. Your assessment is being automatically submitted for evaluation.' : 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
+      });
+      void handleEndSessionRef.current();
+    } else {
+      setProctoringAlert({
+        show: true,
+        message: type === 'SPLIT_SCREEN'
+          ? `Security Warning (${count}/3): Split-screen detected. Restore the assessment window within 10 seconds or your assessment will be submitted for evaluation.`
+          : `Security Warning (${count}/3): ${type === 'TAB_SWITCH' ? 'Tab switch' : type === 'SCREENSHOT' ? 'Screenshot shortcut' : type === 'WINDOW_BLUR' ? 'Assessment window lost focus' : type === 'FULLSCREEN_EXIT' ? 'Fullscreen exited' : type === 'SPLIT_SCREEN_TIMEOUT' ? 'Split-screen persisted' : 'Possible split-screen'} detected. 3 violations will automatically submit your assessment.`,
+      });
+      alertTimerRef.current = setTimeout(() => {
+        setProctoringAlert((prev) => ({ ...prev, show: false }));
+        alertTimerRef.current = null;
+      }, type === 'SPLIT_SCREEN' ? 10_000 : 5000);
+    }
+  }, []);
+
+  // Observability & Telemetry Hook - synchronized monitoring active only during question answering
+  const isTelemetryMonitoringActive = Boolean(
+    hasStartedQuestion && !isEnding && !isSessionAlreadyEnded && !finishedAssessmentId
+  );
+
+  const {
+    recordQuestionAction,
+    recordCompletion,
+  } = useAssessmentTelemetry({
+    assessmentId,
+    sessionId: attemptSessionId,
+    assessmentType,
+    totalQuestions: questions.length > 0 ? questions.length : undefined,
+    isMonitoringActive: isTelemetryMonitoringActive,
+    onViolation: handleProctoringViolation,
+  });
 
   useEffect(() => {
     if (!isRecording || isEnding || isAiSpeaking || isQuestionPrepPaused) return;
@@ -1327,17 +1533,29 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       setIsQuestionPrepPaused(true);
       stopAiSpeech();
 
-      // Slice and upload completed question's audio in background (0ms UI lag)
+      // Accumulate recording time for this completed question into the session total
+      cumulativeRecordedSecondsRef.current += elapsedTimeRef.current;
+
+      // Slice and upload completed question's media in background (0ms UI lag)
       const activeQ = questions[currentQuestionIndex];
-      if (isAudioOnly && isRecording) {
+      const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+      if (isRecording) {
         try {
-          const audioRes = await stopAudioRecorder();
-          if (audioRes?.blob && activeQ?.id) {
-            const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, activeQ.id);
-            pendingAudioUploadsRef.current.push(uploadPromise);
+          if (isAudioOnly) {
+            const audioRes = await stopAudioRecorder();
+            if (audioRes?.blob && qId) {
+              const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
+              pendingAudioUploadsRef.current.push(uploadPromise);
+            }
+          } else {
+            const videoRes = await stopVideoRecorder(true); // keep camera stream active
+            if (videoRes?.blob && qId) {
+              const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, videoRes.blob, "VIDEO", true, undefined, qId);
+              pendingAudioUploadsRef.current.push(uploadPromise);
+            }
           }
         } catch (e) {
-          console.warn("[MultiQuestionAudio] Failed to slice question audio:", e);
+          console.warn("[MultiQuestionMedia] Failed to slice question media:", e);
         }
       }
 
@@ -1372,15 +1590,30 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // Intro should start recording immediately after narration; other types
       // retain the existing 5-second preparation countdown.
       if (assessmentType !== 'INTRO') {
-        for (let seconds = 5; seconds > 0; seconds -= 1) {
+          for (let seconds = 5; seconds > 0; seconds -= 1) {
           if (preparationCancelledRef.current || isEnding) return;
           setPrepCountdown(seconds);
+          // Pre-warm STT engine on the last tick so it's hot when recording starts
+          if (seconds === 1) {
+            try {
+              const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+              if (SR && !recognitionRef.current) {
+                const warm = new SR();
+                warm.continuous = false;
+                warm.interimResults = false;
+                warm.onresult = () => {};
+                warm.onend = () => {};
+                warm.start();
+                window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+              }
+            } catch (_) {}
+          }
           await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
         }
       }
       if (preparationCancelledRef.current || isEnding) return;
       setPrepCountdown(null);
-      setIsQuestionPrepPaused(false);
+        setIsQuestionPrepPaused(false);
       setIsTransitioningQuestion(false);
       startRecorderCore();
     }
@@ -1459,56 +1692,80 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       }
       stopAiSpeech();
 
-      // 1. Stop recording and flush final slice / audio blob
+      // 1. Stop recording and flush final slice / media blob
+      const activeQ = questions[currentQuestionIndex];
+      const qId = activeQ?.id ?? (activeQ as any)?.question_id;
+
       let finalAudioBlob: Blob | null = null;
+      let finalVideoBlob: Blob | null = null;
       if (isAudioOnly) {
         const audioRes = await stopAudioRecorder();
         finalAudioBlob = audioRes?.blob || null;
 
-        const activeQ = questions[currentQuestionIndex];
-        if (finalAudioBlob && activeQ?.id) {
+        if (finalAudioBlob && qId) {
           try {
-            await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, activeQ.id);
+            await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, qId);
           } catch (uploadErr) {
             console.warn("[handleEndSession] Final audio chunk upload error:", uploadErr);
           }
         }
-        // Flush and await any remaining in-flight question uploads
-        if (pendingAudioUploadsRef.current.length > 0) {
-          try {
-            await Promise.allSettled(pendingAudioUploadsRef.current);
-          } catch (_) {}
-          pendingAudioUploadsRef.current = [];
-        }
 
         // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
-        // Multi-question technical assessments stream the complete stitched assembled.webm from the backend serverUrl.
-        if (audioRes?.url && assessmentId && (!questions || questions.length <= 1)) {
+        // Multi-question assessments stream the complete stitched assembled.webm from the backend serverUrl.
+        if (audioRes?.url && assessmentId && !isMultiQuestion && isIntroType) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
             (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, audioRes.url);
           }
+        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
+          if ((window as any).__aiprep_local_preview) {
+            delete (window as any).__aiprep_local_preview[assessmentId];
+          }
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) {}
         }
       } else {
-        await stopVideoRecorder();
-        // 1b. Create instant combined media blob for zero-gap playback in OverviewReport
-        if (localChunksRef.current.length > 0 && assessmentId) {
+        const videoRes = await stopVideoRecorder(false);
+        finalVideoBlob = videoRes?.blob || null;
+
+        if (finalVideoBlob && qId && !isIntroType) {
           try {
-            const mimeType = 'video/webm';
-            const combinedBlob = new Blob(localChunksRef.current, { type: mimeType });
-            const previewUrl = URL.createObjectURL(combinedBlob);
-            if (typeof window !== 'undefined') {
-              (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-              (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
-              sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
-            }
-          } catch (blobErr) {
-            console.warn('[handleEndSession] Failed to assemble preview blob:', blobErr);
+            await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
+          } catch (uploadErr) {
+            console.warn("[handleEndSession] Final video chunk upload error:", uploadErr);
           }
         }
-        // 2. Wait for all media chunks to finish uploading BEFORE submitting to backend (prevents 409 Conflict)
-        await waitForAllChunks(8000);
+
+        // 1b. Create instant combined media blob for zero-gap playback ONLY if single-track intro assessment.
+        // Multi-question assessments (TECHNICAL, HIRING_MANAGER, RECRUITER, SYSTEM_DESIGN) must stream the
+        // continuous server-side assembled.webm to guarantee proper duration, monotonic timestamps, and seekability.
+        if (!isMultiQuestion && isIntroType && videoRes?.url && assessmentId) {
+          if (typeof window !== 'undefined') {
+            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+            (window as any).__aiprep_local_preview[assessmentId] = videoRes.url;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, videoRes.url);
+          }
+        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
+          if ((window as any).__aiprep_local_preview) {
+            delete (window as any).__aiprep_local_preview[assessmentId];
+          }
+          try {
+            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+          } catch (_) {}
+        }
+        if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
+          await waitForAllChunks(8000);
+        }
+      }
+
+      // Flush and await any remaining in-flight question uploads (both audio and video)
+      if (pendingAudioUploadsRef.current.length > 0) {
+        try {
+          await Promise.allSettled(pendingAudioUploadsRef.current);
+        } catch (_) {}
+        pendingAudioUploadsRef.current = [];
       }
 
       // Commit any pending interim speech as a complete sentence before submitting
@@ -1561,12 +1818,19 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
       // The API resolves only after the backend sends a terminal COMPLETED event.
       setSubmissionProgress(0);
       setSubmissionStep("Submitting assessment…");
+
+      // Add final question elapsed time to cumulative total
+      cumulativeRecordedSecondsRef.current += elapsedTimeRef.current;
+      const totalInterviewDuration = cumulativeRecordedSecondsRef.current > 0
+        ? Math.round(cumulativeRecordedSecondsRef.current)
+        : (sessionStartedAtRef.current ? Math.floor((Date.now() - sessionStartedAtRef.current) / 1000) : elapsedTimeRef.current);
+
       await aiprepApi.submitAssessmentStream(
         assessmentId,
         {
           total_chunks_uploaded: isAudioOnly ? 0 : (totalChunks || 1),
           is_final: true,
-          client_duration_seconds: elapsedTimeRef.current,
+          client_duration_seconds: totalInterviewDuration,
           video_telemetry: isAudioOnly
             ? {}
             : {
@@ -1595,7 +1859,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
           }
         },
         undefined,
-        finalAudioBlob
+        isAudioOnly ? finalAudioBlob : null,
+        !isAudioOnly && isIntroType ? finalVideoBlob : null
       );
       setSubmissionProgress(100);
       setSubmissionStep("Evaluation complete. Opening report…");
@@ -1697,15 +1962,18 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   // ── Session Ended / Exited View ────────────────────────────────────────────
   if (isSessionAlreadyEnded) {
+    const wasCancelledByReload = typeof window !== 'undefined' && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) === 'true';
     return (
       <div className="h-screen w-screen bg-slate-50 dark:bg-[#090d16] text-slate-800 dark:text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden">
         <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col items-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
           <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
             <IconAlertTriangle size={28} />
           </div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Assessment Session Closed</h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">{typeof window !== 'undefined' && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) === 'true' ? 'Assessment Cancelled' : 'Assessment Session Closed'}</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            This assessment session (#{assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.
+            {typeof window !== 'undefined' && localStorage.getItem(`aiprep_reload_cancelled_${assessmentId}`) === 'true'
+              ? 'You reloaded the assessment room, so this attempt was cancelled. No evaluation report is available. Return to AI Prep to start a new session.'
+              : `This assessment session (#${assessmentId}) has already been exited or completed. Each assessment must be started fresh from the dashboard.`}
           </p>
           <button
             type="button"
@@ -1874,7 +2142,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     : 0;
   // Keep the instructions screen visible for every non-intro assessment until Start Assessment is clicked.
   // Do not let recordingStatus or microphone state reveal the question early.
-  const isQuestionBlurred = !isIntroType && !hasStartedQuestion;
+  const isQuestionBlurred = !isIntroType && !hasStartedQuestion && !isAutoStarting;
   // Use the same countdown urgency styling for Intro, Technical, and JD assessments.
   const technicalTimerColors = questionTimeRemaining <= 5 && questionTimeRemaining > 0
     ? 'border-rose-400 bg-rose-100 text-rose-700 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-200'
@@ -1888,6 +2156,13 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
 
   return (
     <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+      {/* Floating Proctoring Alert Toast */}
+      {proctoringAlert.show && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 animate-in fade-in slide-in-from-top-2 duration-200">
+          <IconAlertTriangle size={16} className="shrink-0" />
+          <span>{proctoringAlert.message}</span>
+        </div>
+      )}
       {(isIntroType || hasStartedQuestion) && (
       <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -2194,12 +2469,12 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
             <div className="relative bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm dark:shadow-xl flex flex-col justify-between min-h-[420px] flex-1 space-y-4 overflow-hidden">
               {/* Overlay when question is hidden in standby mode */}
               {isQuestionBlurred && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center overflow-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
-                  <div className="absolute left-6 top-6 flex items-center gap-2">
+                <div className="absolute inset-0 z-20 flex items-stretch justify-start overflow-y-auto overflow-x-hidden rounded-2xl bg-white/95 p-3 backdrop-blur-md transition-all duration-500 dark:bg-slate-900/95 sm:p-4">
+                  <div className="absolute left-6 top-6 z-10 flex max-w-[min(280px,calc(100%-3rem))] items-center gap-2">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconSparkles size={17} /></span>
-                    <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
+                    <span className="min-w-0 whitespace-nowrap text-sm font-extrabold leading-tight tracking-tight text-slate-900 dark:text-white sm:text-base">{assessmentTitle}</span>
                   </div>
-                  <div className="flex h-full w-full max-w-5xl translate-x-0 flex-col justify-center gap-2.5 sm:translate-x-4 lg:translate-x-8">
+                  <div className="mx-auto mt-14 mb-2 flex w-full max-w-5xl min-w-0 flex-col justify-center gap-2.5 sm:mt-16">
                     <div className="flex shrink-0 items-center gap-2.5 border-b border-indigo-100 pb-2.5 dark:border-slate-800">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-300"><IconFileText size={22} /></div>
                       <div className="min-w-0">
@@ -2243,10 +2518,24 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                       <div className="min-w-0 text-xs leading-relaxed text-rose-800 dark:text-rose-200">
                         <p className="font-semibold">Important: Before submitting</p>
                         <p className="mt-0.5">Once you click <strong>Submit Assessment</strong>, your assessment will be finalized and you will be redirected to the evaluation/report page. You cannot continue answering after submission. To try again, restart the assessment from the beginning.</p>
+                        <p className="mt-1 border-t border-rose-200/80 pt-1 text-[11px] leading-snug text-rose-700 dark:border-rose-900/50 dark:text-rose-300">
+                          • <strong>Security Rule:</strong> Tab switching is prohibited. Reaching 3 violations will automatically end and submit your assessment for evaluation.
+                        </p>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
-                      <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your {assessmentNoun} assessment.</p>
+                      <div className="flex min-w-0 flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => router.back()}
+                          className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                          title="Go back"
+                        >
+                          <IconChevronLeft size={16} />
+                          <span>Back</span>
+                        </button>
+                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your {assessmentNoun} assessment.</p>
+                      </div>
                       <button
                         type="button"
                         onClick={handleStartAnswer}
@@ -2344,7 +2633,8 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                 </div>
               )}
 
-              {/* Highlight the active question while AI voice narration is playing (Intro and Technical). */}
+              {/* Keep the question area blank during the initial countdown. */}
+              {!isInitialQuestionCountdown && (
               <div className={`flex-1 min-h-0 overflow-y-auto py-1 transition-all duration-500 ${isQuestionBlurred ? 'filter blur-md select-none pointer-events-none opacity-30' : ''}`}>
                 {isAiSpeaking && (
                   <div
@@ -2370,6 +2660,7 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
                   </h2>
                 </div>
               </div>
+              )}
 
               {/* Per-Question Elapsed Progress Bar */}
               {isRecording && (
@@ -2575,3 +2866,5 @@ export default function AssessmentSessionPage({ assessmentIdProp }: { assessment
     </div>
   );
 }
+
+export default AssessmentSessionPage;

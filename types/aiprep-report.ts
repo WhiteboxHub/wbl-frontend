@@ -668,6 +668,7 @@ export interface TechnicalQuestionEval {
   difficulty_level: string;
   rating: string;
   observation: string;
+  response_state?: string;
   covered_points: TechnicalQuestionPoint[];
   missed_points: TechnicalQuestionPoint[];
   terms_used_well: string[];
@@ -1662,6 +1663,280 @@ export function normalizeReport(
               what_to_study: asStrArray(rawSG.what_to_study),
               how_to_answer: asStr(rawSG.how_to_answer) ?? "",
             }
+            : null,
+          transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
+        };
+      }),
+    };
+  }
+
+  // ── Hiring Manager evaluation (HIRING_MANAGER assessment type) ───────────
+  const assessData = asRecord(assessment.data);
+  const dataRecord = asRecord(data);
+  const rawHmEval =
+    asRecord(assessData.assessment_eval).hiring_manager_evaluation ??
+    asRecord(dataRecord.assessment_eval).hiring_manager_evaluation ??
+    asRecord(repData.assessment_eval).hiring_manager_evaluation ??
+    asRecord(bundled.assessment_eval).hiring_manager_evaluation ??
+    (asRecord(txEval.hiring_manager_evaluation).overall_assessment
+      ? txEval.hiring_manager_evaluation
+      : (bundled.hiring_manager_evaluation ?? repData.hiring_manager_evaluation ?? assessData.hiring_manager_evaluation ?? null));
+
+  if (!technical_evaluation && rawHmEval && typeof rawHmEval === "object" && !Array.isArray(rawHmEval)) {
+    const hme = asRecord(rawHmEval);
+    const rawQEs = Array.isArray(hme.question_evaluations) ? hme.question_evaluations : [];
+    const rawCEs = Array.isArray(hme.competency_evaluations) ? hme.competency_evaluations : [];
+    const rawOA = asRecord(hme.overall_assessment);
+    const rawFA = asRecord(hme.final_assessment);
+    const rawDA = asRecord(hme.difficulty_analysis);
+
+    technical_evaluation = {
+      overall_assessment: {
+        rating: asStr(rawOA.rating) ?? asStr(rawOA.readiness) ?? "NEEDS_POLISH",
+        executive_summary: asStr(rawOA.executive_summary) ?? "",
+        top_strengths: asStrArray(rawOA.top_strengths),
+        priority_improvements: asStrArray(rawOA.priority_improvements),
+        data_note: asStr(rawOA.data_note) ?? null,
+      },
+      subject_evaluations: rawCEs.map((c: unknown) => {
+        const ce = asRecord(c);
+        return {
+          subject: asStr(ce.competency) ?? asStr(ce.subject) ?? "",
+          rating: asStr(ce.rating) ?? "NOT_TESTED",
+          summary: asStr(ce.summary) ?? "",
+          terminology_gaps: asStrArray(ce.gaps),
+          data_note: asStr(ce.data_note) ?? null,
+        };
+      }),
+      difficulty_analysis: {
+        easy: asStr(rawDA.easy) ?? "—",
+        medium: asStr(rawDA.medium) ?? "—",
+        hard: asStr(rawDA.hard) ?? "—",
+        observation: asStr(rawDA.observation) ?? asStr(rawFA.most_important_improvement) ?? "",
+      },
+      concept_evaluations: rawCEs.map((c: unknown) => {
+        const ce = asRecord(c);
+        const compName = asStr(ce.competency) ?? asStr(ce.concept) ?? "";
+        const matchedQuestions = rawQEs.filter((q: unknown) => {
+          const qe = asRecord(q);
+          return (asStr(qe.competency) ?? asStr(qe.concept) ?? "").toLowerCase() === compName.toLowerCase();
+        });
+        const matchedIds = matchedQuestions.map((q: unknown) => {
+          const qe = asRecord(q);
+          return typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);
+        }).filter(Boolean);
+
+        return {
+          concept: compName,
+          subject: compName,
+          questions_count: matchedQuestions.length,
+          question_ids: matchedIds,
+          rating: asStr(ce.rating) ?? "NOT_TESTED",
+          strengths: asStrArray(ce.strengths),
+          gaps: asStrArray(ce.gaps),
+          terminology_gaps: [],
+          what_to_work_on: ce.what_to_work_on ? [asStr(ce.what_to_work_on) ?? ""] : [],
+          data_note: asStr(ce.data_note) ?? null,
+        };
+      }),
+      question_evaluations: rawQEs.map((q: unknown) => {
+        const qe = asRecord(q);
+        const coaching = asRecord(qe.coaching);
+        const qId = typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);
+        const comp = asStr(qe.competency) ?? asStr(qe.concept) ?? asStr(qe.subject) ?? "";
+
+        return {
+          question_id: qId,
+          question_text: asStr(qe.question_text) ?? "",
+          concept: comp,
+          subject: comp,
+          difficulty_level: asStr(qe.difficulty_level) ?? "MEDIUM",
+          rating: asStr(qe.rating) ?? "WEAK",
+          response_state: asStr(qe.response_state),
+          observation: asStr(qe.observation) ?? "",
+          covered_points: Array.isArray(qe.covered_points)
+            ? (qe.covered_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          missed_points: Array.isArray(qe.missed_points)
+            ? (qe.missed_points as unknown[]).map(parseTechnicalPoint)
+            : [],
+          terms_used_well: asStrArray(qe.leadership_signals_demonstrated),
+          terms_mentioned_unexplained: [],
+          terms_to_add: asStrArray(qe.leadership_signals_missing),
+          evidence: Array.isArray(qe.evidence)
+            ? (qe.evidence as unknown[]).map((ev: unknown) => {
+                const e = asRecord(ev);
+                return asStr(e.quote) ?? asStr(ev) ?? "";
+              }).filter(Boolean)
+            : [],
+          study_guidance: coaching && Object.keys(coaching).length > 0
+            ? {
+                what_to_study: coaching.stronger_version ? [asStr(coaching.stronger_version) ?? ""] : [],
+                how_to_answer: asStr(coaching.how_to_answer) ?? "",
+              }
+            : null,
+          transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
+        };
+      }),
+    };
+  }
+
+  // ── Recruiter evaluation (RECRUITER assessment type) ─────────────────────
+  const rawRecruiterEval =
+    asRecord(assessData.assessment_eval).recruiter_evaluation ??
+    asRecord(dataRecord.assessment_eval).recruiter_evaluation ??
+    asRecord(repData.assessment_eval).recruiter_evaluation ??
+    asRecord(bundled.assessment_eval).recruiter_evaluation ??
+    (asRecord(txEval.recruiter_evaluation).overall_assessment
+      ? txEval.recruiter_evaluation
+      : (bundled.recruiter_evaluation ?? repData.recruiter_evaluation ?? assessData.recruiter_evaluation ?? null));
+
+  if (!technical_evaluation && rawRecruiterEval && typeof rawRecruiterEval === "object" && !Array.isArray(rawRecruiterEval)) {
+    const re = asRecord(rawRecruiterEval);
+    const rawQEs = Array.isArray(re.question_evaluations) ? re.question_evaluations : [];
+    const rawSEs = Array.isArray(re.section_evaluations) ? re.section_evaluations : [];
+    const rawOA = asRecord(re.overall_assessment);
+    const rawDA = asRecord(re.difficulty_analysis);
+
+    technical_evaluation = {
+      overall_assessment: {
+        rating: asStr(rawOA.rating) ?? "AVERAGE",
+        executive_summary: asStr(rawOA.executive_summary) ?? "",
+        top_strengths: asStrArray(rawOA.top_strengths),
+        priority_improvements: asStrArray(rawOA.priority_improvements),
+        data_note: asStr(rawOA.data_note) ?? null,
+      },
+      subject_evaluations: rawSEs.map((s: unknown) => {
+        const se = asRecord(s);
+        const title = asStr(se.title) ?? asStr(se.category_id) ?? "";
+        return {
+          subject: title,
+          rating: asStr(se.rating) ?? "AVERAGE",
+          summary: asStr(se.summary) ?? "",
+          terminology_gaps: asStrArray(se.improvement_areas),
+          data_note: null,
+        };
+      }),
+      difficulty_analysis: {
+        easy: asStr(rawDA.easy) ?? "—",
+        medium: asStr(rawDA.medium) ?? "—",
+        hard: asStr(rawDA.hard) ?? "—",
+        observation: asStr(rawDA.observation) ?? "",
+      },
+      concept_evaluations: (() => {
+        // Build a unique partition mapping of question_id -> primary category to prevent inflated total counts
+        const assignedQuestionsBySection = new Map<string, number[]>();
+        const claimedQIds = new Set<number>();
+
+        const getSectionKey = (se: Record<string, unknown>, idx: number): string => {
+          const catId = (asStr(se.category_id) ?? "").toLowerCase();
+          const title = (asStr(se.title) ?? "").toLowerCase();
+          return catId || title || `section_${idx}`;
+        };
+
+        // Pass 1: Questions with an exact category_id match
+        rawSEs.forEach((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const catId = (asStr(se.category_id) ?? "").toLowerCase();
+          const key = getSectionKey(se, idx);
+          const matched: number[] = [];
+          if (catId) {
+            for (const q of rawQEs) {
+              const qe = asRecord(q);
+              const qId = Number(qe.question_id);
+              const qCat = (asStr(qe.category_id) ?? "").toLowerCase();
+              if (qId && qCat && qCat === catId && !claimedQIds.has(qId)) {
+                matched.push(qId);
+                claimedQIds.add(qId);
+              }
+            }
+          }
+          assignedQuestionsBySection.set(key, matched);
+        });
+
+        // Pass 2: Any unclaimed questions matched via explicit question_ids or title
+        rawSEs.forEach((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const title = (asStr(se.title) ?? "").toLowerCase();
+          const key = getSectionKey(se, idx);
+          const explicitQIds = Array.isArray(se.question_ids) ? (se.question_ids as unknown[]).map(Number).filter(Boolean) : [];
+          const currentList = assignedQuestionsBySection.get(key) || [];
+
+          for (const q of rawQEs) {
+            const qe = asRecord(q);
+            const qId = Number(qe.question_id);
+            const qConcept = (asStr(qe.concept) ?? "").toLowerCase();
+            if (qId && !claimedQIds.has(qId)) {
+              if (explicitQIds.includes(qId) || (title && qConcept === title)) {
+                currentList.push(qId);
+                claimedQIds.add(qId);
+              }
+            }
+          }
+          assignedQuestionsBySection.set(key, currentList);
+        });
+
+        return rawSEs.map((s: unknown, idx: number) => {
+          const se = asRecord(s);
+          const title = asStr(se.title) ?? asStr(se.category_id) ?? "";
+          const key = getSectionKey(se, idx);
+          const uniqueQIds = assignedQuestionsBySection.get(key) || [];
+
+          return {
+            concept: title,
+            subject: title,
+            questions_count: uniqueQIds.length,
+            question_ids: uniqueQIds,
+            rating: asStr(se.rating) ?? "AVERAGE",
+            strengths: asStrArray(se.strengths),
+            gaps: asStrArray(se.improvement_areas),
+            terminology_gaps: [],
+            what_to_work_on: asStrArray(se.improvement_areas),
+            data_note: null,
+          };
+        });
+      })(),
+      question_evaluations: rawQEs.map((q: unknown) => {
+        const qe = asRecord(q);
+        const qId = typeof qe.question_id === "number" ? qe.question_id : Number(qe.question_id);
+        const catId = asStr(qe.category_id) ?? "";
+        const matchedSection = rawSEs.find((s: unknown) => {
+          const se = asRecord(s);
+          return asStr(se.category_id) === catId || (Array.isArray(se.question_ids) && se.question_ids.includes(qId));
+        });
+        const sectionTitle = (matchedSection ? asStr(asRecord(matchedSection).title) : null) ?? catId ?? "General";
+
+        const ig = asRecord(qe.improvement_guidance);
+        const whatToStudy = [
+          asStr(ig.example_answer) ?? "",
+          asStr(ig.what_to_improve) ?? "",
+        ].filter(Boolean);
+
+        return {
+          question_id: qId,
+          question_text: asStr(qe.question_text) ?? "",
+          concept: sectionTitle,
+          subject: sectionTitle,
+          difficulty_level: asStr(qe.difficulty_level) ?? "MEDIUM",
+          rating: asStr(qe.rating) ?? "POOR",
+          response_state: asStr(qe.response_state),
+          observation: asStr(qe.observation) ?? "",
+          covered_points: Array.isArray(qe.covered_points) ? (qe.covered_points as unknown[]).map(parseTechnicalPoint) : [],
+          missed_points: Array.isArray(qe.missed_points) ? (qe.missed_points as unknown[]).map(parseTechnicalPoint) : [],
+          terms_used_well: asStrArray(qe.signals_used_well),
+          terms_mentioned_unexplained: [],
+          terms_to_add: asStrArray(qe.signals_to_add),
+          evidence: Array.isArray(qe.evidence)
+            ? (qe.evidence as unknown[]).map((ev: unknown) => {
+                const e = asRecord(ev);
+                return asStr(e.quote) ?? asStr(ev) ?? "";
+              }).filter(Boolean)
+            : [],
+          study_guidance: ig && Object.keys(ig).length > 0
+            ? {
+                what_to_study: whatToStudy,
+                how_to_answer: asStr(ig.how_to_answer) ?? "",
+              }
             : null,
           transcript: typeof qe.transcript === "string" ? qe.transcript : (asStr(qe.transcript) ?? ""),
         };

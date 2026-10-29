@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/utils/AuthContext';
 import { aiPrepApi } from '@/lib/aiprep-api';
 import type { AssessmentType, AssessmentMode, HardwareCheckResults } from '@/types/aiprep';
@@ -15,7 +15,8 @@ import { AlertCircle, Loader2, Laptop, ChevronLeft, ChevronRight } from 'lucide-
 export default function AIPrepPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -35,6 +36,8 @@ export default function AIPrepPage() {
   }, []);
 
   useEffect(() => {
+    // Auth is restored asynchronously on a hard reload; wait before redirecting.
+    if (authLoading) return;
     if (!isUserAuthenticated) {
       if (typeof window !== 'undefined') {
         if (window.top && window.top !== window.self) {
@@ -44,7 +47,7 @@ export default function AIPrepPage() {
         }
       }
     }
-  }, [isUserAuthenticated, router]);
+  }, [isUserAuthenticated, authLoading, router]);
 
   const [isEmbedded, setIsEmbedded] = useState(false);
   const [started, setStarted] = useState(false);
@@ -68,6 +71,9 @@ export default function AIPrepPage() {
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
+      // Pending setup data is written only for the four deferred assessment types.
+      // It takes precedence over any stale assessment ID from an earlier attempt.
+      if (sessionStorage.getItem('aiprep_pending_setup_results')) return 0;
       const stored = sessionStorage.getItem('aiprep_active_id');
       if (stored) return parseInt(stored, 10);
     }
@@ -78,6 +84,8 @@ export default function AIPrepPage() {
   // on-page Back button and return to the Practice page instead of leaving a stale attempt.
   useEffect(() => {
     if (!activeAssessmentId || typeof window === 'undefined') return;
+    // Keep /aiprep/start stable on reload; do not install history interception there.
+    if (window.location.pathname === '/aiprep/start') return;
 
     const practiceUrl = '/user_dashboard/ai-prep/practice';
     window.history.pushState({ aiprepInstructions: activeAssessmentId }, '', window.location.href);
@@ -93,58 +101,149 @@ export default function AIPrepPage() {
     return () => window.removeEventListener('popstate', handleBrowserBack);
   }, [activeAssessmentId, router]);
 
-  // Wizard final completion ("Start Assessment" button clicked)
+  // Create assessments immediately for INTRO/JD_INTRO as before.
+  // TECHNICAL, RECRUITER, HIRING_MANAGER and SYSTEM_DESIGN are created only
+  // after the candidate clicks Start Assessment on the Before You Begin screen.
   const handleCheckComplete = async (results: HardwareCheckResults) => {
     try {
       setIsSaving(true);
       setErrorMsg(null);
 
-      let candidateId: number | undefined = undefined;
-      try {
-        const userResponse = await apiFetch("user_dashboard");
-        if (userResponse?.candidate_id) candidateId = userResponse.candidate_id;
-      } catch (err) {
-        console.error("Failed to retrieve candidate profile details:", err);
+      const normalizeType = (value: unknown): string =>
+        String(value || '').trim().toUpperCase().replace(/ +/g, '_').replace(/-/g, '_');
+      const typeAliases: Record<string, AssessmentType> = {
+        TECHNICAL_ASSESSMENT: 'TECHNICAL',
+        RECRUITER_ASSESSMENT: 'RECRUITER',
+        HIRING_MANAGER_ASSESSMENT: 'HIRING_MANAGER',
+        SYSTEM_DESIGN_ASSESSMENT: 'SYSTEM_DESIGN',
+      };
+      const deferredTypes: AssessmentType[] = ['TECHNICAL', 'RECRUITER', 'HIRING_MANAGER', 'SYSTEM_DESIGN'];
+      // Use the current setup result first so stale sessionStorage from a prior
+      // assessment cannot change the INTRO/JD_INTRO flow.
+      const currentType = normalizeType(queryType || results.assessment_type || effectiveType || 'INTRO');
+      const targetType = (typeAliases[currentType] || currentType) as AssessmentType;
+      const createOnStart = deferredTypes.includes(targetType);
+      const targetMode = results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY';
+
+      if (createOnStart) {
+        sessionStorage.setItem('aiprep_pending_setup_results', JSON.stringify(results));
+        sessionStorage.setItem('aiprep_active_type', targetType);
+        sessionStorage.setItem('aiprep_active_mode', targetMode);
+        sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
+        sessionStorage.removeItem('aiprep_active_id');
+        sessionStorage.removeItem('aiprep_active_questions');
+        sessionStorage.removeItem('aiprep_wizard_step');
+        setActiveAssessmentId(0);
+        setIsSaving(false);
+        return;
       }
 
-      const targetType: AssessmentType = (results.assessment_type as AssessmentType) || effectiveType || 'INTRO';
+      // Preserve the original INTRO and JD_INTRO setup flow.
+      let candidateId: number | undefined;
+      try {
+        const stored = localStorage.getItem('candidate_id') || sessionStorage.getItem('aiprep_candidate_id');
+        if (stored && !Number.isNaN(Number(stored))) {
+          candidateId = Number(stored);
+        } else {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const parsed = JSON.parse(userStr);
+            if (parsed?.candidate_id) candidateId = Number(parsed.candidate_id);
+            else if (parsed?.id) candidateId = Number(parsed.id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to retrieve candidate profile details:', err);
+      }
+
       const assessment = await aiPrepApi.createAssessment({
         assessment_type: targetType,
-        assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+        assessment_mode: targetMode,
         candidate_id: candidateId,
         job_description_text: results.jd_text || null,
       });
 
-      if (!assessment || !assessment.id) {
-        throw new Error('Failed to initialize assessment session on server.');
-      }
-
-      const targetId = assessment.id;
+      if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
+      const targetId = Number(assessment.id);
       const returnedQuestions = Array.isArray(assessment.questions) ? assessment.questions : [];
       if (returnedQuestions.length === 0) {
         throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
       }
 
-      // Preserve the exact question snapshot selected and persisted by the backend.
       sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
       sessionStorage.setItem('aiprep_active_id', String(targetId));
       sessionStorage.setItem('aiprep_active_type', targetType);
-      sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+      sessionStorage.setItem('aiprep_active_mode', targetMode);
       sessionStorage.setItem('aiprep_active_questions', JSON.stringify(returnedQuestions));
+      sessionStorage.removeItem('aiprep_pending_setup_results');
       sessionStorage.removeItem('aiprep_wizard_step');
-
-      const isEmbedded = window.self !== window.top || window.location.search.includes('embed=true');
-
-      // Keep the practice/setup URL while the candidate reviews the instructions.
-      // The session URL is applied only when they press Start Assessment in the room.
       setActiveAssessmentId(targetId);
       setIsSaving(false);
     } catch (err: any) {
       console.error('[Session Setup Error] Creation pipeline failed:', err);
-      setErrorMsg(err.message || 'Setup pipeline failed. Please try again.');
+      setErrorMsg(err?.message || 'Setup pipeline failed. Please try again.');
       setIsSaving(false);
       throw err;
     }
+  };
+
+  // Called only from Start Assessment for the four assessment types above.
+  const createPendingAssessment = async (): Promise<number> => {
+    const rawResults = sessionStorage.getItem('aiprep_pending_setup_results');
+    if (!rawResults) throw new Error('Your assessment setup expired. Please run the device check again.');
+    const results = JSON.parse(rawResults) as HardwareCheckResults;
+
+    let candidateId: number | undefined;
+    try {
+      const stored = localStorage.getItem('candidate_id') || sessionStorage.getItem('aiprep_candidate_id');
+      if (stored && !Number.isNaN(Number(stored))) candidateId = Number(stored);
+      else {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const parsed = JSON.parse(userStr);
+          if (parsed?.candidate_id) candidateId = Number(parsed.candidate_id);
+          else if (parsed?.id) candidateId = Number(parsed.id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to retrieve candidate profile details:', err);
+    }
+
+    const rawType = String(results.assessment_type || effectiveType || 'TECHNICAL')
+      .trim()
+      .toUpperCase()
+        .replace(/ /g, '_').replace(/-/g, '_');
+    const typeAliases: Record<string, AssessmentType> = {
+      TECHNICAL_ASSESSMENT: 'TECHNICAL',
+      RECRUITER_ASSESSMENT: 'RECRUITER',
+      HIRING_MANAGER_ASSESSMENT: 'HIRING_MANAGER',
+      SYSTEM_DESIGN_ASSESSMENT: 'SYSTEM_DESIGN',
+    };
+    const targetType = (typeAliases[rawType] || rawType) as AssessmentType;
+    const assessment = await aiPrepApi.createAssessment({
+      assessment_type: targetType,
+      assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
+      candidate_id: candidateId,
+      job_description_text: results.jd_text || null,
+    });
+
+    if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
+    const targetId = Number(assessment.id);
+    const returnedQuestions = Array.isArray(assessment.questions) ? assessment.questions : [];
+    if (returnedQuestions.length === 0) {
+      throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
+    }
+
+    sessionStorage.setItem('aiprep_active_id', String(targetId));
+    sessionStorage.setItem('aiprep_active_type', targetType);
+    sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+    sessionStorage.setItem('aiprep_active_questions', JSON.stringify(returnedQuestions));
+    sessionStorage.removeItem('aiprep_pending_setup_results');
+    // Let handleStartAnswer navigate to the new session route first.
+    // Do not update the parent in-place session ID here: that can mount/start
+    // the question in the instructions component and then start it again after navigation.
+    sessionStorage.setItem(`aiprep_autostart_assessment_${targetId}`, 'true');
+    return targetId;
   };
 
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
@@ -166,7 +265,7 @@ export default function AIPrepPage() {
   }, []);
 
 
-  const showWizard = started || searchParams.get('start') === 'true';
+  const showWizard = started || searchParams.get('start') === 'true' || pathname === '/aiprep/start';
 
   useEffect(() => {
     if (showWizard) {
@@ -289,8 +388,15 @@ export default function AIPrepPage() {
   }
 
   // Active session in-place render (avoids dynamic router.push chunk downloads)
-  if (activeAssessmentId) {
-    return <AssessmentSessionPage assessmentIdProp={activeAssessmentId} />;
+  if (activeAssessmentId !== null) {
+    const shouldDeferCreation = typeof window !== 'undefined'
+      && Boolean(sessionStorage.getItem('aiprep_pending_setup_results'));
+    return (
+      <AssessmentSessionPage
+        assessmentIdProp={activeAssessmentId}
+        onStartPendingAssessment={activeAssessmentId === 0 && shouldDeferCreation ? createPendingAssessment : undefined}
+      />
+    );
   }
 
   // AIPrep Dashboard renders first. When "Start Assessment" is clicked, it opens the selection, consent, and device check flow.
@@ -302,7 +408,7 @@ export default function AIPrepPage() {
     );
   }
   return (
-    <div className={`w-full h-[100dvh] h-screen flex-1 min-h-0 bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${!isEmbedded && !headerCollapsed ? 'pt-[72px] lg:pt-[76px]' : 'pt-0'
+    <div className={`w-full h-[100dvh] h-screen flex-1 min-h-0 bg-slate-50 dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100 flex flex-col transition-all duration-700 ease-in-out overflow-hidden select-none ${!isEmbedded ? 'pt-[88px] lg:pt-[96px]' : 'pt-0'
       }`}>
       {showWizard && !isEmbedded && (
         <button
