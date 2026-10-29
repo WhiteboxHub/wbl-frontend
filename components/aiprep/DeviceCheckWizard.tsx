@@ -2140,8 +2140,13 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.setItem('aiprep_active_id', String(targetId));
+          sessionStorage.setItem('aiprep_active_type', targetType);
+          sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
           if (qList.length > 0) {
             sessionStorage.setItem('aiprep_active_questions', JSON.stringify(qList));
+          }
+          if (targetType === 'JD_INTRO' && jdText) {
+            sessionStorage.setItem('aiprep_jd_text', jdText);
           }
           // Retain aiprep_jd_* in sessionStorage for Target JD modal inside session room
         }
@@ -2305,7 +2310,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         }
       `}</style>
 
-      <div className={`w-full max-w-5xl xl:max-w-6xl ${(step === 'CONFIGURATION' || step === 'JD_UPLOAD') ? 'h-auto max-h-[90vh] my-auto overflow-hidden' : 'h-full flex-1 min-h-0 overflow-hidden'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col`}>
+      <div className={`w-full max-w-5xl xl:max-w-6xl ${(step === 'CONFIGURATION' || step === 'JD_UPLOAD') ? 'h-auto max-h-[90vh] my-auto overflow-y-auto' : 'h-full flex-1 min-h-0 overflow-hidden'} bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col`}>
         {/* Top Bar Header — Dynamic Stepper (JD Upload step shown only for JD_INTRO) */}
         {(() => {
           const dynamicStepItems = assessmentType === 'JD_INTRO'
@@ -2339,7 +2344,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         })()}
 
         {/* Content Body */}
-        <div className={`${(step === 'CONFIGURATION' || step === 'JD_UPLOAD') ? 'h-auto overflow-hidden' : 'flex-1 min-h-0 overflow-hidden'} min-w-0 flex flex-col w-full p-0 bg-white dark:bg-slate-900`}>
+        <div className={`${(step === 'CONFIGURATION' || step === 'JD_UPLOAD') ? 'h-auto overflow-y-auto max-h-[90vh]' : 'flex-1 min-h-0 overflow-hidden'} min-w-0 flex flex-col w-full p-0 bg-white dark:bg-slate-900`}>
 
           {/* STEP 1: CONFIGURATION */}
           {step === 'CONFIGURATION' && (
@@ -2354,7 +2359,7 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
           {/* STEP: JD UPLOAD — shown only for JD Walkthrough (JD_INTRO) assessment */}
           {step === 'JD_UPLOAD' && (
-            <div className="w-full h-auto flex flex-col overflow-hidden">
+            <div className="w-full h-auto flex flex-col overflow-y-auto">
               <JDUploadStep
                 jdText={jdText}
                 setJdText={setJdText}
