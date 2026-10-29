@@ -81,18 +81,23 @@ export default function VideoPlayer({
   const rawUrl = youtubeUrl || fallbackUrl || null;
   const [currentMediaUrl, setCurrentMediaUrl] = useState<string | null>(rawUrl);
   const [isMounted, setIsMounted] = useState(false);
+  const [useServerFallback, setUseServerFallback] = useState(false);
+  const [hasMediaError, setHasMediaError] = useState(false);
   const ytId = currentMediaUrl ? extractYoutubeId(currentMediaUrl) : (youtubeUrl ? extractYoutubeId(youtubeUrl) : null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // Update media URL when props change, respecting active fallback
   useEffect(() => {
-    const nextUrl = youtubeUrl || fallbackUrl || null;
-    if (nextUrl !== currentMediaUrl) {
-      setCurrentMediaUrl(nextUrl);
+    if (!useServerFallback) {
+      setCurrentMediaUrl(youtubeUrl || fallbackUrl || null);
+      setHasMediaError(false);
+      setCurrentTime(0);
+      setIsPlaying(false);
     }
-  }, [youtubeUrl, fallbackUrl, currentMediaUrl]);
+  }, [youtubeUrl, fallbackUrl, useServerFallback]);
 
   const resolveBackendUrl = useCallback((url: string | null | undefined): string | null => {
     if (!url) return null;
@@ -118,91 +123,8 @@ export default function VideoPlayer({
 
   const resolvedMediaUrl = isMounted ? resolveBackendUrl(currentMediaUrl) : null;
 
-  // Single-call media buffering: loads full video in a single GET request and creates a blob URL
-  const [singleCallBlobUrl, setSingleCallBlobUrl] = useState<string | null>(null);
-  const lastFetchedUrlRef = useRef<string | null>(null);
-  const activeBlobUrlRef = useRef<string | null>(null);
-  const isFetchingRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (!resolvedMediaUrl) {
-      setSingleCallBlobUrl(null);
-      return;
-    }
-
-    // Direct playback for existing blobs, data URLs, or YouTube
-    if (
-      resolvedMediaUrl.startsWith("blob:") ||
-      resolvedMediaUrl.startsWith("data:") ||
-      Boolean(ytId)
-    ) {
-      setSingleCallBlobUrl(resolvedMediaUrl);
-      return;
-    }
-
-    // Prevent duplicate fetches if already fetched or currently in-flight for this exact URL
-    if (lastFetchedUrlRef.current === resolvedMediaUrl && (singleCallBlobUrl || isFetchingRef.current)) {
-      return;
-    }
-    lastFetchedUrlRef.current = resolvedMediaUrl;
-    isFetchingRef.current = true;
-
-    let isAborted = false;
-
-    // Execute single GET request to retrieve full media stream without 206 chunking
-    fetch(resolvedMediaUrl)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.blob();
-      })
-      .then((blob) => {
-        isFetchingRef.current = false;
-        if (isAborted) return;
-        const localBlobUrl = URL.createObjectURL(blob);
-        const oldBlob = activeBlobUrlRef.current;
-        activeBlobUrlRef.current = localBlobUrl;
-        setSingleCallBlobUrl(localBlobUrl);
-        if (oldBlob && oldBlob !== localBlobUrl) {
-          try {
-            URL.revokeObjectURL(oldBlob);
-          } catch (_) {}
-        }
-      })
-      .catch((err) => {
-        isFetchingRef.current = false;
-        if (isAborted) return;
-        console.warn("Single-call media fetch fallback:", err);
-        // Fallback to direct URL only if fetch fails completely
-        setSingleCallBlobUrl(resolvedMediaUrl);
-      });
-
-    return () => {
-      isAborted = true;
-    };
-  }, [resolvedMediaUrl, ytId]);
-
-  // Clean up blob URL on unmount (only for locally created blob: URLs)
-  useEffect(() => {
-    return () => {
-      if (activeBlobUrlRef.current && activeBlobUrlRef.current.startsWith("blob:")) {
-        try {
-          URL.revokeObjectURL(activeBlobUrlRef.current);
-        } catch (_) {}
-        activeBlobUrlRef.current = null;
-      }
-    };
-  }, []);
-
-  const isDirectPlayable = Boolean(
-    resolvedMediaUrl &&
-      (resolvedMediaUrl.startsWith("blob:") ||
-        resolvedMediaUrl.startsWith("data:") ||
-        Boolean(ytId))
-  );
-  // Never give raw HTTP URL to the media element until blob is ready, preventing 206 range chunking
-  const effectiveMediaSrc = isDirectPlayable
-    ? resolvedMediaUrl
-    : (singleCallBlobUrl || undefined);
+  // Native media streaming: streams directly via native HTTP 206 Range headers or existing browser blobs
+  const effectiveMediaSrc = resolvedMediaUrl || undefined;
 
   // Local media reference (points to either passed videoRef or internal ref)
   const localMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -214,20 +136,10 @@ export default function VideoPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [hasMediaError, setHasMediaError] = useState(false);
-  const [useServerFallback, setUseServerFallback] = useState(false);
-
-  // Reset playback and error states when media URL changes
-  useEffect(() => {
-    setCurrentMediaUrl(youtubeUrl || fallbackUrl || null);
-    setUseServerFallback(false);
-    setHasMediaError(false);
-    setCurrentTime(0);
-    setIsPlaying(false);
-  }, [youtubeUrl, fallbackUrl]);
 
   const handleMediaError = useCallback(() => {
-    if (currentMediaUrl && fallbackUrl && currentMediaUrl !== fallbackUrl) {
+    if (fallbackUrl && currentMediaUrl !== fallbackUrl) {
+      setUseServerFallback(true);
       setCurrentMediaUrl(fallbackUrl);
       setHasMediaError(false);
     } else {
@@ -389,24 +301,6 @@ export default function VideoPlayer({
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         />
-        {fallbackUrl && (
-          <div className="py-2 px-3.5 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
-            <span className="flex items-center gap-1.5 text-slate-400">
-              <AlertCircle size={14} className="text-amber-400 shrink-0" />
-              <span>Video still processing or playback issue on YouTube?</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setUseServerFallback(true);
-                setCurrentMediaUrl(fallbackUrl);
-              }}
-              className="text-blue-400 hover:text-blue-300 font-medium underline cursor-pointer"
-            >
-              Switch to server recording
-            </button>
-          </div>
-        )}
       </div>
     );
   }

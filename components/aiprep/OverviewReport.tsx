@@ -1879,7 +1879,7 @@ export function EvaluationContent({
     (report as any)?.data?.assembled_media ||
     (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? ((hasValidYoutube ? youtube_url : null) || assembledMedia || localPreviewUrl || (hasServerRecording ? serverUrl : undefined))
+    ? ((hasValidYoutube ? youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
     : undefined;
 
   const durationSeconds =
@@ -4086,8 +4086,8 @@ export default function AiPrepReport({
     const interval = setInterval(async () => {
       try {
         ytPollAttemptsRef.current += 1;
-        if (ytPollAttemptsRef.current > 12) {
-          // Cap at 12 checks (2 minutes with 10s interval) to prevent unwanted API calls
+        if (ytPollAttemptsRef.current > 5) {
+          // Cap at 5 checks (5 minutes with 60s interval) to prevent unwanted API calls
           clearInterval(interval);
           return;
         }
@@ -4103,7 +4103,7 @@ export default function AiPrepReport({
           clearInterval(interval);
         }
       }
-    }, 10000);
+    }, 60000);
 
     return () => {
       isMounted = false;
