@@ -335,7 +335,8 @@ export default function TechnicalEvaluationView({
 
   const rawMediaType = (report.assessment?.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
-  const mediaPath = isAudioOnly ? "audio" : "video";
+  // Unified media endpoint: brings audio for audio assessments and video for video assessments
+  const mediaPath = "media";
 
   const canShowRecording = Boolean(
     report.consent?.save_recording ??
@@ -385,7 +386,7 @@ export default function TechnicalEvaluationView({
     ? apiBase.replace(/\/api\/?$/, "")
     : "http://127.0.0.1:8000";
 
-  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${resolvedAssessmentId}/${mediaPath}`;
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/candidate/assessments/${resolvedAssessmentId}/${mediaPath}`;
   const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = resolvedAssessmentId
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
