@@ -59,6 +59,90 @@ import TechnicalEvaluationView from "./TechnicalEvaluationView";
 
 export type { ReportTab };
 
+function isRealYoutubeUrl(url?: string | null): url is string {
+  return Boolean(
+    url &&
+      !url.includes("aiprep_rec_") &&
+      !url.includes("UF8uR6Z6KLc") &&
+      extractYoutubeId(url)
+  );
+}
+
+let ytApiPromise: Promise<any> | null = null;
+function loadYtApi(): Promise<any> {
+  if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
+  const win = window as any;
+  if (win.YT?.Player) return Promise.resolve(win.YT);
+  if (!ytApiPromise) {
+    ytApiPromise = new Promise((resolve, reject) => {
+      const prev = win.onYouTubeIframeAPIReady;
+      win.onYouTubeIframeAPIReady = () => {
+        prev?.();
+        resolve(win.YT);
+      };
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.onerror = () => {
+        ytApiPromise = null;
+        reject(new Error("YouTube API failed to load"));
+      };
+      document.head.appendChild(s);
+    });
+  }
+  return ytApiPromise;
+}
+
+type YouTubeVerdict = "full" | "incomplete" | "unavailable";
+
+async function probeYoutube(videoId: string, expectedSec: number): Promise<YouTubeVerdict> {
+  try {
+    const YT = await loadYtApi();
+    return new Promise<YouTubeVerdict>((resolve) => {
+      const host = document.createElement("div");
+      host.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;";
+      document.body.appendChild(host);
+      let player: any;
+      let settled = false;
+
+      const finish = (v: YouTubeVerdict) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        try {
+          player?.destroy();
+        } catch {}
+        host.remove();
+        resolve(v);
+      };
+
+      const timeout = setTimeout(() => finish("unavailable"), 15000);
+
+      player = new YT.Player(host, {
+        videoId,
+        width: 1,
+        height: 1,
+        playerVars: { controls: 0, rel: 0 },
+        events: {
+          onError: () => finish("unavailable"),
+          onReady: async (e: any) => {
+            for (let i = 0; i < 6; i++) {
+              const d = Number(e.target.getDuration?.() ?? 0);
+              if (d > 0) {
+                const ok = expectedSec > 0 ? d >= expectedSec * 0.95 : true;
+                return finish(ok ? "full" : "incomplete");
+              }
+              await new Promise((r) => setTimeout(r, 1000));
+            }
+            finish("incomplete");
+          },
+        },
+      });
+    });
+  } catch {
+    return "unavailable";
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  CONCEPT LABELS & MAPPING UTILITIES
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1792,7 +1876,8 @@ export function EvaluationContent({
   const rawMediaType = ((report as any).media_type || report.assessment?.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
 
-  const mediaPath = isAudioOnly ? "audio" : "video";
+  // Unified media endpoint: brings audio for audio assessments and video for video assessments
+  const mediaPath = "media";
   const canShowRecording = Boolean(
     consent?.save_recording ??
     (report.assessment as any)?.consent?.save_recording ??
@@ -1840,7 +1925,7 @@ export function EvaluationContent({
     (report.assessment as any)?.recording_url
   );
 
-  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/candidate/assessments/${assessmentId}/${mediaPath}`;
   const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   // Persistent server recording stream URL directly from server storage
   const serverUrl = (assessmentId && serverPath)
@@ -4076,10 +4161,15 @@ export default function AiPrepReport({
     };
   }, [isProcessing, assessmentId, loadReport]);
 
-  // ── Auto-Swap to YouTube when background upload completes ─────────────────
+  // ── Session Type Isolation: Intro & JD Intro vs Multi-Question ──
+  const assessmentType = String(report?.assessment?.assessment_type || "").toUpperCase();
+  const isIntroSession = ["INTRO", "JD_INTRO"].includes(assessmentType);
+  const isMultiQuestionType = ["TECHNICAL", "HIRING_MANAGER", "RECRUITER", "SYSTEM_DESIGN"].includes(assessmentType);
+
+  // 1. Existing Legacy Auto-Swap for Intro & JD Intro (kept 100% as-is)
   useEffect(() => {
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+    if (!report || !isIntroSession || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
 
     let isMounted = true;
     let consecutiveErrors = 0;
@@ -4109,7 +4199,92 @@ export default function AiPrepReport({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [report?.youtube_url, isProcessing, assessmentId]);
+  }, [report?.youtube_url, isProcessing, assessmentId, isIntroSession]);
+
+  // 2. Multi-Question Managed Auto-Swap with Active Viewing Protection & YouTube Probe
+  const pendingYoutubeUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
+    if (!report || !isMultiQuestionType || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      // If we already verified YouTube but held it because candidate was watching, check if they paused:
+      if (pendingYoutubeUrlRef.current) {
+        const isWatching = Boolean(
+          videoRef.current &&
+          !videoRef.current.paused &&
+          !videoRef.current.ended &&
+          videoRef.current.currentTime > 0
+        );
+        if (!isWatching) {
+          const readyUrl = pendingYoutubeUrlRef.current;
+          pendingYoutubeUrlRef.current = null;
+          clearInterval(interval);
+          if (isMounted) {
+            setReport((prev) => (prev ? { ...prev, youtube_url: readyUrl } : prev));
+          }
+        }
+        return;
+      }
+
+      try {
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        const yt = fresh?.youtube_url?.trim();
+        if (isMounted && isRealYoutubeUrl(yt)) {
+          const expectedSec = extractAssessmentDurationSeconds(report);
+          const verdict = await probeYoutube(extractYoutubeId(yt)!, expectedSec);
+          if (!isMounted) return;
+
+          if (verdict === "full") {
+            const isWatching = Boolean(
+              videoRef.current &&
+              !videoRef.current.paused &&
+              !videoRef.current.ended &&
+              videoRef.current.currentTime > 0
+            );
+
+            if (isWatching) {
+              // Non-interruption guard: Defer swap until candidate pauses or reaches end
+              pendingYoutubeUrlRef.current = yt;
+            } else {
+              clearInterval(interval);
+              setReport((prev) => (prev ? { ...prev, youtube_url: yt } : prev));
+            }
+          }
+        }
+      } catch {
+        /* Transient polling error: will retry next interval */
+      }
+    }, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [report?.youtube_url, isProcessing, assessmentId, isMultiQuestionType, report]);
+
+  // Immediately apply pending YouTube URL when candidate pauses or media finishes
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    const handlePauseOrEnded = () => {
+      if (pendingYoutubeUrlRef.current) {
+        const readyUrl = pendingYoutubeUrlRef.current;
+        pendingYoutubeUrlRef.current = null;
+        setReport((prev) => (prev ? { ...prev, youtube_url: readyUrl } : prev));
+      }
+    };
+
+    vid.addEventListener("pause", handlePauseOrEnded);
+    vid.addEventListener("ended", handlePauseOrEnded);
+    return () => {
+      vid.removeEventListener("pause", handlePauseOrEnded);
+      vid.removeEventListener("ended", handlePauseOrEnded);
+    };
+  }, [videoRef, report]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
