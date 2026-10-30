@@ -315,7 +315,7 @@ export default function VideoPlayer({
   };
 
   // ── 1. YouTube Embed Mode (Only for video assessments with valid YouTube IDs) ──
-  if (!isAudioOnly && ytId && !useServerFallback) {
+  if (ytId && !useServerFallback) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
