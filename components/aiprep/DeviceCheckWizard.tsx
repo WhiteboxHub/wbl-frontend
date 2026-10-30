@@ -539,6 +539,11 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         window.sessionStorage?.removeItem('aiprep_jd_filename');
         window.sessionStorage?.removeItem('aiprep_jd_role');
         window.sessionStorage?.removeItem('aiprep_jd_company');
+        window.sessionStorage?.removeItem('aiprep_user_selected_mode');
+        window.sessionStorage?.removeItem('aiprep_pending_setup_results');
+        window.sessionStorage?.removeItem('aiprep_consent_recording');
+        window.sessionStorage?.removeItem('aiprep_consent_transcript');
+        window.sessionStorage?.removeItem('aiprep_consent_analytics');
         return 'CONFIGURATION';
       }
       // Check URL route slugs
@@ -560,33 +565,68 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     return initialStep;
   });
   const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
-    if (initialType) return initialType as AssessmentType;
+    if (initialType && initialType !== 'INTRO') return initialType as AssessmentType;
     if (typeof window !== 'undefined') {
       const savedType = window.sessionStorage?.getItem('aiprep_active_type') as AssessmentType | null;
       if (savedType) return savedType;
+      const rawPending = window.sessionStorage?.getItem('aiprep_pending_setup_results') || window.sessionStorage?.getItem('aiprep_hardware_check') || (window.localStorage ? window.localStorage.getItem('aiprep_hardware_check') : null);
+      if (rawPending) {
+        try {
+          const parsed = JSON.parse(rawPending);
+          if (parsed.assessment_type) return parsed.assessment_type as AssessmentType;
+        } catch (_) {}
+      }
     }
-    return 'INTRO';
+    return initialType || 'INTRO';
   });
   // 2. Consent State (Centralized in ConsentModal module)
   const initialConsent = useMemo(() => {
-    let savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
-    if (typeof window !== 'undefined') {
-      const storedVideo = window.sessionStorage?.getItem('aiprep_video_enabled');
-      const storedMode = window.sessionStorage?.getItem('aiprep_active_mode');
-      if (initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO') {
+    let savedVideo = false;
+    if (audioOnly) {
+      savedVideo = false;
+    } else if (typeof window !== 'undefined') {
+      const userSelected = window.sessionStorage?.getItem('aiprep_user_selected_mode');
+      if (userSelected === 'VIDEO_AUDIO') {
         savedVideo = true;
-      } else if (initialMode === 'AUDIO_ONLY' || initialMode === 'AUDIO') {
+      } else if (userSelected === 'AUDIO_ONLY') {
         savedVideo = false;
-      } else if (storedMode) {
-        savedVideo = storedMode === 'VIDEO_AUDIO' || storedMode === 'VIDEO';
-      } else if (storedVideo !== null) {
-        savedVideo = storedVideo === 'true';
-      } else if (initialMode) {
-        savedVideo = initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO';
+      } else if (initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO') {
+        savedVideo = true;
+      } else {
+        // Default on opening consent page is ALWAYS Audio Only
+        savedVideo = false;
+      }
+    } else if (initialMode === 'VIDEO_AUDIO' || initialMode === 'VIDEO') {
+      savedVideo = true;
+    } else {
+      savedVideo = false;
+    }
+
+    let analyticsEnabled = savedVideo;
+    let saveRecording = true;
+    let saveTranscript = true;
+    if (typeof window !== 'undefined') {
+      const activePath = window.location.pathname.toLowerCase();
+      const isAssessmentTypeRoute = activePath.includes('assesment-type') || activePath.includes('assessment-type') || activePath === '/aiprep';
+      if (!isAssessmentTypeRoute) {
+        const storedAnalytics = window.sessionStorage?.getItem('aiprep_consent_analytics');
+        if (storedAnalytics !== null) analyticsEnabled = storedAnalytics === 'true';
+        const storedRecording = window.sessionStorage?.getItem('aiprep_consent_recording');
+        if (storedRecording !== null) saveRecording = storedRecording === 'true';
+        const storedTranscript = window.sessionStorage?.getItem('aiprep_consent_transcript');
+        if (storedTranscript !== null) saveTranscript = storedTranscript === 'true';
       }
     }
-    return getInitialConsentState(!savedVideo);
-  }, [initialMode]);
+
+    return {
+      videoEnabled: savedVideo,
+      consentMic: true,
+      consentCamera: savedVideo,
+      videoAnalyticsEnabled: savedVideo ? analyticsEnabled : false,
+      consentSaveRecording: saveRecording,
+      consentSaveTranscript: saveTranscript,
+    };
+  }, [initialMode, audioOnly]);
   const [videoEnabled, setVideoEnabled] = useState<boolean>(initialConsent.videoEnabled);
   const [videoAnalyticsEnabled, setVideoAnalyticsEnabled] = useState<boolean>(initialConsent.videoAnalyticsEnabled);
   const [consentMic, setConsentMic] = useState<boolean>(initialConsent.consentMic);
@@ -692,14 +732,6 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     isPopStateRef,
   ]);
   const cleanupRef = useRef<(scope?: 'ALL' | 'AUDIO_ONLY' | 'VIDEO_ONLY') => void>(() => { });
-  useEffect(() => {
-    if (step === 'CONFIGURATION' && initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
-      setVideoEnabled(false);
-      setConsentCamera(false);
-      setVideoAnalyticsEnabled(false);
-      syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
-    }
-  }, [step, initialMode]);
 
   // Synchronize wizard step with Next.js router pathname
   useEffect(() => {
@@ -2113,11 +2145,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         sessionStorage.setItem('aiprep_pending_setup_results', JSON.stringify(results));
         sessionStorage.setItem('aiprep_active_type', targetType);
         sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+        sessionStorage.setItem('aiprep_user_selected_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
+        sessionStorage.setItem('aiprep_video_enabled', results.video_enabled ? 'true' : 'false');
+        sessionStorage.setItem('aiprep_consent_camera', results.video_enabled ? 'true' : 'false');
+        sessionStorage.setItem('aiprep_consent_analytics', results.analytics_consent ? 'true' : 'false');
         sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
         sessionStorage.removeItem('aiprep_active_id');
         sessionStorage.removeItem('aiprep_active_questions');
-        sessionStorage.removeItem('aiprep_wizard_step');
-        router.replace('/aiprep/session/start');
+        sessionStorage.setItem('aiprep_wizard_step', 'DEVICE_CHECK');
+        router.push('/aiprep/start');
         return;
       }
 
@@ -2197,6 +2233,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
 
   const handleNext = async () => {
     if (step === 'CONFIGURATION') {
+      const userSelectedMode = typeof window !== 'undefined' ? window.sessionStorage?.getItem('aiprep_user_selected_mode') : null;
+      if (userSelectedMode !== 'VIDEO_AUDIO') {
+        setVideoEnabled(false);
+        setConsentCamera(false);
+        setVideoAnalyticsEnabled(false);
+      }
+      setConsentSaveRecording(true);
+      setConsentSaveTranscript(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('aiprep_consent_recording');
+        sessionStorage.removeItem('aiprep_consent_transcript');
+        sessionStorage.removeItem('aiprep_consent_analytics');
+      }
+      syncConsentToSessionStorage({
+        videoEnabled: userSelectedMode === 'VIDEO_AUDIO',
+        consentMic: true,
+        consentCamera: userSelectedMode === 'VIDEO_AUDIO',
+        videoAnalyticsEnabled: userSelectedMode === 'VIDEO_AUDIO',
+        consentSaveRecording: true,
+        consentSaveTranscript: true,
+      });
       // Route to JD Upload step only for JD Walkthrough assessment
       if (assessmentType === 'JD_INTRO') {
         setStep('JD_UPLOAD');
@@ -2204,6 +2261,27 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
         setStep('CONSENT');
       }
     } else if (step === 'JD_UPLOAD') {
+      const userSelectedMode = typeof window !== 'undefined' ? window.sessionStorage?.getItem('aiprep_user_selected_mode') : null;
+      if (userSelectedMode !== 'VIDEO_AUDIO') {
+        setVideoEnabled(false);
+        setConsentCamera(false);
+        setVideoAnalyticsEnabled(false);
+      }
+      setConsentSaveRecording(true);
+      setConsentSaveTranscript(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('aiprep_consent_recording');
+        sessionStorage.removeItem('aiprep_consent_transcript');
+        sessionStorage.removeItem('aiprep_consent_analytics');
+      }
+      syncConsentToSessionStorage({
+        videoEnabled: userSelectedMode === 'VIDEO_AUDIO',
+        consentMic: true,
+        consentCamera: userSelectedMode === 'VIDEO_AUDIO',
+        videoAnalyticsEnabled: userSelectedMode === 'VIDEO_AUDIO',
+        consentSaveRecording: true,
+        consentSaveTranscript: true,
+      });
       setStep('CONSENT');
     } else if (step === 'CONSENT') {
       setStep('DEVICE_CHECK');
@@ -2298,11 +2376,15 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
     if (step === 'JD_UPLOAD') {
       setStep('CONFIGURATION');
     } else if (step === 'CONSENT') {
-      if (initialMode !== 'VIDEO_AUDIO' && initialMode !== 'VIDEO') {
-        setVideoEnabled(false);
-        setConsentCamera(false);
-        setVideoAnalyticsEnabled(false);
-        syncConsentToSessionStorage({ videoEnabled: false, consentCamera: false, videoAnalyticsEnabled: false });
+      // Going back to Assessment Type selection:
+      // Reset consent preferences so choosing any assessment starts with default enabled!
+      setConsentSaveRecording(true);
+      setConsentSaveTranscript(true);
+      setVideoAnalyticsEnabled(true);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('aiprep_consent_recording');
+        sessionStorage.removeItem('aiprep_consent_transcript');
+        sessionStorage.removeItem('aiprep_consent_analytics');
       }
       // Go back to JD Upload if it was a JD Walkthrough assessment
       if (assessmentType === 'JD_INTRO') {
@@ -2380,9 +2462,24 @@ export const DeviceCheckWizard: React.FC<DeviceCheckWizardProps> = ({
           {step === 'CONFIGURATION' && (
             <div className="w-full h-auto flex flex-col overflow-y-auto">
               <AssessmentConfig
-                assessmentType={assessmentType} setAssessmentType={setAssessmentType}
-                jdText={jdText} setJdText={setJdText}
-                onNext={handleNext} onCancel={() => { cleanup(); onCancel(); }} />
+                assessmentType={assessmentType}
+                setAssessmentType={(newType: AssessmentType) => {
+                  setAssessmentType(newType);
+                  // When selecting another type, reset consent preferences to default enabled
+                  setConsentSaveRecording(true);
+                  setConsentSaveTranscript(true);
+                  setVideoAnalyticsEnabled(true);
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.removeItem('aiprep_consent_recording');
+                    sessionStorage.removeItem('aiprep_consent_transcript');
+                    sessionStorage.removeItem('aiprep_consent_analytics');
+                  }
+                }}
+                jdText={jdText}
+                setJdText={setJdText}
+                onNext={handleNext}
+                onCancel={() => { cleanup(); onCancel(); }}
+              />
             </div>
           )}
 
