@@ -58,6 +58,21 @@ export const syncConsentToSessionStorage = (state: Partial<ConsentState>) => {
   }
 };
 
+export const clearConsentSessionStorage = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem('aiprep_active_mode');
+    sessionStorage.removeItem('aiprep_video_enabled');
+    sessionStorage.removeItem('aiprep_consent_analytics');
+    sessionStorage.removeItem('aiprep_consent_recording');
+    sessionStorage.removeItem('aiprep_consent_transcript');
+    sessionStorage.removeItem('aiprep_hardware_check');
+    sessionStorage.removeItem('aiprep_pending_setup_results');
+    sessionStorage.removeItem('aiprep_pending_assessment_creation');
+    localStorage.removeItem('aiprep_hardware_check');
+  } catch (_) {}
+};
+
 export interface ConsentStepProps {
   videoEnabled: boolean; setVideoEnabled: (v: boolean) => void; consentMic?: boolean; setConsentMic?: (v: boolean) => void;
   consentCamera?: boolean; setConsentCamera?: (v: boolean) => void; videoAnalyticsEnabled: boolean; setVideoAnalyticsEnabled?: (v: boolean) => void;
@@ -92,6 +107,9 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(false);
     if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aiprep_user_selected_mode', 'AUDIO_ONLY');
+    }
     syncConsentToSessionStorage({ videoEnabled: false, consentMic: true, consentCamera: false, videoAnalyticsEnabled: false, consentSaveRecording, consentSaveTranscript });
     AIPrepTelemetry.trackConsentModeSelected(AIPrepTelemetry.getResolvedCandidateId(), 'AUDIO_ONLY');
   };
@@ -101,6 +119,9 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
     if (setConsentMic) setConsentMic(true);
     if (setConsentCamera) setConsentCamera(true);
     if (setVideoAnalyticsEnabled) setVideoAnalyticsEnabled(true);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aiprep_user_selected_mode', 'VIDEO_AUDIO');
+    }
     syncConsentToSessionStorage({ videoEnabled: true, consentMic: true, consentCamera: true, videoAnalyticsEnabled: true, consentSaveRecording, consentSaveTranscript });
     AIPrepTelemetry.trackConsentModeSelected(AIPrepTelemetry.getResolvedCandidateId(), 'VIDEO_AUDIO');
   };
@@ -335,7 +356,11 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                   className="w-4 h-4 text-[#7C3AED] rounded border-slate-300 dark:border-slate-700 focus:ring-[#7C3AED] cursor-pointer"
                 />
                 <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#7C3AED] flex items-center justify-center shrink-0">
-                  <Video className="w-4.5 h-4.5 stroke-[2]" />
+                  {videoEnabled ? (
+                    <Video className="w-4.5 h-4.5 stroke-[2]" />
+                  ) : (
+                    <Mic className="w-4.5 h-4.5 stroke-[2]" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -445,7 +470,7 @@ export const ConsentStep: React.FC<ConsentStepProps> = ({
                 {activeModal === 'MIC' && <Mic className="w-5 h-5 stroke-[2.2]" />}
                 {activeModal === 'CAMERA' && <Video className="w-5 h-5 stroke-[2.2]" />}
                 {activeModal === 'ANALYTICS' && <Video className="w-5 h-5 stroke-[2.2]" />}
-                {activeModal === 'RECORDING' && <Video className="w-5 h-5 stroke-[2.2]" />}
+                {activeModal === 'RECORDING' && (videoEnabled ? <Video className="w-5 h-5 stroke-[2.2]" /> : <Mic className="w-5 h-5 stroke-[2.2]" />)}
                 {activeModal === 'TRANSCRIPT' && <FileText className="w-5 h-5 stroke-[2.2]" />}
               </div>
               <h3 className="text-[15px] sm:text-base font-bold text-slate-900 dark:text-white">

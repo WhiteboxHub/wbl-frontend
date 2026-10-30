@@ -140,7 +140,11 @@ export default function VideoPlayer({
       }
       finalUrl = backendOrigin ? `${backendOrigin}${url.startsWith("/") ? "" : "/"}${url}` : url;
     }
-    if (typeof window !== "undefined" && finalUrl.includes("/api/aiprep/assessments/") && !finalUrl.includes("token=")) {
+    if (
+      typeof window !== "undefined" &&
+      (finalUrl.includes("/api/aiprep/assessments/") || finalUrl.includes("/api/aiprep/candidate/assessments/")) &&
+      !finalUrl.includes("token=")
+    ) {
       const token = localStorage.getItem("access_token") || localStorage.getItem("token") || "";
       if (token) {
         finalUrl += `${finalUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
@@ -311,7 +315,7 @@ export default function VideoPlayer({
   };
 
   // ── 1. YouTube Embed Mode (Only for video assessments with valid YouTube IDs) ──
-  if (ytId && !useServerFallback) {
+  if (!isAudioOnly && ytId && !useServerFallback) {
     return (
       <div
         className={`relative w-full max-w-2xl sm:max-w-3xl mx-auto overflow-hidden rounded-2xl bg-black border-2 border-slate-700 shadow-md ${className ?? ""}`}
@@ -342,6 +346,7 @@ export default function VideoPlayer({
           pathname.endsWith(".mp4") ||
           pathname.endsWith(".webm") ||
           pathname.endsWith("/video") ||
+          pathname.endsWith("/media") ||
           pathname.includes("/playback")
         );
       } catch {
@@ -352,6 +357,7 @@ export default function VideoPlayer({
           lower.includes(".mp4") ||
           lower.includes(".webm") ||
           lower.includes("/video") ||
+          lower.includes("/media") ||
           lower.includes("/playback")
         );
       }

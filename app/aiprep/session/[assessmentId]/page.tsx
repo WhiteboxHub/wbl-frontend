@@ -207,7 +207,15 @@ const EmbeddedAudioWaveform = memo(({ stream, isMuted, isLight = false }: { stre
 
 EmbeddedAudioWaveform.displayName = 'EmbeddedAudioWaveform';
 
-function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: { assessmentIdProp?: number; onStartPendingAssessment?: () => Promise<number> } = {}) {
+function AssessmentSessionPage({
+  assessmentIdProp,
+  onStartPendingAssessment,
+  onBack,
+}: {
+  assessmentIdProp?: number;
+  onStartPendingAssessment?: () => Promise<number>;
+  onBack?: () => void;
+} = {}) {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -269,8 +277,36 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
 
 
   // Core session metadata
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>('TECHNICAL');
-  const [mediaType, setMediaType] = useState<MediaType>('AUDIO_ONLY');
+  const [assessmentType, setAssessmentType] = useState<AssessmentType>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.sessionStorage.getItem('aiprep_active_type');
+      if (stored) return stored as AssessmentType;
+      const rawPending = window.sessionStorage.getItem('aiprep_pending_setup_results') || window.sessionStorage.getItem('aiprep_hardware_check');
+      if (rawPending) {
+        try {
+          const parsed = JSON.parse(rawPending);
+          if (parsed.assessment_type) return parsed.assessment_type as AssessmentType;
+        } catch (_) {}
+      }
+    }
+    return 'TECHNICAL';
+  });
+  const [mediaType, setMediaType] = useState<MediaType>(() => {
+    if (typeof window !== 'undefined') {
+      const mode = window.sessionStorage.getItem('aiprep_active_mode');
+      if (mode === 'VIDEO_AUDIO' || mode === 'VIDEO') return 'VIDEO_AUDIO';
+      const videoEnabled = window.sessionStorage.getItem('aiprep_video_enabled');
+      if (videoEnabled === 'true') return 'VIDEO_AUDIO';
+      const rawPending = window.sessionStorage.getItem('aiprep_pending_setup_results') || window.sessionStorage.getItem('aiprep_hardware_check');
+      if (rawPending) {
+        try {
+          const parsed = JSON.parse(rawPending);
+          if (parsed.video_enabled === true) return 'VIDEO_AUDIO';
+        } catch (_) {}
+      }
+    }
+    return 'AUDIO_ONLY';
+  });
   const [questions, setQuestions] = useState<QuestionBankItem[]>([]);
   // Hold technical questions out of rendered state until Start Assessment is clicked.
   const pendingAssessmentQuestionsRef = useRef<QuestionBankItem[]>([]);
@@ -684,6 +720,7 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     status: videoRecordingStatus,
     stream: videoStream,
     elapsedTime: videoElapsedTime,
+    openStream: openVideoStream,
     startRecording: startVideoRecorder,
     stopRecording: stopVideoRecorder,
     cleanup: cleanupVideoRecorder,
@@ -845,7 +882,12 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
       countdownIntervalRef.current = null;
     }
     stopAiSpeech();
-    cleanupRecorder();
+    try {
+      cleanupAudioRecorder();
+    } catch (_) {}
+    try {
+      cleanupVideoRecorder();
+    } catch (_) {}
     clearQueue();
 
     if (typeof window !== 'undefined') {
@@ -859,12 +901,19 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
         sessionStorage.removeItem('aiprep_active_questions');
         sessionStorage.removeItem('aiprep_active_type');
         sessionStorage.removeItem('aiprep_active_mode');
+        sessionStorage.removeItem('aiprep_video_enabled');
+        sessionStorage.removeItem('aiprep_consent_analytics');
+        sessionStorage.removeItem('aiprep_consent_recording');
+        sessionStorage.removeItem('aiprep_consent_transcript');
         sessionStorage.removeItem('aiprep_wizard_step');
         sessionStorage.removeItem('aiprep_hardware_check');
+        sessionStorage.removeItem('aiprep_pending_setup_results');
+        sessionStorage.removeItem('aiprep_pending_assessment_creation');
         sessionStorage.removeItem('aiprep_jd_text');
         sessionStorage.removeItem('aiprep_jd_filename');
         sessionStorage.removeItem('aiprep_jd_role');
         sessionStorage.removeItem('aiprep_jd_company');
+        localStorage.removeItem('aiprep_hardware_check');
         window.dispatchEvent(
           new CustomEvent('aiprep-layout-mode', {
             detail: { active: false, isWizardActive: false, headerCollapsed: false, fullscreen: false },
@@ -966,9 +1015,9 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     }
   }, [assessmentId, isEmbedded, router]);
 
-  // Intercept browser Back button while inside active assessment room
+  // Intercept browser Back button while inside active assessment room (only once answering has started)
   useEffect(() => {
-    if (typeof window === 'undefined' || !assessmentId || isSessionAlreadyEnded || finishedAssessmentId) return;
+    if (typeof window === 'undefined' || !assessmentId || !hasStartedQuestion || isSessionAlreadyEnded || finishedAssessmentId) return;
 
     try {
       window.history.pushState({ aiprepSessionActive: assessmentId }, '', window.location.href);
@@ -986,11 +1035,11 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [assessmentId, isSessionAlreadyEnded, finishedAssessmentId]);
+  }, [assessmentId, hasStartedQuestion, isSessionAlreadyEnded, finishedAssessmentId]);
 
   // ── Initialize Session Metadata & Questions from Backend DB ────────────────
   useEffect(() => {
-    if (!assessmentId && onStartPendingAssessment) {
+    if (!assessmentId && (onStartPendingAssessment || (typeof window !== 'undefined' && Boolean(window.sessionStorage.getItem('aiprep_pending_setup_results'))))) {
       const pendingType = (typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_type') : null) as AssessmentType | null;
       const pendingMode = (typeof window !== 'undefined' ? window.sessionStorage.getItem('aiprep_active_mode') : null) as MediaType | null;
       if (pendingType) setAssessmentType(pendingType);
@@ -1162,7 +1211,15 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     cleanupRecorderRef,
   ]);
 
-  // Connect video element to active stream
+  // Connect video element to active stream (both via callback ref and effect for resilience)
+  const bindVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node && stream && node.srcObject !== stream) {
+      node.srcObject = stream;
+      node.play().catch((e) => console.warn('Video auto-play handled:', e));
+    }
+  }, [stream]);
+
   useEffect(() => {
     if (videoRef.current && stream) {
       if (videoRef.current.srcObject !== stream) {
@@ -1355,6 +1412,47 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     transcriptInitializedRef,
   ]);
 
+  const handleBackFromInstructions = () => {
+    if (startAnswerInFlightRef.current || hasStartedQuestion || isRecording || isEnding) return;
+
+    // Clear only unstarted session ID/questions; preserve selected assessment type, mode and hardware check
+    if (typeof window !== 'undefined') {
+      [
+        'aiprep_pending_assessment_creation',
+        'aiprep_active_id',
+        'aiprep_active_questions',
+      ].forEach((key) => window.sessionStorage.removeItem(key));
+      window.sessionStorage.setItem('aiprep_wizard_step', 'DEVICE_CHECK');
+      if (mediaType === 'VIDEO_AUDIO' || mediaType === 'VIDEO') {
+        window.sessionStorage.setItem('aiprep_video_enabled', 'true');
+        window.sessionStorage.setItem('aiprep_active_mode', 'VIDEO_AUDIO');
+        window.sessionStorage.setItem('aiprep_user_selected_mode', 'VIDEO_AUDIO');
+        window.sessionStorage.setItem('aiprep_consent_camera', 'true');
+      }
+      if (assessmentType) {
+        window.sessionStorage.setItem('aiprep_active_type', assessmentType);
+      }
+    }
+
+    if (onBack) {
+      onBack();
+      return;
+    }
+
+    const hasHistory = typeof window !== 'undefined' && (
+      (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) ||
+      (window.history.length > 1 && Boolean(document.referrer && document.referrer.includes(window.location.host)))
+    );
+
+    if (hasHistory) {
+      router.back();
+      return;
+    }
+
+    const targetUrl = isEmbedded ? '/user_dashboard/ai-prep/device-check?embed=true' : '/user_dashboard/ai-prep/device-check';
+    router.replace(targetUrl);
+  };
+
   // ── Start Recording Control ────────────────────────────────────────────────
   // Read the first question aloud from the Start Answer gesture, then start recording.
   // Later questions are read by handleNextQuestion, so this fixes Q1 without double-speaking.
@@ -1363,21 +1461,79 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     // A deliberate start action begins a fresh preparation lifecycle.
     preparationCancelledRef.current = false;
     startAnswerInFlightRef.current = true;
-    if (!assessmentId && onStartPendingAssessment) {
+    if (!assessmentId) {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
-        const createdId = await onStartPendingAssessment();
-        // Release the per-page lock before navigation; the destination route
-        // must be able to run its own auto-start lifecycle.
-        startAnswerInFlightRef.current = false;
-        router.push(`/aiprep/session/${createdId}`);
-      } catch (error: any) {
-        setErrorMsg(error instanceof Error ? error.message : 'Unable to start the assessment. Please try again.');
-        startAnswerInFlightRef.current = false;
-      } finally {
+        let createdId: number | undefined;
+        if (onStartPendingAssessment) {
+          createdId = await onStartPendingAssessment();
+        } else {
+          const rawResults = window.sessionStorage.getItem('aiprep_pending_setup_results');
+          if (!rawResults) throw new Error('Your assessment setup expired. Please run the device check again.');
+          const results = JSON.parse(rawResults);
+          const rawType = String(results.assessment_type || window.sessionStorage.getItem('aiprep_active_type') || 'TECHNICAL')
+            .trim().toUpperCase().replace(/ +/g, '_').replace(/-/g, '_');
+          const aliases: Record<string, AssessmentType> = {
+            TECHNICAL_ASSESSMENT: 'TECHNICAL',
+            RECRUITER_ASSESSMENT: 'RECRUITER',
+            HIRING_MANAGER_ASSESSMENT: 'HIRING_MANAGER',
+            SYSTEM_DESIGN_ASSESSMENT: 'SYSTEM_DESIGN',
+          };
+          const targetType = (aliases[rawType] || rawType) as AssessmentType;
+          const targetMode: MediaType = results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY';
+
+          let candidateId: number | undefined;
+          const storedId = window.localStorage.getItem('candidate_id') || window.sessionStorage.getItem('aiprep_candidate_id');
+          if (storedId && Number.isFinite(Number(storedId))) {
+            candidateId = Number(storedId);
+          } else {
+            const userValue = window.localStorage.getItem('user');
+            if (userValue) {
+              const user = JSON.parse(userValue);
+              const id = user?.candidate_id ?? user?.id;
+              if (id !== undefined && Number.isFinite(Number(id))) candidateId = Number(id);
+            }
+          }
+
+          const assessment = await aiprepApi.createAssessment({
+            assessment_type: targetType,
+            assessment_mode: targetMode,
+            candidate_id: candidateId,
+            job_description_text: results.jd_text || null,
+          });
+          createdId = Number(assessment?.id);
+          const loadedQuestions = Array.isArray(assessment?.questions) ? assessment.questions : [];
+          if (!Number.isSafeInteger(createdId) || createdId <= 0) {
+            throw new Error('Failed to initialize assessment session on server.');
+          }
+          if (loadedQuestions.length === 0) {
+            throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
+          }
+
+          window.localStorage.removeItem(`aiprep_reload_cancelled_${createdId}`);
+          window.localStorage.removeItem(`aiprep_exited_${createdId}`);
+          window.localStorage.removeItem(`aiprep_finished_${createdId}`);
+          window.sessionStorage.removeItem(`aiprep_exited_${createdId}`);
+          window.sessionStorage.removeItem(`aiprep_started_${createdId}`);
+          window.sessionStorage.setItem('aiprep_active_id', String(createdId));
+          window.sessionStorage.setItem('aiprep_active_type', targetType);
+          window.sessionStorage.setItem('aiprep_active_mode', targetMode);
+          window.sessionStorage.setItem('aiprep_active_questions', JSON.stringify(loadedQuestions));
+          window.sessionStorage.setItem(`aiprep_autostart_assessment_${createdId}`, 'true');
+          window.sessionStorage.removeItem('aiprep_pending_setup_results');
+        }
+
+        if (createdId) {
+          startAnswerInFlightRef.current = false;
+          router.replace(`/aiprep/session/${createdId}`);
+          return;
+        }
+      } catch (err: any) {
         setIsLoading(false);
+        startAnswerInFlightRef.current = false;
+        setErrorMsg(err?.message || 'Failed to start assessment. Please try again.');
+        return;
       }
-      return;
     }
     // Only these four tracks use the deferred-start URL behavior.
     if (typeof window !== 'undefined' && assessmentId) {
@@ -1392,15 +1548,9 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
         window.sessionStorage.setItem(`aiprep_started_${assessmentId}`, 'true');
         window.sessionStorage.removeItem('aiprep_pending_assessment_id');
         if (window.location.pathname !== `/aiprep/session/${assessmentId}`) {
-          // Use Next.js navigation instead of changing the address bar only.
-          // The latter leaves the instructions component mounted while the
-          // question countdown runs, making the transition appear delayed.
-          window.sessionStorage.setItem(`aiprep_autostart_assessment_${assessmentId}`, 'true');
-          // This route transition re-enters the start handler on the room page.
-          // Release the current lock so the destination can start recording.
-          startAnswerInFlightRef.current = false;
-          router.push(`/aiprep/session/${assessmentId}`);
-          return;
+          try {
+            window.history.replaceState(null, '', `/aiprep/session/${assessmentId}`);
+          } catch (_) {}
         }
       }
     }
@@ -1462,29 +1612,35 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
       await speakAiText(activeQ.question_text);
     }
     if (preparationCancelledRef.current || isEnding) return;
-    // Intro assessments begin recording as soon as AI narration finishes.
-    // Keep the 5-second preparation countdown for all other assessment types.
-    if (assessmentType !== 'INTRO') {
-      for (let seconds = 5; seconds > 0; seconds -= 1) {
-        if (preparationCancelledRef.current || isEnding) return;
-        setPrepCountdown(seconds);
-        // Pre-warm STT engine on the last tick so it's hot when recording starts
-        if (seconds === 1) {
-          try {
-            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-            if (SR && !recognitionRef.current) {
-              const warm = new SR();
-              warm.continuous = false;
-              warm.interimResults = false;
-              warm.onresult = () => {};
-              warm.onend = () => {};
-              warm.start();
-              window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
-            }
-          } catch (_) {}
-        }
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+
+    // For video mode, open the webcam as soon as the question has been read
+    if (!isAudioOnly) {
+      try {
+        await openVideoStream();
+      } catch (camErr) {
+        console.warn('Failed to open webcam after question reading:', camErr);
       }
+    }
+    // 5-second preparation countdown before answer recording starts
+    for (let seconds = 5; seconds > 0; seconds -= 1) {
+      if (preparationCancelledRef.current || isEnding) return;
+      setPrepCountdown(seconds);
+      // Pre-warm STT engine on the last tick so it's hot when recording starts
+      if (seconds === 1) {
+        try {
+          const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (SR && !recognitionRef.current) {
+            const warm = new SR();
+            warm.continuous = false;
+            warm.interimResults = false;
+            warm.onresult = () => {};
+            warm.onend = () => {};
+            warm.start();
+            window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+          }
+        } catch (_) {}
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
     }
     if (preparationCancelledRef.current || isEnding) return;
     setPrepCountdown(null);
@@ -1650,29 +1806,35 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
         await speakAiText(nextQ.question_text);
       }
       if (preparationCancelledRef.current || isEnding) return;
-      // Intro should start recording immediately after narration; other types
-      // retain the existing 5-second preparation countdown.
-      if (assessmentType !== 'INTRO') {
-          for (let seconds = 5; seconds > 0; seconds -= 1) {
-          if (preparationCancelledRef.current || isEnding) return;
-          setPrepCountdown(seconds);
-          // Pre-warm STT engine on the last tick so it's hot when recording starts
-          if (seconds === 1) {
-            try {
-              const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-              if (SR && !recognitionRef.current) {
-                const warm = new SR();
-                warm.continuous = false;
-                warm.interimResults = false;
-                warm.onresult = () => {};
-                warm.onend = () => {};
-                warm.start();
-                window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
-              }
-            } catch (_) {}
-          }
-          await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+
+      // After the next question has been read, ensure the webcam is open for video assessments
+      if (!isAudioOnly) {
+        try {
+          await openVideoStream();
+        } catch (camErr) {
+          console.warn('Failed to open webcam after next question reading:', camErr);
         }
+      }
+      // 5-second preparation countdown before next question answer recording starts
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        if (preparationCancelledRef.current || isEnding) return;
+        setPrepCountdown(seconds);
+        // Pre-warm STT engine on the last tick so it's hot when recording starts
+        if (seconds === 1) {
+          try {
+            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SR && !recognitionRef.current) {
+              const warm = new SR();
+              warm.continuous = false;
+              warm.interimResults = false;
+              warm.onresult = () => {};
+              warm.onend = () => {};
+              warm.start();
+              window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+            }
+          } catch (_) {}
+        }
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
       }
       if (preparationCancelledRef.current || isEnding) return;
       setPrepCountdown(null);
@@ -1931,6 +2093,14 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
       // 5. Record final assessment telemetry completion
       recordCompletion(SessionLifecycleStatus.COMPLETED);
 
+      // Stop media recording tracks immediately so browser releases camera/mic
+      try {
+        cleanupAudioRecorder();
+      } catch (_) {}
+      try {
+        cleanupVideoRecorder();
+      } catch (_) {}
+
       // 6. Clean up browser storage flags & queue
       clearQueue();
       if (typeof window !== 'undefined') {
@@ -1945,12 +2115,19 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
           sessionStorage.removeItem('aiprep_active_questions');
           sessionStorage.removeItem('aiprep_active_type');
           sessionStorage.removeItem('aiprep_active_mode');
+          sessionStorage.removeItem('aiprep_video_enabled');
+          sessionStorage.removeItem('aiprep_consent_analytics');
+          sessionStorage.removeItem('aiprep_consent_recording');
+          sessionStorage.removeItem('aiprep_consent_transcript');
           sessionStorage.removeItem('aiprep_wizard_step');
           sessionStorage.removeItem('aiprep_hardware_check');
+          sessionStorage.removeItem('aiprep_pending_setup_results');
+          sessionStorage.removeItem('aiprep_pending_assessment_creation');
           sessionStorage.removeItem('aiprep_jd_text');
           sessionStorage.removeItem('aiprep_jd_filename');
           sessionStorage.removeItem('aiprep_jd_role');
           sessionStorage.removeItem('aiprep_jd_company');
+          localStorage.removeItem('aiprep_hardware_check');
           localStorage.removeItem(`aiprep_live_transcript_${assessmentId}`);
         } catch (_) {}
       }
@@ -2018,6 +2195,17 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  useEffect(() => {
+    if (finishedAssessmentId) {
+      try {
+        cleanupAudioRecorder();
+      } catch (_) {}
+      try {
+        cleanupVideoRecorder();
+      } catch (_) {}
+    }
+  }, [finishedAssessmentId, cleanupAudioRecorder, cleanupVideoRecorder]);
 
   if (finishedAssessmentId) {
     return <AiPrepReport assessmentId={String(finishedAssessmentId)} />;
@@ -2269,14 +2457,16 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
                 <p className={`mt-3 w-full max-w-sm sm:max-w-md px-4 text-xs sm:text-sm leading-normal text-center font-bold tracking-wide animate-pulse ${
                   isAudioOnly ? 'text-slate-700 dark:text-slate-200' : 'text-white'
                 }`}>
-                  Get ready! Recording starts automatically… After the countdown, the AI will read the question aloud.
+                  {isAudioOnly
+                    ? 'Get ready! Recording starts automatically… After the countdown, the AI will read the question aloud.'
+                    : 'Get ready! After the countdown, the AI will read the question aloud, then your webcam will open automatically to start recording.'}
                 </p>
               </div>
             )}
 
             {/* Video Stream Element — hidden in audio-only mode */}
             <video
-              ref={videoRef}
+              ref={bindVideoRef}
               autoPlay
               playsInline
               muted
@@ -2313,11 +2503,11 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
                 : 'bg-slate-900/85 border border-slate-700/80 text-white backdrop-blur-md shadow-lg'
             }`}>
               <span
-                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-slate-400'
+                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : stream ? 'bg-emerald-400' : 'bg-slate-400'
                   }`}
               />
               <span className={`${isAudioOnly ? 'text-red-600' : 'text-red-400'} uppercase font-extrabold text-[11px]`}>REC</span>
-              <span className={`${isAudioOnly ? 'text-slate-600' : 'text-slate-300'} text-xs`}>{isRecording ? 'Live •' : 'Standby •'}</span>
+              <span className={`${isAudioOnly ? 'text-slate-600' : 'text-slate-300'} text-xs`}>{isRecording ? 'Live •' : stream ? 'Preview •' : 'Standby •'}</span>
               <span className={`font-mono text-xs font-bold ${isAudioOnly ? 'text-slate-900' : 'text-white'}`}>{formatTime(elapsedTime)}</span>
             </div>
 
@@ -2326,8 +2516,8 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
               <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1">
                 <EmbeddedAudioWaveform stream={stream} isMuted={isInactive} />
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-200 drop-shadow">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                  <span>{isRecording ? 'Mic & Camera Active' : 'Ready to Start'}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-emerald-400 animate-pulse' : stream ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  <span>{isRecording ? 'Mic & Camera Active' : stream ? 'Camera Active' : 'Ready to Start'}</span>
                 </div>
               </div>
             )}
@@ -2587,24 +2777,24 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pt-1">
-                      <div className="flex min-w-0 flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => router.back()}
-                          className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                          title="Go back"
-                        >
-                          <IconChevronLeft size={16} />
-                          <span>Back</span>
-                        </button>
-                        <p className="text-xs leading-snug text-slate-500 dark:text-slate-400">When ready, start your {assessmentNoun} assessment.</p>
-                      </div>
+                    <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleBackFromInstructions}
+                        className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                        title="Go back"
+                      >
+                        <IconChevronLeft size={16} />
+                        <span>Back</span>
+                      </button>
+                      <p className="justify-self-center text-center text-xs leading-snug text-slate-500 dark:text-slate-400">
+                        When ready, start your {assessmentNoun} assessment.
+                      </p>
                       <button
                         type="button"
                         onClick={handleStartAnswer}
                         disabled={hasStartedQuestion || prepCountdown !== null}
-                        className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
+                        className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-md shadow-emerald-600/25 transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70 cursor-pointer"
                         title={`Start the ${assessmentNoun} assessment`}
                       >
                         {hasStartedQuestion ? <IconLoader2 size={16} className="animate-spin" /> : <IconPlayerPlay size={16} fill="currentColor" />}
