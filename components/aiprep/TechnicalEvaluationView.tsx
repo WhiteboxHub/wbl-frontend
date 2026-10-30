@@ -335,11 +335,18 @@ export default function TechnicalEvaluationView({
 
   const rawMediaType = (report.assessment?.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
-  const mediaPath = isAudioOnly ? "audio" : "video";
+  // Unified media endpoint: brings audio for audio assessments and video for video assessments
+  const mediaPath = "media";
 
   const canShowRecording = Boolean(
     report.consent?.save_recording ??
     (report.assessment as any)?.consent?.save_recording ??
+    true
+  );
+
+  const canShowTranscript = Boolean(
+    report.consent?.save_transcript ??
+    (report.assessment as any)?.consent?.save_transcript ??
     true
   );
 
@@ -379,7 +386,7 @@ export default function TechnicalEvaluationView({
     ? apiBase.replace(/\/api\/?$/, "")
     : "http://127.0.0.1:8000";
 
-  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${resolvedAssessmentId}/${mediaPath}`;
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/candidate/assessments/${resolvedAssessmentId}/${mediaPath}`;
   const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   const serverUrl = resolvedAssessmentId
     ? `${isAbsoluteServerPath ? "" : backendOrigin}${isAbsoluteServerPath || serverPath.startsWith("/") ? "" : "/"}${serverPath}${authToken ? `${serverPath.includes("?") ? "&" : "?"}token=${encodeURIComponent(authToken)}` : ""}`
@@ -532,7 +539,7 @@ export default function TechnicalEvaluationView({
         : "Technical Performance Evaluation";
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 evaluation-report-container">
         {/* ── Executive strip ─────────────────────────────────────────────── */}
         <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
@@ -567,7 +574,7 @@ export default function TechnicalEvaluationView({
             </div>
           </div>
 
-          <p className="mt-2.5 text-xs text-slate-700 leading-relaxed">
+          <p className="mt-2.5 text-xs text-slate-700 leading-relaxed text-justify-pretty">
             {overall.executive_summary}
           </p>
         </div>
@@ -640,7 +647,7 @@ export default function TechnicalEvaluationView({
                       </div>
                     )}
 
-                    <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+                    <p className="text-[11px] text-slate-600 leading-relaxed mb-2 text-justify-pretty">
                       {subj.summary}
                     </p>
                   </div>
@@ -779,7 +786,7 @@ export default function TechnicalEvaluationView({
               <span className="text-[10px] font-extrabold uppercase text-emerald-700 tracking-wider">
                 Easy Tier
               </span>
-              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
+              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed text-justify-pretty">
                 {techEval.difficulty_analysis.easy}
               </p>
             </div>
@@ -787,7 +794,7 @@ export default function TechnicalEvaluationView({
               <span className="text-[10px] font-extrabold uppercase text-blue-700 tracking-wider">
                 Medium Tier
               </span>
-              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
+              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed text-justify-pretty">
                 {techEval.difficulty_analysis.medium}
               </p>
             </div>
@@ -795,7 +802,7 @@ export default function TechnicalEvaluationView({
               <span className="text-[10px] font-extrabold uppercase text-amber-700 tracking-wider">
                 Hard Tier
               </span>
-              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed">
+              <p className="mt-0.5 text-[11px] text-slate-600 leading-relaxed text-justify-pretty">
                 {techEval.difficulty_analysis.hard}
               </p>
             </div>
@@ -1075,7 +1082,7 @@ export default function TechnicalEvaluationView({
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 evaluation-report-container">
         {/* a) Summary Card */}
         <div className="rounded-xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
@@ -1126,7 +1133,7 @@ export default function TechnicalEvaluationView({
                   <p className="font-semibold text-slate-900">
                     Telemetry Notice: Insufficient Data to Evaluate
                   </p>
-                  <p className="mt-0.5 text-slate-600 leading-relaxed">
+                  <p className="mt-0.5 text-slate-600 leading-relaxed text-justify-pretty">
                     {delivery.confidence.rationale ||
                       "Audio signal or spoken duration was insufficient to compute reliable delivery telemetry."}
                   </p>
@@ -1140,7 +1147,7 @@ export default function TechnicalEvaluationView({
                     Confidence Level: {delivery.confidence.level.replace(/_/g, " ")}
                   </p>
                   {delivery.confidence.rationale && (
-                    <p className="mt-0.5 text-amber-800 leading-relaxed">
+                    <p className="mt-0.5 text-amber-800 leading-relaxed text-justify-pretty">
                       {delivery.confidence.rationale}
                     </p>
                   )}
@@ -1150,7 +1157,7 @@ export default function TechnicalEvaluationView({
 
           {/* summaryText */}
           {delivery.summaryText && (
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed text-justify-pretty">
               {delivery.summaryText}
             </p>
           )}
@@ -1164,7 +1171,7 @@ export default function TechnicalEvaluationView({
                     <CheckCircle2 size={13} className="text-teal-600" />
                     <span>Primary Strength</span>
                   </div>
-                  <p className="text-slate-700 leading-relaxed">{delivery.strength}</p>
+                  <p className="text-slate-700 leading-relaxed text-justify-pretty">{delivery.strength}</p>
                 </div>
               )}
               {delivery.gap && (
@@ -1173,7 +1180,7 @@ export default function TechnicalEvaluationView({
                     <AlertCircle size={13} className="text-amber-600" />
                     <span>Primary Focus Area</span>
                   </div>
-                  <p className="text-slate-700 leading-relaxed">{delivery.gap}</p>
+                  <p className="text-slate-700 leading-relaxed text-justify-pretty">{delivery.gap}</p>
                 </div>
               )}
             </div>
@@ -1316,7 +1323,7 @@ export default function TechnicalEvaluationView({
   const activeConceptMeta = getRatingMeta(activeConcept.rating);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 evaluation-report-container">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
         {/* ── LEFT: Discipline Navigator ─────────────────────────────────── */}
         <div className="md:col-span-4 rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-3">
@@ -1411,7 +1418,7 @@ export default function TechnicalEvaluationView({
                     {subMeta.label}
                   </span>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                <p className="mt-1.5 text-xs text-slate-600 leading-relaxed text-justify-pretty">
                   {activeSubject.summary}
                 </p>
               </div>
@@ -1662,7 +1669,7 @@ export default function TechnicalEvaluationView({
                               <span className="text-[10px] font-extrabold uppercase text-blue-800 tracking-wider">
                                 Feedback on your answer
                               </span>
-                              <p className="text-xs text-slate-700 leading-relaxed">
+                              <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                                 {q.observation}
                               </p>
                             </div>
@@ -1776,7 +1783,7 @@ export default function TechnicalEvaluationView({
                                       <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
                                         {t.term}
                                       </span>
-                                      {t.quote && (
+                                      {canShowTranscript && t.quote && (
                                         <p className="text-[11px] italic text-slate-500">
                                           &ldquo;{t.quote}&rdquo;
                                         </p>
@@ -1791,13 +1798,13 @@ export default function TechnicalEvaluationView({
                             )}
 
                             {/* Full Spoken Transcript */}
-                            {(q.transcript || (q.evidence && q.evidence.length > 0)) && (
+                            {canShowTranscript && (q.transcript || (q.evidence && q.evidence.length > 0)) && (
                               <div className="space-y-1.5 pt-2.5 border-t border-slate-200/60">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                   <Quote size={12} /> Full Spoken Transcript
                                 </span>
                                 <div className="p-3 rounded-lg bg-white border border-slate-200/80 shadow-2xs">
-                                  <p className="whitespace-pre-wrap text-xs text-slate-700 leading-relaxed font-sans">
+                                  <p className="whitespace-pre-wrap text-xs text-slate-700 leading-relaxed font-sans text-justify-pretty">
                                     {q.transcript || q.evidence.join(" ")}
                                   </p>
                                 </div>
@@ -1831,7 +1838,7 @@ export default function TechnicalEvaluationView({
                                     <GraduationCap size={14} className="text-blue-600" />
                                     {isHiringManager || isRecruiter ? "How to Structure Your Answer" : "Recommended Answer Framing"}
                                   </span>
-                                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
+                                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line text-justify-pretty">
                                     {q.study_guidance.how_to_answer}
                                   </p>
                                 </div>

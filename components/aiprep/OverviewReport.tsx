@@ -59,6 +59,90 @@ import TechnicalEvaluationView from "./TechnicalEvaluationView";
 
 export type { ReportTab };
 
+function isRealYoutubeUrl(url?: string | null): url is string {
+  return Boolean(
+    url &&
+      !url.includes("aiprep_rec_") &&
+      !url.includes("UF8uR6Z6KLc") &&
+      extractYoutubeId(url)
+  );
+}
+
+let ytApiPromise: Promise<any> | null = null;
+function loadYtApi(): Promise<any> {
+  if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
+  const win = window as any;
+  if (win.YT?.Player) return Promise.resolve(win.YT);
+  if (!ytApiPromise) {
+    ytApiPromise = new Promise((resolve, reject) => {
+      const prev = win.onYouTubeIframeAPIReady;
+      win.onYouTubeIframeAPIReady = () => {
+        prev?.();
+        resolve(win.YT);
+      };
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.onerror = () => {
+        ytApiPromise = null;
+        reject(new Error("YouTube API failed to load"));
+      };
+      document.head.appendChild(s);
+    });
+  }
+  return ytApiPromise;
+}
+
+type YouTubeVerdict = "full" | "incomplete" | "unavailable";
+
+async function probeYoutube(videoId: string, expectedSec: number): Promise<YouTubeVerdict> {
+  try {
+    const YT = await loadYtApi();
+    return new Promise<YouTubeVerdict>((resolve) => {
+      const host = document.createElement("div");
+      host.style.cssText = "position:fixed;left:-9999px;width:1px;height:1px;";
+      document.body.appendChild(host);
+      let player: any;
+      let settled = false;
+
+      const finish = (v: YouTubeVerdict) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        try {
+          player?.destroy();
+        } catch {}
+        host.remove();
+        resolve(v);
+      };
+
+      const timeout = setTimeout(() => finish("unavailable"), 15000);
+
+      player = new YT.Player(host, {
+        videoId,
+        width: 1,
+        height: 1,
+        playerVars: { controls: 0, rel: 0 },
+        events: {
+          onError: () => finish("unavailable"),
+          onReady: async (e: any) => {
+            for (let i = 0; i < 6; i++) {
+              const d = Number(e.target.getDuration?.() ?? 0);
+              if (d > 0) {
+                const ok = expectedSec > 0 ? d >= expectedSec * 0.95 : true;
+                return finish(ok ? "full" : "incomplete");
+              }
+              await new Promise((r) => setTimeout(r, 1000));
+            }
+            finish("incomplete");
+          },
+        },
+      });
+    });
+  } catch {
+    return "unavailable";
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  CONCEPT LABELS & MAPPING UTILITIES
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1357,12 +1441,12 @@ function JdRoleAlignmentAccordion({
             <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1.5">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
               {roleAlignment?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {roleAlignment.observation}
                 </p>
               )}
               {careerStory?.observation && careerStory.observation !== roleAlignment?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {careerStory.observation}
                 </p>
               )}
@@ -1528,12 +1612,12 @@ function JdCurrentProjectAccordion({
             <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
               {project?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {project.observation}
                 </p>
               )}
               {techAlign?.observation && techAlign.observation !== project?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {techAlign.observation}
                 </p>
               )}
@@ -1656,12 +1740,12 @@ function JdTailoringAccordion({
             <div className="rounded-lg border border-blue-100 bg-[#f4f8ff] p-2.5 sm:p-3 space-y-1">
               <h4 className="text-xs font-bold text-slate-900">Key Observations</h4>
               {tailoring?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {tailoring.observation}
                 </p>
               )}
               {valueProp?.observation && valueProp.observation !== tailoring?.observation && (
-                <p className="text-xs text-slate-700 leading-relaxed">
+                <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
                   {valueProp.observation}
                 </p>
               )}
@@ -1722,7 +1806,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Career Story Relevance
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.career_story_relevance}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.career_story_relevance}</p>
           </div>
         )}
         {finalAssessment.current_project_clarity && (
@@ -1730,7 +1814,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Current Project Clarity
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.current_project_clarity}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.current_project_clarity}</p>
           </div>
         )}
         {finalAssessment.technical_alignment_depth && (
@@ -1738,7 +1822,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Technical Depth
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.technical_alignment_depth}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.technical_alignment_depth}</p>
           </div>
         )}
         {finalAssessment.seniority_match && (
@@ -1746,7 +1830,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
               Seniority Calibration
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.seniority_match}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.seniority_match}</p>
           </div>
         )}
         {finalAssessment.most_important_improvement && (
@@ -1754,7 +1838,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
               Top Actionable Improvement
             </span>
-            <p className="text-amber-950 font-medium leading-snug">{finalAssessment.most_important_improvement}</p>
+            <p className="text-amber-950 font-medium leading-snug text-justify-pretty">{finalAssessment.most_important_improvement}</p>
           </div>
         )}
       </div>
@@ -1792,7 +1876,8 @@ export function EvaluationContent({
   const rawMediaType = ((report as any).media_type || report.assessment?.media_type || "").toUpperCase();
   const isAudioOnly = rawMediaType === "AUDIO" || rawMediaType === "AUDIO_ONLY";
 
-  const mediaPath = isAudioOnly ? "audio" : "video";
+  // Unified media endpoint: brings audio for audio assessments and video for video assessments
+  const mediaPath = "media";
   const canShowRecording = Boolean(
     consent?.save_recording ??
     (report.assessment as any)?.consent?.save_recording ??
@@ -1840,7 +1925,7 @@ export function EvaluationContent({
     (report.assessment as any)?.recording_url
   );
 
-  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/assessments/${assessmentId}/${mediaPath}`;
+  const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url || `/api/aiprep/candidate/assessments/${assessmentId}/${mediaPath}`;
   const isAbsoluteServerPath = serverPath.startsWith("http://") || serverPath.startsWith("https://");
   // Persistent server recording stream URL directly from server storage
   const serverUrl = (assessmentId && serverPath)
@@ -2064,7 +2149,7 @@ export function EvaluationContent({
           {/* Summary */}
           <div className="lg:col-span-1 space-y-1 border-b lg:border-b-0 lg:border-r border-slate-100 pb-3 lg:pb-0 lg:pr-4">
             <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Summary</h3>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
               {summaryText}
             </p>
           </div>
@@ -2075,7 +2160,7 @@ export function EvaluationContent({
               <Star size={14} className="fill-emerald-500/20" />
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Strongest Signal</h3>
             </div>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
               {strongestSignalText}
             </p>
           </div>
@@ -2086,7 +2171,7 @@ export function EvaluationContent({
               <AlertTriangle size={14} className="fill-amber-500/20" />
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Biggest Gap</h3>
             </div>
-            <p className="text-xs text-slate-700 leading-relaxed">
+            <p className="text-xs text-slate-700 leading-relaxed text-justify-pretty">
               {biggestGapText}
             </p>
           </div>
@@ -2622,7 +2707,7 @@ function DetailSectionCard({
       {isExpanded && (
         <div className="p-3 sm:p-3.5 border-t border-slate-100 space-y-2 sm:space-y-2.5">
           {subtitle && (
-            <p className="text-xs text-slate-600 leading-snug">
+            <p className="text-xs text-slate-600 leading-snug text-justify-pretty">
               {subtitle}
             </p>
           )}
@@ -2720,7 +2805,7 @@ function DetailSectionCard({
                         <div>
                           <span className="font-bold text-slate-900 text-xs">{rec.topic}</span>
                           {rec.guidance && (
-                            <p className="text-slate-700 text-xs mt-0.5 leading-snug">
+                            <p className="text-slate-700 text-xs mt-0.5 leading-snug text-justify-pretty">
                               {rec.guidance}
                             </p>
                           )}
@@ -3069,19 +3154,19 @@ export function DetailsContent({
                     )}
                   </div>
                   {gap.what_is_missing && (
-                    <p className="text-slate-700 text-xs leading-snug">
+                    <p className="text-slate-700 text-xs leading-snug text-justify-pretty">
                       <span className="font-semibold text-slate-800">What's missing: </span>
                       {gap.what_is_missing}
                     </p>
                   )}
                   {gap.why_it_matters && (
-                    <p className="text-slate-600 text-xs leading-snug">
+                    <p className="text-slate-600 text-xs leading-snug text-justify-pretty">
                       <span className="font-semibold text-slate-700">Why it matters: </span>
                       {gap.why_it_matters}
                     </p>
                   )}
                   {gap.suggested_addition && (
-                    <p className="text-emerald-900 text-xs leading-snug bg-emerald-50/70 p-1.5 rounded border border-emerald-200/70 italic">
+                    <p className="text-emerald-900 text-xs leading-snug bg-emerald-50/70 p-1.5 rounded border border-emerald-200/70 italic text-justify-pretty">
                       <span className="font-semibold not-italic text-emerald-800">Suggested addition: </span>
                       "{gap.suggested_addition}"
                     </p>
@@ -3114,12 +3199,12 @@ export function DetailsContent({
                   </h4>
                 </div>
                 {imp.guidance && (
-                  <p className="text-xs text-slate-600 leading-snug">
+                  <p className="text-xs text-slate-600 leading-snug text-justify-pretty">
                     {imp.guidance}
                   </p>
                 )}
                 {imp.example && (
-                  <p className="text-[11px] text-indigo-900 leading-snug italic bg-indigo-50/60 p-1.5 rounded border border-indigo-100/70">
+                  <p className="text-[11px] text-indigo-900 leading-snug italic bg-indigo-50/60 p-1.5 rounded border border-indigo-100/70 text-justify-pretty">
                     "{imp.example}"
                   </p>
                 )}
@@ -3227,7 +3312,7 @@ function TranscriptModal({
           </div>
 
           <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 sm:p-5">
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text">
+            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap select-text text-justify-pretty">
               {fullParagraphText || "No transcript recorded for this assessment."}
             </p>
           </div>
@@ -3634,11 +3719,19 @@ export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
       sessionStorage.setItem("aiprep_wizard_step", "CONFIGURATION");
       sessionStorage.removeItem("aiprep_active_id");
       sessionStorage.removeItem("aiprep_active_questions");
+      sessionStorage.removeItem("aiprep_active_mode");
+      sessionStorage.removeItem("aiprep_video_enabled");
+      sessionStorage.removeItem("aiprep_consent_analytics");
+      sessionStorage.removeItem("aiprep_consent_recording");
+      sessionStorage.removeItem("aiprep_consent_transcript");
       sessionStorage.removeItem("aiprep_hardware_check");
+      sessionStorage.removeItem("aiprep_pending_setup_results");
+      sessionStorage.removeItem("aiprep_pending_assessment_creation");
       sessionStorage.removeItem("aiprep_jd_text");
       sessionStorage.removeItem("aiprep_jd_filename");
       sessionStorage.removeItem("aiprep_jd_role");
       sessionStorage.removeItem("aiprep_jd_company");
+      localStorage.removeItem("aiprep_hardware_check");
     } catch { }
 
     const searchParams = new URLSearchParams(window.location.search);
@@ -4076,10 +4169,15 @@ export default function AiPrepReport({
     };
   }, [isProcessing, assessmentId, loadReport]);
 
-  // ── Auto-Swap to YouTube when background upload completes ─────────────────
+  // ── Session Type Isolation: Intro & JD Intro vs Multi-Question ──
+  const assessmentType = String(report?.assessment?.assessment_type || "").toUpperCase();
+  const isIntroSession = ["INTRO", "JD_INTRO"].includes(assessmentType);
+  const isMultiQuestionType = ["TECHNICAL", "HIRING_MANAGER", "RECRUITER", "SYSTEM_DESIGN"].includes(assessmentType);
+
+  // 1. Existing Legacy Auto-Swap for Intro & JD Intro (kept 100% as-is)
   useEffect(() => {
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+    if (!report || !isIntroSession || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
 
     let isMounted = true;
     let consecutiveErrors = 0;
@@ -4109,7 +4207,92 @@ export default function AiPrepReport({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [report?.youtube_url, isProcessing, assessmentId]);
+  }, [report?.youtube_url, isProcessing, assessmentId, isIntroSession]);
+
+  // 2. Multi-Question Managed Auto-Swap with Active Viewing Protection & YouTube Probe
+  const pendingYoutubeUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
+    if (!report || !isMultiQuestionType || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      // If we already verified YouTube but held it because candidate was watching, check if they paused:
+      if (pendingYoutubeUrlRef.current) {
+        const isWatching = Boolean(
+          videoRef.current &&
+          !videoRef.current.paused &&
+          !videoRef.current.ended &&
+          videoRef.current.currentTime > 0
+        );
+        if (!isWatching) {
+          const readyUrl = pendingYoutubeUrlRef.current;
+          pendingYoutubeUrlRef.current = null;
+          clearInterval(interval);
+          if (isMounted) {
+            setReport((prev) => (prev ? { ...prev, youtube_url: readyUrl } : prev));
+          }
+        }
+        return;
+      }
+
+      try {
+        const fresh = await aiPrepApi.getAssessment(assessmentId);
+        const yt = fresh?.youtube_url?.trim();
+        if (isMounted && isRealYoutubeUrl(yt)) {
+          const expectedSec = extractAssessmentDurationSeconds(report);
+          const verdict = await probeYoutube(extractYoutubeId(yt)!, expectedSec);
+          if (!isMounted) return;
+
+          if (verdict === "full") {
+            const isWatching = Boolean(
+              videoRef.current &&
+              !videoRef.current.paused &&
+              !videoRef.current.ended &&
+              videoRef.current.currentTime > 0
+            );
+
+            if (isWatching) {
+              // Non-interruption guard: Defer swap until candidate pauses or reaches end
+              pendingYoutubeUrlRef.current = yt;
+            } else {
+              clearInterval(interval);
+              setReport((prev) => (prev ? { ...prev, youtube_url: yt } : prev));
+            }
+          }
+        }
+      } catch {
+        /* Transient polling error: will retry next interval */
+      }
+    }, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [report?.youtube_url, isProcessing, assessmentId, isMultiQuestionType, report]);
+
+  // Immediately apply pending YouTube URL when candidate pauses or media finishes
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    const handlePauseOrEnded = () => {
+      if (pendingYoutubeUrlRef.current) {
+        const readyUrl = pendingYoutubeUrlRef.current;
+        pendingYoutubeUrlRef.current = null;
+        setReport((prev) => (prev ? { ...prev, youtube_url: readyUrl } : prev));
+      }
+    };
+
+    vid.addEventListener("pause", handlePauseOrEnded);
+    vid.addEventListener("ended", handlePauseOrEnded);
+    return () => {
+      vid.removeEventListener("pause", handlePauseOrEnded);
+      vid.removeEventListener("ended", handlePauseOrEnded);
+    };
+  }, [videoRef, report]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
@@ -4245,7 +4428,7 @@ export default function AiPrepReport({
           onOpenJd={() => setIsJdModalOpen(true)}
         />
 
-        <main>
+        <main className="evaluation-report-container">
           {/* Keep both tabs mounted in the DOM to preserve audio/video playback and prevent unmount errors */}
           <div className={isOverviewTab ? "block" : "hidden"}>
             <EvaluationContent

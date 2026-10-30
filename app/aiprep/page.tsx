@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/utils/AuthContext';
 import { aiPrepApi } from '@/lib/aiprep-api';
@@ -22,6 +22,8 @@ export default function AIPrepPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Prevent duplicate assessment creation before React can render the saving state.
+  const setupSubmissionInFlightRef = useRef(false);
 
   const isUserAuthenticated = isAuthenticated;
 
@@ -65,9 +67,39 @@ export default function AIPrepPage() {
 
   const storedType = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_type') as AssessmentType | null) : null;
   const storedMode = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_mode') as AssessmentMode | null) : null;
+  const storedVideo = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_video_enabled') : null;
 
-  const effectiveType = queryType || storedType || SUPPORTED_ASSESSMENT_TYPES[0];
-  const effectiveMode = queryMode || storedMode || '';
+  let fallbackMode = storedMode;
+  if (!fallbackMode && typeof window !== 'undefined') {
+    if (storedVideo === 'true') {
+      fallbackMode = 'VIDEO_AUDIO';
+    } else if (storedVideo === 'false') {
+      fallbackMode = 'AUDIO_ONLY';
+    } else {
+      const pendingRaw = sessionStorage.getItem('aiprep_pending_setup_results') || sessionStorage.getItem('aiprep_hardware_check');
+      if (pendingRaw) {
+        try {
+          const parsed = JSON.parse(pendingRaw);
+          if (parsed.video_enabled === true) fallbackMode = 'VIDEO_AUDIO';
+          else if (parsed.video_enabled === false) fallbackMode = 'AUDIO_ONLY';
+        } catch (_) {}
+      }
+    }
+  }
+
+  let fallbackType = storedType;
+  if (!fallbackType && typeof window !== 'undefined') {
+    const pendingRaw = sessionStorage.getItem('aiprep_pending_setup_results') || sessionStorage.getItem('aiprep_hardware_check');
+    if (pendingRaw) {
+      try {
+        const parsed = JSON.parse(pendingRaw);
+        if (parsed.assessment_type) fallbackType = parsed.assessment_type;
+      } catch (_) {}
+    }
+  }
+
+  const effectiveType = queryType || fallbackType || SUPPORTED_ASSESSMENT_TYPES[0];
+  const effectiveMode = queryMode || fallbackMode || '';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
@@ -93,7 +125,7 @@ export default function AIPrepPage() {
     const handleBrowserBack = () => {
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_active_questions');
-      sessionStorage.removeItem('aiprep_hardware_check');
+      sessionStorage.setItem('aiprep_wizard_step', 'PRACTICE_START');
       router.replace(practiceUrl);
     };
 
@@ -105,6 +137,8 @@ export default function AIPrepPage() {
   // TECHNICAL, RECRUITER, HIRING_MANAGER and SYSTEM_DESIGN are created only
   // after the candidate clicks Start Assessment on the Before You Begin screen.
   const handleCheckComplete = async (results: HardwareCheckResults) => {
+    if (setupSubmissionInFlightRef.current) return;
+    setupSubmissionInFlightRef.current = true;
     try {
       setIsSaving(true);
       setErrorMsg(null);
@@ -129,11 +163,16 @@ export default function AIPrepPage() {
         sessionStorage.setItem('aiprep_pending_setup_results', JSON.stringify(results));
         sessionStorage.setItem('aiprep_active_type', targetType);
         sessionStorage.setItem('aiprep_active_mode', targetMode);
+        sessionStorage.setItem('aiprep_user_selected_mode', targetMode);
+        sessionStorage.setItem('aiprep_video_enabled', results.video_enabled ? 'true' : 'false');
+        sessionStorage.setItem('aiprep_consent_camera', results.video_enabled ? 'true' : 'false');
+        sessionStorage.setItem('aiprep_consent_analytics', results.analytics_consent ? 'true' : 'false');
         sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
         sessionStorage.removeItem('aiprep_active_id');
         sessionStorage.removeItem('aiprep_active_questions');
-        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.setItem('aiprep_wizard_step', 'DEVICE_CHECK');
         setActiveAssessmentId(0);
+        setupSubmissionInFlightRef.current = false;
         setIsSaving(false);
         return;
       }
@@ -153,7 +192,7 @@ export default function AIPrepPage() {
           }
         }
       } catch (err) {
-        console.error('Failed to retrieve candidate profile details:', err);
+        // Candidate ID lookup is optional; continue with the authenticated session fallback.
       }
 
       const assessment = await aiPrepApi.createAssessment({
@@ -161,10 +200,19 @@ export default function AIPrepPage() {
         assessment_mode: targetMode,
         candidate_id: candidateId,
         job_description_text: results.jd_text || null,
+        consent_save_recording: results.consent_save_recording,
+        consent_save_transcript: results.consent_save_transcript,
       });
 
       if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
       const targetId = Number(assessment.id);
+      // Clear stale terminal markers when local/dev data reuses an assessment ID.
+      localStorage.removeItem(`aiprep_reload_cancelled_${targetId}`);
+      localStorage.removeItem(`aiprep_exited_${targetId}`);
+      localStorage.removeItem(`aiprep_finished_${targetId}`);
+      sessionStorage.removeItem(`aiprep_exited_${targetId}`);
+      sessionStorage.removeItem(`aiprep_started_${targetId}`);
+      sessionStorage.removeItem(`aiprep_autostart_assessment_${targetId}`);
       const returnedQuestions = Array.isArray(assessment.questions) ? assessment.questions : [];
       if (returnedQuestions.length === 0) {
         throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
@@ -178,12 +226,13 @@ export default function AIPrepPage() {
       sessionStorage.removeItem('aiprep_pending_setup_results');
       sessionStorage.removeItem('aiprep_wizard_step');
       setActiveAssessmentId(targetId);
+      setupSubmissionInFlightRef.current = false;
       setIsSaving(false);
     } catch (err: any) {
-      console.error('[Session Setup Error] Creation pipeline failed:', err);
+      // Surface setup failures in the UI instead of producing an unhandled rejection.
       setErrorMsg(err?.message || 'Setup pipeline failed. Please try again.');
       setIsSaving(false);
-      throw err;
+      setupSubmissionInFlightRef.current = false;
     }
   };
 
@@ -225,6 +274,8 @@ export default function AIPrepPage() {
       assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
       candidate_id: candidateId,
       job_description_text: results.jd_text || null,
+      consent_save_recording: results.consent_save_recording,
+      consent_save_transcript: results.consent_save_transcript,
     });
 
     if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
@@ -234,7 +285,13 @@ export default function AIPrepPage() {
       throw new Error('The assessment was created, but the server did not return any questions. Please try again.');
     }
 
-    sessionStorage.setItem('aiprep_active_id', String(targetId));
+    // Remove stale end/cancel state before navigating into a newly created attempt.
+      localStorage.removeItem(`aiprep_reload_cancelled_${targetId}`);
+      localStorage.removeItem(`aiprep_exited_${targetId}`);
+      localStorage.removeItem(`aiprep_finished_${targetId}`);
+      sessionStorage.removeItem(`aiprep_exited_${targetId}`);
+      sessionStorage.removeItem(`aiprep_started_${targetId}`);
+      sessionStorage.setItem('aiprep_active_id', String(targetId));
     sessionStorage.setItem('aiprep_active_type', targetType);
     sessionStorage.setItem('aiprep_active_mode', results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY');
     sessionStorage.setItem('aiprep_active_questions', JSON.stringify(returnedQuestions));
@@ -395,6 +452,55 @@ export default function AIPrepPage() {
       <AssessmentSessionPage
         assessmentIdProp={activeAssessmentId}
         onStartPendingAssessment={activeAssessmentId === 0 && shouldDeferCreation ? createPendingAssessment : undefined}
+        onBack={() => {
+          setActiveAssessmentId(null);
+          setStarted(true);
+          if (typeof window !== 'undefined') {
+            [
+              'aiprep_pending_assessment_creation',
+              'aiprep_active_id',
+              'aiprep_active_questions',
+            ].forEach((key) => window.sessionStorage.removeItem(key));
+
+            const rawPending = window.sessionStorage.getItem('aiprep_pending_setup_results') || window.sessionStorage.getItem('aiprep_hardware_check');
+            let isVideo = false;
+            let savedType: string | null = null;
+            if (rawPending) {
+              try {
+                const parsed = JSON.parse(rawPending);
+                if (parsed.video_enabled === true) isVideo = true;
+                if (parsed.assessment_type) savedType = parsed.assessment_type;
+              } catch (_) {}
+            }
+            if (
+              window.sessionStorage.getItem('aiprep_active_mode') === 'VIDEO_AUDIO' ||
+              window.sessionStorage.getItem('aiprep_active_mode') === 'VIDEO' ||
+              window.sessionStorage.getItem('aiprep_video_enabled') === 'true'
+            ) {
+              isVideo = true;
+            }
+            if (isVideo) {
+              window.sessionStorage.setItem('aiprep_video_enabled', 'true');
+              window.sessionStorage.setItem('aiprep_active_mode', 'VIDEO_AUDIO');
+              window.sessionStorage.setItem('aiprep_user_selected_mode', 'VIDEO_AUDIO');
+              window.sessionStorage.setItem('aiprep_consent_camera', 'true');
+            }
+            if (savedType) {
+              window.sessionStorage.setItem('aiprep_active_type', savedType);
+            }
+            window.sessionStorage.setItem('aiprep_wizard_step', 'DEVICE_CHECK');
+          }
+          const hasHistory = typeof window !== 'undefined' && (
+            (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) ||
+            (window.history.length > 1 && Boolean(document.referrer && document.referrer.includes(window.location.host)))
+          );
+          if (hasHistory) {
+            router.back();
+          } else {
+            const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+            router.replace(isEmbeddedCheck ? '/user_dashboard/ai-prep/device-check?embed=true' : '/user_dashboard/ai-prep/device-check');
+          }
+        }}
       />
     );
   }

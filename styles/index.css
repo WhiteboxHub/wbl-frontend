@@ -86,6 +86,19 @@
     text-security: disc;
   }
 
+  /* Typography-Optimized Justify (hyphens: auto + text-wrap: pretty) */
+  .text-justify-pretty,
+  .report-text-justified,
+  .evaluation-report-container p.leading-relaxed:not(.text-center):not(.text-right):not(.no-justify),
+  .evaluation-report-container p.leading-snug:not(.text-center):not(.text-right):not(.no-justify),
+  .evaluation-report-container .report-prose p:not(.text-center):not(.text-right):not(.no-justify) {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    text-wrap: pretty;
+  }
+
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
