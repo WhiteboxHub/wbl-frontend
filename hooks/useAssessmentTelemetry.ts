@@ -16,7 +16,7 @@ interface UseAssessmentTelemetryProps {
   candidateId?: number;
   totalQuestions?: number;
   isMonitoringActive?: boolean;
-  onViolation?: (type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT', violationCount: number) => void;
+  onViolation?: (type: 'TAB_SWITCH', violationCount: number) => void;
 }
 
 interface TelemetrySessionState {
@@ -79,12 +79,12 @@ export function useAssessmentTelemetry({
   useEffect(() => {
     if (!isMonitoringActive) return;
 
-    const registerFocusViolation = (type: 'TAB_SWITCH' | 'WINDOW_BLUR') => {
+    const registerFocusViolation = (type: 'TAB_SWITCH') => {
       const now = Date.now();
       const state = sessionStateRef.current;
       if (now - state.lastFocusViolationAt < 1200) return;
       state.lastFocusViolationAt = now;
-      if (type === 'TAB_SWITCH' || type === 'WINDOW_BLUR') state.blurStartTime = now;
+      state.blurStartTime = now;
       state.violationCount += 1;
       const count = state.violationCount;
       AIPrepTelemetry.trackProctoringViolation({
@@ -103,7 +103,8 @@ export function useAssessmentTelemetry({
         registerFocusViolation('TAB_SWITCH');
       } else {
         const blurStart = sessionStateRef.current.blurStartTime;
-        const awaySec = blurStart ? Math.round((Date.now() - blurStart) / 1000) : 1;
+        if (!blurStart) return;
+        const awaySec = Math.round((Date.now() - blurStart) / 1000);
         sessionStateRef.current.blurStartTime = null;
         AIPrepTelemetry.trackProctoringViolation({
           assessment_id: assessmentId,
@@ -115,9 +116,11 @@ export function useAssessmentTelemetry({
         });
       }
     };
+    /* Temporarily disabled: window blur, fullscreen and split-screen checks.
     const handleBlur = () => {
       if (!document.hidden) registerFocusViolation('WINDOW_BLUR');
     };
+    // The remaining proctoring implementations are retained below for later re-enablement.
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
         const now = Date.now();
@@ -172,7 +175,7 @@ export function useAssessmentTelemetry({
       if (!currentlySplit) {
         splitScreenActive = false;
         splitScreenReported = false;
-        if (splitScreenTimer) clearTimeout(splitScreenTimer);
+        // if (splitScreenTimer) clearTimeout(splitScreenTimer); // Split-screen monitoring disabled.
         splitScreenTimer = undefined;
         return;
       }
@@ -201,28 +204,29 @@ export function useAssessmentTelemetry({
     };
 
     const handleResize = () => {
-      if (resizeTimer) clearTimeout(resizeTimer);
+      // if (resizeTimer) clearTimeout(resizeTimer); // Split-screen monitoring disabled.
       resizeTimer = setTimeout(checkSplitScreen, 300);
     };
 
+    */
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleBlur);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    window.addEventListener('resize', handleResize);
+    // window.addEventListener('blur', handleBlur); // Temporarily disabled.
+    // document.addEventListener('fullscreenchange', handleFullscreenChange); // Temporarily disabled.
+    // window.addEventListener('resize', handleResize); // Temporarily disabled.
     // Check once after monitoring starts, in case the room is already snapped.
-    handleResize();
+    // handleResize(); // Split-screen detection temporarily disabled.
     return () => {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      if (splitScreenTimer) clearTimeout(splitScreenTimer);
+      // if (resizeTimer) clearTimeout(resizeTimer); // Split-screen monitoring disabled.
+      // if (splitScreenTimer) clearTimeout(splitScreenTimer); // Split-screen monitoring disabled.
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleBlur);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      window.removeEventListener('resize', handleResize);
+      // window.removeEventListener('blur', handleBlur);
+      // document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      // window.removeEventListener('resize', handleResize);
     };
   }, [assessmentId, effectiveUuid, candidateId, isMonitoringActive]);
 
   const recordProctoringViolation = useCallback(
-    (type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT') => {
+    (type: 'TAB_SWITCH') => {
       sessionStateRef.current.violationCount += 1;
       const count = sessionStateRef.current.violationCount;
 

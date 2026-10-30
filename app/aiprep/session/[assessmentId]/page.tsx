@@ -1520,28 +1520,28 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
   const alertTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [proctoringAlert, setProctoringAlert] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
 
-  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH' | 'SCREENSHOT' | 'WINDOW_BLUR' | 'FULLSCREEN_EXIT' | 'SPLIT_SCREEN' | 'SPLIT_SCREEN_TIMEOUT', count: number) => {
+  const handleProctoringViolation = useCallback((type: 'TAB_SWITCH', count: number) => {
     if (alertTimerRef.current) {
       clearTimeout(alertTimerRef.current);
       alertTimerRef.current = null;
     }
-    if (count >= 3 || type === 'SPLIT_SCREEN_TIMEOUT') {
+    if (count >= 3) {
       setProctoringAlert({
         show: true,
-        message: type === 'SPLIT_SCREEN_TIMEOUT' ? 'Security Notice: Split-screen remained active for 10 seconds. Your assessment is being automatically submitted for evaluation.' : 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
+        message: 'Security Notice: 3rd violation reached. Your assessment is being automatically submitted for evaluation.',
       });
       void handleEndSessionRef.current();
     } else {
       setProctoringAlert({
         show: true,
-        message: type === 'SPLIT_SCREEN'
-          ? `Security Warning (${count}/3): Split-screen detected. Restore the assessment window within 10 seconds or your assessment will be submitted for evaluation.`
-          : `Security Warning (${count}/3): ${type === 'TAB_SWITCH' ? 'Tab switch' : type === 'SCREENSHOT' ? 'Screenshot shortcut' : type === 'WINDOW_BLUR' ? 'Assessment window lost focus' : type === 'FULLSCREEN_EXIT' ? 'Fullscreen exited' : type === 'SPLIT_SCREEN_TIMEOUT' ? 'Split-screen persisted' : 'Possible split-screen'} detected. 3 violations will automatically submit your assessment.`,
+        message: `Security Warning (${count}/3): Tab switch detected. 3 violations will automatically submit your assessment.`,
+
+
       });
       alertTimerRef.current = setTimeout(() => {
         setProctoringAlert((prev) => ({ ...prev, show: false }));
         alertTimerRef.current = null;
-      }, type === 'SPLIT_SCREEN' ? 10_000 : 5000);
+      }, 5000);
     }
   }, []);
 
@@ -2220,6 +2220,7 @@ function AssessmentSessionPage({ assessmentIdProp, onStartPendingAssessment }: {
   return (
     <div className="w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       {/* Floating Proctoring Alert Toast */}
+      {/* Tab-switch violation alert remains enabled. */}
       {proctoringAlert.show && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-semibold shadow-lg shadow-rose-600/30 animate-in fade-in slide-in-from-top-2 duration-200">
           <IconAlertTriangle size={16} className="shrink-0" />
