@@ -1621,29 +1621,26 @@ function AssessmentSessionPage({
         console.warn('Failed to open webcam after question reading:', camErr);
       }
     }
-    // Intro assessments begin recording as soon as AI narration finishes.
-    // Keep the 5-second preparation countdown for all other assessment types.
-    if (assessmentType !== 'INTRO') {
-      for (let seconds = 5; seconds > 0; seconds -= 1) {
-        if (preparationCancelledRef.current || isEnding) return;
-        setPrepCountdown(seconds);
-        // Pre-warm STT engine on the last tick so it's hot when recording starts
-        if (seconds === 1) {
-          try {
-            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-            if (SR && !recognitionRef.current) {
-              const warm = new SR();
-              warm.continuous = false;
-              warm.interimResults = false;
-              warm.onresult = () => {};
-              warm.onend = () => {};
-              warm.start();
-              window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
-            }
-          } catch (_) {}
-        }
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+    // 5-second preparation countdown before answer recording starts
+    for (let seconds = 5; seconds > 0; seconds -= 1) {
+      if (preparationCancelledRef.current || isEnding) return;
+      setPrepCountdown(seconds);
+      // Pre-warm STT engine on the last tick so it's hot when recording starts
+      if (seconds === 1) {
+        try {
+          const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (SR && !recognitionRef.current) {
+            const warm = new SR();
+            warm.continuous = false;
+            warm.interimResults = false;
+            warm.onresult = () => {};
+            warm.onend = () => {};
+            warm.start();
+            window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+          }
+        } catch (_) {}
       }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
     }
     if (preparationCancelledRef.current || isEnding) return;
     setPrepCountdown(null);
@@ -1818,29 +1815,26 @@ function AssessmentSessionPage({
           console.warn('Failed to open webcam after next question reading:', camErr);
         }
       }
-      // Intro should start recording immediately after narration; other types
-      // retain the existing 5-second preparation countdown.
-      if (assessmentType !== 'INTRO') {
-          for (let seconds = 5; seconds > 0; seconds -= 1) {
-          if (preparationCancelledRef.current || isEnding) return;
-          setPrepCountdown(seconds);
-          // Pre-warm STT engine on the last tick so it's hot when recording starts
-          if (seconds === 1) {
-            try {
-              const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-              if (SR && !recognitionRef.current) {
-                const warm = new SR();
-                warm.continuous = false;
-                warm.interimResults = false;
-                warm.onresult = () => {};
-                warm.onend = () => {};
-                warm.start();
-                window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
-              }
-            } catch (_) {}
-          }
-          await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+      // 5-second preparation countdown before next question answer recording starts
+      for (let seconds = 5; seconds > 0; seconds -= 1) {
+        if (preparationCancelledRef.current || isEnding) return;
+        setPrepCountdown(seconds);
+        // Pre-warm STT engine on the last tick so it's hot when recording starts
+        if (seconds === 1) {
+          try {
+            const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SR && !recognitionRef.current) {
+              const warm = new SR();
+              warm.continuous = false;
+              warm.interimResults = false;
+              warm.onresult = () => {};
+              warm.onend = () => {};
+              warm.start();
+              window.setTimeout(() => { try { warm.stop(); } catch (_) {} }, 800);
+            }
+          } catch (_) {}
         }
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
       }
       if (preparationCancelledRef.current || isEnding) return;
       setPrepCountdown(null);
