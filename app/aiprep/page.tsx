@@ -67,9 +67,39 @@ export default function AIPrepPage() {
 
   const storedType = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_type') as AssessmentType | null) : null;
   const storedMode = typeof window !== 'undefined' ? (sessionStorage.getItem('aiprep_active_mode') as AssessmentMode | null) : null;
+  const storedVideo = typeof window !== 'undefined' ? sessionStorage.getItem('aiprep_video_enabled') : null;
 
-  const effectiveType = queryType || storedType || SUPPORTED_ASSESSMENT_TYPES[0];
-  const effectiveMode = queryMode || storedMode || '';
+  let fallbackMode = storedMode;
+  if (!fallbackMode && typeof window !== 'undefined') {
+    if (storedVideo === 'true') {
+      fallbackMode = 'VIDEO_AUDIO';
+    } else if (storedVideo === 'false') {
+      fallbackMode = 'AUDIO_ONLY';
+    } else {
+      const pendingRaw = sessionStorage.getItem('aiprep_pending_setup_results') || sessionStorage.getItem('aiprep_hardware_check');
+      if (pendingRaw) {
+        try {
+          const parsed = JSON.parse(pendingRaw);
+          if (parsed.video_enabled === true) fallbackMode = 'VIDEO_AUDIO';
+          else if (parsed.video_enabled === false) fallbackMode = 'AUDIO_ONLY';
+        } catch (_) {}
+      }
+    }
+  }
+
+  let fallbackType = storedType;
+  if (!fallbackType && typeof window !== 'undefined') {
+    const pendingRaw = sessionStorage.getItem('aiprep_pending_setup_results') || sessionStorage.getItem('aiprep_hardware_check');
+    if (pendingRaw) {
+      try {
+        const parsed = JSON.parse(pendingRaw);
+        if (parsed.assessment_type) fallbackType = parsed.assessment_type;
+      } catch (_) {}
+    }
+  }
+
+  const effectiveType = queryType || fallbackType || SUPPORTED_ASSESSMENT_TYPES[0];
+  const effectiveMode = queryMode || fallbackMode || '';
 
   const [activeAssessmentId, setActiveAssessmentId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
@@ -95,7 +125,7 @@ export default function AIPrepPage() {
     const handleBrowserBack = () => {
       sessionStorage.removeItem('aiprep_active_id');
       sessionStorage.removeItem('aiprep_active_questions');
-      sessionStorage.removeItem('aiprep_hardware_check');
+      sessionStorage.setItem('aiprep_wizard_step', 'PRACTICE_START');
       router.replace(practiceUrl);
     };
 
@@ -133,10 +163,14 @@ export default function AIPrepPage() {
         sessionStorage.setItem('aiprep_pending_setup_results', JSON.stringify(results));
         sessionStorage.setItem('aiprep_active_type', targetType);
         sessionStorage.setItem('aiprep_active_mode', targetMode);
+        sessionStorage.setItem('aiprep_user_selected_mode', targetMode);
+        sessionStorage.setItem('aiprep_video_enabled', results.video_enabled ? 'true' : 'false');
+        sessionStorage.setItem('aiprep_consent_camera', results.video_enabled ? 'true' : 'false');
+        sessionStorage.setItem('aiprep_consent_analytics', results.analytics_consent ? 'true' : 'false');
         sessionStorage.setItem('aiprep_hardware_check', JSON.stringify(results));
         sessionStorage.removeItem('aiprep_active_id');
         sessionStorage.removeItem('aiprep_active_questions');
-        sessionStorage.removeItem('aiprep_wizard_step');
+        sessionStorage.setItem('aiprep_wizard_step', 'DEVICE_CHECK');
         setActiveAssessmentId(0);
         setupSubmissionInFlightRef.current = false;
         setIsSaving(false);
@@ -418,6 +452,55 @@ export default function AIPrepPage() {
       <AssessmentSessionPage
         assessmentIdProp={activeAssessmentId}
         onStartPendingAssessment={activeAssessmentId === 0 && shouldDeferCreation ? createPendingAssessment : undefined}
+        onBack={() => {
+          setActiveAssessmentId(null);
+          setStarted(true);
+          if (typeof window !== 'undefined') {
+            [
+              'aiprep_pending_assessment_creation',
+              'aiprep_active_id',
+              'aiprep_active_questions',
+            ].forEach((key) => window.sessionStorage.removeItem(key));
+
+            const rawPending = window.sessionStorage.getItem('aiprep_pending_setup_results') || window.sessionStorage.getItem('aiprep_hardware_check');
+            let isVideo = false;
+            let savedType: string | null = null;
+            if (rawPending) {
+              try {
+                const parsed = JSON.parse(rawPending);
+                if (parsed.video_enabled === true) isVideo = true;
+                if (parsed.assessment_type) savedType = parsed.assessment_type;
+              } catch (_) {}
+            }
+            if (
+              window.sessionStorage.getItem('aiprep_active_mode') === 'VIDEO_AUDIO' ||
+              window.sessionStorage.getItem('aiprep_active_mode') === 'VIDEO' ||
+              window.sessionStorage.getItem('aiprep_video_enabled') === 'true'
+            ) {
+              isVideo = true;
+            }
+            if (isVideo) {
+              window.sessionStorage.setItem('aiprep_video_enabled', 'true');
+              window.sessionStorage.setItem('aiprep_active_mode', 'VIDEO_AUDIO');
+              window.sessionStorage.setItem('aiprep_user_selected_mode', 'VIDEO_AUDIO');
+              window.sessionStorage.setItem('aiprep_consent_camera', 'true');
+            }
+            if (savedType) {
+              window.sessionStorage.setItem('aiprep_active_type', savedType);
+            }
+            window.sessionStorage.setItem('aiprep_wizard_step', 'DEVICE_CHECK');
+          }
+          const hasHistory = typeof window !== 'undefined' && (
+            (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) ||
+            (window.history.length > 1 && Boolean(document.referrer && document.referrer.includes(window.location.host)))
+          );
+          if (hasHistory) {
+            router.back();
+          } else {
+            const isEmbeddedCheck = searchParams.get('embed') === 'true' || (typeof window !== 'undefined' && window.self !== window.top);
+            router.replace(isEmbeddedCheck ? '/user_dashboard/ai-prep/device-check?embed=true' : '/user_dashboard/ai-prep/device-check');
+          }
+        }}
       />
     );
   }

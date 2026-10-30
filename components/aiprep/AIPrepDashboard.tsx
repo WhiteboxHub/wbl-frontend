@@ -270,6 +270,18 @@ export function AIPrepDashboard({
       sessionStorage.removeItem("aiprep_jd_filename");
       sessionStorage.removeItem("aiprep_jd_role");
       sessionStorage.removeItem("aiprep_jd_company");
+      sessionStorage.removeItem("aiprep_active_id");
+      sessionStorage.removeItem("aiprep_active_questions");
+      sessionStorage.removeItem("aiprep_active_type");
+      sessionStorage.removeItem("aiprep_active_mode");
+      sessionStorage.removeItem("aiprep_video_enabled");
+      sessionStorage.removeItem("aiprep_consent_analytics");
+      sessionStorage.removeItem("aiprep_consent_recording");
+      sessionStorage.removeItem("aiprep_consent_transcript");
+      sessionStorage.removeItem("aiprep_hardware_check");
+      sessionStorage.removeItem("aiprep_pending_setup_results");
+      sessionStorage.removeItem("aiprep_pending_assessment_creation");
+      localStorage.removeItem("aiprep_hardware_check");
       sessionStorage.setItem("aiprep_wizard_step", "CONFIGURATION");
     }
     if (onStartAssessment) {
@@ -419,6 +431,16 @@ export function AIPrepDashboard({
               sessionStorage.removeItem("aiprep_jd_role");
               sessionStorage.removeItem("aiprep_jd_company");
               sessionStorage.removeItem("aiprep_wizard_step");
+              sessionStorage.removeItem("aiprep_active_type");
+              sessionStorage.removeItem("aiprep_active_mode");
+              sessionStorage.removeItem("aiprep_video_enabled");
+              sessionStorage.removeItem("aiprep_consent_analytics");
+              sessionStorage.removeItem("aiprep_consent_recording");
+              sessionStorage.removeItem("aiprep_consent_transcript");
+              sessionStorage.removeItem("aiprep_hardware_check");
+              sessionStorage.removeItem("aiprep_pending_setup_results");
+              sessionStorage.removeItem("aiprep_pending_assessment_creation");
+              localStorage.removeItem("aiprep_hardware_check");
             }
             setView("home");
           }} />

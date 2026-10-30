@@ -664,7 +664,7 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                       <div className="relative mb-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40 sm:h-16 sm:w-16">
                         {isRecording && <span className="absolute inset-0 rounded-full border-2 border-violet-400 animate-ping opacity-30" />}
                         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-lg shadow-violet-500/25 sm:h-12 sm:w-12">
-                          {isRecording ? <span className="h-7 w-7 rounded-md bg-white" /> : <Mic className="h-6 w-6 stroke-[1.8]" />}
+                          <Mic className="h-6 w-6 stroke-[1.8]" />
                         </div>
                       </div>
                       <h3 className="text-xs font-bold sm:text-sm">{isRecording ? 'Your practice recording' : testAudioUrl ? 'Practice recording ready' : 'Ready when you are'}</h3>
@@ -677,11 +677,13 @@ export const PracticeStep: React.FC<PracticeStepProps> = ({
                   <style>{`
                     @keyframes practiceWaveform { 0%,100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
                   `}</style>
-                  <div className="flex h-5 items-center justify-center gap-1" aria-label={isRecording ? 'Recording waveform' : 'Audio waveform'}>
+                  {!videoEnabled && (
+                    <div className="flex h-5 items-center justify-center gap-1" aria-label={isRecording ? 'Recording waveform' : 'Audio waveform'}>
                     {Array.from({ length: 25 }).map((_, i) => (
                       <span key={i} className={`w-1 rounded-full ${isRecording ? 'bg-violet-500' : 'bg-violet-300 dark:bg-violet-700'}`} style={{ height: `${12 + ((i * 17) % 28)}px`, transformOrigin: 'center', animation: isRecording ? `practiceWaveform .8s ease-in-out ${i * 0.045}s infinite` : 'none' }} />
                     ))}
                   </div>
+                  )}
 
                   <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
                     {!isRecording ? (

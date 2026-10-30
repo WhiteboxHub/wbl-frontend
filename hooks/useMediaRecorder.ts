@@ -24,6 +24,7 @@ export interface UseMediaRecorderReturn {
   elapsedTime: number; // in seconds
   chunkIndex: number;
   error: string | null;
+  openStream: () => Promise<MediaStream | null>;
   startRecording: (customStream?: MediaStream) => Promise<void>;
   pauseRecording: () => void;
   resumeRecording: () => void;
@@ -138,6 +139,50 @@ export function useMediaRecorder({
     }, 1000);
   }, [stopTimer]);
 
+  // Open Media Stream (Webcam / Audio) without starting recording
+  const openStream = useCallback(async (): Promise<MediaStream | null> => {
+    try {
+      if (streamRef.current && streamRef.current.active) {
+        setStream(streamRef.current);
+        return streamRef.current;
+      }
+
+      setError(null);
+      const constraints: MediaStreamConstraints = isVideoMode
+        ? {
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30 },
+              facingMode: 'user',
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 44100,
+            },
+          }
+        : {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 44100,
+            },
+          };
+
+      const activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = activeStream;
+      setStream(activeStream);
+      return activeStream;
+    } catch (err: any) {
+      const message = err?.message || 'Failed to open media stream';
+      console.warn('[useMediaRecorder] Failed to open stream:', message);
+      setError(message);
+      if (onError) onError(err);
+      return null;
+    }
+  }, [isVideoMode, onError]);
+
   // Start Recording (with optional chunkDurationMs or continuous question buffering)
   const startRecording = useCallback(
     async (customStream?: MediaStream) => {
@@ -151,31 +196,10 @@ export function useMediaRecorder({
 
         // Obtain media stream if not provided or inactive
         if (!activeStream || !activeStream.active) {
-          const constraints: MediaStreamConstraints = isVideoMode
-            ? {
-                video: {
-                  width: { ideal: 1280 },
-                  height: { ideal: 720 },
-                  frameRate: { ideal: 30 },
-                  facingMode: 'user',
-                },
-                audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  sampleRate: 44100,
-                },
-              }
-            : {
-                audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  sampleRate: 44100,
-                },
-              };
-
-          activeStream = await navigator.mediaDevices.getUserMedia(constraints);
-          streamRef.current = activeStream;
-          setStream(activeStream);
+          activeStream = await openStream();
+          if (!activeStream) {
+            throw new Error('Failed to obtain active media stream');
+          }
         }
 
         const mimeType = getSupportedMimeType(isVideoMode);
@@ -309,6 +333,7 @@ export function useMediaRecorder({
     elapsedTime,
     chunkIndex,
     error,
+    openStream,
     startRecording,
     pauseRecording,
     resumeRecording,

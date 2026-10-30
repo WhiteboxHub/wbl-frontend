@@ -3719,11 +3719,19 @@ export function navigateToAssessmentType(router: ReturnType<typeof useRouter>) {
       sessionStorage.setItem("aiprep_wizard_step", "CONFIGURATION");
       sessionStorage.removeItem("aiprep_active_id");
       sessionStorage.removeItem("aiprep_active_questions");
+      sessionStorage.removeItem("aiprep_active_mode");
+      sessionStorage.removeItem("aiprep_video_enabled");
+      sessionStorage.removeItem("aiprep_consent_analytics");
+      sessionStorage.removeItem("aiprep_consent_recording");
+      sessionStorage.removeItem("aiprep_consent_transcript");
       sessionStorage.removeItem("aiprep_hardware_check");
+      sessionStorage.removeItem("aiprep_pending_setup_results");
+      sessionStorage.removeItem("aiprep_pending_assessment_creation");
       sessionStorage.removeItem("aiprep_jd_text");
       sessionStorage.removeItem("aiprep_jd_filename");
       sessionStorage.removeItem("aiprep_jd_role");
       sessionStorage.removeItem("aiprep_jd_company");
+      localStorage.removeItem("aiprep_hardware_check");
     } catch { }
 
     const searchParams = new URLSearchParams(window.location.search);
