@@ -343,6 +343,12 @@ export default function TechnicalEvaluationView({
     true
   );
 
+  const canShowTranscript = Boolean(
+    report.consent?.save_transcript ??
+    (report.assessment as any)?.consent?.save_transcript ??
+    true
+  );
+
   const isMultiQuestion = [
     "TECHNICAL",
     "HIRING_MANAGER",
@@ -1776,7 +1782,7 @@ export default function TechnicalEvaluationView({
                                       <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
                                         {t.term}
                                       </span>
-                                      {t.quote && (
+                                      {canShowTranscript && t.quote && (
                                         <p className="text-[11px] italic text-slate-500">
                                           &ldquo;{t.quote}&rdquo;
                                         </p>
@@ -1791,7 +1797,7 @@ export default function TechnicalEvaluationView({
                             )}
 
                             {/* Full Spoken Transcript */}
-                            {(q.transcript || (q.evidence && q.evidence.length > 0)) && (
+                            {canShowTranscript && (q.transcript || (q.evidence && q.evidence.length > 0)) && (
                               <div className="space-y-1.5 pt-2.5 border-t border-slate-200/60">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                   <Quote size={12} /> Full Spoken Transcript

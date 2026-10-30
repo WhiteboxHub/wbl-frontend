@@ -166,6 +166,8 @@ export default function AIPrepPage() {
         assessment_mode: targetMode,
         candidate_id: candidateId,
         job_description_text: results.jd_text || null,
+        consent_save_recording: results.consent_save_recording,
+        consent_save_transcript: results.consent_save_transcript,
       });
 
       if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
@@ -238,6 +240,8 @@ export default function AIPrepPage() {
       assessment_mode: results.video_enabled ? 'VIDEO_AUDIO' : 'AUDIO_ONLY',
       candidate_id: candidateId,
       job_description_text: results.jd_text || null,
+      consent_save_recording: results.consent_save_recording,
+      consent_save_transcript: results.consent_save_transcript,
     });
 
     if (!assessment?.id) throw new Error('Failed to initialize assessment session on server.');
