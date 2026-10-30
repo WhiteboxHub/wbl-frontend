@@ -71,13 +71,14 @@ function isRealYoutubeUrl(url?: string | null): url is string {
 let ytApiPromise: Promise<any> | null = null;
 function loadYtApi(): Promise<any> {
   if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
-  if (window.YT?.Player) return Promise.resolve(window.YT);
+  const win = window as any;
+  if (win.YT?.Player) return Promise.resolve(win.YT);
   if (!ytApiPromise) {
     ytApiPromise = new Promise((resolve, reject) => {
-      const prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
+      const prev = win.onYouTubeIframeAPIReady;
+      win.onYouTubeIframeAPIReady = () => {
         prev?.();
-        resolve(window.YT);
+        resolve(win.YT);
       };
       const s = document.createElement("script");
       s.src = "https://www.youtube.com/iframe_api";
