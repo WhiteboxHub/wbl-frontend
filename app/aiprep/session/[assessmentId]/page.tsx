@@ -429,11 +429,9 @@ function AssessmentSessionPage({
   const cumulativeRecordedSecondsRef = useRef<number>(0);
   const sessionStartedAtRef = useRef<number | null>(null);
 
-  // ── Slicing state for INTRO & JD_INTRO (2-slice midpoint architecture) ──
-  const introSlice0InitiatedRef = useRef<boolean>(false);
-  const introSlice0UploadedRef = useRef<boolean>(false);
-  const pendingIntroSlice0PromiseRef = useRef<Promise<any> | null>(null);
-  const introSlice0BlobRef = useRef<Blob | null>(null);
+  // ── Slicing state for INTRO & JD_INTRO (Continuous Timeslice Architecture) ──
+  const introChunkUploadPromisesRef = useRef<Promise<any>[]>([]);
+  const introChunksCountRef = useRef<number>(0);
   const totalIntroChunksRef = useRef<number>(1);
 
   // Target Job Description State (for JD_INTRO track)
@@ -733,14 +731,31 @@ function AssessmentSessionPage({
     cleanup: cleanupVideoRecorder,
   } = useMediaRecorder({
     mediaType: typeof mediaType === 'string' ? mediaType : 'VIDEO',
-    chunkDurationMs: 0,
+    chunkDurationMs: isIntroType ? (assessmentType === 'JD_INTRO' ? 150000 : 120000) : 0,
     onChunkReady: (blob, chunkIdx, isFinal) => {
       if (isAudioOnly) return;
       console.log(`[Media Pipeline] Produced slice #${chunkIdx} (${Math.round(blob.size / 1024)} KB, isFinal: ${isFinal})`);
       if (blob && blob.size > 0) {
         localChunksRef.current.push(blob);
       }
-      if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
+      if (isIntroType && blob && blob.size > 0 && assessmentId) {
+        if (chunkIdx === 0) {
+          introChunkUploadPromisesRef.current = [];
+          introChunksCountRef.current = 0;
+        }
+        console.log(`[Media Pipeline] Uploading continuous intro slice #${chunkIdx} (isFinal: ${isFinal})...`);
+        const uploadPromise = aiprepApi.uploadChunk(
+          assessmentId,
+          chunkIdx,
+          blob,
+          "VIDEO",
+          isFinal,
+          undefined,
+          undefined
+        );
+        introChunkUploadPromisesRef.current.push(uploadPromise);
+        introChunksCountRef.current = chunkIdx + 1;
+      } else if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
         enqueueChunk(blob, chunkIdx, isFinal);
       }
     },
@@ -1734,53 +1749,6 @@ function AssessmentSessionPage({
     return () => clearInterval(timer);
   }, [isRecording, isEnding, isAiSpeaking, isQuestionPrepPaused]);
 
-  // Midpoint auto-slice for INTRO (120s) and JD_INTRO (150s)
-  useEffect(() => {
-    if (!isRecording || isEnding || !isIntroType || isAudioOnly || introSlice0UploadedRef.current || introSlice0InitiatedRef.current) return;
-
-    const midpoint = Math.floor(questionTimeLimit / 2); // 120s for Intro, 150s for JD Intro
-    if (questionTimeElapsed >= midpoint && midpoint > 0) {
-      introSlice0InitiatedRef.current = true;
-      (async () => {
-        try {
-          console.log(`[IntroSlicing] Reached midpoint (${midpoint}s). Slicing Part 0...`);
-          // Stop slice 0 while keeping camera/microphone stream alive for slice 1
-          const videoRes = await stopVideoRecorder(true);
-          const slice0Blob = videoRes?.blob;
-          if (slice0Blob && slice0Blob.size > 0 && assessmentId) {
-            introSlice0BlobRef.current = slice0Blob;
-            const activeQ = questions[currentQuestionIndex];
-            const qId = activeQ?.id ?? (activeQ as any)?.question_id;
-
-            // Immediately restart recorder for Part 2 with existing active stream
-            await startVideoRecorder(videoStream || undefined);
-
-            // Upload Part 0 in the background via POST /media/chunk
-            console.log(`[IntroSlicing] Uploading Part 0 (${Math.round(slice0Blob.size / 1024)} KB)...`);
-            const uploadPromise = aiprepApi.uploadChunk(
-              assessmentId,
-              0,
-              slice0Blob,
-              "VIDEO",
-              false,
-              undefined,
-              qId
-            );
-            pendingIntroSlice0PromiseRef.current = uploadPromise;
-
-            // Only mark Part 0 as successfully uploaded after slice, restart, and upload initiation succeed!
-            introSlice0UploadedRef.current = true;
-          } else {
-            // Slicing did not produce a valid blob; allow fallback to full 1-chunk recording on finish
-            introSlice0InitiatedRef.current = false;
-          }
-        } catch (sliceErr) {
-          console.warn("[IntroSlicing] Midpoint slice error:", sliceErr);
-          introSlice0InitiatedRef.current = false;
-        }
-      })();
-    }
-  }, [isRecording, isEnding, isIntroType, isAudioOnly, questionTimeElapsed, questionTimeLimit, assessmentId, questions, currentQuestionIndex, videoStream, stopVideoRecorder, startVideoRecorder]);
 
   useEffect(() => {
     if (isRecording && questionTimeElapsed >= questionTimeLimit && !isTransitioningQuestion && !isEnding && !hasAutoEndedRef.current) {
@@ -2010,42 +1978,37 @@ function AssessmentSessionPage({
         const videoRes = await stopVideoRecorder(false);
         finalVideoBlob = videoRes?.blob || null;
 
-        if (finalVideoBlob && qId) {
-          if (!isIntroType) {
-            try {
-              await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
-            } catch (uploadErr) {
-              console.warn("[handleEndSession] Final video chunk upload error:", uploadErr);
-            }
-          } else {
-            // Dynamic INTRO / JD_INTRO 2-part handling:
-            if (introSlice0UploadedRef.current) {
-              console.log(`[IntroSlicing] Uploading Part 1 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
-              const slice1Promise = aiprepApi.uploadChunk(assessmentId, 1, finalVideoBlob, "VIDEO", true, undefined, qId);
-              // Guarantee both Part 0 and Part 1 finish uploading before moving to the PUT submit
-              const uploadPromises: Promise<any>[] = [slice1Promise];
-              if (pendingIntroSlice0PromiseRef.current) {
-                uploadPromises.push(pendingIntroSlice0PromiseRef.current);
-              }
-              await Promise.all(uploadPromises);
-              totalIntroChunksRef.current = 2;
-            } else {
-              console.log(`[IntroSlicing] Candidate finished early (< midpoint). Uploading single chunk 0 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
-              await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
-              totalIntroChunksRef.current = 1;
-            }
+        if (isIntroType) {
+          // Continuous timeslice INTRO / JD_INTRO:
+          // All chunks were dispatched to /media/chunk via onChunkReady.
+          // Await completion of all in-flight chunk upload promises.
+          if (introChunkUploadPromisesRef.current.length > 0) {
+            console.log(`[IntroSlicing] Awaiting ${introChunkUploadPromisesRef.current.length} chunk upload(s)...`);
+            await Promise.all(introChunkUploadPromisesRef.current);
+            totalIntroChunksRef.current = introChunksCountRef.current || 1;
+            console.log(`[IntroSlicing] All ${totalIntroChunksRef.current} chunks uploaded successfully.`);
+          } else if (finalVideoBlob && finalVideoBlob.size > 0 && assessmentId) {
+            // Safety fallback: if no chunk was dispatched via onChunkReady, upload finalVideoBlob as chunk 0
+            console.log(`[IntroSlicing] Safety fallback: uploading single chunk 0 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
+            await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, undefined);
+            totalIntroChunksRef.current = 1;
+          }
+        } else if (finalVideoBlob && qId && assessmentId) {
+          console.log(`[handleEndSession] Uploading final video chunk 0 for question ${currentQuestionIndex + 1} (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
+          try {
+            await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
+          } catch (uploadErr) {
+            console.warn("[handleEndSession] Final video chunk upload error:", uploadErr);
           }
         }
 
-        // 1b. Create instant combined media blob for zero-gap playback ONLY if single-track intro assessment.
-        // Multi-question assessments (TECHNICAL, HIRING_MANAGER, RECRUITER, SYSTEM_DESIGN) must stream the
-        // continuous server-side assembled.webm to guarantee proper duration, monotonic timestamps, and seekability.
-        if (!isMultiQuestion && isIntroType && videoRes?.url && assessmentId) {
+        // 1b. Create instant media blob preview for single-question assessments (including INTRO).
+        // Since INTRO now uses a single continuous MediaRecorder with timeslicing, videoRes.blob
+        // is an unbroken, complete WebM stream with continuous timestamps and full duration.
+        if (!isMultiQuestion && videoRes?.url && assessmentId) {
           if (typeof window !== 'undefined') {
             (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-            const previewBlob = introSlice0BlobRef.current && finalVideoBlob
-              ? new Blob([introSlice0BlobRef.current, finalVideoBlob], { type: 'video/webm' })
-              : (finalVideoBlob || videoRes.blob);
+            const previewBlob = finalVideoBlob || videoRes.blob;
             const previewUrl = previewBlob ? URL.createObjectURL(previewBlob) : videoRes.url;
             (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
