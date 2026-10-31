@@ -4200,7 +4200,7 @@ export default function AiPrepReport({
   // Immediately streams local/server media, then checks the DB in a strictly controlled manner.
   useEffect(() => {
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!assessmentId || !canSaveRec) return;
+    if (!report || !assessmentId || !canSaveRec) return;
 
     let isMounted = true;
     let timerId: NodeJS.Timeout | null = null;
@@ -4244,7 +4244,8 @@ export default function AiPrepReport({
     };
 
     // If fresh assessment or no verified YouTube URL yet, schedule the 5-minute initial check:
-    const needsPolling = isFreshAssessment || !report?.youtube_url || !isRealYoutubeUrl(report.youtube_url);
+    const hasValidYt = Boolean(report.youtube_url && isRealYoutubeUrl(report.youtube_url));
+    const needsPolling = isFreshAssessment || !hasValidYt;
     if (needsPolling) {
       timerId = setTimeout(runCheck, DELAYS[0]);
     } else {
@@ -4255,7 +4256,7 @@ export default function AiPrepReport({
       isMounted = false;
       if (timerId) clearTimeout(timerId);
     };
-  }, [assessmentId, isFreshAssessment]);
+  }, [assessmentId, isFreshAssessment, report?.youtube_url]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
