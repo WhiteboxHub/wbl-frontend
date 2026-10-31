@@ -1984,14 +1984,22 @@ function AssessmentSessionPage({
           // Await completion of all in-flight chunk upload promises.
           if (introChunkUploadPromisesRef.current.length > 0) {
             console.log(`[IntroSlicing] Awaiting ${introChunkUploadPromisesRef.current.length} chunk upload(s)...`);
-            await Promise.all(introChunkUploadPromisesRef.current);
-            totalIntroChunksRef.current = introChunksCountRef.current || 1;
-            console.log(`[IntroSlicing] All ${totalIntroChunksRef.current} chunks uploaded successfully.`);
+            try {
+              await Promise.allSettled(introChunkUploadPromisesRef.current);
+              totalIntroChunksRef.current = introChunksCountRef.current || 1;
+              console.log(`[IntroSlicing] All ${totalIntroChunksRef.current} chunks settled.`);
+            } catch (chunkErr) {
+              console.warn("[IntroSlicing] Error awaiting chunk uploads:", chunkErr);
+            }
           } else if (finalVideoBlob && finalVideoBlob.size > 0 && assessmentId) {
             // Safety fallback: if no chunk was dispatched via onChunkReady, upload finalVideoBlob as chunk 0
             console.log(`[IntroSlicing] Safety fallback: uploading single chunk 0 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
-            await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, undefined);
-            totalIntroChunksRef.current = 1;
+            try {
+              await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, undefined);
+              totalIntroChunksRef.current = 1;
+            } catch (fallbackErr) {
+              console.warn("[IntroSlicing] Fallback upload error:", fallbackErr);
+            }
           }
         } else if (finalVideoBlob && qId && assessmentId) {
           console.log(`[handleEndSession] Uploading final video chunk 0 for question ${currentQuestionIndex + 1} (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
