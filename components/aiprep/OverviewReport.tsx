@@ -4028,7 +4028,13 @@ export default function AiPrepReport({
     return false;
   })();
 
-  const [hasWaitedInitialWindow, setHasWaitedInitialWindow] = useState<boolean>(!isFreshAssessment);
+  const [hasWaitedInitialWindow, setHasWaitedInitialWindow] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (report && !isFreshAssessment) {
+      setHasWaitedInitialWindow(true);
+    }
+  }, [report, isFreshAssessment]);
 
   const effectiveReport = useMemo(() => {
     if (!report) return null;
