@@ -1943,16 +1943,11 @@ export function EvaluationContent({
       }
       try {
         sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
+        sessionStorage.removeItem(`aiprep_fresh_completion_${assessmentId}`);
       } catch (_) { }
     }
   }, [youtube_url, assessmentId]);
 
-  // Playback hierarchy:
-  // For Audio assessments: always play native audio via serverUrl (or localPreviewUrl)
-  // For Video assessments:
-  // 1. Verified YouTube URL (when real YouTube upload succeeded)
-  // 2. Instant Local Playback (0ms zero-latency preview while YouTube/processing is pending)
-  // 3. Authoritative Persistent Server Storage Stream (when YouTube is unavailable, mock, or pending)
   const hasValidYoutube = Boolean(
     youtube_url &&
     !youtube_url.includes("aiprep_rec_") &&
@@ -4018,6 +4013,37 @@ export default function AiPrepReport({
   const [mediaDuration, setMediaDuration] = useState<number | null>(null);
   const [isJdModalOpen, setIsJdModalOpen] = useState(false);
 
+  // Fresh assessment detection (< 5 minutes old)
+  const isFreshAssessment = (() => {
+    if (typeof window === "undefined" || !assessmentId) return false;
+    try {
+      const freshFlag = sessionStorage.getItem(`aiprep_fresh_completion_${assessmentId}`);
+      if (freshFlag) return true;
+      const rawDate = (report?.assessment as any)?.completed_at || (report?.assessment as any)?.created_at;
+      if (rawDate) {
+        const diffMs = Date.now() - new Date(rawDate).getTime();
+        if (diffMs > 0 && diffMs < 5 * 60 * 1000) return true;
+      }
+    } catch (_) {}
+    return false;
+  })();
+
+  const [hasWaitedInitialWindow, setHasWaitedInitialWindow] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (report && !isFreshAssessment) {
+      setHasWaitedInitialWindow(true);
+    }
+  }, [report, isFreshAssessment]);
+
+  const effectiveReport = useMemo(() => {
+    if (!report) return null;
+    if (!hasWaitedInitialWindow) {
+      return { ...report, youtube_url: undefined };
+    }
+    return report;
+  }, [report, hasWaitedInitialWindow]);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekTo = (seconds: number) => {
     if (videoRef.current) {
@@ -4169,130 +4195,68 @@ export default function AiPrepReport({
     };
   }, [isProcessing, assessmentId, loadReport]);
 
-  // ── Session Type Isolation: Intro & JD Intro vs Multi-Question ──
-  const assessmentType = String(report?.assessment?.assessment_type || "").toUpperCase();
-  const isIntroSession = ["INTRO", "JD_INTRO"].includes(assessmentType);
-  const isMultiQuestionType = ["TECHNICAL", "HIRING_MANAGER", "RECRUITER", "SYSTEM_DESIGN"].includes(assessmentType);
-
-  // 1. Existing Legacy Auto-Swap for Intro & JD Intro (kept 100% as-is)
+  // ── Unified Staggered YouTube Polling (5m -> +10m -> +15m -> STOP) ──
+  // Works identically for all assessment tracks (Intro, JD Intro, Technical, Audio, Video).
+  // Immediately streams local/server media, then checks the DB in a strictly controlled manner.
   useEffect(() => {
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || !isIntroSession || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
+    if (!report || !assessmentId || !canSaveRec || hasWaitedInitialWindow) return;
 
     let isMounted = true;
-    let consecutiveErrors = 0;
-    const interval = setInterval(async () => {
+    let timerId: NodeJS.Timeout | null = null;
+
+    // Controlled intervals: 5 min -> 10 min later -> 15 min later
+    const DELAYS = [
+      5 * 60 * 1000,   // Check 1: exactly at 5 minutes
+      10 * 60 * 1000,  // Check 2: 10 mins after Check 1 (15m total)
+      15 * 60 * 1000,  // Check 3: 15 mins after Check 2 (30m total)
+    ];
+    let checkIndex = 0;
+
+    const runCheck = async () => {
       try {
-        ytPollAttemptsRef.current += 1;
-        if (ytPollAttemptsRef.current > 5) {
-          // Cap at 5 checks (5 minutes with 60s interval) to prevent unwanted API calls
-          clearInterval(interval);
-          return;
-        }
+        console.log(`[PlaybackPolling] Running check #${checkIndex + 1} for assessment ${assessmentId}...`);
         const fresh = await aiPrepApi.getAssessment(assessmentId);
-        consecutiveErrors = 0;
-        if (isMounted && fresh?.youtube_url) {
-          clearInterval(interval);
-          setReport((prev) => (prev ? { ...prev, youtube_url: fresh.youtube_url } : prev));
+        const yt = fresh?.youtube_url?.trim() || report?.youtube_url?.trim();
+
+        if (isMounted && yt && isRealYoutubeUrl(yt)) {
+          console.log(`[PlaybackPolling] YouTube URL verified on check #${checkIndex + 1}:`, yt);
+          setHasWaitedInitialWindow(true);
+          try {
+            sessionStorage.removeItem(`aiprep_fresh_completion_${assessmentId}`);
+          } catch (_) {}
+          setReport((prev) => (prev ? { ...prev, youtube_url: yt } : prev));
+          return; // Stop polling completely
         }
-      } catch (_) {
-        consecutiveErrors += 1;
-        if (consecutiveErrors >= 3) {
-          clearInterval(interval);
+      } catch (err) {
+        console.warn(`[PlaybackPolling] Error on check #${checkIndex + 1}:`, err);
+      }
+
+      checkIndex += 1;
+      if (checkIndex < DELAYS.length && isMounted) {
+        timerId = setTimeout(runCheck, DELAYS[checkIndex]);
+      } else {
+        console.log("[PlaybackPolling] Maximum 3 checks completed. Halting DB polling.");
+        if (isMounted) {
+          setHasWaitedInitialWindow(true);
         }
       }
-    }, 60000);
+    };
+
+    // If fresh assessment or no verified YouTube URL yet, schedule the 5-minute initial check:
+    const hasValidYt = Boolean(report.youtube_url && isRealYoutubeUrl(report.youtube_url));
+    const needsPolling = isFreshAssessment || !hasValidYt;
+    if (needsPolling) {
+      timerId = setTimeout(runCheck, DELAYS[0]);
+    } else {
+      setHasWaitedInitialWindow(true);
+    }
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (timerId) clearTimeout(timerId);
     };
-  }, [report?.youtube_url, isProcessing, assessmentId, isIntroSession]);
-
-  // 2. Multi-Question Managed Auto-Swap with Active Viewing Protection & YouTube Probe
-  const pendingYoutubeUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || !isMultiQuestionType || report.youtube_url || isProcessing || !assessmentId || !canSaveRec) return;
-
-    let isMounted = true;
-    const interval = setInterval(async () => {
-      // If we already verified YouTube but held it because candidate was watching, check if they paused:
-      if (pendingYoutubeUrlRef.current) {
-        const isWatching = Boolean(
-          videoRef.current &&
-          !videoRef.current.paused &&
-          !videoRef.current.ended &&
-          videoRef.current.currentTime > 0
-        );
-        if (!isWatching) {
-          const readyUrl = pendingYoutubeUrlRef.current;
-          pendingYoutubeUrlRef.current = null;
-          clearInterval(interval);
-          if (isMounted) {
-            setReport((prev) => (prev ? { ...prev, youtube_url: readyUrl } : prev));
-          }
-        }
-        return;
-      }
-
-      try {
-        const fresh = await aiPrepApi.getAssessment(assessmentId);
-        const yt = fresh?.youtube_url?.trim();
-        if (isMounted && isRealYoutubeUrl(yt)) {
-          const expectedSec = extractAssessmentDurationSeconds(report);
-          const verdict = await probeYoutube(extractYoutubeId(yt)!, expectedSec);
-          if (!isMounted) return;
-
-          if (verdict === "full") {
-            const isWatching = Boolean(
-              videoRef.current &&
-              !videoRef.current.paused &&
-              !videoRef.current.ended &&
-              videoRef.current.currentTime > 0
-            );
-
-            if (isWatching) {
-              // Non-interruption guard: Defer swap until candidate pauses or reaches end
-              pendingYoutubeUrlRef.current = yt;
-            } else {
-              clearInterval(interval);
-              setReport((prev) => (prev ? { ...prev, youtube_url: yt } : prev));
-            }
-          }
-        }
-      } catch {
-        /* Transient polling error: will retry next interval */
-      }
-    }, 15000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [report?.youtube_url, isProcessing, assessmentId, isMultiQuestionType, report]);
-
-  // Immediately apply pending YouTube URL when candidate pauses or media finishes
-  useEffect(() => {
-    const vid = videoRef.current;
-    if (!vid) return;
-
-    const handlePauseOrEnded = () => {
-      if (pendingYoutubeUrlRef.current) {
-        const readyUrl = pendingYoutubeUrlRef.current;
-        pendingYoutubeUrlRef.current = null;
-        setReport((prev) => (prev ? { ...prev, youtube_url: readyUrl } : prev));
-      }
-    };
-
-    vid.addEventListener("pause", handlePauseOrEnded);
-    vid.addEventListener("ended", handlePauseOrEnded);
-    return () => {
-      vid.removeEventListener("pause", handlePauseOrEnded);
-      vid.removeEventListener("ended", handlePauseOrEnded);
-    };
-  }, [videoRef, report]);
+  }, [assessmentId, isFreshAssessment, report, hasWaitedInitialWindow]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
@@ -4432,7 +4396,7 @@ export default function AiPrepReport({
           {/* Keep both tabs mounted in the DOM to preserve audio/video playback and prevent unmount errors */}
           <div className={isOverviewTab ? "block" : "hidden"}>
             <EvaluationContent
-              report={report}
+              report={effectiveReport || report}
               videoRef={videoRef}
               seekTo={seekTo}
               assessmentId={assessmentId}
@@ -4443,7 +4407,7 @@ export default function AiPrepReport({
           </div>
           <div className={!isOverviewTab ? "block" : "hidden"}>
             <DetailsContent
-              report={report}
+              report={effectiveReport || report}
               seekTo={seekTo}
               videoRef={videoRef}
               initialSubTab={detailsSubTab}

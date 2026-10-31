@@ -2188,6 +2188,7 @@ function AssessmentSessionPage({
         ? `/aiprep/reports/${assessmentId}?embed=true&tab=Evaluation`
         : `/aiprep/reports/${assessmentId}?tab=Evaluation`;
       try {
+        sessionStorage.setItem(`aiprep_fresh_completion_${assessmentId}`, Date.now().toString());
         if (typeof window !== 'undefined' && window.history && History?.prototype?.replaceState) {
           History.prototype.replaceState.call(window.history, {}, '', reportUrl);
         }
