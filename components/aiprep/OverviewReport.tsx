@@ -4200,7 +4200,7 @@ export default function AiPrepReport({
   // Immediately streams local/server media, then checks the DB in a strictly controlled manner.
   useEffect(() => {
     const canSaveRec = report?.consent?.save_recording ?? (report?.assessment as any)?.consent?.save_recording ?? true;
-    if (!report || !assessmentId || !canSaveRec) return;
+    if (!report || !assessmentId || !canSaveRec || hasWaitedInitialWindow) return;
 
     let isMounted = true;
     let timerId: NodeJS.Timeout | null = null;
@@ -4217,7 +4217,7 @@ export default function AiPrepReport({
       try {
         console.log(`[PlaybackPolling] Running check #${checkIndex + 1} for assessment ${assessmentId}...`);
         const fresh = await aiPrepApi.getAssessment(assessmentId);
-        const yt = fresh?.youtube_url?.trim();
+        const yt = fresh?.youtube_url?.trim() || report?.youtube_url?.trim();
 
         if (isMounted && yt && isRealYoutubeUrl(yt)) {
           console.log(`[PlaybackPolling] YouTube URL verified on check #${checkIndex + 1}:`, yt);
@@ -4256,7 +4256,7 @@ export default function AiPrepReport({
       isMounted = false;
       if (timerId) clearTimeout(timerId);
     };
-  }, [assessmentId, isFreshAssessment, report?.youtube_url]);
+  }, [assessmentId, isFreshAssessment, report, hasWaitedInitialWindow]);
 
   useEffect(() => {
     document.documentElement.style.removeProperty("overflow");
