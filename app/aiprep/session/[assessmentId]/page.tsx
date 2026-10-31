@@ -430,6 +430,7 @@ function AssessmentSessionPage({
   const sessionStartedAtRef = useRef<number | null>(null);
 
   // ── Slicing state for INTRO & JD_INTRO (2-slice midpoint architecture) ──
+  const introSlice0InitiatedRef = useRef<boolean>(false);
   const introSlice0UploadedRef = useRef<boolean>(false);
   const pendingIntroSlice0PromiseRef = useRef<Promise<any> | null>(null);
   const introSlice0BlobRef = useRef<Blob | null>(null);
@@ -1735,11 +1736,11 @@ function AssessmentSessionPage({
 
   // Midpoint auto-slice for INTRO (120s) and JD_INTRO (150s)
   useEffect(() => {
-    if (!isRecording || isEnding || !isIntroType || isAudioOnly || introSlice0UploadedRef.current) return;
+    if (!isRecording || isEnding || !isIntroType || isAudioOnly || introSlice0UploadedRef.current || introSlice0InitiatedRef.current) return;
 
     const midpoint = Math.floor(questionTimeLimit / 2); // 120s for Intro, 150s for JD Intro
     if (questionTimeElapsed >= midpoint && midpoint > 0) {
-      introSlice0UploadedRef.current = true;
+      introSlice0InitiatedRef.current = true;
       (async () => {
         try {
           console.log(`[IntroSlicing] Reached midpoint (${midpoint}s). Slicing Part 0...`);
@@ -1766,9 +1767,16 @@ function AssessmentSessionPage({
               qId
             );
             pendingIntroSlice0PromiseRef.current = uploadPromise;
+
+            // Only mark Part 0 as successfully uploaded after slice, restart, and upload initiation succeed!
+            introSlice0UploadedRef.current = true;
+          } else {
+            // Slicing did not produce a valid blob; allow fallback to full 1-chunk recording on finish
+            introSlice0InitiatedRef.current = false;
           }
         } catch (sliceErr) {
           console.warn("[IntroSlicing] Midpoint slice error:", sliceErr);
+          introSlice0InitiatedRef.current = false;
         }
       })();
     }
@@ -2011,23 +2019,20 @@ function AssessmentSessionPage({
             }
           } else {
             // Dynamic INTRO / JD_INTRO 2-part handling:
-            try {
-              if (introSlice0UploadedRef.current) {
-                console.log(`[IntroSlicing] Uploading Part 1 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
-                const slice1Promise = aiprepApi.uploadChunk(assessmentId, 1, finalVideoBlob, "VIDEO", true, undefined, qId);
-                // Guarantee both Part 0 and Part 1 finish uploading before moving to the PUT submit
-                await Promise.allSettled([
-                  pendingIntroSlice0PromiseRef.current,
-                  slice1Promise,
-                ]);
-                totalIntroChunksRef.current = 2;
-              } else {
-                console.log(`[IntroSlicing] Candidate finished early (< midpoint). Uploading single chunk 0 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
-                await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
-                totalIntroChunksRef.current = 1;
+            if (introSlice0UploadedRef.current) {
+              console.log(`[IntroSlicing] Uploading Part 1 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
+              const slice1Promise = aiprepApi.uploadChunk(assessmentId, 1, finalVideoBlob, "VIDEO", true, undefined, qId);
+              // Guarantee both Part 0 and Part 1 finish uploading before moving to the PUT submit
+              const uploadPromises: Promise<any>[] = [slice1Promise];
+              if (pendingIntroSlice0PromiseRef.current) {
+                uploadPromises.push(pendingIntroSlice0PromiseRef.current);
               }
-            } catch (introUploadErr) {
-              console.warn("[IntroSlicing] Final intro chunk upload error:", introUploadErr);
+              await Promise.all(uploadPromises);
+              totalIntroChunksRef.current = 2;
+            } else {
+              console.log(`[IntroSlicing] Candidate finished early (< midpoint). Uploading single chunk 0 (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
+              await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
+              totalIntroChunksRef.current = 1;
             }
           }
         }
