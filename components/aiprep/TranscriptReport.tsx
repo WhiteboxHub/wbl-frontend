@@ -3,7 +3,7 @@
 import { useState, useEffect, RefObject } from "react";
 import { ArrowRight, X, ChevronRight, ChevronDown, Clock, MessageSquare, Sparkles } from "lucide-react";
 import { type NormalizedReport, type TranscriptEvidence, type TranscriptSegment } from "@/types/aiprep-report";
-import VideoPlayer from "./VideoPlayer";
+import VideoPlayer, { extractYoutubeId } from "./VideoPlayer";
 
 interface Props {
   report: NormalizedReport;
@@ -144,7 +144,8 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
         const hasValidYoutube = Boolean(
           youtube_url &&
           !youtube_url.includes("aiprep_rec_") &&
-          !youtube_url.includes("UF8uR6Z6KLc")
+          !youtube_url.includes("UF8uR6Z6KLc") &&
+          extractYoutubeId(youtube_url)
         );
         const assembledMedia = (report as any)?.assembled_media || (report as any)?.data?.assembled_media || (report.assessment as any)?.assembled_media;
         const serverPath = (report as any)?.recording_url || (report.assessment as any)?.recording_url;

@@ -34,7 +34,7 @@ import {
   Target,
   ShieldCheck,
 } from "lucide-react";
-import VideoPlayer from "./VideoPlayer";
+import VideoPlayer, { extractYoutubeId } from "./VideoPlayer";
 import type {
   NormalizedReport,
   TechnicalEvaluation,
@@ -403,7 +403,8 @@ export default function TechnicalEvaluationView({
   const hasValidYoutube = Boolean(
     report.youtube_url &&
     !report.youtube_url.includes("aiprep_rec_") &&
-    !report.youtube_url.includes("UF8uR6Z6KLc")
+    !report.youtube_url.includes("UF8uR6Z6KLc") &&
+    extractYoutubeId(report.youtube_url)
   );
   const assembledMedia =
     (report as any)?.assembled_media ||
