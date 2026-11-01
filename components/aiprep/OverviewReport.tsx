@@ -62,9 +62,9 @@ export type { ReportTab };
 function isRealYoutubeUrl(url?: string | null): url is string {
   return Boolean(
     url &&
-      !url.includes("aiprep_rec_") &&
-      !url.includes("UF8uR6Z6KLc") &&
-      extractYoutubeId(url)
+    !url.includes("aiprep_rec_") &&
+    !url.includes("UF8uR6Z6KLc") &&
+    extractYoutubeId(url)
   );
 }
 
@@ -110,7 +110,7 @@ async function probeYoutube(videoId: string, expectedSec: number): Promise<YouTu
         clearTimeout(timeout);
         try {
           player?.destroy();
-        } catch {}
+        } catch { }
         host.remove();
         resolve(v);
       };
@@ -1007,7 +1007,7 @@ function OverviewCategoryCard({
           </div>
           {status && <QualitativeBadge status={status} size="sm" />}
         </div>
-        <p className="text-xs text-slate-600 leading-snug sm:leading-relaxed line-clamp-3 mb-2">
+        <p className="text-xs text-slate-600 leading-snug sm:leading-relaxed line-clamp-3 mb-2 text-justify-pretty">
           {summary || "Evaluation summary available in detailed view."}
         </p>
       </div>
@@ -1798,7 +1798,7 @@ function JdFinalAssessmentCard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-800">
               JD Fit Summary
             </span>
-            <p className="text-slate-700 leading-snug">{finalAssessment.jd_fit_summary}</p>
+            <p className="text-slate-700 leading-snug text-justify-pretty">{finalAssessment.jd_fit_summary}</p>
           </div>
         )}
         {finalAssessment.career_story_relevance && (
@@ -1893,13 +1893,13 @@ export function EvaluationContent({
   ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
 
   const localPreviewUrl =
-    !isMultiQuestion && typeof window !== "undefined"
+    typeof window !== "undefined"
       ? (window as any).__aiprep_local_preview?.[assessmentId] ||
       (() => {
         const stored = sessionStorage.getItem(`aiprep_local_preview_${assessmentId}`);
-        // A blob: URL is only valid within the lifetime of the in-memory window context.
-        // If the page was reloaded, window.__aiprep_local_preview is wiped, meaning the blob is dead.
-        if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[assessmentId]) {
+        // Allow the fresh completion session preview to load
+        const isFresh = Boolean(sessionStorage.getItem(`aiprep_fresh_completion_${assessmentId}`));
+        if (stored && stored.startsWith("blob:") && !isFresh && !(window as any).__aiprep_local_preview?.[assessmentId]) {
           try {
             sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
           } catch (_) { }
@@ -1959,7 +1959,7 @@ export function EvaluationContent({
     (report as any)?.data?.assembled_media ||
     (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? ((hasValidYoutube ? youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
+    ? ((hasValidYoutube ? youtube_url : null) || localPreviewUrl || (hasServerRecording ? serverUrl : undefined) || assembledMedia)
     : undefined;
 
   const durationSeconds =
@@ -1986,7 +1986,8 @@ export function EvaluationContent({
     report.technical_evaluation ||
     report.assessment?.assessment_type === "TECHNICAL" ||
     report.assessment?.assessment_type === "HIRING_MANAGER" ||
-    report.assessment?.assessment_type === "RECRUITER"
+    report.assessment?.assessment_type === "RECRUITER" ||
+    report.assessment?.assessment_type === "SYSTEM_DESIGN"
   ) {
     return (
       <TechnicalEvaluationView
@@ -2936,6 +2937,7 @@ export function DetailsContent({
     report.assessment?.assessment_type === "TECHNICAL" ||
     report.assessment?.assessment_type === "HIRING_MANAGER" ||
     report.assessment?.assessment_type === "RECRUITER" ||
+    report.assessment?.assessment_type === "SYSTEM_DESIGN" ||
     activeTab === "Audio Analysis" ||
     activeTab === "Video Analysis"
   ) {
@@ -4024,7 +4026,7 @@ export default function AiPrepReport({
         const diffMs = Date.now() - new Date(rawDate).getTime();
         if (diffMs > 0 && diffMs < 5 * 60 * 1000) return true;
       }
-    } catch (_) {}
+    } catch (_) { }
     return false;
   })();
 
@@ -4038,6 +4040,8 @@ export default function AiPrepReport({
 
   const effectiveReport = useMemo(() => {
     if (!report) return null;
+    // For the initial 5-minute window on fresh assessments, suppress youtube_url
+    // to allow YouTube processing to complete and prioritize the instant local blob preview.
     if (!hasWaitedInitialWindow) {
       return { ...report, youtube_url: undefined };
     }
@@ -4224,7 +4228,7 @@ export default function AiPrepReport({
           setHasWaitedInitialWindow(true);
           try {
             sessionStorage.removeItem(`aiprep_fresh_completion_${assessmentId}`);
-          } catch (_) {}
+          } catch (_) { }
           setReport((prev) => (prev ? { ...prev, youtube_url: yt } : prev));
           return; // Stop polling completely
         }
