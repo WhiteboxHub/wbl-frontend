@@ -2298,18 +2298,40 @@ export function normalizeReport(
     asStr(non_technical?.communication_summary) ??
     asStr(final_assessment?.most_important_improvement);
 
-  const resolvedMediaUrl =
+  const isRealYoutube = (url?: string | null): boolean => {
+    if (!url) return false;
+    const trimmed = url.trim();
+    return (
+      (trimmed.includes("youtube.com") || trimmed.includes("youtu.be")) &&
+      !trimmed.includes("aiprep_rec_") &&
+      !trimmed.includes("UF8uR6Z6KLc")
+    );
+  };
+
+  const rawCandidateYt =
     assessment.youtube_url?.trim() ||
     (apiReport as any)?.youtube_url?.trim() ||
+    (data as any)?.youtube_url?.trim() ||
+    null;
+
+  const resolvedYoutubeUrl = isRealYoutube(rawCandidateYt) ? rawCandidateYt : null;
+
+  const resolvedRecordingUrl =
+    (assessment as any)?.recording_url?.trim() ||
     (apiReport as any)?.recording_url?.trim() ||
     (apiReport as any)?.video_url?.trim() ||
-    (data as any)?.youtube_url?.trim() ||
     (data as any)?.recording_url?.trim() ||
     (data as any)?.video_url?.trim() ||
     (assessment as any)?.video_url?.trim() ||
-    (assessment as any)?.recording_url?.trim() ||
     (assessment as any)?.media_url?.trim() ||
     null;
+
+  const hasRecordingFlag = Boolean(
+    (assessment as any)?.has_recording ??
+    (apiReport as any)?.has_recording ??
+    (data as any)?.has_recording ??
+    resolvedRecordingUrl
+  );
 
   const rawMediaType = (
     assessment.media_type ||
@@ -2318,7 +2340,8 @@ export function normalizeReport(
     (apiReport as any)?.media_type ||
     (apiReport as any)?.assessment?.media_type ||
     (Object.keys(rawVideo).length > 0 ? "VIDEO" : "") ||
-    (resolvedMediaUrl ? "VIDEO" : "") ||
+    (resolvedYoutubeUrl ? "VIDEO" : "") ||
+    (resolvedRecordingUrl ? "VIDEO" : "") ||
     "AUDIO"
   ).toUpperCase();
 
@@ -2345,9 +2368,9 @@ export function normalizeReport(
     ...assessment,
     candidate_name: resolvedCandidateName,
     media_type: normalizedMediaType,
-    youtube_url: resolvedMediaUrl,
-    recording_url: (assessment as any)?.recording_url ?? null,
-    has_recording: (assessment as any)?.has_recording ?? false,
+    youtube_url: resolvedYoutubeUrl,
+    recording_url: resolvedRecordingUrl,
+    has_recording: hasRecordingFlag,
   };
 
   const rawAudioTelemetry = asRecord(
@@ -2380,9 +2403,9 @@ export function normalizeReport(
   return {
     assessment: normalizedAssessment,
     candidate_name: resolvedCandidateName,
-    youtube_url: resolvedMediaUrl,
-    recording_url: (assessment as any)?.recording_url ?? null,
-    has_recording: (assessment as any)?.has_recording ?? false,
+    youtube_url: resolvedYoutubeUrl,
+    recording_url: resolvedRecordingUrl,
+    has_recording: hasRecordingFlag,
     overall_readiness: overallReadiness,
     overall_summary: overallSummary,
     overall_strongest_signal: asStr(overallAssessment.strongest_signal),
