@@ -405,7 +405,7 @@ export default function TechnicalEvaluationView({
     (report as any)?.data?.assembled_media ||
     (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? ((hasValidYoutube ? report.youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
+    ? ((hasValidYoutube ? report.youtube_url : null) || localPreviewUrl || (hasServerRecording ? serverUrl : undefined) || assembledMedia)
     : undefined;
 
   const durationSeconds =

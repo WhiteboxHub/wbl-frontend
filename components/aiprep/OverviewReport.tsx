@@ -1959,7 +1959,7 @@ export function EvaluationContent({
     (report as any)?.data?.assembled_media ||
     (report.assessment as any)?.assembled_media;
   const effectivePlaybackUrl = canShowRecording
-    ? ((hasValidYoutube ? youtube_url : null) || (hasServerRecording ? serverUrl : undefined) || assembledMedia || localPreviewUrl)
+    ? ((hasValidYoutube ? youtube_url : null) || localPreviewUrl || (hasServerRecording ? serverUrl : undefined) || assembledMedia)
     : undefined;
 
   const durationSeconds =
