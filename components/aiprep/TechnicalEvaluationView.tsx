@@ -358,12 +358,13 @@ export default function TechnicalEvaluationView({
   ].includes(((report.assessment?.assessment_type || "") as string).toUpperCase());
 
   const localPreviewUrl =
-    !isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId
+    typeof window !== "undefined" && resolvedAssessmentId
       ? (window as any).__aiprep_local_preview?.[resolvedAssessmentId] ||
       (() => {
         try {
           const stored = sessionStorage.getItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-          if (stored && stored.startsWith("blob:") && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
+          const isFresh = Boolean(sessionStorage.getItem(`aiprep_fresh_completion_${resolvedAssessmentId}`));
+          if (stored && stored.startsWith("blob:") && !isFresh && !(window as any).__aiprep_local_preview?.[resolvedAssessmentId]) {
             sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
             return undefined;
           }
@@ -372,14 +373,7 @@ export default function TechnicalEvaluationView({
           return undefined;
         }
       })()
-      : (() => {
-        if (isMultiQuestion && typeof window !== "undefined" && resolvedAssessmentId) {
-          try {
-            sessionStorage.removeItem(`aiprep_local_preview_${resolvedAssessmentId}`);
-          } catch (_) { }
-        }
-        return undefined;
-      })();
+      : undefined;
 
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "").trim();
   const backendOrigin = apiBase.startsWith("http")
