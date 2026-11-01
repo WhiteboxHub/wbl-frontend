@@ -311,6 +311,8 @@ function AssessmentSessionPage({
   // Hold technical questions out of rendered state until Start Assessment is clicked.
   const pendingAssessmentQuestionsRef = useRef<QuestionBankItem[]>([]);
   const pendingAudioUploadsRef = useRef<Promise<any>[]>([]);
+  // Accumulates recorded question blobs for multi-question assessments to enable instant 0s playback
+  const multiQuestionRecordedBlobsRef = useRef<Blob[]>([]);
   const currentQuestionIndexRef = useRef<number>(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
@@ -1786,12 +1788,14 @@ function AssessmentSessionPage({
           if (isAudioOnly) {
             const audioRes = await stopAudioRecorder();
             if (audioRes?.blob && qId) {
+              multiQuestionRecordedBlobsRef.current.push(audioRes.blob);
               const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, audioRes.blob, "AUDIO", true, undefined, qId);
               pendingAudioUploadsRef.current.push(uploadPromise);
             }
           } else {
             const videoRes = await stopVideoRecorder(true); // keep camera stream active
             if (videoRes?.blob && qId) {
+              multiQuestionRecordedBlobsRef.current.push(videoRes.blob);
               const uploadPromise = aiprepApi.uploadChunk(assessmentId, 0, videoRes.blob, "VIDEO", true, undefined, qId);
               pendingAudioUploadsRef.current.push(uploadPromise);
             }
@@ -1951,6 +1955,7 @@ function AssessmentSessionPage({
         finalAudioBlob = audioRes?.blob || null;
 
         if (finalAudioBlob && qId) {
+          multiQuestionRecordedBlobsRef.current.push(finalAudioBlob);
           try {
             await aiprepApi.uploadChunk(assessmentId, 0, finalAudioBlob, "AUDIO", true, undefined, qId);
           } catch (uploadErr) {
@@ -1958,21 +1963,19 @@ function AssessmentSessionPage({
           }
         }
 
-        // Only store local blob preview for single-question tracks (INTRO / JD_INTRO).
-        // Multi-question assessments stream the complete stitched assembled.webm from the backend serverUrl.
-        if (audioRes?.url && assessmentId && !isMultiQuestion && isIntroType) {
-          if (typeof window !== 'undefined') {
-            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-            (window as any).__aiprep_local_preview[assessmentId] = audioRes.url;
-            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, audioRes.url);
+        // Store local blob preview for instant 0s playback (both single-question and concatenated multi-question).
+        if (assessmentId && typeof window !== 'undefined') {
+          (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+          let previewUrl: string | undefined = audioRes?.url;
+          if (isMultiQuestion && multiQuestionRecordedBlobsRef.current.length > 0) {
+            const ext = audioRes?.blob?.type?.includes("mp4") ? "audio/mp4" : "audio/webm";
+            const combinedBlob = new Blob(multiQuestionRecordedBlobsRef.current, { type: ext });
+            previewUrl = URL.createObjectURL(combinedBlob);
           }
-        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
-          if ((window as any).__aiprep_local_preview) {
-            delete (window as any).__aiprep_local_preview[assessmentId];
+          if (previewUrl) {
+            (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
+            sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
           }
-          try {
-            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
-          } catch (_) {}
         }
       } else {
         const videoRes = await stopVideoRecorder(false);
@@ -2002,6 +2005,7 @@ function AssessmentSessionPage({
             }
           }
         } else if (finalVideoBlob && qId && assessmentId) {
+          multiQuestionRecordedBlobsRef.current.push(finalVideoBlob);
           console.log(`[handleEndSession] Uploading final video chunk 0 for question ${currentQuestionIndex + 1} (${Math.round(finalVideoBlob.size / 1024)} KB)...`);
           try {
             await aiprepApi.uploadChunk(assessmentId, 0, finalVideoBlob, "VIDEO", true, undefined, qId);
@@ -2010,24 +2014,24 @@ function AssessmentSessionPage({
           }
         }
 
-        // 1b. Create instant media blob preview for single-question assessments (including INTRO).
-        // Since INTRO now uses a single continuous MediaRecorder with timeslicing, videoRes.blob
-        // is an unbroken, complete WebM stream with continuous timestamps and full duration.
-        if (!isMultiQuestion && videoRes?.url && assessmentId) {
-          if (typeof window !== 'undefined') {
-            (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
-            const previewBlob = finalVideoBlob || videoRes.blob;
-            const previewUrl = previewBlob ? URL.createObjectURL(previewBlob) : videoRes.url;
+        // 1b. Create instant media blob preview for all assessments (single-question and concatenated multi-question).
+        if (assessmentId && typeof window !== 'undefined') {
+          (window as any).__aiprep_local_preview = (window as any).__aiprep_local_preview || {};
+          let previewUrl: string | undefined = undefined;
+
+          if (isMultiQuestion && multiQuestionRecordedBlobsRef.current.length > 0) {
+            const ext = (videoRes?.blob?.type?.includes("mp4") || finalVideoBlob?.type?.includes("mp4")) ? "video/mp4" : "video/webm";
+            const combinedBlob = new Blob(multiQuestionRecordedBlobsRef.current, { type: ext });
+            previewUrl = URL.createObjectURL(combinedBlob);
+          } else if (!isMultiQuestion && (finalVideoBlob || videoRes?.blob || videoRes?.url)) {
+            const previewBlob = finalVideoBlob || videoRes?.blob;
+            previewUrl = previewBlob ? URL.createObjectURL(previewBlob) : videoRes?.url;
+          }
+
+          if (previewUrl) {
             (window as any).__aiprep_local_preview[assessmentId] = previewUrl;
             sessionStorage.setItem(`aiprep_local_preview_${assessmentId}`, previewUrl);
           }
-        } else if (isMultiQuestion && assessmentId && typeof window !== 'undefined') {
-          if ((window as any).__aiprep_local_preview) {
-            delete (window as any).__aiprep_local_preview[assessmentId];
-          }
-          try {
-            sessionStorage.removeItem(`aiprep_local_preview_${assessmentId}`);
-          } catch (_) {}
         }
         if (!isIntroType && !isMultiQuestion && (!questions || questions.length <= 1)) {
           await waitForAllChunks(8000);
