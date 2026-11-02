@@ -152,6 +152,10 @@ export function AIPrepDashboard({
     return false;
   }, [llmStatus, readiness, setupStatus]);
 
+  const isLlmQuotaExhausted = useMemo(() => {
+    return readiness?.llm_check?.has_credits === false;
+  }, [readiness]);
+
   const hasResume = useMemo(() => {
     if (resumeStatus !== null) {
       return resumeStatus.has_resume === true;
@@ -345,7 +349,7 @@ export function AIPrepDashboard({
         )}
 
         {/* Readiness Alert Banners (Image 1) */}
-        {view === "home" && readinessLoaded && !hasLlmKey && !dismissedLlm && (
+        {view === "home" && readinessLoaded && (!hasLlmKey || isLlmQuotaExhausted) && !dismissedLlm && (
           <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-[#FFF1F2] dark:border-rose-900/60 dark:bg-rose-950/30 p-3.5 sm:px-4 sm:py-3 shadow-xs transition-all">
             <div className="flex items-center gap-3 min-w-0">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#E11D48] text-sm font-bold text-white shadow-xs">
@@ -353,7 +357,9 @@ export function AIPrepDashboard({
               </span>
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-[#9F1239] dark:text-rose-200 truncate sm:whitespace-normal">
-                  LLM setup is not configured or has expired
+                  {isLlmQuotaExhausted
+                    ? "No credits remaining in your LLM API Key"
+                    : "LLM setup is not configured or has expired"}
                 </h3>
                 <p className="text-xs text-rose-700/80 dark:text-rose-300/80 truncate sm:whitespace-normal">
                   {readiness?.llm_check?.message || "Please set up your LLM API keys to start an assessment."}
@@ -361,12 +367,14 @@ export function AIPrepDashboard({
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-              <button
-                onClick={() => goToSetup("my-llm-setup")}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-[#6366F1] dark:text-indigo-400 shadow-xs hover:border-indigo-300 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/40 transition cursor-pointer"
-              >
-                Go to LLM Setup →
-              </button>
+              {!isLlmQuotaExhausted && (
+                <button
+                  onClick={() => goToSetup("my-llm-setup")}
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-semibold text-[#6366F1] dark:text-indigo-400 shadow-xs hover:border-indigo-300 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/40 transition cursor-pointer"
+                >
+                  Go to LLM Setup →
+                </button>
+              )}
               <button
                 onClick={() => setDismissedLlm(true)}
                 className="rounded-lg p-1 text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 hover:text-rose-600 transition cursor-pointer"
@@ -519,7 +527,9 @@ export function AIPrepDashboard({
                         {isComingSoon
                           ? "Coming soon — backend API not yet available"
                           : isLocked
-                            ? "Complete your LLM setup and upload your resume to access this."
+                            ? isLlmQuotaExhausted
+                              ? "Please recharge your account to attempt the assessments."
+                              : "Complete your LLM setup and upload your resume to access this."
                             : title === "Start an assessment"
                               ? "Start a new practice session"
                               : "Review your AI Prep results"}
