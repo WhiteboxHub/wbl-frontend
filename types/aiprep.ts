@@ -106,6 +106,7 @@ export type AssessmentCategory =
 export type LlmKeyStatus = {
   status: "valid" | "failure";
   is_configured: boolean;
+  has_credits?: boolean | null;
   provider: string | null;
   model: string | null;
   voice_enabled?: boolean;
