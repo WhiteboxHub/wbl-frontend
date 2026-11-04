@@ -2,7 +2,7 @@
 
 import { useState, useEffect, RefObject } from "react";
 import { ArrowRight, X, ChevronRight, ChevronDown, Clock, MessageSquare, Sparkles } from "lucide-react";
-import { type NormalizedReport, type TranscriptEvidence, type TranscriptSegment } from "@/types/aiprep-report";
+import { type NormalizedReport, type TranscriptEvidence, type TranscriptSegment, formatTranscriptText } from "@/types/aiprep-report";
 import VideoPlayer, { extractYoutubeId } from "./VideoPlayer";
 
 interface Props {
@@ -272,7 +272,7 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
                         <div className="flex-1 min-w-0 pr-2">
                           {seg.speaker && (
                             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-0.5">
-                              {seg.speaker}
+                              {/^(candidate|candidate answer)$/i.test(seg.speaker.trim()) ? "Your Answer" : seg.speaker}
                             </p>
                           )}
                           <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-100 leading-relaxed font-normal">
@@ -372,7 +372,7 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
             /* Flat full text fallback */
             <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
               <p className="text-sm leading-7 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
-                {transcript.full_text}
+                {formatTranscriptText(transcript.full_text)}
               </p>
             </div>
           )}
@@ -511,7 +511,7 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
                     <div className="min-w-0 flex-1">
                       {seg.speaker && (
                         <p className="mb-0.5 text-xs font-bold text-slate-600 dark:text-slate-400">
-                          {seg.speaker}
+                          {/^(candidate|candidate answer)$/i.test(seg.speaker.trim()) ? "Your Answer" : seg.speaker}
                         </p>
                       )}
                       <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
@@ -522,7 +522,7 @@ export default function TranscriptReport({ report, videoRef, seekTo }: Props) {
                 ))
               ) : (
                 <p className="text-sm leading-7 text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
-                  {transcript.full_text}
+                  {formatTranscriptText(transcript.full_text)}
                 </p>
               )}
             </div>

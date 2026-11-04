@@ -43,6 +43,7 @@ import {
 import { aiPrepApi } from "@/lib/aiprep-api";
 import {
   normalizeReport,
+  formatTranscriptText,
   type NormalizedReport,
   type JdRequirementCoverageItem,
   type JdSkillBreakdown,
@@ -591,6 +592,7 @@ function hasRealSpeech(report: NormalizedReport): boolean {
       .replace(/thank\s+you\s+for\s+watching!?/gi, "")
       .replace(/thanks\s+for\s+watching!?/gi, "")
       .trim();
+
     if (stripped.length < 15) {
       return false;
     }
@@ -3241,13 +3243,13 @@ function TranscriptModal({
   const fullParagraphText = (() => {
     let raw = report.transcript?.full_text?.trim() || "";
     if (!raw && report.transcript?.segments && report.transcript.segments.length > 0) {
-      raw = report.transcript.segments.map((s) => s.text).join(" ");
+      raw = report.transcript.segments.map((s) => s.text).join("\n\n");
     }
-    return raw
-      .replace(/<\/?s>/gi, "")
-      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    return formatTranscriptText(raw);
+
+
+
+
   })();
 
   const transcriptDuration = getTranscriptDuration(report);

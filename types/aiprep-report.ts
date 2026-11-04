@@ -730,6 +730,47 @@ export interface TechnicalEvaluation {
 
 // ─── Normalization ────────────────────────────────────────────────────────────
 
+/**
+ * Formats transcript text to ensure:
+ * 1. "Candidate Answer" is displayed as "Your Answer"
+ * 2. Every new question starts on a new line (with double newline separation)
+ * 3. Answers cleanly start on the line immediately following their question
+ * 4. Horizontal spacing is cleaned up without crushing meaningful line breaks
+ */
+export function formatTranscriptText(raw: string): string {
+  if (!raw) return "";
+
+  let text = raw
+    .replace(/<\/?s>/gi, "")
+    // Replace "Candidate Answer:" label with "Your Answer:"
+    .replace(/\bCandidate Answer:\s*/gi, "Your Answer: ")
+    // Convert legacy "Candidate:" / "Speaker X:" at line start to "Your Answer:"
+    .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, "\nYour Answer: ");
+
+  // Ensure each [Question ...] is preceded by a blank line (unless at the very start)
+  text = text.replace(/\s*(\[Question\s*[\d\w.-]+:[^\]]*\])/gi, (match, qBlock, offset) => {
+    return offset === 0 ? qBlock : `\n\n${qBlock}`;
+  });
+
+  // Ensure Your Answer: starts on the line immediately after the question bracket
+  text = text.replace(/(\[Question\s*[\d\w.-]+:[^\]]*\])\s*Your Answer:\s*/gi, "$1\nYour Answer: ");
+
+  // Also handle questions without brackets if present: e.g. "Question 1: ... Your Answer: ..."
+  text = text.replace(/(?:^|\s{2,})(Question\s+\d+:\s*[^\n]+?)\s*Your Answer:\s*/gi, (match, qBlock, offset) => {
+    const prefix = offset === 0 ? "" : "\n\n";
+    return `${prefix}${qBlock.trim()}\nYour Answer: `;
+  });
+
+  // Clean horizontal spacing per line while preserving line breaks
+  const lines = text.split(/\r?\n/).map((line) => line.replace(/[^\S\r\n]+/g, " ").trim());
+
+  // Join lines and normalize excessive blank lines (max 2 consecutive newlines)
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
   const rec = asRecord(raw);
   let full_text = asStr(rec.full_text) ?? asStr(rec.text) ?? asStr(rec.transcript_text);
@@ -743,27 +784,27 @@ function parseTranscript(raw: unknown): NormalizedReport["transcript"] {
       const ts_s =
         typeof s.timestamp_s === "number" ? s.timestamp_s :
           typeof s.start_s === "number" ? s.start_s : undefined;
+      let speaker = asStr(s.speaker) ?? asStr(s.role);
+      if (speaker && /^(candidate|candidate answer)$/i.test(speaker.trim())) {
+        speaker = "Your Answer";
+      }
       return {
-        speaker: asStr(s.speaker) ?? asStr(s.role),
+        speaker,
         timestamp: ts,
         timestamp_s: ts_s,
-        text,
+        text: text.replace(/\bCandidate Answer:\s*/gi, "Your Answer: "),
       };
     })
     .filter(Boolean) as TranscriptSegment[];
 
   // If full_text is missing or fragmented, construct a cohesive paragraph from segments
   if (!full_text && segments.length > 0) {
-    full_text = segments.map((s) => s.text).join(" ");
+    full_text = segments.map((s) => s.text).join("\n\n");
   }
 
-  // Clean speech artifacts, </S>, repetitive candidate prefixes, and double spaces into a continuous paragraph
+  // Clean speech artifacts, preserve line breaks for questions, and format "Your Answer"
   if (full_text) {
-    full_text = full_text
-      .replace(/<\/?s>/gi, "")
-      .replace(/(?:^|\n|\r)\s*(?:Candidate|Speaker\s*\d*):\s*/gi, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    full_text = formatTranscriptText(full_text);
   }
 
   return { full_text, segments };
